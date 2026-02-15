@@ -1,0 +1,603 @@
+# Initiative 118 — Architectural Decisions
+
+## ADR-001: Constrained Extraction over Emergent Core
+
+**Decision**: Declare runtime purity invariants before beginning extraction.
+Do not let the runtime boundary emerge organically from Desktop refactoring.
+
+**Rationale**: Dependency audit shows host-specific APIs penetrate 58% of services
+(`std::env` in 24/41). Without declared constraints, extraction transfers
+Desktop assumptions into the runtime permanently.
+
+**Status**: Accepted
+
+---
+
+## ADR-002: ic-agent Forbidden in Runtime
+
+**Decision**: `ic-agent` and `candid` must not appear in `cortex-runtime` or
+`cortex-domain`. ICP interaction moves to a separate `cortex-ic-adapter` crate.
+
+**Rationale**: Only 3 files use `ic-agent` (`governance_client`, `streaming_transport`,
+`workflow_engine_client`). Clean extraction boundary. Runtime must be substrate-neutral
+per §1.1 (Hexagonal Architecture).
+
+**Status**: Accepted
+
+---
+
+## ADR-003: CRDT Logic Belongs in Domain
+
+**Decision**: `artifact_collab_crdt.rs` moves to `cortex-domain/crdt.rs`.
+
+**Rationale**: File is already pure — 467 lines, zero `std::fs`/`std::env`/`std::process`,
+zero `unsafe`, zero `async fn`/`.await`, only `chrono`, `serde`, `std::collections`.
+Contains deterministic merge algebra, convergence tests, and idempotent operation handling.
+
+**Status**: Accepted
+
+---
+
+## ADR-004: Tokio Restricted Feature Set
+
+**Decision**: Allow `tokio` in `cortex-runtime` with `default-features = false` and
+only `rt`, `sync`, `time`, `macros` features. Forbid in `cortex-domain`.
+
+**Rationale**: Forbidden tokio APIs used only in host-specific files (terminal,
+supervisor, gateway binding). No runtime-portable service uses them. Feature
+restriction maintains WASM compatibility. Domain stays sync-only.
+
+**Status**: Accepted
+
+---
+
+## ADR-005: Injectable Time via TimeProvider
+
+**Decision**: All wall-clock and monotonic time access in `cortex-runtime` must go
+through a `TimeProvider` trait. `cortex-domain` must accept time as a parameter,
+never calling `Utc::now()` or `SystemTime::now()` directly.
+
+**Rationale**: 43+ time call sites across 15 runtime-portable services. Time is
+embedded in event identity, CRDT ordering, staleness detection, and nonce
+generation. Without injection, replay determinism is impossible and host clock
+becomes implicit authority.
+
+**Status**: Accepted
+
+---
+
+## ADR-006: Structured Logging via LogAdapter
+
+**Decision**: Neither `cortex-domain` nor `cortex-runtime` may use `log!`,
+`tracing!`, `println!`, or `eprintln!`. `cortex-runtime` uses `LogAdapter` trait.
+`cortex-domain` has no logging at all.
+
+**Rationale**: 8 runtime-portable services use log/tracing with env-based config.
+This creates a back door for `std::env` dependency. Structured log events ensure
+host controls routing without runtime coupling.
+
+**Status**: Accepted
+
+---
+
+## ADR-007: Opaque Runtime State
+
+**Decision**: Host may not access or mutate runtime internal state. All interaction
+via defined request/response interfaces only.
+
+**Rationale**: `local_gateway.rs` uses `static GATEWAY: OnceLock<LocalGateway>` with
+22+ `.lock().unwrap()` mutex sites. Any desktop component can reach in and mutate
+state. Without opaque boundary, sovereignty is cosmetic.
+
+**Status**: Accepted
+
+---
+
+## ADR-008: Substrate-Neutral Error Types
+
+**Decision**: Runtime and domain public APIs must not expose `std::io::Error` or
+OS-specific error variants. Domain defines its own `DomainError` enum. Runtime
+defines `RuntimeError`.
+
+**Rationale**: OS-flavored error types leak host assumptions through type system.
+Runtime errors must be serializable and deterministic.
+
+**Status**: Accepted
+
+---
+
+## ADR-009: Adapters as Side-Effect Providers Only
+
+**Decision**: Adapters provide data and perform side-effects on request. They may
+not mutate runtime state. Runtime decides all state transitions.
+
+**Rationale**: Without this constraint, adapters become covert control planes.
+Sovereign mutation authority must reside in runtime logic.
+
+**Status**: Accepted
+
+---
+
+## ADR-010: Gateway Protocol Contract Before Phase 5
+
+**Decision**: Before extracting the 16K-line `server.rs`, produce a Gateway Protocol
+Contract defining request/response schema, error normalization, event emission
+expectations, transaction boundaries, and idempotency semantics.
+
+**Rationale**: `server.rs` is not just an HTTP binding — it acts as orchestrator,
+lifecycle manager, and implicit transaction boundary. Splitting without defined
+semantics risks silent behavior changes.
+
+**Status**: Accepted
+
+---
+
+## ADR-011: Determinism Audit
+
+**Decision**: During extraction, audit for:
+- `HashMap` iteration order in deterministic output paths (use `BTreeMap` where needed)
+- `f32`/`f64` cross-platform rounding in policy scoring and confidence models
+
+**Rationale**: `cortex_ux.rs` uses `f32` for 10+ scoring fields with weighted
+calculations. `acp_metrics.rs` uses `f64` for success rates. `viewspec_learning.rs`
+uses `f32` for confidence weights. WASM vs native float behavior can differ.
+Not a blocker, but must be documented.
+
+**Status**: Accepted
+
+---
+
+## ADR-012: Crate Separation Strategy for Cortex Runtime
+
+**Status**: Accepted  
+**Date**: 2026-02-12  
+**Supersedes**: ADR-012 Rev A (Module-Only Onion Structure)
+
+### Context
+
+Cortex is undergoing architectural realignment to remove Desktop privilege,
+enforce host neutrality, establish deterministic event-driven sovereignty,
+and enable Web and Server hosts as equal peers.
+
+Prior proposals recommended enforcing Onion Architecture using internal
+modules inside a single `cortex-runtime` crate. Empirical audit revealed
+this approach is insufficient:
+
+| Existing Crate | Intended Role | Purity Violation |
+|---|---|---|
+| `nostra-core` | Core domain types | Depends on `candid` (ICP-specific) + `log` |
+| `nostra-workflow-core` | Workflow domain | Depends on `log` (env-coupled); historically had `candid` leakage in alignment path |
+| `nostra-ui-core` | UI types | ✅ Clean |
+| `nostra-cloudevents` | Event types | ✅ Clean |
+
+Cultural boundaries were insufficient to prevent drift. Structural enforcement
+is required.
+
+### Decision
+
+Cortex Runtime SHALL use separate crates per onion layer:
+
+```
+nostra/libraries/
+    cortex-domain/
+    cortex-runtime/
+    cortex-ic-adapter/
+```
+
+#### `cortex-domain` (Layer 1 — Domain Core)
+
+Pure, deterministic, synchronous business logic.
+
+**Contains**: CRDT algebra, policy validation, scoring formulas, workflow state
+machines, event schema definitions, `DomainError` enum, contribution lifecycle rules.
+
+**Constraints**:
+- `#![forbid(unsafe_code)]`
+- No `async fn`, no `.await`
+- No `tokio`
+- No `log` / `tracing`
+- No `candid` / `ic-agent`
+- No `std::fs` / `std::env` / `std::process` / `std::net`
+- Must compile to `wasm32-unknown-unknown`
+
+**Dependencies (allowed)**: `serde`, `serde_json`, `chrono` (no-default-features),
+`thiserror`, `uuid`.
+
+**Validated**: `artifact_collab_crdt.rs` (467 lines), `acp_meta_policy.rs` (97 lines),
+`viewspec_synthesis.rs` (344 lines) all have zero `unsafe`, zero `async`, zero `.await`.
+
+#### `cortex-runtime` (Layer 2 — Orchestration)
+
+Async orchestration layer with port trait definitions.
+
+**Contains**: EventBus, governance orchestration, workflow scheduler, request
+routing, agent orchestration, port traits (`StorageAdapter`, `NetworkAdapter`,
+`TimeProvider`, `LogAdapter`, `GovernanceAdapter`).
+
+**Dependencies**: `cortex-domain`, `tokio` (restricted), `async-trait`, `serde`.  
+**Forbidden**: `candid`, `ic-agent`, UI frameworks, HTTP frameworks.
+
+#### `cortex-ic-adapter` (Layer 3 — Infrastructure)
+
+ICP-specific adapter implementation.
+
+**Dependencies**: `cortex-runtime`, `ic-agent`, `candid`.  
+**Must NOT be depended upon by**: `cortex-domain`, `cortex-runtime`.
+
+#### Host Crates (Layer 4)
+
+`cortex-desktop` becomes a thin host: UI rendering, HTTP binding, adapter
+implementations. Depends on `cortex-runtime` + adapter crates.
+
+### Dependency Graph
+
+```
+cortex-desktop ──→ cortex-runtime ──→ cortex-domain
+       │
+       └──→ cortex-ic-adapter ──→ cortex-runtime
+```
+
+All arrows point inward. `cortex-domain` depends on nothing project-specific.
+
+### Rationale
+
+1. **Structural over cultural enforcement**: Compiler prevents inward import
+   violations. No CI grep can match this guarantee.
+2. **Greenfield opportunity**: No migration burden, no API breakage, no contributor
+   confusion. Pivoting later is exponentially more expensive.
+3. **Sovereignty alignment**: Smaller auditable domain surface, deterministic
+   replay validation, safer governance mutation surface, host plurality.
+4. **Workspace precedent**: Already 14+ members. Adding 3 is consistent, not novel.
+
+### Constraints
+
+1. **No additional layer crates** without a new ADR. The structure is intentionally
+   limited to `cortex-domain`, `cortex-runtime`, `cortex-ic-adapter`.
+2. **Domain CI purity check** must verify: no forbidden deps, no async, no
+   unsafe, no OS APIs, successful wasm32 compilation.
+3. **Runtime CI purity check** must verify: no candid/ic-agent, restricted tokio,
+   wasm32 compilation with `--no-default-features`.
+
+### Migration
+
+Initiative 118 phases remain unchanged. Extraction mapping:
+- Pure logic → `cortex-domain`
+- Orchestration → `cortex-runtime`
+- ICP calls → `cortex-ic-adapter`
+- Host bindings remain in `cortex-desktop`
+
+Phase 0 includes workspace crate creation before extraction begins.
+
+---
+
+## ADR-013: Adapter Strategy — Static Trait Dispatch with Registry-Ready Identity
+
+**Status**: Accepted  
+**Date**: 2026-02-12
+
+### Context
+
+Three proto-adapter systems already exist in the codebase:
+- `OperationRegistry` (312 lines) — `register_adapter`/`execute` with `Arc<dyn OperationAdapter>`
+- `EmbeddingProvider` (137 lines) — `async trait` with `model_id()`, `Arc<dyn>` dispatch
+- `WorkflowStore` (109 lines) — persistence port with `save`/`load`/`list`/`delete`
+
+All three use compile-time trait dispatch. None require dynamic loading or
+a formal registry. This proves static trait adapters are sufficient at current scale.
+
+### Decision
+
+Phase I uses **static trait adapters, host-provided implementations**.
+
+All port traits in `cortex-runtime/ports/` SHALL implement a minimal
+`AdapterIdentity` trait to future-proof registry integration:
+
+```rust
+trait AdapterIdentity {
+    fn adapter_id(&self) -> &str;      // e.g. "nostra/ic-storage-v1"
+    fn adapter_version(&self) -> &str;
+    fn capabilities(&self) -> &[&str]; // e.g. ["storage:read", "storage:write"]
+}
+```
+
+**No dynamic loading**. No WASM adapter packaging. No registry infrastructure.
+
+A future governance-controlled adapter registry (Phase III) requires a separate
+initiative when:
+- `cortex-runtime` is stable (Phases 0-2 complete)
+- Governance mutation model is formalized
+- Multiple hosts are live
+- Third-party adapter demand exists
+
+### Rationale
+
+1. Three existing proto-adapter systems prove static dispatch works at current scale.
+2. `OperationRegistry` already has register/lookup/execute — a full registry is not
+   needed until governance controls adapter lifecycle.
+3. `AcpPublishEvidenceAdapter` uses `std::process::Command` — proof that some adapters
+   can never be WASM-packaged. This limits registry scope to network/storage/compute.
+4. Overbuilding extension infrastructure before core stabilizes creates fragility.
+
+### Constraints
+
+- `AdapterIdentity` is mandatory for all port trait implementations
+- No `#[wasm_bindgen]` or dynamic loading until Phase III initiative
+- Adapter fragmentation beyond the 5 defined ports requires ADR approval
+
+---
+
+## ADR-014: Constitutional Maturity Ladder — Graph Core and Structural Integrity
+
+**Status**: Accepted  
+**Date**: 2026-02-12
+
+### Context
+
+Research 118 extracts the Cortex runtime from Desktop-specific assumptions into
+a substrate-neutral, deterministic architecture. This extraction creates a
+unique opportunity: as `cortex-domain` matures, it can acquire the ability to
+reason about Nostra's own architecture — validating coherence, detecting drift,
+and eventually simulating governance outcomes.
+
+This capability must emerge in **strict sequence** aligned with Research 118
+phases. Building it prematurely would violate ADR-001 (Constrained Extraction
+over Emergent Core) by allowing the reasoning layer to emerge organically
+before its substrate is clean.
+
+### Decision
+
+Cortex SHALL acquire constitutional reasoning capabilities via a 4-layer
+maturity ladder, each layer gated on the completion of specific Research 118
+phases:
+
+| Layer | Capability | Gate | Scope |
+|---|---|---|---|
+| **0** | Deterministic graph core | Phase 0 | `EdgeKind` enum, graph traversal, cycle detection, topological sort, structural diff |
+| **1** | Structural Integrity Query Schema (SIQS) | Phase 1-2 complete | `IntegrityRule`, predicate evaluation, `cargo test integrity_engine` |
+| **2** | Governance-wired integrity enforcement | Phase 3-4 complete | Pre-vote integrity checks, post-execution validation, risk scoring |
+| **3** | Governance Simulation Mode (GSMS) | Post-118 (separate initiative) | Ephemeral forks, mutation replay, structural diff, impact analysis |
+
+#### Layer 0 — Graph Core (Phase 0)
+
+`cortex-domain` SHALL include:
+
+- `EdgeKind` enum — typed relationship taxonomy replacing untyped `Text` edges:
+  `depends_on`, `contradicts`, `supersedes`, `implements`, `invalidates`,
+  `requires`, `assumes`, `constitutional_basis`
+- Graph traversal utilities — cycle detection, topological sort, dependency walk
+- `StructuralDiff` type — pure diff of graph states (nodes/edges added/removed)
+
+All graph utilities must:
+- Be pure, sync, deterministic
+- Compile to `wasm32-unknown-unknown`
+- Have zero forbidden dependencies per Purity Contract v1.3
+- Be testable headless via `cargo test -p cortex-domain -- graph`
+
+#### Layer 1 — SIQS (After Phase 1-2)
+
+`cortex-domain` SHALL include structural integrity evaluation:
+
+- `IntegrityRule` struct — declarative graph validation rules
+- `IntegrityPredicate` — node/edge selection + constraint
+- `evaluate_rule(rule, graph) → Vec<IntegrityViolation>`
+- No canister integration, no governance wiring, no UI
+
+SIQS rules are **not** contributions at this layer. They are domain-level
+validation functions. Promotion to first-class contributions requires a
+separate ADR once the contribution lifecycle model is mature.
+
+#### Layer 2 — Governance Integration (After Phase 3-4)
+
+Requires composable proposal mutations. Not specified here — separate ADR
+when Phase 3-4 delivers composable governance execution.
+
+#### Layer 3 — GSMS (Post-118)
+
+Requires copy-on-write or overlay graph semantics for ephemeral forks.
+Not specified here — separate initiative proposal when Layer 2 is stable.
+
+### Rationale
+
+1. **Sequencing over ambition**: Each layer enables the next. No layer requires
+   infrastructure that doesn't exist at its scheduled time.
+2. **Graph core is not optional**: Typed edges and traversal utilities are
+   foundational infrastructure that `cortex-domain` needs regardless of SIQS.
+   Graph type safety prevents semantic drift in the relationship model.
+3. **SIQS is domain logic**: Structural integrity validation is deterministic
+   graph evaluation — exactly the kind of pure function `cortex-domain` is
+   designed for. It is not governance logic; it is graph algebra.
+4. **No standalone tool**: Constitutional reasoning lives inside Nostra, not in
+   an external application. Building it externally would create dual truth
+   sources, schema drift, and signal that the platform cannot reason about
+   itself.
+
+### Constraints
+
+1. No layer may be built before its gate (Research 118 phase) is complete
+2. SIQS rules must not depend on async, time, or IO — pure graph evaluation only
+3. `EdgeKind` enum changes require ADR approval (same governance as adapter ports)
+4. GSMS requires a separate initiative proposal — it is not in scope for 118
+
+---
+
+## ADR-015: File Disposition Audit — Complete Extraction Surface
+
+**Decision**: Every Cortex Desktop source file (84 total) has been classified into
+one of five disposition categories: Domain, Runtime, Adapter, Split, or Host-Only.
+This disposition matrix is the authoritative guide for which files are extracted
+in which phase.
+
+**Rationale**: PLAN.md originally named ~18 of 41 service files, leaving 23 without
+phase assignment. Empirical audit revealed:
+- `streaming_transport.rs` (1,178 lines) requires a **4-way split** — the most
+  complex extraction target, more than `governance_client.rs` or `workflow_engine_client.rs`
+- OnceLock appears in 17 files (9 extraction-target files requiring elimination, not just `server.rs`)
+- `nostra-workflow-core/alignment.rs` now uses substrate-neutral `ActorId`; Phase 0 keeps a regression guard to prevent reintroduction of `candid`
+- 14 service files are host-only and should never be extraction targets
+
+**Evidence**:
+- 28 files / ~12,160 lines require extraction
+- 56 files / ~26,000 lines stay host-only
+- `server.rs` alone: 15,975 lines, 126 violations
+
+**Status**: Accepted
+
+**Artifacts**: See PLAN.md Appendix A (Disposition Matrix), Appendix B (OnceLock Matrix)
+
+---
+
+## ADR-016: GSMS Overlay Strategy — Diff-Based Replay
+
+**Status**: Accepted
+**Date**: 2026-02-14
+**Resolves**: ADR-014 Layer 3 gate ("⚠️ Depends on CoW semantics")
+
+### Context
+
+ADR-014 defined Layer 3 (GSMS — Governance Simulation Mode) as requiring
+"Copy-on-write or overlay graph (ephemeral forks without stable memory cost)."
+This was deferred as "Post-118, separate initiative" pending resolution of the
+overlay strategy.
+
+A 4-round architectural validation determined:
+1. GSMS is the natural culmination of 118 Layer 0-3, not a separate initiative
+2. Research 119 (Nostra Commons) and 091 (Nostra Bench) converge into the
+   same activation point
+3. No new primitives are required — only wiring of existing designs
+
+Three overlay strategies were evaluated:
+
+| Strategy | Memory | Complexity | Alignment |
+|---|---|---|---|
+| Clone-on-fork | ❌ High (full graph copy) | Low | Violates "ephemeral without stable memory cost" |
+| Structural sharing | ✅ Low (persistent data structure) | High (deep graph rework) | Over-engineered for current maturity |
+| **Diff-based replay** | ✅ Low (heap-only, bounded) | Medium (mutation replay engine) | **Aligns with event-sourced architecture** |
+
+### Decision
+
+GSMS SHALL use **diff-based replay** for simulation sessions.
+
+#### Workflow
+
+```
+1. Load graph (read-only reference)           → `before: &Graph`
+2. Record base hash                           → `graph_root_hash`
+3. Replay scenario mutations into heap copy   → `after: Graph` (ephemeral)
+4. Evaluate SIQS on virtual state             → `evaluate_all(rules, &after)`
+5. Compute structural diff                    → `diff(&before, &after)`
+6. Emit SimulationReport
+7. Drop `after`                               → No stable memory write
+```
+
+#### Constraints
+
+- `after` is bounded by `max_mutations_per_session` (prevents memory exhaustion)
+- `after` is **never** written to stable memory
+- Simulation events are **never** logged to Chronicle (hard boundary)
+- All replay steps are pure functions — no async, no IO, no wall-clock
+
+#### SimulationSession Metadata
+
+Every session must record:
+
+```rust
+pub struct SimulationSession {
+    pub session_id: String,
+    pub scenario_id: String,
+    pub seed: u64,
+    pub graph_root_hash: String,
+    pub commons_version: String,
+    pub siqs_version: String,
+    pub max_mutations: usize,
+    pub mutation_count: usize,
+    pub structural_diff: StructuralDiff,
+    pub violations: Vec<IntegrityViolation>,
+    pub aborted: bool,           // true if caps exceeded
+    pub abort_reason: Option<String>,
+}
+```
+
+### Rationale
+
+1. **Event-sourced alignment**: Chronicle events are already mutation records.
+   Replaying a mutation sequence against a virtual graph is the same paradigm.
+2. **`StructuralDiff` already exists**: Designed in 118 Layer 0 as
+   `diff(before: &Graph, after: &Graph) -> StructuralDiff`.
+3. **No infrastructure debt**: Clone-on-fork requires stable memory management.
+   Structural sharing requires persistent data structures. Diff-based replay
+   requires only what Layer 0 already provides.
+4. **Mutation caps are natural**: Capping replay length directly bounds memory.
+   No separate memory management required.
+
+### Impact on ADR-014
+
+This decision resolves ADR-014 §Layer 3:
+- "Post-118 (separate initiative)" → "118 Layer 3 (activated by ADR-016)"
+- "⚠️ Depends on CoW semantics" → "✅ Diff-based replay (no CoW needed)"
+- "GSMS requires a separate initiative proposal" → "GSMS activation spec:
+  `GSMS_ACTIVATION.md`"
+
+---
+
+## ADR-017: Phase 0/1 Closure Gate Before Phase 2+
+
+**Status**: Accepted  
+**Date**: 2026-02-15
+
+### Decision
+
+Initiative 118 must not advance to Phase 2+ until a single gate run confirms:
+- Phase 0 baseline and inventory lock are complete
+- Phase 1 event-engine slice parity is complete under feature flag
+- Purity, terminology, wasm, and parity tests are all green
+
+### Mandatory gate conditions
+
+1. Gateway parity inventory lock is enforced with:
+   `inventory_count == fixture_count + approved_exemptions_count`
+2. Default exemptions policy remains:
+   `approved_exemptions_count == 0`
+3. ACP shadow tests fail on non-allowed drift and allow timestamp-only drift.
+
+### Evidence
+
+Closure evidence is recorded in:
+`research/118-cortex-runtime-extraction/PHASE_0_1_CLOSURE_EVIDENCE_2026-02-15.md`
+
+Gate run outcome on 2026-02-15: all required checks passed.
+
+### Enforcement
+
+Phase 2 work (`acp_protocol`/policy layer extraction) is frozen until ADR-017
+gate conditions are met and documented.
+
+If GitHub required status checks are unavailable for the repository plan/tier,
+the interim enforcement mode is manual steward merge control:
+- Only 118/platform stewards may merge to protected branch.
+- CI control remains mandatory even in manual merge mode:
+  - `cortex-runtime-freeze-gates` must be green
+  - `initiative-118-evidence-gate` must be green
+- Every merge candidate must include freeze-gate evidence in PR description:
+  - `118_SCOPE_APPLIES=yes` (or `118_SCOPE_APPLIES=no` only when CI marks out-of-scope)
+  - CI run URL for `cortex-runtime-freeze-gates`
+  - Evidence field `Evidence files attached: yes`
+  - Attached/logged `logs/testing/freeze_gates/*` outputs
+  - Inventory lock counts (`inventory == fixtures + exemptions`, with exemptions `0`)
+- Missing evidence blocks merge.
+
+Mandatory steward checklist before merge:
+1. `cortex-runtime-freeze-gates` green on PR candidate.
+2. `initiative-118-evidence-gate` green on PR candidate.
+3. PR evidence fields are complete and internally consistent.
+
+### Unfreeze authority and conditions
+
+Unfreeze authority: Initiative steward(s) for 118 and platform architecture steward.
+Unfreeze requires all of the following:
+
+1. `cortex-runtime-freeze-gates` CI job is green on latest `main`.
+2. `cortex-runtime-freeze-gates` CI job is green on latest PR candidate.
+3. `initiative-118-evidence-gate` CI job is green on latest PR candidate.
+4. `approved_exemptions_count == 0` unless a new ADR explicitly authorizes exceptions.
+5. No unresolved ACP shadow mismatch regressions in current freeze-gate logs.
+6. `PHASE_2_ENTRY_PACKET_2026-02-15.md` checklist is complete and attached to kickoff PR.

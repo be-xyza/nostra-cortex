@@ -1,0 +1,318 @@
+name: Nostra/Cortex Test Suite
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-rust:
+    name: Rust Unit & Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run worker tests
+        run: cargo test -p nostra_cortex_worker
+      - name: Run streaming canister tests
+        run: cargo test -p nostra_streaming
+      - name: Run focused gateway decision-plane tests
+        run: cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml system_decision_
+      - name: Run Cortex UX runtime/collaboration governance tests
+        run: |
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml shared_contract_fixture_drift_requires_approval_metadata
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml cortex_layout_drift_report_schema_is_stable
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml cortex_runtime_sync_endpoints_report_schema
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml artifact_collab_session_open_op_close_roundtrip
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml artifact_collab_batch_ops_state_presence_and_ordering_roundtrip
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml artifact_collab_force_resolve_requires_steward_and_records_governance
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml shared_contract_fixture_declares_phase7_realtime_endpoints
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml shared_contract_fixture_declares_phase7_governance_metadata_fields
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml realtime_feature_flag_defaults_enabled_and_supports_kill_switch
+          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml cortex_runtime_slo_endpoints_return_payloads
+      - name: Run shared fixture frontend parity test
+        run: cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_contains_studio_and_artifacts_capabilities
+      - name: Run shared fixture collaboration parity test
+        run: |
+          cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_declares_phase5_collaboration_endpoints
+          cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_declares_phase7_realtime_collaboration_endpoints
+          cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_declares_phase7_realtime_governance_metadata
+      - name: Upload decision-plane triage artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: decision-plane-triage
+          path: |
+            logs/testing/test_catalog_latest.json
+            logs/testing/test_gate_summary_latest.json
+            logs/testing/runs/
+
+  test-motoko:
+    name: Motoko Canister Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dfx
+        run: |
+          sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+      - name: Install mops
+        run: npm install -g ic-mops
+      - name: Run motoko tests
+        run: |
+          cd nostra
+          mops test
+
+  lint:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
+      - name: Rustfmt Check
+        run: cargo fmt -- --check
+      - name: Clippy Lint
+        run: cargo clippy -- -D warnings
+      - name: Compliance Check
+        run: chmod +x nostra/scripts/verify_compliance.sh && nostra/scripts/verify_compliance.sh
+      - name: Strict Warning Profile
+        run: |
+          chmod +x scripts/check_strict_warning_profile.sh
+          bash scripts/check_strict_warning_profile.sh
+      - name: DID Declaration Sync Check
+        run: bash scripts/check_did_declaration_sync.sh
+      - name: No-Panic Decode Guard
+        run: bash scripts/check_no_panic_paths.sh
+      - name: Frontend WASM Target Check
+        run: cargo check --manifest-path nostra/frontend/Cargo.toml --target wasm32-unknown-unknown
+      - name: Cortex Domain Purity Check
+        run: |
+          if [ -d "nostra/libraries/cortex-domain" ] || [ -d "nostra/apps/cortex-domain" ]; then
+            chmod +x scripts/check_cortex_domain_purity.sh
+            bash scripts/check_cortex_domain_purity.sh
+          else
+            echo "SKIP: cortex-domain crate not yet created"
+          fi
+      - name: Docs Structure Check
+        run: bash scripts/check_docs_structure.sh
+      - name: Reference Path Check
+        run: bash scripts/check_reference_paths.sh
+      - name: Reference Taxonomy Integrity Check
+        run: python3 scripts/check_reference_taxonomy_integrity.py --strict
+      - name: Reference Metadata V2 Check
+        run: python3 scripts/check_reference_metadata_v2.py --strict
+      - name: Cortex UX Fixture Drift Check
+        run: python3 scripts/check_cortex_ux_fixture_drift.py
+      - name: Phase 7 Closeout Task Gate
+        run: |
+          python3 scripts/check_phase7_closeout_tasks.py \
+            --tasks research/116-cortex-realtime-ga-trust-hardening/TASKS.json \
+            --validation research/116-cortex-realtime-ga-trust-hardening/VALIDATION.md \
+            --mode blocking \
+            --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      
+      # Phase 8: Memory Preservation
+      - name: Preserve Test Memory
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            target/
+            benchmarks/results/
+            nostra/frontend/playwright-report/
+
+  test-catalog-consistency:
+    name: Test Catalog Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine catalog check mode
+        id: gate-mode
+        run: |
+          TODAY="$(date -u +%F)"
+          if [[ "$TODAY" < "2026-02-23" ]]; then
+            echo "mode=advisory" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=blocking" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Generate catalog and gate artifacts
+        run: |
+          chmod +x scripts/test_catalog_refresh.sh
+          if [[ "${{ steps.gate-mode.outputs.mode }}" == "advisory" ]]; then
+            bash scripts/test_catalog_refresh.sh --mode advisory --scenario pass --allow-synthetic-latest --environment ci --agent-id github-actions
+          else
+            bash scripts/test_catalog_refresh.sh --mode blocking --real-run --environment ci --agent-id github-actions
+          fi
+      - name: Validate test catalog consistency
+        run: |
+          if [[ "${{ steps.gate-mode.outputs.mode }}" == "advisory" ]]; then
+            bash scripts/check_test_catalog_consistency.sh --mode advisory --allow-synthetic-latest
+          else
+            bash scripts/check_test_catalog_consistency.sh --mode blocking
+          fi
+      - name: Upload testing artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: testing-artifacts
+          path: |
+            logs/testing/test_catalog_latest.json
+            logs/testing/test_gate_summary_latest.json
+            logs/testing/runs/
+
+  cortex-runtime-freeze-gates:
+    name: Cortex Runtime Freeze Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Run freeze gate suite
+        run: |
+          chmod +x scripts/run_cortex_runtime_freeze_gates.sh
+          chmod +x scripts/check_gateway_parity_inventory_sync.sh
+          bash scripts/run_cortex_runtime_freeze_gates.sh
+      - name: Upload freeze gate artifacts
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: cortex-runtime-freeze-gates
+          path: |
+            logs/testing/freeze_gates/
+            nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/endpoint_inventory.tsv
+            nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/endpoint_inventory.json
+            nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/approved_exemptions.json
+
+  initiative-118-evidence-gate:
+    name: Initiative 118 Evidence Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect Initiative 118 scope changes
+        id: scope
+        run: |
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "in_scope=false" >> "$GITHUB_OUTPUT"
+            echo "pr_context=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED_FILES="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+
+          echo "$CHANGED_FILES" > /tmp/changed_files_118.txt
+          echo "pr_context=true" >> "$GITHUB_OUTPUT"
+
+          if echo "$CHANGED_FILES" | grep -Eq '^(nostra/apps/cortex-desktop/src/services/acp_.*|nostra/apps/cortex-desktop/tests/gateway_parity\.rs|nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/.*|scripts/check_gateway_parity_inventory_sync\.sh|scripts/run_cortex_runtime_freeze_gates\.sh|research/118-cortex-runtime-extraction/.*|research/RESEARCH_INITIATIVES_STATUS\.md)$'; then
+            echo "in_scope=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "in_scope=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Extract PR body
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          event_path = Path(os.environ["GITHUB_EVENT_PATH"])
+          payload = json.loads(event_path.read_text())
+          body = payload.get("pull_request", {}).get("body") or ""
+          out = Path(os.environ["RUNNER_TEMP"]) / "pr_body_118.md"
+          out.write_text(body)
+          print(f"Wrote PR body to {out}")
+          PY
+      - name: Validate Initiative 118 PR evidence
+        run: |
+          mkdir -p logs/testing/freeze_gates
+          chmod +x scripts/check_118_pr_evidence.sh
+          if [[ "${{ steps.scope.outputs.pr_context }}" == "true" && "${{ steps.scope.outputs.in_scope }}" == "true" ]]; then
+            REQUIRE=true
+          else
+            REQUIRE=false
+          fi
+          bash scripts/check_118_pr_evidence.sh \
+            --pr-body-file "$RUNNER_TEMP/pr_body_118.md" \
+            --require-freeze-evidence "$REQUIRE" \
+            --scope-includes-118 "${{ steps.scope.outputs.in_scope }}" 2>&1 | tee logs/testing/freeze_gates/pr_evidence_check.log
+      - name: Upload Initiative 118 evidence log
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: initiative-118-evidence-gate
+          path: logs/testing/freeze_gates/pr_evidence_check.log
+
+  offline-simulations-playwright:
+    name: Offline Simulations Playwright
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --locked
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install npm dependencies
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run offline simulation Playwright checks
+        run: bash scripts/check_offline_simulation_playwright.sh
+      - name: Upload offline simulation artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: offline-simulation-artifacts
+          path: |
+            logs/testing/offline_projection_playwright_latest.json
+            logs/testing/offline_projection_playwright_report_latest.json
+            logs/testing/offline_projection_playwright_server_latest.log
+            logs/testing/offline_projection_playwright_stderr_latest.log
+
+  acp-gateway-integration:
+    name: ACP Gateway Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run ACP gateway integration (ignored suite)
+        run: RUSTFLAGS='-Awarnings' cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml --test acp_gateway_integration -- --ignored
+      - name: Run ACP staging operationalization drill (ignored suite)
+        run: RUSTFLAGS='-Awarnings' cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml --test acp_staging_operationalization -- --ignored
+
+  # Phase 8: Steward Approval Gate (Simulation)
+  deploy:
+    name: Protected Deployment
+    needs: [test-rust, test-motoko, lint, test-catalog-consistency, cortex-runtime-freeze-gates, initiative-118-evidence-gate, offline-simulations-playwright, acp-gateway-integration]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    environment: production
+    steps:
+      - name: Verify Steward Approval
+        run: echo "🚀 Production Deploy triggered. Steward approval verified via environment protection rules."
