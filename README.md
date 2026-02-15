@@ -1,2 +1,2 @@
-# nostra-dev
-Development repo for Nostra &amp; Cortex
+# Cortex-dev
+Development repo for Cortex
