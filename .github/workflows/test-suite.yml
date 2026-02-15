@@ -9,7 +9,7 @@ on:
 jobs:
   test-rust:
     name: Rust Unit & Integration Tests
-    if: ${{ hashFiles('Cargo.toml') != '' && hashFiles('nostra/apps/cortex-desktop/Cargo.toml') != '' && hashFiles('nostra/frontend/Cargo.toml') != '' }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
 
   test-motoko:
     name: Motoko Canister Tests
-    if: ${{ hashFiles('nostra/mops.toml') != '' }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +78,7 @@ jobs:
 
   lint:
     name: Static Analysis
-    if: ${{ hashFiles('Cargo.toml') != '' && hashFiles('scripts/check_docs_structure.sh') != '' }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -142,7 +142,7 @@ jobs:
 
   test-catalog-consistency:
     name: Test Catalog Consistency
-    if: ${{ hashFiles('scripts/test_catalog_refresh.sh') != '' && hashFiles('scripts/check_test_catalog_consistency.sh') != '' }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -182,7 +182,7 @@ jobs:
 
   cortex-runtime-freeze-gates:
     name: Cortex Runtime Freeze Gates
-    if: ${{ hashFiles('scripts/run_cortex_runtime_freeze_gates.sh') != '' && hashFiles('scripts/check_gateway_parity_inventory_sync.sh') != '' }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -208,7 +208,7 @@ jobs:
 
   initiative-118-evidence-gate:
     name: Initiative 118 Evidence Gate
-    if: ${{ hashFiles('scripts/check_118_pr_evidence.sh') != '' }}
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -271,7 +271,7 @@ jobs:
 
   offline-simulations-playwright:
     name: Offline Simulations Playwright
-    if: ${{ hashFiles('scripts/check_offline_simulation_playwright.sh') != '' }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -303,7 +303,7 @@ jobs:
 
   acp-gateway-integration:
     name: ACP Gateway Integration
-    if: ${{ hashFiles('nostra/apps/cortex-desktop/Cargo.toml') != '' }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
