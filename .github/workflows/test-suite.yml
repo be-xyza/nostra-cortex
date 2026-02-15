@@ -51,7 +51,7 @@ jobs:
           cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_declares_phase7_realtime_governance_metadata
       - name: Upload decision-plane triage artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: decision-plane-triage
           path: |
@@ -129,7 +129,7 @@ jobs:
       # Phase 8: Memory Preservation
       - name: Preserve Test Memory
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: |
@@ -168,7 +168,7 @@ jobs:
           fi
       - name: Upload testing artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: testing-artifacts
           path: |
@@ -192,7 +192,7 @@ jobs:
           bash scripts/run_cortex_runtime_freeze_gates.sh
       - name: Upload freeze gate artifacts
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cortex-runtime-freeze-gates
           path: |
@@ -258,7 +258,7 @@ jobs:
             --scope-includes-118 "${{ steps.scope.outputs.in_scope }}" 2>&1 | tee logs/testing/freeze_gates/pr_evidence_check.log
       - name: Upload Initiative 118 evidence log
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: initiative-118-evidence-gate
           path: logs/testing/freeze_gates/pr_evidence_check.log
@@ -285,7 +285,7 @@ jobs:
         run: bash scripts/check_offline_simulation_playwright.sh
       - name: Upload offline simulation artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: offline-simulation-artifacts
           path: |
