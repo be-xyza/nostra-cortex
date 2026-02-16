@@ -132,10 +132,10 @@
 > (`cortex_runtime_v0`). Phase 2+ remains frozen pending ADR-017 gate policy.
 > Evidence: `research/118-cortex-runtime-extraction/PHASE_0_1_CLOSURE_EVIDENCE_2026-02-15.md`.
 
-> **Freeze Status (2026-02-16)**: Phase 2 unfreeze granted for PR-1 only
-> (`acp_meta_policy`), with freeze-gate CI green on PR and latest `main`.
-> PR-1 completed in: https://github.com/be-xyza/cortex-dev/pull/2
-> Remaining Phase 2 slices stay gated under ADR-017 controls.
+> **Freeze Status (2026-02-15)**: Phase 2 remains blocked pending CI proof on
+> latest `main` and latest PR candidate. Local gate contract is green and
+> Phase 2 PR-1 (`acp_meta_policy`) extraction is prepared but not yet formally
+> unfreezed by steward authority.
 > **Enforcement Mode (2026-02-15)**: Interim manual enforcement allowed when
 > required status checks/rulesets are unavailable: steward-only merges plus
 > mandatory freeze-gate evidence attached to PR.

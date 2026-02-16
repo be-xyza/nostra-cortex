@@ -598,20 +598,6 @@ Implemented controls and evidence updates:
 
 Unfreeze authority remains steward-controlled. Final unfreeze grant still requires CI run URLs showing `cortex-runtime-freeze-gates` green on latest `main` and PR candidate.
 
-### ADR-017 Unfreeze Grant Record (2026-02-16)
-
-Unfreeze prerequisites are satisfied and recorded:
-
-1. PR candidate run green (`cortex-runtime-freeze-gates`):
-   https://github.com/be-xyza/cortex-dev/actions/runs/22048766714
-2. Latest `main` run green (`cortex-runtime-freeze-gates`):
-   https://github.com/be-xyza/cortex-dev/actions/runs/22048828212
-3. Steward-authorized merge for Phase 2 PR-1:
-   https://github.com/be-xyza/cortex-dev/pull/2
-
-Scope of grant: **Phase 2 PR-1 only** (`acp_meta_policy` extraction).  
-Later Phase 2 slices remain independently gated.
-
 ---
 
 ## ADR-018: Feature-Gated AsyncExternalOp Policy Integration
