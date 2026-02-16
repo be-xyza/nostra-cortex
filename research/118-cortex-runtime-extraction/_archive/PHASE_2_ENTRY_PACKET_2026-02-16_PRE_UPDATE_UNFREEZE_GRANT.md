@@ -8,8 +8,8 @@ It does not authorize or execute Phase 2 extraction.
 
 All items must be true before kickoff:
 
-- [x] `cortex-runtime-freeze-gates` CI job is green on latest `main`
-- [x] `cortex-runtime-freeze-gates` CI job is green on latest PR candidate
+- [ ] `cortex-runtime-freeze-gates` CI job is green on latest `main`
+- [ ] `cortex-runtime-freeze-gates` CI job is green on latest PR candidate
 - [x] No parity inventory gaps (`endpoint_inventory.tsv` == `parity_cases/*.json` + exemptions)
 - [x] `approved_exemptions.json` remains `{"exemptions": []}` unless explicitly approved by ADR
 - [x] No unresolved ACP shadow mismatches in freeze-gate logs
@@ -28,15 +28,6 @@ Validated locally on 2026-02-15:
 
 Phase 2 remains frozen until the two CI checkboxes above are green and a steward
 records authorization for **Phase 2 PR-1 only** (`acp_meta_policy` extraction).
-
-## Unfreeze Evidence (2026-02-16)
-
-- PR candidate freeze-gate run (green): https://github.com/be-xyza/cortex-dev/actions/runs/22048766714
-- Latest main freeze-gate run (green): https://github.com/be-xyza/cortex-dev/actions/runs/22048828212
-- Steward merge authorization recorded via merged PR:
-  - https://github.com/be-xyza/cortex-dev/pull/2
-
-Unfreeze is granted for **Phase 2 PR-1 only** (`acp_meta_policy`) and completed in PR #2.
 
 ## Candidate Extraction Order (Phase 2)
 

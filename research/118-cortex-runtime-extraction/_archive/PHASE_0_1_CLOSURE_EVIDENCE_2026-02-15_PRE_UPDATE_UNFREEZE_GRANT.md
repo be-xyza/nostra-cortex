@@ -118,16 +118,3 @@ bash tests/scripts/test_check_118_pr_evidence.sh
 ### Notes
 - CI workflow updated to remove temporary `if: false` disables and run with preflight guards.
 - Formal unfreeze still requires CI evidence on latest `main` and PR candidate.
-
-## Formal Unfreeze Completion Addendum (2026-02-16)
-
-- PR candidate freeze-gate run (green):
-  https://github.com/be-xyza/cortex-dev/actions/runs/22048766714
-- Latest main freeze-gate run (green):
-  https://github.com/be-xyza/cortex-dev/actions/runs/22048828212
-- Steward-authorized merge:
-  https://github.com/be-xyza/cortex-dev/pull/2
-
-Outcome:
-- Phase 2 PR-1 (`acp_meta_policy`) is completed.
-- Initiative 118 remains frozen for later Phase 2 slices until separately authorized.
