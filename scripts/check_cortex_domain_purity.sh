@@ -1,6 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
+search_cmd() {
+  local pattern="$1"
+  local path="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -n -- "$pattern" "$path"
+  else
+    grep -R -nE -- "$pattern" "$path"
+  fi
+}
+
 # Cortex Domain Purity Check
 # Enforces the Runtime Purity Contract v1.3 for cortex-domain.
 # Reference: research/118-cortex-runtime-extraction/PLAN.md
@@ -38,9 +48,9 @@ fi
 
 # 3. Forbidden direct runtime/time APIs
 echo "--- Check 3: Forbidden direct runtime/time APIs ---"
-if rg -n "SystemTime::now|Instant::now|Utc::now|chrono::Utc::now" "nostra/libraries/$DOMAIN_CRATE/src" >/dev/null 2>&1; then
+if search_cmd "SystemTime::now|Instant::now|Utc::now|chrono::Utc::now" "nostra/libraries/$DOMAIN_CRATE/src" >/dev/null 2>&1; then
   echo "FAIL: $DOMAIN_CRATE uses wall-clock APIs directly"
-  rg -n "SystemTime::now|Instant::now|Utc::now|chrono::Utc::now" "nostra/libraries/$DOMAIN_CRATE/src" || true
+  search_cmd "SystemTime::now|Instant::now|Utc::now|chrono::Utc::now" "nostra/libraries/$DOMAIN_CRATE/src" || true
   FAILURES=$((FAILURES + 1))
 else
   echo "PASS: No wall-clock API usage found"

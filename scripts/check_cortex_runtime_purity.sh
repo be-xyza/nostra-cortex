@@ -1,6 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
+search_cmd() {
+  local pattern="$1"
+  local path="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -n -- "$pattern" "$path"
+  else
+    grep -R -nE -- "$pattern" "$path"
+  fi
+}
+
 RUNTIME_CRATE="cortex-runtime"
 MANIFEST_PATH="nostra/Cargo.toml"
 FAILURES=0
@@ -31,9 +41,9 @@ fi
 
 echo "--- Check 3: Forbidden direct runtime APIs ---"
 RUNTIME_SRC="nostra/libraries/cortex-runtime/src"
-if rg -n "SystemTime::now|Instant::now|Utc::now|chrono::Utc::now|println!|eprintln!|tracing::" "$RUNTIME_SRC" >/dev/null 2>&1; then
+if search_cmd "SystemTime::now|Instant::now|Utc::now|chrono::Utc::now|println!|eprintln!|tracing::" "$RUNTIME_SRC" >/dev/null 2>&1; then
   echo "FAIL: direct side-effect/time APIs found in cortex-runtime"
-  rg -n "SystemTime::now|Instant::now|Utc::now|chrono::Utc::now|println!|eprintln!|tracing::" "$RUNTIME_SRC" || true
+  search_cmd "SystemTime::now|Instant::now|Utc::now|chrono::Utc::now|println!|eprintln!|tracing::" "$RUNTIME_SRC" || true
   FAILURES=$((FAILURES + 1))
 else
   echo "PASS: runtime uses injected ports for time/logging"
