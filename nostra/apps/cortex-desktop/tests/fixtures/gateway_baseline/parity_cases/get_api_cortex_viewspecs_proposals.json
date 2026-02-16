@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_viewspecs_proposals",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/viewspecs/proposals"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/viewspecs/proposals"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/viewspecs/proposals"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_acp_fs_read_text_file",
+  "class": "acp",
+  "request": {
+    "method": "POST",
+    "path": "/api/acp/fs/read_text_file"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "acp",
+    "method": "POST",
+    "path": "/api/acp/fs/read_text_file"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "acp",
+    "method": "POST",
+    "path": "/api/acp/fs/read_text_file"
+  }
+}

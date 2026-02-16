@@ -93,3 +93,28 @@ bash scripts/run_cortex_runtime_freeze_gates.sh
   - Unsupported `hashFiles(...)` expressions removed from job-level conditionals.
   - Non-applicable jobs explicitly disabled in this snapshot where required project paths do not exist.
 - `initiative-118-evidence-gate` remained active for pull request validation.
+
+## Phase 2 Entry Unblock Addendum (2026-02-15)
+
+### Branch Scope
+- Branch: `codex/118-phase2-entry-unblock`
+- Goal: restore missing tracked runtime/CI assets, reactivate freeze governance jobs, and complete Phase 2 PR-1 extraction (`acp_meta_policy`) without starting later Phase 2 slices.
+
+### Commands
+
+```bash
+bash scripts/check_gateway_parity_inventory_sync.sh
+bash scripts/run_cortex_runtime_freeze_gates.sh
+bash scripts/check_118_pr_evidence.sh --pr-body-file tests/fixtures/pr_evidence/valid.md
+bash tests/scripts/test_check_118_pr_evidence.sh
+```
+
+### Results
+- PASS: inventory lock check (`inventory=123 fixtures=123 exemptions=0`)
+- PASS: freeze gate suite (terminology, purity, wasm, parity, ACP matrix/shadow tests)
+- PASS: PR evidence parser valid fixture
+- PASS: parser fixture harness (`valid` passes, invalid fixtures fail as expected)
+
+### Notes
+- CI workflow updated to remove temporary `if: false` disables and run with preflight guards.
+- Formal unfreeze still requires CI evidence on latest `main` and PR candidate.

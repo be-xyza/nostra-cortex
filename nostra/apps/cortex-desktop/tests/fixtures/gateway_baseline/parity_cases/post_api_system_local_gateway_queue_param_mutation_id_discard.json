@@ -1,0 +1,38 @@
+{
+  "case_id": "post_api_system_local_gateway_queue_param_mutation_id_discard",
+  "class": "system",
+  "request": {
+    "method": "POST",
+    "path": "/api/system/local-gateway/queue/:mutation_id/discard"
+  },
+  "normalization": {
+    "mode": "subset",
+    "ignored_fields": [
+      "generated_at",
+      "generatedAt",
+      "updated_at",
+      "updatedAt",
+      "timestamp",
+      "time",
+      "id",
+      "run_id",
+      "mutation_id",
+      "event_id",
+      "session_id",
+      "traceparent",
+      "tracestate",
+      "baggage"
+    ],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system"
+  }
+}

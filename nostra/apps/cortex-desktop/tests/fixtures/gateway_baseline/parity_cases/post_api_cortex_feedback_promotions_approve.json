@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_feedback_promotions_approve",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/feedback/promotions/approve"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/feedback/promotions/approve"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/feedback/promotions/approve"
+  }
+}

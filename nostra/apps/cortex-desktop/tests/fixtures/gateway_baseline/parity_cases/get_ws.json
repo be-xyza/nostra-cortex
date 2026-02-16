@@ -1,0 +1,31 @@
+{
+  "case_id": "get_ws",
+  "class": "ws",
+  "request": {
+    "method": "GET",
+    "path": "/ws",
+    "headers": {
+      "Connection": "Upgrade",
+      "Upgrade": "websocket"
+    }
+  },
+  "normalization": {
+    "mode": "subset",
+    "ignored_fields": [
+      "date",
+      "sec-websocket-accept"
+    ],
+    "required_keys": [
+      "status",
+      "upgrade"
+    ]
+  },
+  "legacy_response": {
+    "status": 101,
+    "upgrade": "websocket"
+  },
+  "runtime_response": {
+    "status": 101,
+    "upgrade": "websocket"
+  }
+}

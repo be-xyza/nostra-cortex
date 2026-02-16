@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_kg_motoko_graph_monitoring_runs",
+  "class": "kg",
+  "request": {
+    "method": "GET",
+    "path": "/api/kg/motoko-graph/monitoring-runs"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "kg",
+    "method": "GET",
+    "path": "/api/kg/motoko-graph/monitoring-runs"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "kg",
+    "method": "GET",
+    "path": "/api/kg/motoko-graph/monitoring-runs"
+  }
+}

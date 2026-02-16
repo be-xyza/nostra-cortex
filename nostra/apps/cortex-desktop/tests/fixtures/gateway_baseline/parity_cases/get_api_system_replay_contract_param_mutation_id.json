@@ -1,0 +1,38 @@
+{
+  "case_id": "get_api_system_replay_contract_param_mutation_id",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/replay-contract/:mutation_id"
+  },
+  "normalization": {
+    "mode": "subset",
+    "ignored_fields": [
+      "generated_at",
+      "generatedAt",
+      "updated_at",
+      "updatedAt",
+      "timestamp",
+      "time",
+      "id",
+      "run_id",
+      "mutation_id",
+      "event_id",
+      "session_id",
+      "traceparent",
+      "tracestate",
+      "baggage"
+    ],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system"
+  }
+}

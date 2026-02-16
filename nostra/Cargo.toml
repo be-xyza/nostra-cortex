@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = [
+  "apps/cortex-desktop",
+  "libraries/cortex-domain",
+  "libraries/cortex-runtime",
+  "libraries/cortex-ic-adapter",
+  "libraries/nostra-cloudevents",
+]

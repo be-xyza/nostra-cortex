@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_local_gateway_queue_export",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/local-gateway/queue/export"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/local-gateway/queue/export"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/local-gateway/queue/export"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case_id": "put_api_cortex_preferences_theme_policy",
+  "class": "cortex",
+  "request": {
+    "method": "PUT",
+    "path": "/api/cortex/preferences/theme-policy"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "PUT",
+    "path": "/api/cortex/preferences/theme-policy"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "PUT",
+    "path": "/api/cortex/preferences/theme-policy"
+  }
+}

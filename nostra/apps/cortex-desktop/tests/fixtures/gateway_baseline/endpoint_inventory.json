@@ -1,0 +1,496 @@
+{
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/canisters"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/feedback/promotions/history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/feedback/ux"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/feedback/ux/overdue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/layout/drift-report"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/layout/source-state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/layout/spec"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/preferences/theme-policy"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/runtime/closeout/tasks"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/runtime/slo/breaches"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/runtime/slo/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/runtime/sync-status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/ops"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/presence"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/ack"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/backlog"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/revisions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/revisions/:revision_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/views/capability-matrix"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/:view_spec_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/active"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/candidates/:candidate_set_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/learning/profiles/:space_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/proposals"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/proposals/:proposal_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/proposals/:proposal_id/digest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/proposals/:proposal_id/replay"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/motoko-graph/decision-history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/motoko-graph/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/motoko-graph/monitoring-runs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/motoko-graph/monitoring-trends"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/motoko-graph/snapshot"
+    },
+    {
+      "method": "GET",
+      "path": "/api/metrics/acp"
+    },
+    {
+      "method": "GET",
+      "path": "/api/metrics/resilience"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/attribution-domains/:space_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/decision-gates/latest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/decision-plane/:space_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/decision-telemetry/:space_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/decision/telemetry"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/execution-profile/:space_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/governance-scope/:space_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/local-gateway/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/local-gateway/queue/export"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/mutation-gates/:space_id/:mutation_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/ready"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/replay-contract/:mutation_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/testing/catalog"
+    },
+    {
+      "method": "GET",
+      "path": "/api/testing/gates/latest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/testing/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/testing/runs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/testing/runs/:run_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workflows"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workflows/catalog"
+    },
+    {
+      "method": "GET",
+      "path": "/ws"
+    },
+    {
+      "method": "GET",
+      "path": "/ws/cortex/collab"
+    },
+    {
+      "method": "POST",
+      "path": "/api/acp/fs/read_text_file"
+    },
+    {
+      "method": "POST",
+      "path": "/api/acp/fs/write_text_file"
+    },
+    {
+      "method": "POST",
+      "path": "/api/acp/rpc"
+    },
+    {
+      "method": "POST",
+      "path": "/api/acp/terminal/create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/acp/terminal/kill"
+    },
+    {
+      "method": "POST",
+      "path": "/api/acp/terminal/output"
+    },
+    {
+      "method": "POST",
+      "path": "/api/acp/terminal/release"
+    },
+    {
+      "method": "POST",
+      "path": "/api/acp/terminal/wait_for_exit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/feedback/promotions/approve"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/feedback/promotions/reject"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/feedback/triage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/feedback/ux"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/feedback/ux/mark-remeasured"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/feedback/ux/mark-shipped"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/feedback/ux/promote-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/layout/evaluate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/layout/spec"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/runtime/sync/replay"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/checkout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/checkpoint"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/force-resolve"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/op"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/op/batch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/ack/reset"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/connect"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/disconnect"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/resync"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/session/close"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/collab/session/open"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/lease/release"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/lease/renew"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/publish"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/artifacts/:artifact_id/save"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/:view_spec_id/confidence/recompute"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/:view_spec_id/fork"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/:view_spec_id/propose"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/candidates"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/candidates/:candidate_set_id/stage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/compile"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/learning/profiles/:space_id/recompute"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/learning/profiles/:space_id/reset"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/learning/signals"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/lock"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/proposals/:proposal_id/merge"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/proposals/:proposal_id/ratify"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/proposals/:proposal_id/reject"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/proposals/:proposal_id/review"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/validate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ingest"
+    },
+    {
+      "method": "POST",
+      "path": "/api/kg/motoko-graph/decision-capture"
+    },
+    {
+      "method": "POST",
+      "path": "/api/search"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/decision/ack"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/decision/escalate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/local-gateway/queue/:mutation_id/discard"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/local-gateway/queue/:mutation_id/fork"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/local-gateway/queue/:mutation_id/retry"
+    },
+    {
+      "method": "POST",
+      "path": "/api/workflow/read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/workflow/run"
+    },
+    {
+      "method": "POST",
+      "path": "/api/workflow/save"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/cortex/preferences/theme-policy"
+    }
+  ]
+}

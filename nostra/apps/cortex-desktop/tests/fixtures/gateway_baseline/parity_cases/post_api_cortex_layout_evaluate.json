@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_layout_evaluate",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/layout/evaluate"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/layout/evaluate"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/layout/evaluate"
+  }
+}
