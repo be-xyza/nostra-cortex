@@ -193,6 +193,21 @@ Operational command contract:
 - PR evidence validation: `bash scripts/check_118_pr_evidence.sh --pr-body-file <path>`
 - Manual local refresh only: `python3 scripts/refresh_gateway_parity_fixtures.py`
 
+### Phase 2 Entry Unblock Status (2026-02-15)
+
+- `nostra/Cargo.toml` and `nostra/apps/cortex-desktop/Cargo.toml` restored and tracked.
+- Freeze-gate runtime assets restored:
+  - `cortex-domain`, `cortex-runtime`, `cortex-ic-adapter`
+  - gateway parity baseline fixtures + inventory lock
+  - freeze/evidence scripts and CI workflow guards
+- Local gate contract rerun and green:
+  - `bash scripts/check_gateway_parity_inventory_sync.sh`
+  - `bash scripts/run_cortex_runtime_freeze_gates.sh`
+  - `bash scripts/check_118_pr_evidence.sh --pr-body-file tests/fixtures/pr_evidence/valid.md`
+  - `bash tests/scripts/test_check_118_pr_evidence.sh`
+- Remaining unfreeze prerequisite:
+  - record green CI runs for `cortex-runtime-freeze-gates` on latest `main` and PR candidate, then steward records formal unfreeze for Phase 2 PR-1 only.
+
 ---
 
 ### Phase 2: Policy & Collaboration

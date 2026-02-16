@@ -1,0 +1,21 @@
+[package]
+name = "cortex-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Execution runtime orchestration for Cortex"
+
+[features]
+default = []
+baml-policy-experiments = []
+
+[dependencies]
+async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+cortex-domain = { path = "../cortex-domain" }
+nostra-cloudevents = { path = "../nostra-cloudevents" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+
+[dev-dependencies]
+futures = "0.3"

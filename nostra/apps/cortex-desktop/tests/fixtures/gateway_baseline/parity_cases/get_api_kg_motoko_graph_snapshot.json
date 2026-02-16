@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_kg_motoko_graph_snapshot",
+  "class": "kg",
+  "request": {
+    "method": "GET",
+    "path": "/api/kg/motoko-graph/snapshot"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "kg",
+    "method": "GET",
+    "path": "/api/kg/motoko-graph/snapshot"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "kg",
+    "method": "GET",
+    "path": "/api/kg/motoko-graph/snapshot"
+  }
+}

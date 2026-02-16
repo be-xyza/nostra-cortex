@@ -2,21 +2,45 @@ name: Nostra/Cortex Test Suite
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   test-rust:
     name: Rust Unit & Integration Tests
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Preflight
+        id: preflight
+        run: |
+          REQUIRED=(
+            "Cargo.toml"
+            "nostra/apps/cortex-desktop/Cargo.toml"
+            "nostra/frontend/Cargo.toml"
+            "nostra/worker/Cargo.toml"
+            "nostra/streaming/Cargo.toml"
+          )
+          missing=0
+          for path in "${REQUIRED[@]}"; do
+            if [[ ! -f "$path" ]]; then
+              echo "MISSING: $path"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            echo "SKIP: Rust test suite prerequisites are not fully tracked in this snapshot"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install Rust
+        if: steps.preflight.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@stable
       - name: Cache Cargo
-        uses: actions/cache@v3
+        if: steps.preflight.outputs.run == 'true'
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -24,14 +48,18 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ github.sha }}
       - name: Run worker tests
+        if: steps.preflight.outputs.run == 'true'
         run: cargo test -p nostra_cortex_worker
       - name: Run streaming canister tests
+        if: steps.preflight.outputs.run == 'true'
         run: cargo test -p nostra_streaming
       - name: Run focused gateway decision-plane tests
+        if: steps.preflight.outputs.run == 'true'
         run: cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml system_decision_
       - name: Run Cortex UX runtime/collaboration governance tests
+        if: steps.preflight.outputs.run == 'true'
         run: |
           cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml shared_contract_fixture_drift_requires_approval_metadata
           cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml cortex_layout_drift_report_schema_is_stable
@@ -44,14 +72,16 @@ jobs:
           cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml realtime_feature_flag_defaults_enabled_and_supports_kill_switch
           cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml cortex_runtime_slo_endpoints_return_payloads
       - name: Run shared fixture frontend parity test
+        if: steps.preflight.outputs.run == 'true'
         run: cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_contains_studio_and_artifacts_capabilities
       - name: Run shared fixture collaboration parity test
+        if: steps.preflight.outputs.run == 'true'
         run: |
           cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_declares_phase5_collaboration_endpoints
           cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_declares_phase7_realtime_collaboration_endpoints
           cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_declares_phase7_realtime_governance_metadata
       - name: Upload decision-plane triage artifacts
-        if: always()
+        if: always() && steps.preflight.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: decision-plane-triage
@@ -62,76 +92,162 @@ jobs:
 
   test-motoko:
     name: Motoko Canister Tests
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Preflight
+        id: preflight
+        run: |
+          if [[ -f "nostra/mops.toml" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "SKIP: missing nostra/mops.toml"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install dfx
+        if: steps.preflight.outputs.run == 'true'
         run: |
           sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
       - name: Install mops
+        if: steps.preflight.outputs.run == 'true'
         run: npm install -g ic-mops
       - name: Run motoko tests
+        if: steps.preflight.outputs.run == 'true'
         run: |
           cd nostra
           mops test
 
   lint:
     name: Static Analysis
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Preflight
+        id: preflight
+        run: |
+          if [[ -f "Cargo.toml" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "SKIP: missing root Cargo.toml"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install Rust
+        if: steps.preflight.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
       - name: Rustfmt Check
+        if: steps.preflight.outputs.run == 'true'
         run: cargo fmt -- --check
       - name: Clippy Lint
+        if: steps.preflight.outputs.run == 'true'
         run: cargo clippy -- -D warnings
       - name: Compliance Check
-        run: chmod +x nostra/scripts/verify_compliance.sh && nostra/scripts/verify_compliance.sh
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "nostra/scripts/verify_compliance.sh" ]]; then
+            chmod +x nostra/scripts/verify_compliance.sh
+            nostra/scripts/verify_compliance.sh
+          else
+            echo "SKIP: nostra/scripts/verify_compliance.sh not found"
+          fi
       - name: Strict Warning Profile
+        if: steps.preflight.outputs.run == 'true'
         run: |
-          chmod +x scripts/check_strict_warning_profile.sh
-          bash scripts/check_strict_warning_profile.sh
+          if [[ -f "scripts/check_strict_warning_profile.sh" ]]; then
+            chmod +x scripts/check_strict_warning_profile.sh
+            bash scripts/check_strict_warning_profile.sh
+          else
+            echo "SKIP: scripts/check_strict_warning_profile.sh not found"
+          fi
       - name: DID Declaration Sync Check
-        run: bash scripts/check_did_declaration_sync.sh
-      - name: No-Panic Decode Guard
-        run: bash scripts/check_no_panic_paths.sh
-      - name: Frontend WASM Target Check
-        run: cargo check --manifest-path nostra/frontend/Cargo.toml --target wasm32-unknown-unknown
-      - name: Cortex Domain Purity Check
+        if: steps.preflight.outputs.run == 'true'
         run: |
-          if [ -d "nostra/libraries/cortex-domain" ] || [ -d "nostra/apps/cortex-domain" ]; then
+          if [[ -f "scripts/check_did_declaration_sync.sh" ]]; then
+            bash scripts/check_did_declaration_sync.sh
+          else
+            echo "SKIP: scripts/check_did_declaration_sync.sh not found"
+          fi
+      - name: No-Panic Decode Guard
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_no_panic_paths.sh" ]]; then
+            bash scripts/check_no_panic_paths.sh
+          else
+            echo "SKIP: scripts/check_no_panic_paths.sh not found"
+          fi
+      - name: Frontend WASM Target Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "nostra/frontend/Cargo.toml" ]]; then
+            cargo check --manifest-path nostra/frontend/Cargo.toml --target wasm32-unknown-unknown
+          else
+            echo "SKIP: nostra/frontend/Cargo.toml not found"
+          fi
+      - name: Cortex Domain Purity Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_cortex_domain_purity.sh" ]]; then
             chmod +x scripts/check_cortex_domain_purity.sh
             bash scripts/check_cortex_domain_purity.sh
           else
-            echo "SKIP: cortex-domain crate not yet created"
+            echo "SKIP: scripts/check_cortex_domain_purity.sh not found"
           fi
       - name: Docs Structure Check
-        run: bash scripts/check_docs_structure.sh
-      - name: Reference Path Check
-        run: bash scripts/check_reference_paths.sh
-      - name: Reference Taxonomy Integrity Check
-        run: python3 scripts/check_reference_taxonomy_integrity.py --strict
-      - name: Reference Metadata V2 Check
-        run: python3 scripts/check_reference_metadata_v2.py --strict
-      - name: Cortex UX Fixture Drift Check
-        run: python3 scripts/check_cortex_ux_fixture_drift.py
-      - name: Phase 7 Closeout Task Gate
+        if: steps.preflight.outputs.run == 'true'
         run: |
-          python3 scripts/check_phase7_closeout_tasks.py \
-            --tasks research/116-cortex-realtime-ga-trust-hardening/TASKS.json \
-            --validation research/116-cortex-realtime-ga-trust-hardening/VALIDATION.md \
-            --mode blocking \
-            --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      
-      # Phase 8: Memory Preservation
+          if [[ -f "scripts/check_docs_structure.sh" ]]; then
+            bash scripts/check_docs_structure.sh
+          else
+            echo "SKIP: scripts/check_docs_structure.sh not found"
+          fi
+      - name: Reference Path Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_reference_paths.sh" ]]; then
+            bash scripts/check_reference_paths.sh
+          else
+            echo "SKIP: scripts/check_reference_paths.sh not found"
+          fi
+      - name: Reference Taxonomy Integrity Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_reference_taxonomy_integrity.py" ]]; then
+            python3 scripts/check_reference_taxonomy_integrity.py --strict
+          else
+            echo "SKIP: scripts/check_reference_taxonomy_integrity.py not found"
+          fi
+      - name: Reference Metadata V2 Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_reference_metadata_v2.py" ]]; then
+            python3 scripts/check_reference_metadata_v2.py --strict
+          else
+            echo "SKIP: scripts/check_reference_metadata_v2.py not found"
+          fi
+      - name: Cortex UX Fixture Drift Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_cortex_ux_fixture_drift.py" ]]; then
+            python3 scripts/check_cortex_ux_fixture_drift.py
+          else
+            echo "SKIP: scripts/check_cortex_ux_fixture_drift.py not found"
+          fi
+      - name: Phase 7 Closeout Task Gate
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_phase7_closeout_tasks.py" ]]; then
+            python3 scripts/check_phase7_closeout_tasks.py \
+              --tasks research/116-cortex-realtime-ga-trust-hardening/TASKS.json \
+              --validation research/116-cortex-realtime-ga-trust-hardening/VALIDATION.md \
+              --mode blocking \
+              --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          else
+            echo "SKIP: scripts/check_phase7_closeout_tasks.py not found"
+          fi
       - name: Preserve Test Memory
-        if: always()
+        if: always() && steps.preflight.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: test-results
@@ -142,11 +258,20 @@ jobs:
 
   test-catalog-consistency:
     name: Test Catalog Consistency
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Preflight
+        id: preflight
+        run: |
+          if [[ -f "scripts/test_catalog_refresh.sh" && -f "scripts/check_test_catalog_consistency.sh" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "SKIP: test catalog scripts unavailable"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Determine catalog check mode
+        if: steps.preflight.outputs.run == 'true'
         id: gate-mode
         run: |
           TODAY="$(date -u +%F)"
@@ -156,6 +281,7 @@ jobs:
             echo "mode=blocking" >> "$GITHUB_OUTPUT"
           fi
       - name: Generate catalog and gate artifacts
+        if: steps.preflight.outputs.run == 'true'
         run: |
           chmod +x scripts/test_catalog_refresh.sh
           if [[ "${{ steps.gate-mode.outputs.mode }}" == "advisory" ]]; then
@@ -164,6 +290,7 @@ jobs:
             bash scripts/test_catalog_refresh.sh --mode blocking --real-run --environment ci --agent-id github-actions
           fi
       - name: Validate test catalog consistency
+        if: steps.preflight.outputs.run == 'true'
         run: |
           if [[ "${{ steps.gate-mode.outputs.mode }}" == "advisory" ]]; then
             bash scripts/check_test_catalog_consistency.sh --mode advisory --allow-synthetic-latest
@@ -171,7 +298,7 @@ jobs:
             bash scripts/check_test_catalog_consistency.sh --mode blocking
           fi
       - name: Upload testing artifacts
-        if: always()
+        if: always() && steps.preflight.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: testing-artifacts
@@ -182,10 +309,29 @@ jobs:
 
   cortex-runtime-freeze-gates:
     name: Cortex Runtime Freeze Gates
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Preflight (required)
+        run: |
+          REQUIRED=(
+            "nostra/Cargo.toml"
+            "nostra/apps/cortex-desktop/Cargo.toml"
+            "scripts/run_cortex_runtime_freeze_gates.sh"
+            "scripts/check_gateway_parity_inventory_sync.sh"
+            "scripts/check_cortex_domain_purity.sh"
+            "scripts/check_cortex_runtime_purity.sh"
+            "scripts/check_nostra_cortex_terminology.sh"
+            "nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/endpoint_inventory.tsv"
+            "nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/endpoint_inventory.json"
+            "nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/approved_exemptions.json"
+          )
+          for path in "${REQUIRED[@]}"; do
+            if [[ ! -e "$path" ]]; then
+              echo "FAIL: missing required freeze-gate asset: $path"
+              exit 1
+            fi
+          done
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -214,15 +360,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Preflight (required)
+        run: |
+          REQUIRED=(
+            "scripts/check_118_pr_evidence.sh"
+          )
+          for path in "${REQUIRED[@]}"; do
+            if [[ ! -e "$path" ]]; then
+              echo "FAIL: missing required evidence-gate asset: $path"
+              exit 1
+            fi
+          done
       - name: Detect Initiative 118 scope changes
         id: scope
         run: |
-          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
-            echo "in_scope=false" >> "$GITHUB_OUTPUT"
-            echo "pr_context=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           CHANGED_FILES="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
@@ -271,27 +422,53 @@ jobs:
 
   offline-simulations-playwright:
     name: Offline Simulations Playwright
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Preflight
+        id: preflight
+        run: |
+          REQUIRED=(
+            "scripts/check_offline_simulation_playwright.sh"
+            "package.json"
+            "playwright.config.ts"
+          )
+          missing=0
+          for path in "${REQUIRED[@]}"; do
+            if [[ ! -e "$path" ]]; then
+              echo "MISSING: $path"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            echo "SKIP: offline simulation prerequisites not available"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install Rust
+        if: steps.preflight.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@stable
       - name: Install Dioxus CLI
+        if: steps.preflight.outputs.run == 'true'
         run: cargo install dioxus-cli --locked
       - name: Setup Node
+        if: steps.preflight.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
       - name: Install npm dependencies
+        if: steps.preflight.outputs.run == 'true'
         run: npm ci
       - name: Install Playwright Chromium
+        if: steps.preflight.outputs.run == 'true'
         run: npx playwright install --with-deps chromium
       - name: Run offline simulation Playwright checks
+        if: steps.preflight.outputs.run == 'true'
         run: bash scripts/check_offline_simulation_playwright.sh
       - name: Upload offline simulation artifacts
-        if: always()
+        if: always() && steps.preflight.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: offline-simulation-artifacts
@@ -303,18 +480,40 @@ jobs:
 
   acp-gateway-integration:
     name: ACP Gateway Integration
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Preflight
+        id: preflight
+        run: |
+          REQUIRED=(
+            "nostra/apps/cortex-desktop/Cargo.toml"
+            "nostra/apps/cortex-desktop/tests/acp_gateway_integration.rs"
+            "nostra/apps/cortex-desktop/tests/acp_staging_operationalization.rs"
+          )
+          missing=0
+          for path in "${REQUIRED[@]}"; do
+            if [[ ! -f "$path" ]]; then
+              echo "MISSING: $path"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            echo "SKIP: ACP gateway integration prerequisites not available"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install Rust
+        if: steps.preflight.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@stable
       - name: Run ACP gateway integration (ignored suite)
+        if: steps.preflight.outputs.run == 'true'
         run: RUSTFLAGS='-Awarnings' cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml --test acp_gateway_integration -- --ignored
       - name: Run ACP staging operationalization drill (ignored suite)
+        if: steps.preflight.outputs.run == 'true'
         run: RUSTFLAGS='-Awarnings' cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml --test acp_staging_operationalization -- --ignored
 
-  # Phase 8: Steward Approval Gate (Simulation)
   deploy:
     name: Protected Deployment
     needs: [test-rust, test-motoko, lint, test-catalog-consistency, cortex-runtime-freeze-gates, initiative-118-evidence-gate, offline-simulations-playwright, acp-gateway-integration]

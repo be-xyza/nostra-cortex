@@ -1,0 +1,38 @@
+{
+  "case_id": "get_api_cortex_studio_artifacts_param_artifact_id_collab_presence",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/studio/artifacts/:artifact_id/collab/presence"
+  },
+  "normalization": {
+    "mode": "subset",
+    "ignored_fields": [
+      "generated_at",
+      "generatedAt",
+      "updated_at",
+      "updatedAt",
+      "timestamp",
+      "time",
+      "id",
+      "run_id",
+      "mutation_id",
+      "event_id",
+      "session_id",
+      "traceparent",
+      "tracestate",
+      "baggage"
+    ],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_workflow_save",
+  "class": "workflow",
+  "request": {
+    "method": "POST",
+    "path": "/api/workflow/save"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "workflow",
+    "method": "POST",
+    "path": "/api/workflow/save"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "workflow",
+    "method": "POST",
+    "path": "/api/workflow/save"
+  }
+}
