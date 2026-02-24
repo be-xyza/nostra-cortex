@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  CORTEX_ROOT: cortex
+  CORTEX_LIB_ROOT: cortex/libraries
+  CORTEX_DESKTOP_DIR: cortex/apps/cortex-desktop
+  CORTEX_DESKTOP_MANIFEST: cortex/apps/cortex-desktop/Cargo.toml
+
 jobs:
   test-rust:
     name: Rust Unit & Integration Tests
@@ -17,7 +23,7 @@ jobs:
         run: |
           REQUIRED=(
             "Cargo.toml"
-            "nostra/apps/cortex-desktop/Cargo.toml"
+            "$CORTEX_DESKTOP_MANIFEST"
             "nostra/frontend/Cargo.toml"
             "nostra/worker/Cargo.toml"
             "nostra/streaming/Cargo.toml"
@@ -38,6 +44,9 @@ jobs:
       - name: Install Rust
         if: steps.preflight.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@stable
+      - name: Install protoc
+        if: steps.preflight.outputs.run == 'true'
+        uses: arduino/setup-protoc@v3
       - name: Cache Cargo
         if: steps.preflight.outputs.run == 'true'
         uses: actions/cache@v4
@@ -57,20 +66,20 @@ jobs:
         run: cargo test -p nostra_streaming
       - name: Run focused gateway decision-plane tests
         if: steps.preflight.outputs.run == 'true'
-        run: cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml system_decision_
+        run: cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" system_decision_
       - name: Run Cortex UX runtime/collaboration governance tests
         if: steps.preflight.outputs.run == 'true'
         run: |
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml shared_contract_fixture_drift_requires_approval_metadata
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml cortex_layout_drift_report_schema_is_stable
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml cortex_runtime_sync_endpoints_report_schema
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml artifact_collab_session_open_op_close_roundtrip
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml artifact_collab_batch_ops_state_presence_and_ordering_roundtrip
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml artifact_collab_force_resolve_requires_steward_and_records_governance
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml shared_contract_fixture_declares_phase7_realtime_endpoints
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml shared_contract_fixture_declares_phase7_governance_metadata_fields
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml realtime_feature_flag_defaults_enabled_and_supports_kill_switch
-          cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml cortex_runtime_slo_endpoints_return_payloads
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" shared_contract_fixture_drift_requires_approval_metadata
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" cortex_layout_drift_report_schema_is_stable
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" cortex_runtime_sync_endpoints_report_schema
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" artifact_collab_session_open_op_close_roundtrip
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" artifact_collab_batch_ops_state_presence_and_ordering_roundtrip
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" artifact_collab_force_resolve_requires_steward_and_records_governance
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" shared_contract_fixture_declares_phase7_realtime_endpoints
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" shared_contract_fixture_declares_phase7_governance_metadata_fields
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" realtime_feature_flag_defaults_enabled_and_supports_kill_switch
+          cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" cortex_runtime_slo_endpoints_return_payloads
       - name: Run shared fixture frontend parity test
         if: steps.preflight.outputs.run == 'true'
         run: cargo test --manifest-path nostra/frontend/Cargo.toml shared_contract_fixture_contains_studio_and_artifacts_capabilities
@@ -137,6 +146,9 @@ jobs:
         with:
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
+      - name: Install protoc
+        if: steps.preflight.outputs.run == 'true'
+        uses: arduino/setup-protoc@v3
       - name: Rustfmt Check
         if: steps.preflight.outputs.run == 'true'
         run: cargo fmt -- --check
@@ -157,10 +169,15 @@ jobs:
         run: |
           if [[ -f "scripts/check_strict_warning_profile.sh" ]]; then
             chmod +x scripts/check_strict_warning_profile.sh
-            bash scripts/check_strict_warning_profile.sh
+            bash scripts/check_strict_warning_profile.sh --mode blocking
           else
             echo "SKIP: scripts/check_strict_warning_profile.sh not found"
           fi
+      - name: CI Warning-Bypass Integrity Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          chmod +x scripts/check_ci_warning_bypass.sh
+          bash scripts/check_ci_warning_bypass.sh --strict
       - name: DID Declaration Sync Check
         if: steps.preflight.outputs.run == 'true'
         run: |
@@ -193,6 +210,32 @@ jobs:
             bash scripts/check_cortex_domain_purity.sh
           else
             echo "SKIP: scripts/check_cortex_domain_purity.sh not found"
+          fi
+      - name: Initiative Graph Bootstrap Gate
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_initiative_graph_bootstrap.sh" ]]; then
+            bash scripts/check_initiative_graph_bootstrap.sh --validate-only
+          else
+            echo "SKIP: scripts/check_initiative_graph_bootstrap.sh not found"
+          fi
+      - name: Workspace Merge Integrity Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_workspace_merge_integrity.sh" ]]; then
+            chmod +x scripts/check_workspace_merge_integrity.sh
+            bash scripts/check_workspace_merge_integrity.sh
+          else
+            echo "SKIP: scripts/check_workspace_merge_integrity.sh not found"
+          fi
+      - name: Alignment Contract Target Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_alignment_contract_targets.sh" ]]; then
+            chmod +x scripts/check_alignment_contract_targets.sh
+            bash scripts/check_alignment_contract_targets.sh
+          else
+            echo "SKIP: scripts/check_alignment_contract_targets.sh not found"
           fi
       - name: Docs Structure Check
         if: steps.preflight.outputs.run == 'true'
@@ -246,6 +289,41 @@ jobs:
           else
             echo "SKIP: scripts/check_phase7_closeout_tasks.py not found"
           fi
+      - name: Active Initiative Template Residue Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_template_residue_active_initiatives.py" ]]; then
+            python3 scripts/check_template_residue_active_initiatives.py --strict
+          else
+            echo "SKIP: scripts/check_template_residue_active_initiatives.py not found"
+          fi
+      - name: Gate Surface Integrity Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_gate_surface_integrity.sh" ]]; then
+            chmod +x scripts/check_gate_surface_integrity.sh
+            bash scripts/check_gate_surface_integrity.sh --strict
+          else
+            echo "SKIP: scripts/check_gate_surface_integrity.sh not found"
+          fi
+      - name: Workspace Path Hardcoding Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_no_hardcoded_workspace_paths.sh" ]]; then
+            chmod +x scripts/check_no_hardcoded_workspace_paths.sh
+            bash scripts/check_no_hardcoded_workspace_paths.sh
+          else
+            echo "SKIP: scripts/check_no_hardcoded_workspace_paths.sh not found"
+          fi
+      - name: Contract Surface Integrity Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_dead_surface_contract_refs.sh" ]]; then
+            chmod +x scripts/check_dead_surface_contract_refs.sh
+            bash scripts/check_dead_surface_contract_refs.sh
+          else
+            echo "SKIP: scripts/check_dead_surface_contract_refs.sh not found"
+          fi
       - name: Preserve Test Memory
         if: always() && steps.preflight.outputs.run == 'true'
         uses: actions/upload-artifact@v4
@@ -255,6 +333,110 @@ jobs:
             target/
             benchmarks/results/
             nostra/frontend/playwright-report/
+
+  siq-observe:
+    name: SIQ Observe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preflight
+        id: preflight
+        run: |
+          REQUIRED=(
+            "scripts/run_siq_checks.sh"
+            "scripts/check_siq_artifact_consistency.sh"
+            "scripts/siq_tools.py"
+          )
+          missing=0
+          for path in "${REQUIRED[@]}"; do
+            if [[ ! -f "$path" ]]; then
+              echo "MISSING: $path"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            echo "SKIP: SIQ prerequisites are unavailable"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run SIQ observe refresh
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          chmod +x scripts/run_siq_checks.sh scripts/check_siq_artifact_consistency.sh
+          bash scripts/run_siq_checks.sh --mode observe
+      - name: Validate SIQ artifacts + deterministic replay
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          bash scripts/check_siq_artifact_consistency.sh --mode observe --check-deterministic
+      - name: Upload SIQ artifacts
+        if: always() && steps.preflight.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: siq-artifacts-observe
+          path: |
+            logs/siq/siq_coverage_latest.json
+            logs/siq/siq_dependency_closure_latest.json
+            logs/siq/siq_gate_summary_latest.json
+            logs/siq/graph_projection_latest.json
+            logs/siq/runs/
+
+  siq-softgate:
+    name: SIQ Softgate Promotion
+    runs-on: ubuntu-latest
+    needs: [siq-observe]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preflight
+        id: preflight
+        run: |
+          REQUIRED=(
+            "scripts/run_siq_checks.sh"
+            "scripts/check_siq_artifact_consistency.sh"
+            "scripts/check_siq_softgate_promotion.sh"
+            "scripts/siq_tools.py"
+          )
+          missing=0
+          for path in "${REQUIRED[@]}"; do
+            if [[ ! -f "$path" ]]; then
+              echo "MISSING: $path"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            echo "SKIP: SIQ softgate prerequisites are unavailable"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Evaluate softgate promotion readiness
+        if: steps.preflight.outputs.run == 'true'
+        id: promotion
+        run: |
+          chmod +x scripts/check_siq_softgate_promotion.sh
+          bash scripts/check_siq_softgate_promotion.sh --emit-github-output
+      - name: Run SIQ softgate when promotion criteria are met
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          chmod +x scripts/run_siq_checks.sh scripts/check_siq_artifact_consistency.sh
+          if [[ "${{ steps.promotion.outputs.promote }}" == "true" ]]; then
+            echo "SIQ softgate promotion active (${{ steps.promotion.outputs.reason }})"
+            bash scripts/run_siq_checks.sh --mode softgate
+            bash scripts/check_siq_artifact_consistency.sh --mode softgate
+          else
+            echo "SIQ softgate not promoted yet (${{ steps.promotion.outputs.reason }}); keeping observe posture"
+          fi
+      - name: Upload SIQ artifacts
+        if: always() && steps.preflight.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: siq-artifacts-softgate
+          path: |
+            logs/siq/siq_coverage_latest.json
+            logs/siq/siq_dependency_closure_latest.json
+            logs/siq/siq_gate_summary_latest.json
+            logs/siq/graph_projection_latest.json
+            logs/siq/runs/
 
   test-catalog-consistency:
     name: Test Catalog Consistency
@@ -315,16 +497,16 @@ jobs:
       - name: Preflight (required)
         run: |
           REQUIRED=(
-            "nostra/Cargo.toml"
-            "nostra/apps/cortex-desktop/Cargo.toml"
+            "cortex/Cargo.toml"
+            "$CORTEX_DESKTOP_MANIFEST"
             "scripts/run_cortex_runtime_freeze_gates.sh"
             "scripts/check_gateway_parity_inventory_sync.sh"
             "scripts/check_cortex_domain_purity.sh"
             "scripts/check_cortex_runtime_purity.sh"
             "scripts/check_nostra_cortex_terminology.sh"
-            "nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/endpoint_inventory.tsv"
-            "nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/endpoint_inventory.json"
-            "nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/approved_exemptions.json"
+            "$CORTEX_DESKTOP_DIR/tests/fixtures/gateway_baseline/endpoint_inventory.tsv"
+            "$CORTEX_DESKTOP_DIR/tests/fixtures/gateway_baseline/endpoint_inventory.json"
+            "$CORTEX_DESKTOP_DIR/tests/fixtures/gateway_baseline/approved_exemptions.json"
           )
           for path in "${REQUIRED[@]}"; do
             if [[ ! -e "$path" ]]; then
@@ -336,6 +518,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
       - name: Run freeze gate suite
         run: |
           chmod +x scripts/run_cortex_runtime_freeze_gates.sh
@@ -348,9 +532,9 @@ jobs:
           name: cortex-runtime-freeze-gates
           path: |
             logs/testing/freeze_gates/
-            nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/endpoint_inventory.tsv
-            nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/endpoint_inventory.json
-            nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/approved_exemptions.json
+            ${{ env.CORTEX_DESKTOP_DIR }}/tests/fixtures/gateway_baseline/endpoint_inventory.tsv
+            ${{ env.CORTEX_DESKTOP_DIR }}/tests/fixtures/gateway_baseline/endpoint_inventory.json
+            ${{ env.CORTEX_DESKTOP_DIR }}/tests/fixtures/gateway_baseline/approved_exemptions.json
 
   initiative-118-evidence-gate:
     name: Initiative 118 Evidence Gate
@@ -381,7 +565,7 @@ jobs:
           echo "$CHANGED_FILES" > /tmp/changed_files_118.txt
           echo "pr_context=true" >> "$GITHUB_OUTPUT"
 
-          if echo "$CHANGED_FILES" | grep -Eq '^(nostra/apps/cortex-desktop/src/services/acp_.*|nostra/apps/cortex-desktop/tests/gateway_parity\.rs|nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline/.*|scripts/check_gateway_parity_inventory_sync\.sh|scripts/run_cortex_runtime_freeze_gates\.sh|research/118-cortex-runtime-extraction/.*|research/RESEARCH_INITIATIVES_STATUS\.md)$'; then
+          if echo "$CHANGED_FILES" | grep -Eq "^(${CORTEX_DESKTOP_DIR}/src/services/acp_.*|${CORTEX_DESKTOP_DIR}/tests/gateway_parity\\.rs|${CORTEX_DESKTOP_DIR}/tests/fixtures/gateway_baseline/.*|scripts/check_gateway_parity_inventory_sync\\.sh|scripts/check_gateway_protocol_contract_coverage\\.sh|scripts/check_gateway_contract_descriptors_strict\\.sh|scripts/check_local_gateway_singleton_boundary\\.sh|scripts/check_118_pr_evidence\\.sh|scripts/generate_118_pr_evidence_body\\.sh|scripts/run_cortex_runtime_freeze_gates\\.sh|research/118-cortex-runtime-extraction/.*|research/RESEARCH_INITIATIVES_STATUS\\.md)$"; then
             echo "in_scope=true" >> "$GITHUB_OUTPUT"
           else
             echo "in_scope=false" >> "$GITHUB_OUTPUT"
@@ -449,6 +633,9 @@ jobs:
       - name: Install Rust
         if: steps.preflight.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@stable
+      - name: Install protoc
+        if: steps.preflight.outputs.run == 'true'
+        uses: arduino/setup-protoc@v3
       - name: Install Dioxus CLI
         if: steps.preflight.outputs.run == 'true'
         run: cargo install dioxus-cli --locked
@@ -487,9 +674,9 @@ jobs:
         id: preflight
         run: |
           REQUIRED=(
-            "nostra/apps/cortex-desktop/Cargo.toml"
-            "nostra/apps/cortex-desktop/tests/acp_gateway_integration.rs"
-            "nostra/apps/cortex-desktop/tests/acp_staging_operationalization.rs"
+            "$CORTEX_DESKTOP_MANIFEST"
+            "$CORTEX_DESKTOP_DIR/tests/acp_gateway_integration.rs"
+            "$CORTEX_DESKTOP_DIR/tests/acp_staging_operationalization.rs"
           )
           missing=0
           for path in "${REQUIRED[@]}"; do
@@ -507,16 +694,19 @@ jobs:
       - name: Install Rust
         if: steps.preflight.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@stable
+      - name: Install protoc
+        if: steps.preflight.outputs.run == 'true'
+        uses: arduino/setup-protoc@v3
       - name: Run ACP gateway integration (ignored suite)
         if: steps.preflight.outputs.run == 'true'
-        run: RUSTFLAGS='-Awarnings' cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml --test acp_gateway_integration -- --ignored
+        run: cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" --test acp_gateway_integration -- --ignored
       - name: Run ACP staging operationalization drill (ignored suite)
         if: steps.preflight.outputs.run == 'true'
-        run: RUSTFLAGS='-Awarnings' cargo test --manifest-path nostra/apps/cortex-desktop/Cargo.toml --test acp_staging_operationalization -- --ignored
+        run: cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" --test acp_staging_operationalization -- --ignored
 
   deploy:
     name: Protected Deployment
-    needs: [test-rust, test-motoko, lint, test-catalog-consistency, cortex-runtime-freeze-gates, initiative-118-evidence-gate, offline-simulations-playwright, acp-gateway-integration]
+    needs: [test-rust, test-motoko, lint, siq-observe, siq-softgate, test-catalog-consistency, cortex-runtime-freeze-gates, initiative-118-evidence-gate, offline-simulations-playwright, acp-gateway-integration]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     environment: production

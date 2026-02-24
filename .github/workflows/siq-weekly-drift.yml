@@ -1,0 +1,66 @@
+name: SIQ Weekly Drift
+
+on:
+  schedule:
+    - cron: '20 13 * * 1'
+  workflow_dispatch:
+
+jobs:
+  siq-weekly-drift:
+    name: SIQ Weekly Drift (Read-Only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preflight
+        run: |
+          REQUIRED=(
+            "scripts/run_siq_checks.sh"
+            "scripts/check_siq_artifact_consistency.sh"
+            "scripts/check_strict_warning_profile.sh"
+            "scripts/check_ci_warning_bypass.sh"
+            "scripts/check_template_residue_active_initiatives.py"
+            "scripts/check_gate_surface_integrity.sh"
+            "scripts/check_workspace_merge_integrity.sh"
+            "scripts/check_alignment_contract_targets.sh"
+            "scripts/check_no_hardcoded_workspace_paths.sh"
+            "scripts/check_dead_surface_contract_refs.sh"
+            "scripts/siq_tools.py"
+          )
+          for path in "${REQUIRED[@]}"; do
+            if [[ ! -e "$path" ]]; then
+              echo "FAIL: missing weekly SIQ drift dependency: $path"
+              exit 1
+            fi
+          done
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+      - name: Run SIQ observe + consistency
+        run: |
+          chmod +x scripts/run_siq_checks.sh scripts/check_siq_artifact_consistency.sh scripts/check_gate_surface_integrity.sh
+          chmod +x scripts/check_strict_warning_profile.sh
+          chmod +x scripts/check_ci_warning_bypass.sh
+          chmod +x scripts/check_workspace_merge_integrity.sh scripts/check_alignment_contract_targets.sh
+          chmod +x scripts/check_no_hardcoded_workspace_paths.sh scripts/check_dead_surface_contract_refs.sh
+          python3 scripts/check_template_residue_active_initiatives.py --strict
+          bash scripts/check_workspace_merge_integrity.sh
+          bash scripts/check_alignment_contract_targets.sh
+          bash scripts/check_gate_surface_integrity.sh --strict
+          bash scripts/check_no_hardcoded_workspace_paths.sh
+          bash scripts/check_dead_surface_contract_refs.sh
+          bash scripts/check_ci_warning_bypass.sh --strict
+          bash scripts/check_strict_warning_profile.sh --mode blocking
+          bash scripts/run_siq_checks.sh --mode observe
+          bash scripts/check_siq_artifact_consistency.sh --mode observe --check-deterministic
+      - name: Upload SIQ drift artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: siq-weekly-drift
+          path: |
+            logs/siq/siq_coverage_latest.json
+            logs/siq/siq_dependency_closure_latest.json
+            logs/siq/siq_gate_summary_latest.json
+            logs/siq/graph_projection_latest.json
+            logs/siq/runs/
