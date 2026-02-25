@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_kg_initiative_graph_doctor",
+  "class": "kg",
+  "request": {
+    "method": "GET",
+    "path": "/api/kg/spaces/:space_id/initiative-graph/doctor"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "kg",
+    "method": "GET",
+    "path": "/api/kg/spaces/:space_id/initiative-graph/doctor"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "kg",
+    "method": "GET",
+    "path": "/api/kg/spaces/:space_id/initiative-graph/doctor"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_kg_initiative_graph_steward_packet_export",
+  "class": "kg",
+  "request": {
+    "method": "POST",
+    "path": "/api/kg/spaces/:space_id/initiative-graph/steward-packet/export"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "kg",
+    "method": "POST",
+    "path": "/api/kg/spaces/:space_id/initiative-graph/steward-packet/export"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "kg",
+    "method": "POST",
+    "path": "/api/kg/spaces/:space_id/initiative-graph/steward-packet/export"
+  }
+}
