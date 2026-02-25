@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "updated_at": "2026-02-24T00:00:00Z",
+  "entries": [
+    {
+      "id": "AGR-DISP-001",
+      "skill_id": "using-skills",
+      "status": "deprecated",
+      "rule_ids": [
+        "AGR-FORBID-001"
+      ],
+      "owner": "Systems Steward",
+      "reason": "Contains coercive global mandates that conflict with local governance and constitutional boundary controls.",
+      "replacement_skill": "nostra-cortex-dev-core",
+      "decision_ref": "DEC-2026-02-24-021",
+      "expires_at": "2026-03-31T00:00:00Z",
+      "enabled": true
+    }
+  ]
+}
