@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+resolve_workspace_paths() {
+  local root_dir="$1"
+
+  export CORTEX_ROOT="${CORTEX_ROOT:-$root_dir/cortex}"
+  export CORTEX_LIB_ROOT="${CORTEX_LIB_ROOT:-$CORTEX_ROOT/libraries}"
+  export CORTEX_APP_ROOT="${CORTEX_APP_ROOT:-$CORTEX_ROOT/apps}"
+  export CORTEX_EUDAEMON_DIR="${CORTEX_EUDAEMON_DIR:-$CORTEX_APP_ROOT/cortex-eudaemon}"
+  export CORTEX_DAEMON_DIR="${CORTEX_DAEMON_DIR:-$CORTEX_EUDAEMON_DIR}"
+  export CORTEX_DESKTOP_DIR="${CORTEX_DESKTOP_DIR:-$CORTEX_EUDAEMON_DIR}"
+  export CORTEX_DESKTOP_MANIFEST="${CORTEX_DESKTOP_MANIFEST:-$CORTEX_DESKTOP_DIR/Cargo.toml}"
+  export CORTEX_WORKSPACE_MANIFEST="${CORTEX_WORKSPACE_MANIFEST:-$CORTEX_ROOT/Cargo.toml}"
+}

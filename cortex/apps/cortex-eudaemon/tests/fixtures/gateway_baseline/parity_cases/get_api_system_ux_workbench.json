@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_ux_workbench",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/ux/workbench"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/ux/workbench"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/ux/workbench"
+  }
+}

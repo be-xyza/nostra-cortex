@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_spaces_create",
+  "class": "system",
+  "request": {
+    "method": "POST",
+    "path": "/api/spaces/create"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "space_id",
+      "status",
+      "message"
+    ]
+  },
+  "legacy_response": {
+    "space_id": "validation-probe",
+    "status": "Active",
+    "message": "Space 'validation-probe' provisioned successfully"
+  },
+  "runtime_response": {
+    "space_id": "validation-probe",
+    "status": "Active",
+    "message": "Space 'validation-probe' provisioned successfully"
+  }
+}

@@ -2,8 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVER_RS="$ROOT_DIR/nostra/apps/cortex-desktop/src/gateway/server.rs"
-FIXTURE_ROOT="$ROOT_DIR/nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline"
+source "$ROOT_DIR/scripts/lib/workspace_paths.sh"
+resolve_workspace_paths "$ROOT_DIR"
+GATEWAY_APP_DIR="$CORTEX_EUDAEMON_DIR"
+SERVER_RS="$GATEWAY_APP_DIR/src/gateway/server.rs"
+FIXTURE_ROOT="$GATEWAY_APP_DIR/tests/fixtures/gateway_baseline"
 INVENTORY_TSV="$FIXTURE_ROOT/endpoint_inventory.tsv"
 INVENTORY_JSON="$FIXTURE_ROOT/endpoint_inventory.json"
 EXEMPTIONS_JSON="$FIXTURE_ROOT/approved_exemptions.json"
@@ -14,7 +17,7 @@ if [[ ! -f "$SERVER_RS" ]]; then
   exit 1
 fi
 
-ROOT_DIR="$ROOT_DIR" python3 - <<'PY'
+ROOT_DIR="$ROOT_DIR" GATEWAY_APP_DIR="$GATEWAY_APP_DIR" python3 - <<'PY'
 import json
 import re
 import sys
@@ -22,8 +25,9 @@ import os
 from pathlib import Path
 
 root = Path(os.environ["ROOT_DIR"])
-server = root / "nostra/apps/cortex-desktop/src/gateway/server.rs"
-fixture_root = root / "nostra/apps/cortex-desktop/tests/fixtures/gateway_baseline"
+gateway_app_dir = Path(os.environ["GATEWAY_APP_DIR"])
+server = gateway_app_dir / "src/gateway/server.rs"
+fixture_root = gateway_app_dir / "tests/fixtures/gateway_baseline"
 inventory_tsv = fixture_root / "endpoint_inventory.tsv"
 inventory_json = fixture_root / "endpoint_inventory.json"
 exemptions_json = fixture_root / "approved_exemptions.json"

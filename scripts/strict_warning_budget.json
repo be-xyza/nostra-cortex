@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-02-24T00:00:00Z",
+  "crates": {
+    "workflow_engine": {
+      "manifest": "nostra/backend/workflow_engine/Cargo.toml",
+      "max_warnings": 0
+    },
+    "governance": {
+      "manifest": "nostra/backend/governance/Cargo.toml",
+      "max_warnings": 0
+    },
+    "cortex_eudaemon": {
+      "manifest": "cortex/apps/cortex-eudaemon/Cargo.toml",
+      "max_warnings": 0
+    },
+    "frontend": {
+      "manifest": "nostra/frontend/Cargo.toml",
+      "max_warnings": 1
+    }
+  }
+}

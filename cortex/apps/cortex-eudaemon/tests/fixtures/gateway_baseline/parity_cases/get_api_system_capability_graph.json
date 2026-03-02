@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_capability_graph",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/capability-graph"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/capability-graph"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/capability-graph"
+  }
+}
