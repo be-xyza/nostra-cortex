@@ -15,7 +15,7 @@ tags:
   - "governance"
   - "ci"
   - "quality"
-  - "contribution-graph"
+  - "initiative-graph"
 stewardship:
   layer: "Architectural"
   primary_steward: "Systems Steward"

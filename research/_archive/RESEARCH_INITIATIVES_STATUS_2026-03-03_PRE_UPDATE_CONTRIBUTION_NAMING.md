@@ -1,7 +1,7 @@
 # Research Initiatives Index (127 items)
 | ID | Directory | Status |
 |---|---|---|
-| 000 | 000-contribution-graph | active |
+| 000 | 000-initiative-graph | active |
 | 001 | 001-multi-project-architecture | draft |
 | 002 | 002-nostra-v2-architecture | superseded |
 | 003 | 003-nostra-library-economics | draft |

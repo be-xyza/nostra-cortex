@@ -101,6 +101,12 @@ use cortex_domain::agent::contracts::{
 use cortex_domain::brand::policy::{
     BrandPolicyDocument, TemporalWindow, normalize_brand_policy_document,
 };
+use cortex_domain::capabilities::navigation_graph::{
+    CapabilityEdge as DomainCapabilityEdge, CapabilityId as DomainCapabilityId,
+    CapabilityNode as DomainCapabilityNode, EdgeRelationship as DomainEdgeRelationship,
+    IntentType as DomainIntentType, OperationalFrequency, PlatformCapabilityCatalog,
+    SpaceCapabilityGraph, SpaceCapabilityNodeOverride, SurfacingHeuristic,
+};
 use cortex_domain::graph::{EdgeKind as DomainEdgeKind, Graph as DomainGraph, Node as DomainNode};
 use cortex_domain::integrity::{
     Constraint as DomainConstraint, Direction as DomainDirection,
@@ -116,9 +122,10 @@ use cortex_domain::simulation::scenario::{
 use cortex_domain::simulation::session::{
     SimulationAction as DomainSimulationAction, run_deterministic_session as run_domain_session,
 };
+use cortex_domain::ux::{CompilationContext, compile_navigation_plan};
 use futures_util::{sink::SinkExt, stream::StreamExt};
-use nostra_extraction::initiative_graph::{
-    DoctorReport, EditionDiffReport, InitiativeGraphV1, PathAssessmentBundleV1, assess_path,
+use nostra_extraction::contribution_graph::{
+    DoctorReport, EditionDiffReport, ContributionGraphV1, PathAssessmentBundleV1, assess_path,
     diff_editions, doctor, ingest_and_write, publish_edition, query_graph, simulate,
     validate_research_portfolio,
 };
@@ -134,6 +141,7 @@ use std::net::SocketAddr;
 use std::path::{Path as FsPath, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
@@ -296,8 +304,39 @@ struct SystemCapabilityGraphResponse {
     schema_version: String,
     generated_at: String,
     source_of_truth: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    graph_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    layout_hints: Option<SystemCapabilityGraphLayoutHints>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    legend: Option<SystemCapabilityGraphLegend>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    capabilities_version: Option<String>,
     nodes: Vec<SystemCapabilityGraphNode>,
     edges: Vec<SystemCapabilityGraphEdge>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+struct SystemCapabilityGraphLayoutHints {
+    engine: String,
+    seed: String,
+    cluster_by: String,
+    groups: Vec<SystemCapabilityGraphLayoutGroup>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+struct SystemCapabilityGraphLayoutGroup {
+    key: String,
+    label: String,
+    order: usize,
+    color: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+struct SystemCapabilityGraphLegend {
+    intent_type_colors: BTreeMap<String, String>,
+    relationship_styles: BTreeMap<String, String>,
+    lock_semantics: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -316,6 +355,40 @@ struct SystemCapabilityGraphNode {
     promotion_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     invariant_violations: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cluster_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    domain: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    locked_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    visibility_state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    health: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    inspector: Option<SystemCapabilityNodeInspector>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+struct SystemCapabilityNodeInspector {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    route_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    category: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pattern_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    required_role: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    required_role_rank: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    operator_critical: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    approval_required: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    promotion_status: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -323,6 +396,34 @@ struct SystemCapabilityGraphEdge {
     from: String,
     to: String,
     relationship: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    relationship_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    confidence: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    policy_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rationale: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    directionality: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SpaceCapabilityGraphUpsertResponse {
+    accepted: bool,
+    space_id: String,
+    capability_graph_hash: String,
+    capability_graph_version: String,
+    stored_at: String,
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+struct SpaceNavigationPlanQuery {
+    actor_role: Option<String>,
+    intent: Option<String>,
+    density: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -398,7 +499,7 @@ struct CortexPromotionHistoryResponse {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 struct CortexCloseoutTasksQuery {
-    initiative_id: Option<String>,
+    contribution_id: Option<String>,
     as_of: Option<String>,
 }
 
@@ -424,7 +525,7 @@ struct CortexCloseoutTaskRecord {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct CortexCloseoutTaskLedger {
     schema_version: String,
-    initiative_id: String,
+    contribution_id: String,
     generated_at: String,
     tasks: Vec<CortexCloseoutTaskRecord>,
 }
@@ -450,7 +551,7 @@ struct CortexCloseoutTasksResponse {
     schema_version: String,
     generated_at: String,
     as_of: String,
-    initiative_id: String,
+    contribution_id: String,
     source_path: String,
     summary: CortexCloseoutTaskSummary,
     tasks: Vec<CortexCloseoutTaskView>,
@@ -1014,11 +1115,17 @@ struct HeapBlocksQuery {
     #[serde(default)]
     mention: Option<String>,
     #[serde(default)]
+    page_link: Option<String>,
+    #[serde(default)]
+    attribute: Option<String>,
+    #[serde(default)]
     block_type: Option<String>,
     #[serde(default)]
     has_files: Option<bool>,
     #[serde(default)]
     from_ts: Option<String>,
+    #[serde(default)]
+    changed_since: Option<String>,
     #[serde(default)]
     to_ts: Option<String>,
     #[serde(default)]
@@ -1052,6 +1159,118 @@ struct HeapBlocksResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     next_cursor: Option<String>,
     items: Vec<HeapBlockListItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct HeapDeletedListItem {
+    artifact_id: String,
+    deleted_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct HeapChangedBlocksResponse {
+    schema_version: String,
+    generated_at: String,
+    count: usize,
+    has_more: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next_cursor: Option<String>,
+    changed: Vec<HeapBlockListItem>,
+    deleted: Vec<HeapDeletedListItem>,
+}
+
+#[derive(Default)]
+struct HeapGatewayUsageMetrics {
+    blocks_changed_since_alias_hits: AtomicU64,
+    blocks_page_link_filter_hits: AtomicU64,
+    changed_blocks_endpoint_hits: AtomicU64,
+    changed_blocks_changed_since_alias_hits: AtomicU64,
+    changed_blocks_page_link_filter_hits: AtomicU64,
+}
+
+static HEAP_GATEWAY_USAGE_METRICS: LazyLock<HeapGatewayUsageMetrics> =
+    LazyLock::new(HeapGatewayUsageMetrics::default);
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct HeapGatewayUsageSnapshot {
+    blocks_changed_since_alias_hits: u64,
+    blocks_page_link_filter_hits: u64,
+    changed_blocks_endpoint_hits: u64,
+    changed_blocks_changed_since_alias_hits: u64,
+    changed_blocks_page_link_filter_hits: u64,
+}
+
+fn record_heap_blocks_changed_since_alias_usage() {
+    HEAP_GATEWAY_USAGE_METRICS
+        .blocks_changed_since_alias_hits
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+fn record_heap_blocks_page_link_filter_usage() {
+    HEAP_GATEWAY_USAGE_METRICS
+        .blocks_page_link_filter_hits
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+fn record_heap_changed_blocks_endpoint_usage() {
+    HEAP_GATEWAY_USAGE_METRICS
+        .changed_blocks_endpoint_hits
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+fn record_heap_changed_blocks_changed_since_alias_usage() {
+    HEAP_GATEWAY_USAGE_METRICS
+        .changed_blocks_changed_since_alias_hits
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+fn record_heap_changed_blocks_page_link_filter_usage() {
+    HEAP_GATEWAY_USAGE_METRICS
+        .changed_blocks_page_link_filter_hits
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+#[cfg(test)]
+fn heap_gateway_usage_snapshot() -> HeapGatewayUsageSnapshot {
+    HeapGatewayUsageSnapshot {
+        blocks_changed_since_alias_hits: HEAP_GATEWAY_USAGE_METRICS
+            .blocks_changed_since_alias_hits
+            .load(Ordering::Relaxed),
+        blocks_page_link_filter_hits: HEAP_GATEWAY_USAGE_METRICS
+            .blocks_page_link_filter_hits
+            .load(Ordering::Relaxed),
+        changed_blocks_endpoint_hits: HEAP_GATEWAY_USAGE_METRICS
+            .changed_blocks_endpoint_hits
+            .load(Ordering::Relaxed),
+        changed_blocks_changed_since_alias_hits: HEAP_GATEWAY_USAGE_METRICS
+            .changed_blocks_changed_since_alias_hits
+            .load(Ordering::Relaxed),
+        changed_blocks_page_link_filter_hits: HEAP_GATEWAY_USAGE_METRICS
+            .changed_blocks_page_link_filter_hits
+            .load(Ordering::Relaxed),
+    }
+}
+
+#[cfg(test)]
+fn reset_heap_gateway_usage_metrics() {
+    HEAP_GATEWAY_USAGE_METRICS
+        .blocks_changed_since_alias_hits
+        .store(0, Ordering::Relaxed);
+    HEAP_GATEWAY_USAGE_METRICS
+        .blocks_page_link_filter_hits
+        .store(0, Ordering::Relaxed);
+    HEAP_GATEWAY_USAGE_METRICS
+        .changed_blocks_endpoint_hits
+        .store(0, Ordering::Relaxed);
+    HEAP_GATEWAY_USAGE_METRICS
+        .changed_blocks_changed_since_alias_hits
+        .store(0, Ordering::Relaxed);
+    HEAP_GATEWAY_USAGE_METRICS
+        .changed_blocks_page_link_filter_hits
+        .store(0, Ordering::Relaxed);
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -1749,7 +1968,7 @@ struct MotokoGraphEvidence {
 struct MotokoGraphSnapshot {
     schema_version: String,
     generated_at: String,
-    initiative_id: String,
+    contribution_id: String,
     status: MotokoGraphStatus,
     workloads: Vec<MotokoGraphWorkload>,
     stability: Vec<MotokoGraphStability>,
@@ -1763,7 +1982,7 @@ struct MotokoGraphDecisionEvent {
     schema_version: String,
     decision_event_id: String,
     captured_at: String,
-    initiative: String,
+    contribution: String,
     decision_date: String,
     selected_option: String,
     rationale: String,
@@ -1850,7 +2069,7 @@ struct MotokoGraphMonitoringLatest {
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 struct DecisionCaptureRequest {
     schema_version: String,
-    initiative: String,
+    contribution: String,
     decision_date: String,
     selected_option: String,
     rationale: String,
@@ -1951,7 +2170,7 @@ struct DpubEditionDiffQuery {
 #[serde(rename_all = "camelCase")]
 struct DpubBlastRadiusQuery {
     #[serde(default)]
-    initiative_id: String,
+    contribution_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
@@ -2080,7 +2299,7 @@ struct DpubWorkbenchOverview {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 struct DpubBlastRadiusResponse {
-    initiative_id: String,
+    contribution_id: String,
     depends_on: Vec<String>,
     depended_by: Vec<String>,
     invalidates: Vec<String>,
@@ -2361,10 +2580,22 @@ impl GatewayService {
                 get(get_system_capability_graph),
             )
             .route(
+                "/api/system/capability-catalog",
+                get(get_system_capability_catalog),
+            )
+            .route(
                 "/api/system/ux/workbench",
                 get(crate::services::workbench_ux::get_workbench_ux_viewspec),
             )
             .route("/api/spaces/create", post(post_create_space))
+            .route(
+                "/api/spaces/:space_id/capability-graph",
+                get(get_space_capability_graph).put(put_space_capability_graph),
+            )
+            .route(
+                "/api/spaces/:space_id/navigation-plan",
+                get(get_space_navigation_plan),
+            )
             .route(
                 "/api/system/local-gateway/queue",
                 get(get_local_gateway_queue),
@@ -2612,6 +2843,10 @@ impl GatewayService {
                 get(get_cortex_heap_blocks),
             )
             .route(
+                "/api/cortex/studio/heap/changed_blocks",
+                get(get_cortex_heap_changed_blocks),
+            )
+            .route(
                 "/api/cortex/studio/heap/blocks/:artifact_id/pin",
                 post(post_cortex_heap_block_pin),
             )
@@ -2801,84 +3036,84 @@ impl GatewayService {
                 post(capture_motoko_graph_decision),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/overview",
-                get(get_initiative_graph_overview),
+                "/api/kg/spaces/:space_id/contribution-graph/overview",
+                get(get_contribution_graph_overview),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/graph",
-                get(get_initiative_graph_graph),
+                "/api/kg/spaces/:space_id/contribution-graph/graph",
+                get(get_contribution_graph_graph),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/path-assessment",
-                get(get_initiative_graph_path_assessment),
+                "/api/kg/spaces/:space_id/contribution-graph/path-assessment",
+                get(get_contribution_graph_path_assessment),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/lens-summary",
-                get(get_initiative_graph_lens_summary),
+                "/api/kg/spaces/:space_id/contribution-graph/lens-summary",
+                get(get_contribution_graph_lens_summary),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/edition-trends",
-                get(get_initiative_graph_edition_trends),
+                "/api/kg/spaces/:space_id/contribution-graph/edition-trends",
+                get(get_contribution_graph_edition_trends),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/doctor",
-                get(get_initiative_graph_doctor),
+                "/api/kg/spaces/:space_id/contribution-graph/doctor",
+                get(get_contribution_graph_doctor),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/simulations",
-                get(get_initiative_graph_simulations),
+                "/api/kg/spaces/:space_id/contribution-graph/simulations",
+                get(get_contribution_graph_simulations),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/editions",
-                get(get_initiative_graph_editions),
+                "/api/kg/spaces/:space_id/contribution-graph/editions",
+                get(get_contribution_graph_editions),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/edition-diff",
-                get(get_initiative_graph_edition_diff),
+                "/api/kg/spaces/:space_id/contribution-graph/edition-diff",
+                get(get_contribution_graph_edition_diff),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/runs",
-                get(get_initiative_graph_runs),
+                "/api/kg/spaces/:space_id/contribution-graph/runs",
+                get(get_contribution_graph_runs),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/runs/:run_id",
-                get(get_initiative_graph_run),
+                "/api/kg/spaces/:space_id/contribution-graph/runs/:run_id",
+                get(get_contribution_graph_run),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/pipeline/run",
-                post(post_initiative_graph_pipeline_run),
+                "/api/kg/spaces/:space_id/contribution-graph/pipeline/run",
+                post(post_contribution_graph_pipeline_run),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/pipeline/query",
-                post(post_initiative_graph_pipeline_query),
+                "/api/kg/spaces/:space_id/contribution-graph/pipeline/query",
+                post(post_contribution_graph_pipeline_query),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/lens/evaluate",
-                post(post_initiative_graph_lens_evaluate),
+                "/api/kg/spaces/:space_id/contribution-graph/lens/evaluate",
+                post(post_contribution_graph_lens_evaluate),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/violations/by-node",
-                get(get_initiative_graph_violations_by_node),
+                "/api/kg/spaces/:space_id/contribution-graph/violations/by-node",
+                get(get_contribution_graph_violations_by_node),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/blast-radius",
-                get(get_initiative_graph_blast_radius),
+                "/api/kg/spaces/:space_id/contribution-graph/blast-radius",
+                get(get_contribution_graph_blast_radius),
             )
             .route(
-                "/api/kg/spaces/:space_id/initiative-graph/steward-packet/export",
-                post(post_initiative_graph_steward_packet_export),
+                "/api/kg/spaces/:space_id/contribution-graph/steward-packet/export",
+                post(post_contribution_graph_steward_packet_export),
             )
             .route(
-                "/api/kg/spaces/:space_id/agents/initiatives",
-                post(post_agent_initiative),
+                "/api/kg/spaces/:space_id/agents/contributions",
+                post(post_agent_contribution),
             )
             .route(
-                "/api/kg/spaces/:space_id/agents/initiatives/:run_id",
-                get(get_agent_initiative_run),
+                "/api/kg/spaces/:space_id/agents/contributions/:run_id",
+                get(get_agent_contribution_run),
             )
             .route(
-                "/api/kg/spaces/:space_id/agents/initiatives/:run_id/approval",
-                post(post_agent_initiative_approval),
+                "/api/kg/spaces/:space_id/agents/contributions/:run_id/approval",
+                post(post_agent_contribution_approval),
             )
             .with_state(state)
             .layer(middleware::from_fn(runtime_gateway_dispatch_middleware))
@@ -3063,6 +3298,7 @@ fn is_local_legacy_bypass_api_route(path: &str) -> bool {
     path == "/api/system"
         || path.starts_with("/api/system/")
         || path == "/api/spaces/create"
+        || path.starts_with("/api/spaces/")
 }
 
 fn has_legacy_bypass_header(request: &Request) -> bool {
@@ -3083,13 +3319,21 @@ mod runtime_dispatch_route_classification_tests {
         assert!(is_local_legacy_bypass_api_route("/api/system"));
         assert!(is_local_legacy_bypass_api_route("/api/system/ux/workbench"));
         assert!(is_local_legacy_bypass_api_route("/api/spaces/create"));
+        assert!(is_local_legacy_bypass_api_route(
+            "/api/spaces/nostra-governance-v0/navigation-plan"
+        ));
         assert!(!is_api_request("/api/system/ux/workbench"));
         assert!(!is_api_request("/api/spaces/create"));
+        assert!(!is_api_request(
+            "/api/spaces/nostra-governance-v0/navigation-plan"
+        ));
     }
 
     #[test]
     fn runtime_routes_are_dispatched_for_api_non_bypass_paths() {
-        assert!(is_api_request("/api/kg/spaces/nostra-governance-v0/initiative-graph/overview"));
+        assert!(is_api_request(
+            "/api/kg/spaces/nostra-governance-v0/contribution-graph/overview"
+        ));
         assert!(is_api_request("/api/cortex/views/capability-matrix"));
         assert!(!is_api_request("/ws"));
     }
@@ -3865,7 +4109,7 @@ fn parse_metric_date(date: &str) -> bool {
     DateTime::parse_from_rfc3339(date).is_ok()
 }
 
-fn closeout_initiative_id(raw: Option<&str>) -> Result<String, String> {
+fn closeout_contribution_id(raw: Option<&str>) -> Result<String, String> {
     let value = raw.unwrap_or(CORTEX_CLOSEOUT_DEFAULT_INITIATIVE).trim();
     if value.is_empty() {
         return Ok(CORTEX_CLOSEOUT_DEFAULT_INITIATIVE.to_string());
@@ -3876,17 +4120,17 @@ fn closeout_initiative_id(raw: Option<&str>) -> Result<String, String> {
     {
         return Ok(value.to_string());
     }
-    Err("initiative_id must only contain [A-Za-z0-9_-].".to_string())
+    Err("contribution_id must only contain [A-Za-z0-9_-].".to_string())
 }
 
-fn closeout_tasks_path_for_initiative(initiative_id: &str) -> PathBuf {
+fn closeout_tasks_path_for_contribution(contribution_id: &str) -> PathBuf {
     if let Ok(path) = std::env::var("CORTEX_CLOSEOUT_TASKS_PATH") {
         if !path.trim().is_empty() {
             return PathBuf::from(path);
         }
     }
     workspace_research_dir()
-        .join(initiative_id)
+        .join(contribution_id)
         .join("TASKS.json")
 }
 
@@ -5026,13 +5270,13 @@ async fn get_cortex_runtime_slo_breaches() -> Json<Vec<CortexRealtimeSloBreachEv
 async fn get_cortex_runtime_closeout_tasks(
     Query(query): Query<CortexCloseoutTasksQuery>,
 ) -> axum::response::Response {
-    let initiative_id = match closeout_initiative_id(query.initiative_id.as_deref()) {
+    let contribution_id = match closeout_contribution_id(query.contribution_id.as_deref()) {
         Ok(value) => value,
         Err(err) => {
             return cortex_ux_error(
                 StatusCode::BAD_REQUEST,
-                "INVALID_INITIATIVE_ID",
-                "Invalid closeout initiative identifier.",
+                "INVALID_CONTRIBUTION_ID",
+                "Invalid closeout contribution identifier.",
                 Some(json!({ "reason": err })),
             );
         }
@@ -5052,16 +5296,16 @@ async fn get_cortex_runtime_closeout_tasks(
         None => Utc::now(),
     };
 
-    let path = closeout_tasks_path_for_initiative(&initiative_id);
+    let path = closeout_tasks_path_for_contribution(&contribution_id);
     let raw = match fs::read_to_string(&path) {
         Ok(data) => data,
         Err(err) => {
             return cortex_ux_error(
                 StatusCode::NOT_FOUND,
                 "CLOSEOUT_TASKS_NOT_FOUND",
-                "Closeout task ledger is not available for the requested initiative.",
+                "Closeout task ledger is not available for the requested contribution.",
                 Some(
-                    json!({ "initiativeId": initiative_id, "path": path.display().to_string(), "reason": err.to_string() }),
+                    json!({ "contributionId": contribution_id, "path": path.display().to_string(), "reason": err.to_string() }),
                 ),
             );
         }
@@ -5075,7 +5319,7 @@ async fn get_cortex_runtime_closeout_tasks(
                 "CLOSEOUT_TASKS_INVALID",
                 "Closeout task ledger is malformed JSON.",
                 Some(
-                    json!({ "initiativeId": initiative_id, "path": path.display().to_string(), "reason": err.to_string() }),
+                    json!({ "contributionId": contribution_id, "path": path.display().to_string(), "reason": err.to_string() }),
                 ),
             );
         }
@@ -5120,7 +5364,7 @@ async fn get_cortex_runtime_closeout_tasks(
         schema_version: CORTEX_CLOSEOUT_TRACKING_SCHEMA_VERSION.to_string(),
         generated_at: now_iso(),
         as_of: as_of.to_rfc3339(),
-        initiative_id: initiative_id.clone(),
+        contribution_id: contribution_id.clone(),
         source_path: path.display().to_string(),
         summary: CortexCloseoutTaskSummary {
             total,
@@ -8764,18 +9008,34 @@ async fn post_cortex_heap_emit(
 }
 
 async fn get_cortex_heap_blocks(Query(query): Query<HeapBlocksQuery>) -> axum::response::Response {
-    let from_ts = query.from_ts.as_deref().and_then(parse_heap_iso_timestamp);
-    if query.from_ts.is_some() && from_ts.is_none() {
-        return cortex_ux_error(
-            StatusCode::BAD_REQUEST,
-            "HEAP_QUERY_INVALID_FROM_TS",
-            "fromTs must be RFC3339.",
-            query
-                .from_ts
-                .as_ref()
-                .map(|value| json!({ "fromTs": value })),
-        );
-    }
+    let from_ts = if let Some(from_ts_raw) = query.from_ts.as_deref() {
+        let parsed = parse_heap_iso_timestamp(from_ts_raw);
+        if parsed.is_none() {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "HEAP_QUERY_INVALID_FROM_TS",
+                "fromTs must be RFC3339.",
+                Some(json!({ "fromTs": from_ts_raw })),
+            );
+        }
+        parsed
+    } else if let Some(changed_since_raw) = query.changed_since.as_deref() {
+        let parsed = parse_heap_iso_timestamp(changed_since_raw);
+        if parsed.is_none() {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "HEAP_QUERY_INVALID_CHANGED_SINCE",
+                "changedSince must be RFC3339.",
+                Some(json!({ "changedSince": changed_since_raw })),
+            );
+        }
+        record_heap_blocks_changed_since_alias_usage();
+        tracing::info!("heap blocks query used changedSince alias");
+        parsed
+    } else {
+        None
+    };
+
     let to_ts = query.to_ts.as_deref().and_then(parse_heap_iso_timestamp);
     if query.to_ts.is_some() && to_ts.is_none() {
         return cortex_ux_error(
@@ -8829,6 +9089,48 @@ async fn get_cortex_heap_blocks(Query(query): Query<HeapBlocksQuery>) -> axum::r
                 .iter()
                 .any(|value| value.to_ascii_lowercase() == target)
         });
+    }
+    if let Some(page_link) = query.page_link.as_deref() {
+        let target = page_link.trim().to_ascii_lowercase();
+        record_heap_blocks_page_link_filter_usage();
+        tracing::info!("heap blocks query applied pageLink filter");
+        rows.retain(|entry| {
+            entry
+                .projection
+                .page_links
+                .iter()
+                .any(|value| value.to_ascii_lowercase() == target)
+        });
+    }
+    if let Some(attribute) = query.attribute.as_deref() {
+        let raw = attribute.trim();
+        if !raw.is_empty() {
+            let normalized = raw.to_ascii_lowercase();
+            let split = normalized
+                .split_once(':')
+                .or_else(|| normalized.split_once('='))
+                .map(|(key, value)| (key.trim().to_string(), value.trim().to_string()))
+                .filter(|(key, value)| !key.is_empty() && !value.is_empty());
+
+            rows.retain(|entry| {
+                let attrs = entry.projection.attributes.as_ref();
+                let Some(attrs) = attrs else {
+                    return false;
+                };
+
+                if let Some((key_filter, value_filter)) = split.as_ref() {
+                    return attrs.iter().any(|(key, value)| {
+                        key.to_ascii_lowercase() == *key_filter
+                            && value.to_ascii_lowercase() == *value_filter
+                    });
+                }
+
+                attrs.iter().any(|(key, value)| {
+                    key.to_ascii_lowercase() == normalized
+                        || value.to_ascii_lowercase() == normalized
+                })
+            });
+        }
     }
     if let Some(block_type) = query.block_type.as_deref() {
         let target = block_type.trim().to_ascii_lowercase();
@@ -8905,6 +9207,227 @@ async fn get_cortex_heap_blocks(Query(query): Query<HeapBlocksQuery>) -> axum::r
         has_more,
         next_cursor,
         items,
+    })
+    .into_response()
+}
+
+async fn get_cortex_heap_changed_blocks(
+    Query(query): Query<HeapBlocksQuery>,
+) -> axum::response::Response {
+    record_heap_changed_blocks_endpoint_usage();
+    tracing::info!("heap changed_blocks query invoked");
+
+    let from_ts = if let Some(from_ts_raw) = query.from_ts.as_deref() {
+        let parsed = parse_heap_iso_timestamp(from_ts_raw);
+        if parsed.is_none() {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "HEAP_QUERY_INVALID_FROM_TS",
+                "fromTs must be RFC3339.",
+                Some(json!({ "fromTs": from_ts_raw })),
+            );
+        }
+        parsed
+    } else if let Some(changed_since_raw) = query.changed_since.as_deref() {
+        let parsed = parse_heap_iso_timestamp(changed_since_raw);
+        if parsed.is_none() {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "HEAP_QUERY_INVALID_CHANGED_SINCE",
+                "changedSince must be RFC3339.",
+                Some(json!({ "changedSince": changed_since_raw })),
+            );
+        }
+        record_heap_changed_blocks_changed_since_alias_usage();
+        tracing::info!("heap changed_blocks query used changedSince alias");
+        parsed
+    } else {
+        None
+    };
+
+    let to_ts = query.to_ts.as_deref().and_then(parse_heap_iso_timestamp);
+    if query.to_ts.is_some() && to_ts.is_none() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "HEAP_QUERY_INVALID_TO_TS",
+            "toTs must be RFC3339.",
+            query.to_ts.as_ref().map(|value| json!({ "toTs": value })),
+        );
+    }
+
+    let cursor = if let Some(cursor) = query.cursor.as_deref() {
+        match parse_heap_cursor(cursor) {
+            Some(value) => Some(value),
+            None => {
+                return cortex_ux_error(
+                    StatusCode::BAD_REQUEST,
+                    "HEAP_QUERY_INVALID_CURSOR",
+                    "cursor must be encoded as '<updatedAt>|<artifactId>'.",
+                    Some(json!({ "cursor": cursor })),
+                );
+            }
+        }
+    } else {
+        None
+    };
+
+    let mut rows = read_heap_projection_store();
+    let include_deleted = query.include_deleted.unwrap_or(true);
+    if !include_deleted {
+        rows.retain(|entry| entry.deleted_at.is_none());
+    }
+    if let Some(space_id) = query.space_id.as_deref() {
+        rows.retain(|entry| entry.projection.workspace_id == space_id);
+    }
+    if let Some(tag) = query.tag.as_deref() {
+        let target = tag.trim().to_ascii_lowercase();
+        rows.retain(|entry| {
+            entry
+                .projection
+                .tags
+                .iter()
+                .any(|value| value.to_ascii_lowercase() == target)
+        });
+    }
+    if let Some(mention) = query.mention.as_deref() {
+        let target = mention.trim().to_ascii_lowercase();
+        rows.retain(|entry| {
+            entry
+                .projection
+                .mentions_query
+                .iter()
+                .any(|value| value.to_ascii_lowercase() == target)
+        });
+    }
+    if let Some(page_link) = query.page_link.as_deref() {
+        let target = page_link.trim().to_ascii_lowercase();
+        record_heap_changed_blocks_page_link_filter_usage();
+        tracing::info!("heap changed_blocks query applied pageLink filter");
+        rows.retain(|entry| {
+            entry
+                .projection
+                .page_links
+                .iter()
+                .any(|value| value.to_ascii_lowercase() == target)
+        });
+    }
+    if let Some(attribute) = query.attribute.as_deref() {
+        let raw = attribute.trim();
+        if !raw.is_empty() {
+            let normalized = raw.to_ascii_lowercase();
+            let split = normalized
+                .split_once(':')
+                .or_else(|| normalized.split_once('='))
+                .map(|(key, value)| (key.trim().to_string(), value.trim().to_string()))
+                .filter(|(key, value)| !key.is_empty() && !value.is_empty());
+
+            rows.retain(|entry| {
+                let attrs = entry.projection.attributes.as_ref();
+                let Some(attrs) = attrs else {
+                    return false;
+                };
+
+                if let Some((key_filter, value_filter)) = split.as_ref() {
+                    return attrs.iter().any(|(key, value)| {
+                        key.to_ascii_lowercase() == *key_filter
+                            && value.to_ascii_lowercase() == *value_filter
+                    });
+                }
+
+                attrs.iter().any(|(key, value)| {
+                    key.to_ascii_lowercase() == normalized
+                        || value.to_ascii_lowercase() == normalized
+                })
+            });
+        }
+    }
+    if let Some(block_type) = query.block_type.as_deref() {
+        let target = block_type.trim().to_ascii_lowercase();
+        rows.retain(|entry| entry.projection.block_type.to_ascii_lowercase() == target);
+    }
+    if let Some(has_files) = query.has_files {
+        rows.retain(|entry| entry.projection.has_files == has_files);
+    }
+    if from_ts.is_some() || to_ts.is_some() {
+        rows.retain(|entry| {
+            let Some(ts) = parse_heap_iso_timestamp(&entry.projection.updated_at) else {
+                return false;
+            };
+            let after_from = from_ts
+                .as_ref()
+                .map(|from| ts >= from.clone())
+                .unwrap_or(true);
+            let before_to = to_ts.as_ref().map(|to| ts <= to.clone()).unwrap_or(true);
+            after_from && before_to
+        });
+    }
+
+    rows.sort_by(|left, right| {
+        right
+            .projection
+            .updated_at
+            .cmp(&left.projection.updated_at)
+            .then_with(|| {
+                right
+                    .projection
+                    .artifact_id
+                    .cmp(&left.projection.artifact_id)
+            })
+    });
+
+    if let Some((cursor_updated_at, cursor_artifact_id)) = cursor {
+        rows.retain(|entry| {
+            let entry_key = (
+                entry.projection.updated_at.clone(),
+                entry.projection.artifact_id.clone(),
+            );
+            entry_key < (cursor_updated_at.clone(), cursor_artifact_id.clone())
+        });
+    }
+
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    let has_more = rows.len() > limit;
+    if rows.len() > limit {
+        rows.truncate(limit);
+    }
+    let next_cursor = if has_more {
+        rows.last().map(|entry| {
+            heap_cursor_key(&entry.projection.updated_at, &entry.projection.artifact_id)
+        })
+    } else {
+        None
+    };
+
+    let count = rows.len();
+    let changed = rows
+        .iter()
+        .filter(|entry| entry.deleted_at.is_none())
+        .map(|entry| HeapBlockListItem {
+            projection: entry.projection.clone(),
+            surface_json: entry.surface_json.clone(),
+            warnings: entry.warnings.clone(),
+            pinned_at: entry.pinned_at.clone(),
+            deleted_at: entry.deleted_at.clone(),
+        })
+        .collect::<Vec<_>>();
+    let deleted = rows
+        .into_iter()
+        .filter_map(|entry| {
+            entry.deleted_at.map(|deleted_at| HeapDeletedListItem {
+                artifact_id: entry.projection.artifact_id,
+                deleted_at,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    Json(HeapChangedBlocksResponse {
+        schema_version: "1.0.0".to_string(),
+        generated_at: now_iso(),
+        count,
+        has_more,
+        next_cursor,
+        changed,
+        deleted,
     })
     .into_response()
 }
@@ -11268,11 +11791,11 @@ fn dpub_graph_workspace_dir(space_id: Option<&str>) -> PathBuf {
     } else {
         dpub_workspace_root(None)
     };
-    base.join("research").join("000-initiative-graph")
+    base.join("research").join("000-contribution-graph")
 }
 
 fn dpub_graph_path(space_id: Option<&str>) -> PathBuf {
-    dpub_graph_workspace_dir(space_id).join("initiative_graph.json")
+    dpub_graph_workspace_dir(space_id).join("contribution_graph.json")
 }
 
 fn dpub_path_assessment_path(space_id: Option<&str>) -> PathBuf {
@@ -11296,12 +11819,12 @@ fn dpub_run_log_dir(space_id: Option<&str>) -> PathBuf {
         return dpub_managed_workspace_root(sid)
             .join(".cortex")
             .join("logs")
-            .join("initiative_graph")
+            .join("contribution_graph")
             .join("runs");
     }
     std::env::var("NOSTRA_DPUB_RUN_LOG_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| workspace_logs_dir().join("initiative_graph").join("runs"))
+        .unwrap_or_else(|_| workspace_logs_dir().join("contribution_graph").join("runs"))
 }
 
 fn dpub_steward_packet_dir(space_id: Option<&str>) -> PathBuf {
@@ -11309,14 +11832,14 @@ fn dpub_steward_packet_dir(space_id: Option<&str>) -> PathBuf {
         return dpub_managed_workspace_root(sid)
             .join(".cortex")
             .join("logs")
-            .join("initiative_graph")
+            .join("contribution_graph")
             .join("steward_packets");
     }
     std::env::var("NOSTRA_DPUB_STEWARD_PACKET_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
             workspace_logs_dir()
-                .join("initiative_graph")
+                .join("contribution_graph")
                 .join("steward_packets")
         })
 }
@@ -11408,7 +11931,7 @@ fn dpub_read_json<T: DeserializeOwned>(path: &FsPath) -> Result<T, axum::respons
     })
 }
 
-fn dpub_load_graph(space_id: Option<&str>) -> Result<InitiativeGraphV1, axum::response::Response> {
+fn dpub_load_graph(space_id: Option<&str>) -> Result<ContributionGraphV1, axum::response::Response> {
     dpub_read_json(&dpub_graph_path(space_id))
 }
 
@@ -11425,7 +11948,7 @@ fn dpub_load_doctor(space_id: Option<&str>) -> Result<DoctorReport, axum::respon
 fn normalize_siq_projection(projection: &mut SiqGraphProjection) {
     if let Some(entities) = projection.entities.as_object_mut() {
         for bucket in [
-            "initiatives",
+            "contributions",
             "rules",
             "gate_runs",
             "violations",
@@ -11491,7 +12014,7 @@ fn dpub_scenario_path_from_template(root: &FsPath, template_id: Option<&str>) ->
         other => format!("{}.yaml", other.replace('-', "_")),
     };
     root.join("research")
-        .join("000-initiative-graph")
+        .join("000-contribution-graph")
         .join("scenarios")
         .join(file)
 }
@@ -11579,13 +12102,56 @@ fn dpub_to_report(record: &DpubRunRecord) -> DpubPipelineRunReport {
     }
 }
 
-fn dpub_persist_run_record(record: &DpubRunRecord) -> Result<(), String> {
-    let path = dpub_run_log_dir(None).join(format!("{}.json", record.run_id));
+fn dpub_persist_run_record(record: &DpubRunRecord, space_id: Option<&str>) -> Result<(), String> {
+    let path = dpub_run_log_dir(space_id).join(format!("{}.json", record.run_id));
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
     let value = serde_json::to_value(record).map_err(|err| err.to_string())?;
     persist_json(&path, &value)
+}
+
+fn dpub_research_index_path(root: &FsPath) -> PathBuf {
+    root.join("research").join("RESEARCH_INITIATIVES_STATUS.md")
+}
+
+fn dpub_copy_recursive(src: &FsPath, dst: &FsPath) -> Result<(), String> {
+    if !src.exists() {
+        return Ok(());
+    }
+    if src.is_file() {
+        if let Some(parent) = dst.parent() {
+            fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+        }
+        fs::copy(src, dst).map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+
+    fs::create_dir_all(dst).map_err(|err| err.to_string())?;
+    for entry in fs::read_dir(src).map_err(|err| err.to_string())? {
+        let entry = entry.map_err(|err| err.to_string())?;
+        let child_src = entry.path();
+        let child_dst = dst.join(entry.file_name());
+        if child_src.is_dir() {
+            dpub_copy_recursive(&child_src, &child_dst)?;
+        } else {
+            if let Some(parent) = child_dst.parent() {
+                fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+            }
+            fs::copy(&child_src, &child_dst).map_err(|err| err.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+fn dpub_sync_graph_outputs_to_space(source_root: &FsPath, space_id: &str) -> Result<(), String> {
+    let src = source_root.join("research").join("000-contribution-graph");
+    if !src.exists() {
+        return Err(format!("source graph workspace missing: {}", src.display()));
+    }
+    let dst = dpub_graph_workspace_dir(Some(space_id));
+    dpub_copy_recursive(&src, &dst)?;
+    Ok(())
 }
 
 fn dpub_edition_entries(space_id: Option<&str>) -> Vec<DpubEditionEntry> {
@@ -11636,7 +12202,7 @@ fn dpub_edition_entries(space_id: Option<&str>) -> Vec<DpubEditionEntry> {
     out
 }
 
-fn dpub_lens_counts(graph: &InitiativeGraphV1) -> BTreeMap<String, usize> {
+fn dpub_lens_counts(graph: &ContributionGraphV1) -> BTreeMap<String, usize> {
     let critical_nodes = graph
         .integrity_report
         .violations
@@ -11829,7 +12395,7 @@ fn dpub_lens_counts(graph: &InitiativeGraphV1) -> BTreeMap<String, usize> {
     ])
 }
 
-fn dpub_lens_summary(graph: &InitiativeGraphV1) -> DpubLensSummaryResponse {
+fn dpub_lens_summary(graph: &ContributionGraphV1) -> DpubLensSummaryResponse {
     let counts = dpub_lens_counts(graph);
     let categories = vec![
         DpubLensSummaryCategory {
@@ -12010,7 +12576,7 @@ fn dpub_edition_trends(
         let snapshot_path = dpub_editions_dir(None)
             .join(&entry.version)
             .join("snapshot.json");
-        let graph = match dpub_read_json::<InitiativeGraphV1>(&snapshot_path) {
+        let graph = match dpub_read_json::<ContributionGraphV1>(&snapshot_path) {
             Ok(graph) => graph,
             Err(_) => continue,
         };
@@ -12051,7 +12617,7 @@ fn dpub_markdown_packet(
     to_version: &str,
     diff: &EditionDiffReport,
     path_bundle: &PathAssessmentBundleV1,
-    graph: &InitiativeGraphV1,
+    graph: &ContributionGraphV1,
 ) -> String {
     let assessment = path_bundle
         .assessments
@@ -12073,7 +12639,7 @@ fn dpub_markdown_packet(
     };
 
     format!(
-        "# Steward Packet: DPub Initiative Graph\n\
+        "# Steward Packet: DPub Contribution Graph\n\
 Generated: {generated}\n\
 \n\
 ## Graph Snapshot\n\
@@ -12142,7 +12708,7 @@ fn count_json_files(dir: &FsPath) -> usize {
 fn decision_event_id_from_payload(payload: &DecisionCaptureRequest) -> String {
     let canonical = json!({
         "schema_version": payload.schema_version,
-        "initiative": payload.initiative,
+        "contribution": payload.contribution,
         "decision_date": payload.decision_date,
         "selected_option": payload.selected_option,
         "rationale": payload.rationale,
@@ -12176,7 +12742,7 @@ fn validate_decision_capture_request(
 
     let missing_scalar = [
         payload.schema_version.trim().is_empty(),
-        payload.initiative.trim().is_empty(),
+        payload.contribution.trim().is_empty(),
         payload.decision_date.trim().is_empty(),
         payload.rationale.trim().is_empty(),
         payload.posture_before.trim().is_empty(),
@@ -12201,7 +12767,7 @@ fn validate_decision_capture_request(
             .any(|item| item.trim().is_empty());
 
     if payload.schema_version != MOTOKO_GRAPH_SCHEMA_VERSION
-        || payload.initiative != "078"
+        || payload.contribution != "078"
         || !selected_allowed
         || missing_scalar
         || invalid_array
@@ -12212,7 +12778,7 @@ fn validate_decision_capture_request(
             "Decision capture payload failed validation",
             Some(json!({
                 "schema_version": payload.schema_version,
-                "initiative": payload.initiative,
+                "contribution": payload.contribution,
                 "selected_option": payload.selected_option
             })),
         ));
@@ -15171,7 +15737,7 @@ async fn capture_motoko_graph_decision(
         schema_version: MOTOKO_GRAPH_SCHEMA_VERSION.to_string(),
         decision_event_id: decision_event_id.clone(),
         captured_at,
-        initiative: payload.initiative,
+        contribution: payload.contribution,
         decision_date: payload.decision_date,
         selected_option: payload.selected_option,
         rationale: payload.rationale,
@@ -15241,8 +15807,8 @@ fn dpub_execute_pipeline(
     let started_at = now_iso();
     let graph_path = root
         .join("research")
-        .join("000-initiative-graph")
-        .join("initiative_graph.json");
+        .join("000-contribution-graph")
+        .join("contribution_graph.json");
     let mut phase_results = Vec::<DpubPhaseResult>::new();
     let mut artifacts = serde_json::Map::<String, Value>::new();
     let mut report = DpubPipelineRunReport {
@@ -15623,7 +16189,7 @@ fn dpub_execute_pipeline(
     report
 }
 
-async fn get_initiative_graph_overview(
+async fn get_contribution_graph_overview(
     axum::extract::Path(space_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     let graph = dpub_load_graph(Some(&space_id)).ok();
@@ -15699,7 +16265,7 @@ async fn get_initiative_graph_overview(
     Json(overview).into_response()
 }
 
-async fn get_initiative_graph_graph(
+async fn get_contribution_graph_graph(
     axum::extract::Path(space_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     match dpub_load_graph(Some(&space_id)) {
@@ -15708,7 +16274,7 @@ async fn get_initiative_graph_graph(
     }
 }
 
-async fn get_initiative_graph_path_assessment(
+async fn get_contribution_graph_path_assessment(
     axum::extract::Path(space_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     match dpub_load_path_bundle(Some(&space_id)) {
@@ -15717,7 +16283,7 @@ async fn get_initiative_graph_path_assessment(
     }
 }
 
-async fn get_initiative_graph_lens_summary(
+async fn get_contribution_graph_lens_summary(
     axum::extract::Path(space_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     match dpub_load_graph(Some(&space_id)) {
@@ -15726,7 +16292,7 @@ async fn get_initiative_graph_lens_summary(
     }
 }
 
-async fn get_initiative_graph_edition_trends(
+async fn get_contribution_graph_edition_trends(
     axum::extract::Path(space_id): axum::extract::Path<String>,
     Query(query): Query<DpubEditionTrendQuery>,
 ) -> impl IntoResponse {
@@ -15748,7 +16314,7 @@ async fn get_initiative_graph_edition_trends(
     }
 }
 
-async fn get_initiative_graph_doctor(
+async fn get_contribution_graph_doctor(
     axum::extract::Path(space_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     match dpub_load_doctor(Some(&space_id)) {
@@ -15757,7 +16323,7 @@ async fn get_initiative_graph_doctor(
     }
 }
 
-async fn get_initiative_graph_simulations(
+async fn get_contribution_graph_simulations(
     axum::extract::Path(space_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     let dir = dpub_simulations_dir(Some(&space_id));
@@ -15808,13 +16374,13 @@ async fn get_initiative_graph_simulations(
     Json(out).into_response()
 }
 
-async fn get_initiative_graph_editions(
+async fn get_contribution_graph_editions(
     axum::extract::Path(space_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     Json(dpub_edition_entries(Some(&space_id))).into_response()
 }
 
-async fn get_initiative_graph_edition_diff(
+async fn get_contribution_graph_edition_diff(
     axum::extract::Path(space_id): axum::extract::Path<String>,
     Query(query): Query<DpubEditionDiffQuery>,
 ) -> impl IntoResponse {
@@ -15841,7 +16407,7 @@ async fn get_initiative_graph_edition_diff(
     }
 }
 
-async fn get_initiative_graph_runs(
+async fn get_contribution_graph_runs(
     axum::extract::Path(space_id): axum::extract::Path<String>,
     Query(query): Query<DpubRunHistoryQuery>,
 ) -> impl IntoResponse {
@@ -15856,7 +16422,9 @@ async fn get_initiative_graph_runs(
     Json(items).into_response()
 }
 
-async fn get_initiative_graph_run(Path(run_id): Path<String>) -> impl IntoResponse {
+async fn get_contribution_graph_run(
+    Path((space_id, run_id)): Path<(String, String)>,
+) -> impl IntoResponse {
     if run_id.contains('/') || run_id.contains('\\') || run_id.contains("..") {
         return dpub_error(
             StatusCode::BAD_REQUEST,
@@ -15865,14 +16433,15 @@ async fn get_initiative_graph_run(Path(run_id): Path<String>) -> impl IntoRespon
             Some(json!({ "runId": run_id })),
         );
     }
-    let path = dpub_run_log_dir(None).join(format!("{}.json", run_id));
+    let path = dpub_run_log_dir(Some(&space_id)).join(format!("{}.json", run_id));
     match dpub_read_json::<DpubRunRecord>(&path) {
         Ok(record) => Json(dpub_to_report(&record)).into_response(),
         Err(err) => err,
     }
 }
 
-async fn post_initiative_graph_pipeline_query(
+async fn post_contribution_graph_pipeline_query(
+    axum::extract::Path(space_id): axum::extract::Path<String>,
     Json(payload): Json<DpubPipelineQueryRequest>,
 ) -> impl IntoResponse {
     if payload.kind.trim().is_empty() || payload.id.trim().is_empty() {
@@ -15884,7 +16453,7 @@ async fn post_initiative_graph_pipeline_query(
         );
     }
 
-    match query_graph(&dpub_workspace_root(None), &payload.kind, &payload.id) {
+    match query_graph(&dpub_managed_workspace_root(&space_id), &payload.kind, &payload.id) {
         Ok(result) => Json(result).into_response(),
         Err(err) => dpub_error(
             StatusCode::BAD_REQUEST,
@@ -15895,10 +16464,11 @@ async fn post_initiative_graph_pipeline_query(
     }
 }
 
-async fn post_initiative_graph_lens_evaluate(
+async fn post_contribution_graph_lens_evaluate(
+    axum::extract::Path(space_id): axum::extract::Path<String>,
     Json(payload): Json<DpubLensEvaluateRequest>,
 ) -> impl IntoResponse {
-    let graph = match dpub_load_graph(None) {
+    let graph = match dpub_load_graph(Some(&space_id)) {
         Ok(graph) => graph,
         Err(err) => return err,
     };
@@ -15917,7 +16487,7 @@ async fn post_initiative_graph_lens_evaluate(
     Json(response).into_response()
 }
 
-async fn get_initiative_graph_violations_by_node(
+async fn get_contribution_graph_violations_by_node(
     axum::extract::Path(space_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     let graph = match dpub_load_graph(Some(&space_id)) {
@@ -15942,7 +16512,8 @@ async fn get_initiative_graph_violations_by_node(
     .into_response()
 }
 
-async fn post_initiative_graph_pipeline_run(
+async fn post_contribution_graph_pipeline_run(
+    axum::extract::Path(space_id): axum::extract::Path<String>,
     headers: HeaderMap,
     Json(payload): Json<DpubPipelineRunRequest>,
 ) -> impl IntoResponse {
@@ -15975,12 +16546,18 @@ async fn post_initiative_graph_pipeline_run(
         None
     };
 
-    let root = dpub_workspace_root(None);
+    let preferred_root = dpub_workspace_root(Some(&space_id));
+    let root = if dpub_research_index_path(&preferred_root).exists() {
+        preferred_root
+    } else {
+        dpub_workspace_root(None)
+    };
     let run_id = dpub_run_id(&payload.mode);
     let request_for_exec = payload.clone();
+    let root_for_exec = root.clone();
     let run_id_for_exec = run_id.clone();
     let report = match tokio::task::spawn_blocking(move || {
-        dpub_execute_pipeline(request_for_exec, root, run_id_for_exec)
+        dpub_execute_pipeline(request_for_exec, root_for_exec, run_id_for_exec)
     })
     .await
     {
@@ -15994,6 +16571,17 @@ async fn post_initiative_graph_pipeline_run(
             );
         }
     };
+
+    if report.status == "success" {
+        if let Err(err) = dpub_sync_graph_outputs_to_space(&root, &space_id) {
+            return dpub_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "DPUB_SPACE_SYNC_FAILED",
+                "Unable to sync contribution graph outputs to managed space.",
+                Some(json!({ "reason": err, "spaceId": space_id })),
+            );
+        }
+    }
 
     let run_record = DpubRunRecord {
         schema_version: "nostra.dpub.pipeline_run.v1".to_string(),
@@ -16013,7 +16601,7 @@ async fn post_initiative_graph_pipeline_run(
         approval,
     };
 
-    if let Err(err) = dpub_persist_run_record(&run_record) {
+    if let Err(err) = dpub_persist_run_record(&run_record, Some(&space_id)) {
         return dpub_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "DPUB_RUN_LOG_PERSIST_FAILED",
@@ -16025,23 +16613,24 @@ async fn post_initiative_graph_pipeline_run(
     Json(report).into_response()
 }
 
-async fn get_initiative_graph_blast_radius(
+async fn get_contribution_graph_blast_radius(
+    axum::extract::Path(space_id): axum::extract::Path<String>,
     Query(query): Query<DpubBlastRadiusQuery>,
 ) -> impl IntoResponse {
-    if query.initiative_id.trim().is_empty() {
+    if query.contribution_id.trim().is_empty() {
         return dpub_error(
             StatusCode::BAD_REQUEST,
             "DPUB_BLAST_RADIUS_ID_REQUIRED",
-            "initiativeId is required.",
+            "contributionId is required.",
             None,
         );
     }
 
-    let graph = match dpub_load_graph(None) {
+    let graph = match dpub_load_graph(Some(&space_id)) {
         Ok(graph) => graph,
         Err(err) => return err,
     };
-    let id = query.initiative_id.trim();
+    let id = query.contribution_id.trim();
     let mut depends_on = BTreeSet::new();
     let mut depended_by = BTreeSet::new();
     let mut invalidates = BTreeSet::new();
@@ -16090,7 +16679,7 @@ async fn get_initiative_graph_blast_radius(
     }
 
     Json(DpubBlastRadiusResponse {
-        initiative_id: id.to_string(),
+        contribution_id: id.to_string(),
         depends_on: depends_on.into_iter().collect(),
         depended_by: depended_by.into_iter().collect(),
         invalidates: invalidates.into_iter().collect(),
@@ -16103,7 +16692,8 @@ async fn get_initiative_graph_blast_radius(
     .into_response()
 }
 
-async fn post_initiative_graph_steward_packet_export(
+async fn post_contribution_graph_steward_packet_export(
+    axum::extract::Path(space_id): axum::extract::Path<String>,
     headers: HeaderMap,
     Json(payload): Json<DpubStewardPacketExportRequest>,
 ) -> impl IntoResponse {
@@ -16121,16 +16711,16 @@ async fn post_initiative_graph_steward_packet_export(
         Err(err) => return err,
     };
 
-    let graph = match dpub_load_graph(None) {
+    let graph = match dpub_load_graph(Some(&space_id)) {
         Ok(graph) => graph,
         Err(err) => return err,
     };
-    let path_bundle = match dpub_load_path_bundle(None) {
+    let path_bundle = match dpub_load_path_bundle(Some(&space_id)) {
         Ok(bundle) => bundle,
         Err(err) => return err,
     };
 
-    let editions = dpub_edition_entries(None);
+    let editions = dpub_edition_entries(Some(&space_id));
     let (from_version, to_version) = if let (Some(from), Some(to)) =
         (payload.from_version.clone(), payload.to_version.clone())
     {
@@ -16146,7 +16736,11 @@ async fn post_initiative_graph_steward_packet_export(
         .unwrap_or("stable-cortex-domain")
         .to_string();
 
-    let diff = match diff_editions(&dpub_workspace_root(None), &from_version, &to_version) {
+    let diff = match diff_editions(
+        &dpub_managed_workspace_root(&space_id),
+        &from_version,
+        &to_version,
+    ) {
         Ok(diff) => diff,
         Err(err) => {
             return dpub_error(
@@ -16171,7 +16765,7 @@ async fn post_initiative_graph_steward_packet_export(
         Utc::now().format("%Y%m%dT%H%M%SZ"),
         sanitize_fs_component(&goal)
     );
-    let packet_path = dpub_steward_packet_dir(None).join(file_name);
+    let packet_path = dpub_steward_packet_dir(Some(&space_id)).join(file_name);
     if let Some(parent) = packet_path.parent() {
         if let Err(err) = fs::create_dir_all(parent) {
             return dpub_error(
@@ -16304,6 +16898,430 @@ fn intent_type_for_pattern(pattern_id: Option<&str>) -> String {
     }
 }
 
+fn domain_color(domain: &str) -> String {
+    match domain {
+        "system" => "#38bdf8".to_string(),
+        "pattern" => "#a78bfa".to_string(),
+        "studio" => "#f59e0b".to_string(),
+        "systems" | "system_ops" => "#0ea5e9".to_string(),
+        "spaces" => "#14b8a6".to_string(),
+        "artifacts" => "#f97316".to_string(),
+        "workflows" => "#22c55e".to_string(),
+        "testing" => "#ef4444".to_string(),
+        _ => {
+            let palette = [
+                "#60a5fa", "#f472b6", "#34d399", "#facc15", "#fb7185", "#22d3ee",
+            ];
+            let idx = domain.bytes().fold(0usize, |acc, b| acc + usize::from(b)) % palette.len();
+            palette[idx].to_string()
+        }
+    }
+}
+
+fn relationship_label(relationship: &str) -> String {
+    match relationship {
+        "contains" => "Contains".to_string(),
+        "drill_down" => "Route Drill-Down".to_string(),
+        "follows" => "Navigation Sequence".to_string(),
+        _ => relationship.to_string(),
+    }
+}
+
+fn relationship_rationale(relationship: &str) -> String {
+    match relationship {
+        "contains" => "Pattern-level grouping emitted by runtime shell contract.".to_string(),
+        "drill_down" => {
+            "Route binding emitted from matrix + navigation graph contracts.".to_string()
+        }
+        "follows" => "Deterministic ordering from canonical navigation entry sequence.".to_string(),
+        _ => "Relationship emitted by runtime graph synthesis.".to_string(),
+    }
+}
+
+fn relationship_policy_ref(relationship: &str) -> String {
+    match relationship {
+        "contains" => "policy:capability_graph.contains".to_string(),
+        "drill_down" => "policy:capability_graph.drill_down".to_string(),
+        "follows" => "policy:capability_graph.sequence".to_string(),
+        _ => "policy:capability_graph.generic".to_string(),
+    }
+}
+
+fn relationship_confidence(relationship: &str) -> u8 {
+    match relationship {
+        "contains" => 100,
+        "drill_down" => 98,
+        "follows" => 95,
+        _ => 90,
+    }
+}
+
+fn visibility_state(required_role: Option<&str>) -> String {
+    if required_role.map(role_rank).unwrap_or(0) > role_rank("viewer") {
+        "role_gated".to_string()
+    } else {
+        "visible".to_string()
+    }
+}
+
+fn locked_reason(required_role: Option<&str>) -> Option<String> {
+    let role = required_role.unwrap_or("viewer");
+    if role_rank(role) > role_rank("viewer") {
+        Some(format!("Requires {} role", role))
+    } else {
+        None
+    }
+}
+
+fn priority_from_metadata(operator_critical: bool, promotion_status: Option<&str>) -> String {
+    if operator_critical {
+        "high".to_string()
+    } else if matches!(promotion_status, Some("production")) {
+        "high".to_string()
+    } else if matches!(promotion_status, Some("candidate")) {
+        "medium".to_string()
+    } else {
+        "normal".to_string()
+    }
+}
+
+fn domain_intent_type_for_pattern(pattern_id: Option<&str>) -> DomainIntentType {
+    let intent = intent_type_for_pattern(pattern_id);
+    match intent.as_str() {
+        "monitor" => DomainIntentType::Monitor,
+        "execute" => DomainIntentType::Execute,
+        "mutate" => DomainIntentType::Mutate,
+        "configure" => DomainIntentType::Configure,
+        "navigate" => DomainIntentType::Visualize,
+        _ => DomainIntentType::Unspecified,
+    }
+}
+
+fn default_surfacing_for_category(category: &str) -> SurfacingHeuristic {
+    match category {
+        "core" => SurfacingHeuristic::PrimaryCore,
+        "secondary" => SurfacingHeuristic::Secondary,
+        "bridge" => SurfacingHeuristic::Secondary,
+        _ => SurfacingHeuristic::Secondary,
+    }
+}
+
+fn default_operational_frequency_for_route(route: &str) -> OperationalFrequency {
+    match route {
+        "/heap" | "/logs" | "/metrics" | "/inbox" => OperationalFrequency::Continuous,
+        "/spaces" | "/workflows" | "/agents" | "/discovery" | "/memory" => {
+            OperationalFrequency::Daily
+        }
+        "/settings" | "/labs" | "/system" => OperationalFrequency::Rare,
+        _ => OperationalFrequency::AdHoc,
+    }
+}
+
+fn build_platform_capability_catalog() -> PlatformCapabilityCatalog {
+    let layout_spec = resolve_shell_layout_spec();
+    let capabilities = resolve_view_capability_manifests();
+    let capability_by_route: BTreeMap<String, ViewCapabilityManifest> = capabilities
+        .iter()
+        .map(|item| (item.route_id.clone(), item.clone()))
+        .collect();
+
+    let mut catalog = PlatformCapabilityCatalog::new();
+    let root_id = DomainCapabilityId("cortex.workbench.root".to_string());
+    catalog.unverified_add_node(DomainCapabilityNode {
+        id: root_id.clone(),
+        name: "Cortex Workbench".to_string(),
+        description: "Canonical Cortex capability catalog root".to_string(),
+        intent_type: DomainIntentType::Monitor,
+        route_id: None,
+        category: Some("system".to_string()),
+        required_role: Some("viewer".to_string()),
+        icon: None,
+        surfacing_heuristic: SurfacingHeuristic::Hidden,
+        operational_frequency: OperationalFrequency::Continuous,
+        domain_entities: vec![],
+        placement_constraint: None,
+        root_path: None,
+        invariant_violations: vec![],
+    });
+
+    for entry in layout_spec.navigation_graph.entries.iter() {
+        let capability = capability_by_route.get(&entry.route_id);
+        let pattern_id = capability.map(|item| item.pattern_id.as_str());
+        let node_id = DomainCapabilityId(format!("route:{}", entry.route_id));
+        catalog.unverified_add_node(DomainCapabilityNode {
+            id: node_id.clone(),
+            name: capability
+                .map(|item| item.route_label.clone())
+                .unwrap_or_else(|| entry.label.clone()),
+            description: capability
+                .map(|item| item.description.clone())
+                .unwrap_or_else(|| format!("Capability route {}", entry.route_id)),
+            intent_type: domain_intent_type_for_pattern(pattern_id),
+            route_id: Some(entry.route_id.clone()),
+            category: Some(entry.category.clone()),
+            required_role: Some(entry.required_role.clone()),
+            icon: Some(entry.icon.clone()),
+            surfacing_heuristic: default_surfacing_for_category(&entry.category),
+            operational_frequency: default_operational_frequency_for_route(&entry.route_id),
+            domain_entities: vec![],
+            placement_constraint: None,
+            root_path: None,
+            invariant_violations: vec![],
+        });
+        catalog.unverified_add_edge(DomainCapabilityEdge {
+            source: root_id.clone(),
+            target: node_id,
+            relationship: DomainEdgeRelationship::ChildOf,
+        });
+    }
+
+    let catalog_hash = hash_json_hex(&json!({
+        "schemaVersion": catalog.schema_version,
+        "nodes": &catalog.nodes,
+        "edges": &catalog.edges,
+    }));
+    catalog.catalog_version = format!(
+        "v1-{}",
+        catalog_hash.chars().take(12).collect::<String>()
+    );
+    catalog.catalog_hash = Some(catalog_hash);
+    catalog
+}
+
+fn space_capability_graph_path(space_id: &str) -> PathBuf {
+    workspace_root()
+        .join("_spaces")
+        .join(space_id)
+        .join("capability_graph.json")
+}
+
+fn space_capability_graph_uri(space_id: &str) -> String {
+    format!("_spaces/{space_id}/capability_graph.json")
+}
+
+fn default_space_capability_graph(
+    space_id: &str,
+    catalog: &PlatformCapabilityCatalog,
+) -> SpaceCapabilityGraph {
+    let base_catalog_hash = catalog
+        .catalog_hash
+        .clone()
+        .unwrap_or_else(|| hash_json_hex(catalog));
+    SpaceCapabilityGraph {
+        schema_version: "1.0.0".to_string(),
+        space_id: space_id.to_string(),
+        base_catalog_version: catalog.catalog_version.clone(),
+        base_catalog_hash,
+        nodes: catalog
+            .nodes
+            .iter()
+            .map(|node| SpaceCapabilityNodeOverride {
+                capability_id: node.id.clone(),
+                local_alias: None,
+                is_active: true,
+                local_required_role: None,
+                surfacing_heuristic: None,
+                operational_frequency: None,
+                placement_constraint: None,
+            })
+            .collect(),
+        edges: catalog.edges.clone(),
+        updated_at: now_iso(),
+        updated_by: "system".to_string(),
+        lineage_ref: Some("bootstrap:space-capability-graph".to_string()),
+    }
+}
+
+fn write_space_capability_graph(space_id: &str, graph: &SpaceCapabilityGraph) -> Result<(), String> {
+    let path = space_capability_graph_path(space_id);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create capability graph directory: {err}"))?;
+    }
+    let encoded = serde_json::to_string_pretty(graph)
+        .map_err(|err| format!("failed to serialize capability graph: {err}"))?;
+    fs::write(path, encoded).map_err(|err| format!("failed to write capability graph: {err}"))
+}
+
+fn read_space_capability_graph(space_id: &str) -> Result<Option<SpaceCapabilityGraph>, String> {
+    let path = space_capability_graph_path(space_id);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path).map_err(|err| format!("failed to read capability graph: {err}"))?;
+    let parsed = serde_json::from_str::<SpaceCapabilityGraph>(&raw)
+        .map_err(|err| format!("failed to parse capability graph: {err}"))?;
+    Ok(Some(parsed))
+}
+
+fn load_or_initialize_space_capability_graph(
+    space_id: &str,
+    catalog: &PlatformCapabilityCatalog,
+) -> Result<SpaceCapabilityGraph, String> {
+    if let Some(graph) = read_space_capability_graph(space_id)? {
+        return Ok(graph);
+    }
+    let graph = default_space_capability_graph(space_id, catalog);
+    write_space_capability_graph(space_id, &graph)?;
+    Ok(graph)
+}
+
+async fn get_system_capability_catalog() -> impl IntoResponse {
+    Json(build_platform_capability_catalog())
+}
+
+async fn get_space_capability_graph(Path(space_id): Path<String>) -> impl IntoResponse {
+    let normalized = space_id.trim();
+    if normalized.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "space_id is required" })),
+        )
+            .into_response();
+    }
+    let catalog = build_platform_capability_catalog();
+    match load_or_initialize_space_capability_graph(normalized, &catalog) {
+        Ok(graph) => (StatusCode::OK, Json(graph)).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": err })),
+        )
+            .into_response(),
+    }
+}
+
+async fn put_space_capability_graph(
+    Path(space_id): Path<String>,
+    headers: HeaderMap,
+    Json(mut payload): Json<SpaceCapabilityGraph>,
+) -> impl IntoResponse {
+    let normalized = space_id.trim();
+    if normalized.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "SPACE_ID_REQUIRED",
+            "space_id is required",
+            None,
+        );
+    }
+
+    let actor_role = actor_role_from_headers(&headers);
+    if role_rank(&actor_role) < role_rank("steward") {
+        return cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            "STEWARD_ROLE_REQUIRED",
+            "Steward role is required for structural capability graph updates.",
+            Some(json!({ "actorRole": actor_role })),
+        );
+    }
+
+    if payload.space_id.trim().is_empty() {
+        payload.space_id = normalized.to_string();
+    }
+    if payload.space_id != normalized {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "SPACE_ID_MISMATCH",
+            "space_id path and payload must match",
+            Some(json!({ "pathSpaceId": normalized, "payloadSpaceId": payload.space_id })),
+        );
+    }
+
+    if payload
+        .lineage_ref
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or("")
+        .is_empty()
+    {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "LINEAGE_REF_REQUIRED",
+            "lineage_ref is required for steward structural updates.",
+            None,
+        );
+    }
+
+    let catalog = build_platform_capability_catalog();
+    if payload.base_catalog_version.trim().is_empty() {
+        payload.base_catalog_version = catalog.catalog_version.clone();
+    }
+    if payload.base_catalog_hash.trim().is_empty() {
+        payload.base_catalog_hash = catalog
+            .catalog_hash
+            .clone()
+            .unwrap_or_else(|| hash_json_hex(&catalog));
+    }
+    payload.updated_at = now_iso();
+    payload.updated_by = actor_id_from_headers(&headers);
+
+    if let Err(err) = write_space_capability_graph(normalized, &payload) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "CAPABILITY_GRAPH_WRITE_FAILED",
+            "Failed to persist capability graph.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    let capability_graph_hash = hash_json_hex(&payload);
+    let registry_path = workspace_root().join("_spaces").join("registry.json");
+    let mut registry =
+        cortex_domain::spaces::SpaceRegistry::load_from_path(&registry_path).unwrap_or_default();
+    if let Some(record) = registry.spaces.get_mut(normalized) {
+        record.capability_graph_uri = Some(space_capability_graph_uri(normalized));
+        record.capability_graph_version = Some(payload.base_catalog_version.clone());
+        record.capability_graph_hash = Some(capability_graph_hash.clone());
+        let _ = registry.save_to_path(&registry_path);
+    }
+
+    (
+        StatusCode::OK,
+        Json(SpaceCapabilityGraphUpsertResponse {
+            accepted: true,
+            space_id: normalized.to_string(),
+            capability_graph_hash,
+            capability_graph_version: payload.base_catalog_version,
+            stored_at: payload.updated_at,
+        }),
+    )
+        .into_response()
+}
+
+async fn get_space_navigation_plan(
+    Path(space_id): Path<String>,
+    Query(query): Query<SpaceNavigationPlanQuery>,
+) -> impl IntoResponse {
+    let normalized = space_id.trim();
+    if normalized.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "space_id is required" })),
+        )
+            .into_response();
+    }
+    let catalog = build_platform_capability_catalog();
+    let graph = match load_or_initialize_space_capability_graph(normalized, &catalog) {
+        Ok(graph) => graph,
+        Err(err) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": err })),
+            )
+                .into_response();
+        }
+    };
+    let context = CompilationContext {
+        space_id: normalized.to_string(),
+        actor_role: query.actor_role.unwrap_or_else(|| "operator".to_string()),
+        intent: query.intent,
+        density: query.density,
+    };
+    let layout_spec = resolve_shell_layout_spec();
+    let plan = compile_navigation_plan(&catalog, &graph, &layout_spec, &context);
+    (StatusCode::OK, Json(plan)).into_response()
+}
+
 async fn get_system_capability_graph() -> impl IntoResponse {
     let layout_spec = resolve_shell_layout_spec();
     let capabilities = resolve_view_capability_manifests();
@@ -16324,6 +17342,23 @@ async fn get_system_capability_graph() -> impl IntoResponse {
         .iter()
         .map(|item| (item.route_id.clone(), item.clone()))
         .collect();
+    let nav_entry_by_route: BTreeMap<String, cortex_domain::ux::types::NavigationEntrySpec> =
+        layout_spec
+            .navigation_graph
+            .entries
+            .iter()
+            .map(|item| (item.route_id.clone(), item.clone()))
+            .collect();
+    let capability_signature = hash_json_hex(&json!({
+        "layout_entries": &layout_spec.navigation_graph.entries,
+        "capabilities": &capabilities,
+        "patterns": &pattern_contracts,
+        "matrix": &matrix,
+    }));
+    let capabilities_version = format!(
+        "v1-{}",
+        capability_signature.chars().take(12).collect::<String>()
+    );
 
     let mut nodes = vec![SystemCapabilityGraphNode {
         id: "cortex.workbench.root".to_string(),
@@ -16335,19 +17370,52 @@ async fn get_system_capability_graph() -> impl IntoResponse {
         pattern_id: None,
         promotion_status: None,
         invariant_violations: None,
+        cluster_key: Some("domain:system".to_string()),
+        domain: Some("system".to_string()),
+        locked_reason: None,
+        visibility_state: Some("visible".to_string()),
+        health: Some("healthy".to_string()),
+        priority: Some("high".to_string()),
+        inspector: Some(SystemCapabilityNodeInspector {
+            route_id: None,
+            category: Some("system".to_string()),
+            pattern_label: None,
+            required_role: Some("viewer".to_string()),
+            required_role_rank: Some(role_rank("viewer") as u8),
+            operator_critical: Some(true),
+            approval_required: Some(false),
+            promotion_status: Some("production".to_string()),
+        }),
     }];
 
     for pattern in pattern_contracts.iter() {
+        let required_role = Some(pattern.required_role.clone());
         nodes.push(SystemCapabilityGraphNode {
             id: pattern_node_id(&pattern.pattern_id),
             title: pattern.label.clone(),
             description: pattern.description.clone(),
             intent_type: "configure".to_string(),
             route_id: None,
-            required_role: Some(pattern.required_role.clone()),
+            required_role: required_role.clone(),
             pattern_id: Some(pattern.pattern_id.clone()),
             promotion_status: None,
             invariant_violations: None,
+            cluster_key: Some("domain:pattern".to_string()),
+            domain: Some("pattern".to_string()),
+            locked_reason: locked_reason(required_role.as_deref()),
+            visibility_state: Some(visibility_state(required_role.as_deref())),
+            health: Some("healthy".to_string()),
+            priority: Some("normal".to_string()),
+            inspector: Some(SystemCapabilityNodeInspector {
+                route_id: None,
+                category: Some("pattern".to_string()),
+                pattern_label: Some(pattern.label.clone()),
+                required_role: required_role.clone(),
+                required_role_rank: Some(role_rank(&pattern.required_role) as u8),
+                operator_critical: Some(false),
+                approval_required: Some(false),
+                promotion_status: None,
+            }),
         });
     }
 
@@ -16355,6 +17423,27 @@ async fn get_system_capability_graph() -> impl IntoResponse {
     for entry in layout_spec.navigation_graph.entries.iter() {
         let row = matrix_by_route.get(&entry.route_id);
         let capability = capability_by_route.get(&entry.route_id);
+        let pattern_id = row
+            .map(|item| item.pattern_id.clone())
+            .or_else(|| capability.map(|item| item.pattern_id.clone()));
+        let promotion_status = row
+            .map(|item| item.promotion_status.clone())
+            .or_else(|| capability.map(|item| item.promotion_status.clone()));
+        let required_role = Some(
+            row.map(|item| item.required_role.clone())
+                .unwrap_or_else(|| entry.required_role.clone()),
+        );
+        let operator_critical = capability
+            .map(|item| item.operator_critical)
+            .unwrap_or(false);
+        let approval_required = row
+            .map(|item| item.approval_required)
+            .or_else(|| capability.map(|item| item.approval_required))
+            .unwrap_or(false);
+        let pattern_label = pattern_id
+            .as_ref()
+            .and_then(|id| pattern_by_id.get(id))
+            .map(|pattern| pattern.label.clone());
         nodes.push(SystemCapabilityGraphNode {
             id: route_node_id(&entry.route_id),
             title: capability
@@ -16368,17 +17457,29 @@ async fn get_system_capability_graph() -> impl IntoResponse {
                     .or_else(|| capability.map(|item| item.pattern_id.as_str())),
             ),
             route_id: Some(entry.route_id.clone()),
-            required_role: Some(
-                row.map(|item| item.required_role.clone())
-                    .unwrap_or_else(|| entry.required_role.clone()),
-            ),
-            pattern_id: row
-                .map(|item| item.pattern_id.clone())
-                .or_else(|| capability.map(|item| item.pattern_id.clone())),
-            promotion_status: row
-                .map(|item| item.promotion_status.clone())
-                .or_else(|| capability.map(|item| item.promotion_status.clone())),
+            required_role: required_role.clone(),
+            pattern_id: pattern_id.clone(),
+            promotion_status: promotion_status.clone(),
             invariant_violations: None,
+            cluster_key: Some(format!("domain:{}", entry.category)),
+            domain: Some(entry.category.clone()),
+            locked_reason: locked_reason(required_role.as_deref()),
+            visibility_state: Some(visibility_state(required_role.as_deref())),
+            health: Some("healthy".to_string()),
+            priority: Some(priority_from_metadata(
+                operator_critical,
+                promotion_status.as_deref(),
+            )),
+            inspector: Some(SystemCapabilityNodeInspector {
+                route_id: Some(entry.route_id.clone()),
+                category: Some(entry.category.clone()),
+                pattern_label,
+                required_role: required_role.clone(),
+                required_role_rank: required_role.as_ref().map(|role| role_rank(role) as u8),
+                operator_critical: Some(operator_critical),
+                approval_required: Some(approval_required),
+                promotion_status,
+            }),
         });
         route_ids_seen.insert(entry.route_id.clone());
     }
@@ -16388,6 +17489,17 @@ async fn get_system_capability_graph() -> impl IntoResponse {
             continue;
         }
         let capability = capability_by_route.get(&row.route_id);
+        let domain = nav_entry_by_route
+            .get(&row.route_id)
+            .map(|entry| entry.category.clone())
+            .unwrap_or_else(|| "matrix_only".to_string());
+        let required_role = Some(row.required_role.clone());
+        let operator_critical = capability
+            .map(|item| item.operator_critical)
+            .unwrap_or(false);
+        let pattern_label = pattern_by_id
+            .get(&row.pattern_id)
+            .map(|pattern| pattern.label.clone());
         nodes.push(SystemCapabilityGraphNode {
             id: route_node_id(&row.route_id),
             title: capability
@@ -16398,10 +17510,29 @@ async fn get_system_capability_graph() -> impl IntoResponse {
                 .unwrap_or_else(|| format!("Capability route {}", row.route_id)),
             intent_type: intent_type_for_pattern(Some(row.pattern_id.as_str())),
             route_id: Some(row.route_id.clone()),
-            required_role: Some(row.required_role.clone()),
+            required_role: required_role.clone(),
             pattern_id: Some(row.pattern_id.clone()),
             promotion_status: Some(row.promotion_status.clone()),
             invariant_violations: None,
+            cluster_key: Some(format!("domain:{domain}")),
+            domain: Some(domain.clone()),
+            locked_reason: locked_reason(required_role.as_deref()),
+            visibility_state: Some(visibility_state(required_role.as_deref())),
+            health: Some("healthy".to_string()),
+            priority: Some(priority_from_metadata(
+                operator_critical,
+                Some(row.promotion_status.as_str()),
+            )),
+            inspector: Some(SystemCapabilityNodeInspector {
+                route_id: Some(row.route_id.clone()),
+                category: Some(domain),
+                pattern_label,
+                required_role: required_role.clone(),
+                required_role_rank: Some(role_rank(&row.required_role) as u8),
+                operator_critical: Some(operator_critical),
+                approval_required: Some(row.approval_required),
+                promotion_status: Some(row.promotion_status.clone()),
+            }),
         });
     }
 
@@ -16411,6 +17542,11 @@ async fn get_system_capability_graph() -> impl IntoResponse {
             from: "cortex.workbench.root".to_string(),
             to: pattern_node_id(&pattern.pattern_id),
             relationship: "contains".to_string(),
+            relationship_label: Some(relationship_label("contains")),
+            confidence: Some(relationship_confidence("contains")),
+            policy_ref: Some(relationship_policy_ref("contains")),
+            rationale: Some(relationship_rationale("contains")),
+            directionality: Some("directed".to_string()),
         });
     }
 
@@ -16427,6 +17563,11 @@ async fn get_system_capability_graph() -> impl IntoResponse {
             from,
             to: route_node_id(route_id),
             relationship: "drill_down".to_string(),
+            relationship_label: Some(relationship_label("drill_down")),
+            confidence: Some(relationship_confidence("drill_down")),
+            policy_ref: Some(relationship_policy_ref("drill_down")),
+            rationale: Some(relationship_rationale("drill_down")),
+            directionality: Some("directed".to_string()),
         });
     }
 
@@ -16437,17 +17578,84 @@ async fn get_system_capability_graph() -> impl IntoResponse {
                 from: route_node_id(&left.route_id),
                 to: route_node_id(&right.route_id),
                 relationship: "follows".to_string(),
+                relationship_label: Some(relationship_label("follows")),
+                confidence: Some(relationship_confidence("follows")),
+                policy_ref: Some(relationship_policy_ref("follows")),
+                rationale: Some(relationship_rationale("follows")),
+                directionality: Some("directed".to_string()),
             });
         }
     }
 
     nodes.sort_by(|left, right| left.id.cmp(&right.id));
     let edges: Vec<SystemCapabilityGraphEdge> = edge_set.into_iter().collect();
+    let mut seen_domains = BTreeSet::new();
+    let mut ordered_domains: Vec<String> = vec!["system".to_string(), "pattern".to_string()];
+    for domain in ordered_domains.iter() {
+        seen_domains.insert(domain.clone());
+    }
+    for entry in layout_spec.navigation_graph.entries.iter() {
+        if seen_domains.insert(entry.category.clone()) {
+            ordered_domains.push(entry.category.clone());
+        }
+    }
+    for node in nodes.iter() {
+        if let Some(domain) = node.domain.as_ref() {
+            if seen_domains.insert(domain.clone()) {
+                ordered_domains.push(domain.clone());
+            }
+        }
+    }
+    let groups: Vec<SystemCapabilityGraphLayoutGroup> = ordered_domains
+        .iter()
+        .enumerate()
+        .map(|(index, domain)| SystemCapabilityGraphLayoutGroup {
+            key: format!("domain:{domain}"),
+            label: domain.replace('_', " "),
+            order: index,
+            color: domain_color(domain),
+        })
+        .collect();
+    let layout_hints = SystemCapabilityGraphLayoutHints {
+        engine: "react_flow".to_string(),
+        seed: "capability-graph-v2".to_string(),
+        cluster_by: "domain".to_string(),
+        groups,
+    };
+    let mut intent_type_colors = BTreeMap::new();
+    intent_type_colors.insert("configure".to_string(), "#f59e0b".to_string());
+    intent_type_colors.insert("execute".to_string(), "#22c55e".to_string());
+    intent_type_colors.insert("monitor".to_string(), "#0ea5e9".to_string());
+    intent_type_colors.insert("mutate".to_string(), "#f97316".to_string());
+    intent_type_colors.insert("navigate".to_string(), "#a78bfa".to_string());
+    intent_type_colors.insert("unspecified".to_string(), "#94a3b8".to_string());
+    let mut relationship_styles = BTreeMap::new();
+    relationship_styles.insert("contains".to_string(), "solid".to_string());
+    relationship_styles.insert("drill_down".to_string(), "solid-arrow".to_string());
+    relationship_styles.insert("follows".to_string(), "dashed-arrow".to_string());
+    let legend = SystemCapabilityGraphLegend {
+        intent_type_colors,
+        relationship_styles,
+        lock_semantics: "role_rank(required_role) > actor_role_rank".to_string(),
+    };
+    let graph_hash = hash_json_hex(&json!({
+        "schema_version": "1.1.0",
+        "source_of_truth": &source_state.source_of_truth,
+        "capabilities_version": &capabilities_version,
+        "layout_hints": &layout_hints,
+        "legend": &legend,
+        "nodes": &nodes,
+        "edges": &edges,
+    }));
 
     let response = SystemCapabilityGraphResponse {
-        schema_version: "1.0.0".to_string(),
+        schema_version: "1.1.0".to_string(),
         generated_at: now_iso(),
         source_of_truth: source_state.source_of_truth,
+        graph_hash: Some(graph_hash),
+        layout_hints: Some(layout_hints),
+        legend: Some(legend),
+        capabilities_version: Some(capabilities_version),
         nodes,
         edges,
     };
@@ -16587,12 +17795,20 @@ async fn post_create_space(Json(payload): Json<serde_json::Value>) -> impl IntoR
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
+    let catalog = build_platform_capability_catalog();
+    let initial_graph = default_space_capability_graph(&space_id, &catalog);
+    let graph_hash = hash_json_hex(&initial_graph);
+    let graph_uri = space_capability_graph_uri(&space_id);
+
     let record = cortex_domain::spaces::SpaceRecord {
         space_id: space_id.clone(),
         creation_mode,
         status: initial_status,
         reference_uri,
         template_id,
+        capability_graph_uri: Some(graph_uri.clone()),
+        capability_graph_version: Some(initial_graph.base_catalog_version.clone()),
+        capability_graph_hash: Some(graph_hash.clone()),
         owner,
         created_at: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -16612,6 +17828,14 @@ async fn post_create_space(Json(payload): Json<serde_json::Value>) -> impl IntoR
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": format!("Failed to create space directory: {}", err) })),
         ).into_response();
+    }
+
+    if let Err(err) = write_space_capability_graph(&space_id, &initial_graph) {
+        return (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("Failed to write space capability graph: {}", err) })),
+        )
+            .into_response();
     }
 
     if let Err(err) = registry.save_to_path(&registry_path) {
@@ -18050,9 +19274,9 @@ async fn handle_socket(socket: WebSocket, state: GatewayState) {
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct AgentInitiativeRequest {
-    #[serde(alias = "initiative_id")]
-    initiative_id: String,
+struct AgentContributionRequest {
+    #[serde(alias = "contribution_id")]
+    contribution_id: String,
     #[serde(default)]
     #[serde(alias = "agent_id")]
     agent_id: Option<String>,
@@ -18063,7 +19287,7 @@ struct AgentInitiativeRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct AgentInitiativeResponse {
+struct AgentContributionResponse {
     accepted: bool,
     run_id: String,
     workflow_id: String,
@@ -18081,7 +19305,7 @@ struct AgentInitiativeResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct AgentInitiativeApprovalRequest {
+struct AgentContributionApprovalRequest {
     decision: String,
     #[serde(default)]
     rationale: Option<String>,
@@ -18096,7 +19320,7 @@ struct AgentInitiativeApprovalRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct AgentInitiativeApprovalResponse {
+struct AgentContributionApprovalResponse {
     accepted: bool,
     run_id: String,
     status: String,
@@ -18123,7 +19347,7 @@ struct AgentRunRecord {
     #[serde(default)]
     pending_action_target: Option<ActionTarget>,
     #[serde(default)]
-    approval: Option<AgentInitiativeApprovalRequest>,
+    approval: Option<AgentContributionApprovalRequest>,
 }
 
 fn agent_runs_dir() -> PathBuf {
@@ -18150,11 +19374,11 @@ fn load_agent_run_record(space_id: &str, run_id: &str) -> Result<AgentRunRecord,
     serde_json::from_str::<AgentRunRecord>(&raw).map_err(|err| err.to_string())
 }
 
-fn next_agent_run_id(space_id: &str, initiative_id: &str) -> String {
+fn next_agent_run_id(space_id: &str, contribution_id: &str) -> String {
     format!(
         "agent_run_{}_{}_{}",
         sanitize_fs_component(space_id),
-        sanitize_fs_component(initiative_id),
+        sanitize_fs_component(contribution_id),
         Utc::now().timestamp_millis()
     )
 }
@@ -18271,7 +19495,7 @@ fn persist_temporal_start_command(
         run_id: run.run_id.clone(),
         workflow_id: binding.workflow_id.clone(),
         space_id: run.space_id.clone(),
-        initiative_id: run.initiative_id.clone(),
+        contribution_id: run.contribution_id.clone(),
         approval_timeout_seconds,
         task_queue: binding
             .task_queue
@@ -18290,7 +19514,7 @@ fn persist_temporal_start_command(
 
 fn persist_temporal_signal_command(
     run_id: &str,
-    payload: &AgentInitiativeApprovalRequest,
+    payload: &AgentContributionApprovalRequest,
 ) -> Result<(), String> {
     ensure_temporal_runtime_dirs()?;
     let command = TemporalBridgeSignalCommand {
@@ -18552,7 +19776,7 @@ fn start_temporal_sdk_workflow_cli(
         .to_string();
     let mut command = temporal_cli_command(Some(&namespace));
     let input = json!({
-        "initiative_id": run.initiative_id,
+        "contribution_id": run.contribution_id,
         "space_id": run.space_id
     })
     .to_string();
@@ -18611,7 +19835,7 @@ async fn start_temporal_sdk_workflow_native(
         .map_err(|err| format!("temporal_sdk_connect_failed: {}", err))?;
 
     let input_payload = json!({
-        "initiative_id": run.initiative_id,
+        "contribution_id": run.contribution_id,
         "space_id": run.space_id
     })
     .as_json_payload()
@@ -18653,7 +19877,7 @@ async fn start_temporal_sdk_workflow_native(
 
 async fn signal_temporal_sdk_workflow(
     run: &AgentRunRecord,
-    payload: &AgentInitiativeApprovalRequest,
+    payload: &AgentContributionApprovalRequest,
 ) -> Result<(), String> {
     match temporal_sdk_transport() {
         TemporalSdkTransport::Cli => signal_temporal_sdk_workflow_cli(run, payload),
@@ -18663,7 +19887,7 @@ async fn signal_temporal_sdk_workflow(
 
 fn signal_temporal_sdk_workflow_cli(
     run: &AgentRunRecord,
-    payload: &AgentInitiativeApprovalRequest,
+    payload: &AgentContributionApprovalRequest,
 ) -> Result<(), String> {
     let binding = run
         .run
@@ -18690,7 +19914,7 @@ fn signal_temporal_sdk_workflow_cli(
         "actor": payload.actor,
         "decisionRef": payload.decision_ref,
         "spaceId": run.run.space_id,
-        "scenarioId": format!("sim-{}", run.run.initiative_id),
+        "scenarioId": format!("sim-{}", run.run.contribution_id),
         "runId": run.run.run_id
     })
     .to_string();
@@ -18705,7 +19929,7 @@ fn signal_temporal_sdk_workflow_cli(
 #[cfg(feature = "temporal-sdk-native")]
 async fn signal_temporal_sdk_workflow_native(
     run: &AgentRunRecord,
-    payload: &AgentInitiativeApprovalRequest,
+    payload: &AgentContributionApprovalRequest,
 ) -> Result<(), String> {
     let binding = run
         .run
@@ -18739,7 +19963,7 @@ async fn signal_temporal_sdk_workflow_native(
         "actor": payload.actor,
         "decisionRef": payload.decision_ref,
         "spaceId": run.run.space_id,
-        "scenarioId": format!("sim-{}", run.run.initiative_id),
+        "scenarioId": format!("sim-{}", run.run.contribution_id),
         "runId": run.run.run_id
     })
     .as_json_payload()
@@ -18768,7 +19992,7 @@ async fn signal_temporal_sdk_workflow_native(
 #[cfg(not(feature = "temporal-sdk-native"))]
 async fn signal_temporal_sdk_workflow_native(
     run: &AgentRunRecord,
-    payload: &AgentInitiativeApprovalRequest,
+    payload: &AgentContributionApprovalRequest,
 ) -> Result<(), String> {
     let _ = (run, payload);
     Err("temporal_sdk_native_unavailable_build_with_feature_temporal-sdk-native".to_string())
@@ -19414,11 +20638,11 @@ fn build_agent_simulation_scenario(
 
 fn evaluate_agent_plan(
     run_id: &str,
-    initiative_id: &str,
+    contribution_id: &str,
 ) -> Result<(AgentSimulationEvaluation, ActionTarget), String> {
     let intent = AgentIntent::CreateContextNode {
-        node_id: format!("ctx_{}", sanitize_fs_component(initiative_id)),
-        content: format!("Proposed initiative: {initiative_id}"),
+        node_id: format!("ctx_{}", sanitize_fs_component(contribution_id)),
+        content: format!("Proposed contribution: {contribution_id}"),
     };
     let action_target = agent_intent_to_action_target(intent);
     let action = simulation_action_from_action_target(&action_target);
@@ -19529,7 +20753,7 @@ fn build_a2ui_surface_payload(
                                         "y": 110,
                                         "w": 200,
                                         "h": 90,
-                                        "text": "initiative intent"
+                                        "text": "contribution intent"
                                     }
                                 },
                                 {
@@ -19615,7 +20839,7 @@ fn build_a2ui_surface_payload(
 
 fn persist_approval_bridge_record(
     run: &AgentRunRecord,
-    approval: &AgentInitiativeApprovalRequest,
+    approval: &AgentContributionApprovalRequest,
 ) -> Result<(), String> {
     let action_id = format!("decision_ack_{}", sanitize_fs_component(&run.run.run_id));
     let record = json!({
@@ -19625,14 +20849,14 @@ fn persist_approval_bridge_record(
         "decisionGateId": format!("agent_run_gate:{}", run.run.run_id),
         "workflowId": run.run.workflow_id,
         "mutationId": run.run.run_id,
-        "actionTarget": "agent_initiative_apply",
+        "actionTarget": "agent_contribution_apply",
         "riskStatement": format!("riskScore={}", run.run.simulation.as_ref().and_then(|value| value.get("riskScore")).cloned().unwrap_or(json!(0))),
         "rollbackPath": "operator_rejects_and_run_stops_before_apply",
         "evidenceRefs": [
             format!("agent_runs/{}.json", run.run.run_id)
         ],
         "lineageId": format!("lineage:{}", run.run.run_id),
-        "policyRef": "policy:agent_initiative_approval_bridge",
+        "policyRef": "policy:agent_contribution_approval_bridge",
         "actorRef": approval.actor,
         "note": approval.rationale,
         "createdAt": now_iso()
@@ -20004,7 +21228,7 @@ async fn apply_authority_guard(
         match governance
             .evaluate_action_scope_with_actor(
                 run.run.space_id.as_str(),
-                "agent_initiative_apply",
+                "agent_contribution_apply",
                 "attributed",
                 "release_blocker",
                 &actor_principal,
@@ -20158,7 +21382,7 @@ fn persist_agent_run_shadow_comparison(run: &AgentRunRecord) -> Result<(), Strin
 
 fn persist_temporal_approval_signal(
     run: &AgentRunRecord,
-    approval: &AgentInitiativeApprovalRequest,
+    approval: &AgentContributionApprovalRequest,
 ) -> Result<(), String> {
     let Some(binding) = run.run.temporal_binding.as_ref() else {
         return Ok(());
@@ -20179,7 +21403,7 @@ fn persist_temporal_approval_signal(
         "recordedAt": now_iso(),
         "runId": run.run.run_id,
         "workflowId": run.run.workflow_id,
-        "scenarioId": format!("sim-{}", run.run.initiative_id),
+        "scenarioId": format!("sim-{}", run.run.contribution_id),
         "spaceId": run.run.space_id,
         "decision": approval.decision,
         "rationale": approval.rationale,
@@ -20192,7 +21416,7 @@ fn persist_temporal_approval_signal(
     persist_json(&run_path, &payload)?;
     let scenario_path = signal_dir.join(format!(
         "scenario__{}.json",
-        sanitize_fs_component(&format!("sim-{}", run.run.initiative_id))
+        sanitize_fs_component(&format!("sim-{}", run.run.contribution_id))
     ));
     persist_json(&scenario_path, &payload)
 }
@@ -20488,14 +21712,14 @@ async fn drive_agent_run_lifecycle(state: GatewayState, space_id: String, run_id
 
     record.run.status = AgentRunStatus::Simulating;
     let simulating_status = run_status_name(&record.run.status).to_string();
-    let initiative_id = record.run.initiative_id.clone();
+    let contribution_id = record.run.contribution_id.clone();
     emit_agent_event(
         &state,
         &mut record,
         "run_started",
         json!({
             "status": simulating_status,
-            "initiativeId": initiative_id
+            "contributionId": contribution_id
         }),
     );
     let _ = persist_agent_run_record(&record);
@@ -20515,7 +21739,7 @@ async fn drive_agent_run_lifecycle(state: GatewayState, space_id: String, run_id
         );
     }
 
-    let (simulation, action_target) = match evaluate_agent_plan(&run_id, &record.run.initiative_id)
+    let (simulation, action_target) = match evaluate_agent_plan(&run_id, &record.run.contribution_id)
     {
         Ok(value) => value,
         Err(err) => {
@@ -20727,11 +21951,11 @@ async fn drive_agent_run_lifecycle(state: GatewayState, space_id: String, run_id
     }
 }
 
-async fn post_agent_initiative(
+async fn post_agent_contribution(
     State(state): State<GatewayState>,
     Path(space_id): Path<String>,
     headers: HeaderMap,
-    Json(payload): Json<AgentInitiativeRequest>,
+    Json(payload): Json<AgentContributionRequest>,
 ) -> impl IntoResponse {
     let normalized_space = space_id.trim().to_string();
     if normalized_space.is_empty() {
@@ -20743,19 +21967,19 @@ async fn post_agent_initiative(
         )
             .into_response();
     }
-    if payload.initiative_id.trim().is_empty() {
+    if payload.contribution_id.trim().is_empty() {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({
-                "error": "initiativeId is required"
+                "error": "contributionId is required"
             })),
         )
             .into_response();
     }
 
     tracing::info!(
-        "Dispatching Agent Initiative {} for Space {}",
-        payload.initiative_id,
+        "Dispatching Agent Contribution {} for Space {}",
+        payload.contribution_id,
         normalized_space
     );
 
@@ -20773,8 +21997,8 @@ async fn post_agent_initiative(
                 .into_response();
         }
     };
-    let run_id = next_agent_run_id(&normalized_space, &payload.initiative_id);
-    let workflow_id = format!("wf-{}-{}", normalized_space, payload.initiative_id);
+    let run_id = next_agent_run_id(&normalized_space, &payload.contribution_id);
+    let workflow_id = format!("wf-{}-{}", normalized_space, payload.contribution_id);
     let execution_id = next_execution_id(run_id.as_str());
     let attempt_id = next_attempt_id(execution_id.as_str());
     let agent_id = resolve_agent_identity(payload.agent_id.as_deref(), &headers);
@@ -20810,7 +22034,7 @@ async fn post_agent_initiative(
             run_id: run_id.clone(),
             workflow_id: workflow_id.clone(),
             space_id: normalized_space.clone(),
-            initiative_id: payload.initiative_id.clone(),
+            contribution_id: payload.contribution_id.clone(),
             agent_id: Some(agent_id.clone()),
             status: AgentRunStatus::Queued,
             started_at: started_at.clone(),
@@ -20837,7 +22061,7 @@ async fn post_agent_initiative(
         "run_started",
         json!({
             "status": queued_status,
-            "initiativeId": payload.initiative_id,
+            "contributionId": payload.contribution_id,
             "agentId": agent_id
         }),
     );
@@ -20948,7 +22172,7 @@ async fn post_agent_initiative(
         mode.as_str().to_string()
     };
 
-    let response = AgentInitiativeResponse {
+    let response = AgentContributionResponse {
         accepted: true,
         run_id: run_id.clone(),
         workflow_id: workflow_id.clone(),
@@ -20971,7 +22195,7 @@ async fn post_agent_initiative(
     (StatusCode::ACCEPTED, Json(response)).into_response()
 }
 
-async fn get_agent_initiative_run(
+async fn get_agent_contribution_run(
     Path((space_id, run_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
     match load_agent_run_record(&space_id, &run_id) {
@@ -20989,10 +22213,10 @@ async fn get_agent_initiative_run(
     }
 }
 
-async fn post_agent_initiative_approval(
+async fn post_agent_contribution_approval(
     State(state): State<GatewayState>,
     Path((space_id, run_id)): Path<(String, String)>,
-    Json(payload): Json<AgentInitiativeApprovalRequest>,
+    Json(payload): Json<AgentContributionApprovalRequest>,
 ) -> impl IntoResponse {
     let decision = payload.decision.trim().to_ascii_lowercase();
     let normalized_decision_ref = payload
@@ -21002,7 +22226,7 @@ async fn post_agent_initiative_approval(
         .filter(|value| !value.is_empty())
         .map(ToString::to_string)
         .unwrap_or_else(|| format!("DEC-{}", sanitize_fs_component(&run_id)));
-    let payload = AgentInitiativeApprovalRequest {
+    let payload = AgentContributionApprovalRequest {
         decision: payload.decision,
         rationale: payload.rationale,
         actor: payload.actor,
@@ -21059,7 +22283,7 @@ async fn post_agent_initiative_approval(
         if existing_ref == Some(normalized_decision_ref.as_str()) {
             if existing.decision.eq_ignore_ascii_case(&decision) && existing.actor == payload.actor
             {
-                let response = AgentInitiativeApprovalResponse {
+                let response = AgentContributionApprovalResponse {
                     accepted: true,
                     run_id,
                     status: run_status_name(&record.run.status).to_string(),
@@ -21192,7 +22416,7 @@ async fn post_agent_initiative_approval(
             .into_response();
     }
 
-    let response = AgentInitiativeApprovalResponse {
+    let response = AgentContributionApprovalResponse {
         accepted: true,
         run_id,
         status: "approval_recorded".to_string(),
@@ -21464,9 +22688,9 @@ mod tests {
           "schema_version": "1.0.0",
           "generated_at": "2026-02-23T00:00:00Z",
           "integrity_set": ["097", "118", "121", "123"],
-          "initiatives": [
-            {"initiative_id": "121", "status": "draft"},
-            {"initiative_id": "123", "status": "active"}
+          "contributions": [
+            {"contribution_id": "121", "status": "draft"},
+            {"contribution_id": "123", "status": "active"}
           ]
         });
 
@@ -21476,7 +22700,7 @@ mod tests {
           "integrity_set": ["097", "118", "121", "123"],
           "overall_closure_state": "ready",
           "rows": [
-            {"initiative_id": "121", "closure_state": "ready", "missing_dependencies": []}
+            {"contribution_id": "121", "closure_state": "ready", "missing_dependencies": []}
           ]
         });
 
@@ -21498,14 +22722,14 @@ mod tests {
           "graph_fingerprint": "abcdef1234567890",
           "integrity_set": ["097", "118", "121", "123"],
           "edge_types": [
-            "initiative_has_rule",
+            "contribution_has_rule",
             "rule_has_run",
             "run_emits_violation",
             "violation_backed_by_evidence",
-            "initiative_has_waiver"
+            "contribution_has_waiver"
           ],
           "entities": {
-            "initiatives": [{"id": "initiative:121", "kind": "Initiative"}],
+            "contributions": [{"id": "contribution:121", "kind": "Contribution"}],
             "rules": [{"id": "rule:siq_governance_execution_contract", "kind": "Rule"}],
             "gate_runs": [{"id": "run:siq_fixture_run", "kind": "GateRun"}],
             "violations": [],
@@ -21514,9 +22738,9 @@ mod tests {
           },
           "edges": [
             {
-              "edge_id": "initiative_has_rule:initiative:121->rule:siq_governance_execution_contract",
-              "type": "initiative_has_rule",
-              "from": "initiative:121",
+              "edge_id": "contribution_has_rule:contribution:121->rule:siq_governance_execution_contract",
+              "type": "contribution_has_rule",
+              "from": "contribution:121",
               "to": "rule:siq_governance_execution_contract"
             }
           ]
@@ -21581,7 +22805,7 @@ mod tests {
         let snapshot = json!({
           "schema_version": "1.0.0",
           "generated_at": "2026-02-08T10:00:00Z",
-          "initiative_id": "078",
+          "contribution_id": "078",
           "status": {
             "gate_result": "G2_DUAL_PATH_PASS",
             "posture": "watch-first",
@@ -21631,7 +22855,7 @@ mod tests {
           "schema_version": "1.0.0",
           "decision_event_id": "kg_decision_20260208_abcdef123456",
           "captured_at": "2026-02-08T10:10:00Z",
-          "initiative": "078",
+          "contribution": "078",
           "decision_date": "2026-02-08",
           "selected_option": "Hold Deferred",
           "rationale": "Maintain watch-first posture.",
@@ -21806,16 +23030,16 @@ mod tests {
     }
 
     #[test]
-    fn agent_initiative_request_accepts_camel_and_snake_case_keys() {
-        let camel: AgentInitiativeRequest =
-            serde_json::from_value(json!({ "initiativeId": "initiative-alpha" }))
+    fn agent_contribution_request_accepts_camel_and_snake_case_keys() {
+        let camel: AgentContributionRequest =
+            serde_json::from_value(json!({ "contributionId": "contribution-alpha" }))
                 .expect("camelCase payload should deserialize");
-        assert_eq!(camel.initiative_id, "initiative-alpha");
+        assert_eq!(camel.contribution_id, "contribution-alpha");
 
-        let snake: AgentInitiativeRequest =
-            serde_json::from_value(json!({ "initiative_id": "initiative-beta" }))
+        let snake: AgentContributionRequest =
+            serde_json::from_value(json!({ "contribution_id": "contribution-beta" }))
                 .expect("snake_case payload should deserialize");
-        assert_eq!(snake.initiative_id, "initiative-beta");
+        assert_eq!(snake.contribution_id, "contribution-beta");
     }
 
     #[test]
@@ -21854,8 +23078,8 @@ mod tests {
     }
 
     #[test]
-    fn agent_initiative_approval_request_accepts_decision_ref_alias() {
-        let camel: AgentInitiativeApprovalRequest = serde_json::from_value(json!({
+    fn agent_contribution_approval_request_accepts_decision_ref_alias() {
+        let camel: AgentContributionApprovalRequest = serde_json::from_value(json!({
             "decision": "approved",
             "actor": "systems-steward",
             "decisionRef": "DEC-123"
@@ -21863,7 +23087,7 @@ mod tests {
         .expect("camelCase decisionRef should deserialize");
         assert_eq!(camel.decision_ref.as_deref(), Some("DEC-123"));
 
-        let snake: AgentInitiativeApprovalRequest = serde_json::from_value(json!({
+        let snake: AgentContributionApprovalRequest = serde_json::from_value(json!({
             "decision": "approved",
             "actor": "systems-steward",
             "decision_ref": "DEC-456"
@@ -21871,7 +23095,7 @@ mod tests {
         .expect("snake_case decision_ref should deserialize");
         assert_eq!(snake.decision_ref.as_deref(), Some("DEC-456"));
 
-        let with_actor_principal: AgentInitiativeApprovalRequest = serde_json::from_value(json!({
+        let with_actor_principal: AgentContributionApprovalRequest = serde_json::from_value(json!({
             "decision": "approved",
             "actor": "systems-steward",
             "decision_ref": "DEC-789",
@@ -21891,7 +23115,7 @@ mod tests {
             "runId": "run-123",
             "workflowId": "wf-123",
             "spaceId": "space-alpha",
-            "initiativeId": "initiative-alpha",
+            "contributionId": "contribution-alpha",
             "status": "waiting_approval",
             "startedAt": "2026-02-22T00:00:00Z",
             "updatedAt": "2026-02-22T00:00:01Z",
@@ -21993,11 +23217,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn agent_initiative_approval_rejects_missing_actor() {
-        let response = post_agent_initiative_approval(
+    async fn agent_contribution_approval_rejects_missing_actor() {
+        let response = post_agent_contribution_approval(
             State(GatewayState::new()),
             Path(("space-alpha".to_string(), "run-alpha".to_string())),
-            Json(AgentInitiativeApprovalRequest {
+            Json(AgentContributionApprovalRequest {
                 decision: "approved".to_string(),
                 rationale: Some("ship it".to_string()),
                 actor: "   ".to_string(),
@@ -22014,7 +23238,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn agent_initiative_approval_primary_temporal_signal_failure_returns_service_unavailable()
+    async fn agent_contribution_approval_primary_temporal_signal_failure_returns_service_unavailable()
     {
         let _lock = acquire_testing_env_lock();
         let temp = TestTempDir::new();
@@ -22029,7 +23253,7 @@ mod tests {
                 run_id: run_id.clone(),
                 workflow_id: "wf-space-agent-primary".to_string(),
                 space_id: space_id.clone(),
-                initiative_id: "initiative-primary".to_string(),
+                contribution_id: "contribution-primary".to_string(),
                 agent_id: Some("agent:tests".to_string()),
                 status: AgentRunStatus::WaitingApproval,
                 started_at: now.clone(),
@@ -22059,10 +23283,10 @@ mod tests {
         };
         persist_agent_run_record(&record).expect("persist test run record");
 
-        let response = post_agent_initiative_approval(
+        let response = post_agent_contribution_approval(
             State(GatewayState::new()),
             Path((space_id.clone(), run_id.clone())),
-            Json(AgentInitiativeApprovalRequest {
+            Json(AgentContributionApprovalRequest {
                 decision: "approved".to_string(),
                 rationale: Some("ship".to_string()),
                 actor: "systems-steward".to_string(),
@@ -22081,7 +23305,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn agent_initiative_approval_duplicate_decision_ref_is_idempotent() {
+    async fn agent_contribution_approval_duplicate_decision_ref_is_idempotent() {
         let _lock = acquire_testing_env_lock();
         let temp = TestTempDir::new();
         let _guard = DecisionSurfaceLogDirGuard::set(temp.path());
@@ -22093,9 +23317,9 @@ mod tests {
         let record = AgentRunRecord {
             run: AgentRun {
                 run_id: run_id.clone(),
-                workflow_id: "wf-space-agent-initiative".to_string(),
+                workflow_id: "wf-space-agent-contribution".to_string(),
                 space_id: space_id.clone(),
-                initiative_id: "initiative-001".to_string(),
+                contribution_id: "contribution-001".to_string(),
                 agent_id: Some("agent:tests".to_string()),
                 status: AgentRunStatus::WaitingApproval,
                 started_at: now.clone(),
@@ -22126,7 +23350,7 @@ mod tests {
             let _ = approval_rx.await;
         });
 
-        let payload = AgentInitiativeApprovalRequest {
+        let payload = AgentContributionApprovalRequest {
             decision: "approved".to_string(),
             rationale: Some("approved in test".to_string()),
             actor: "systems-steward".to_string(),
@@ -22134,7 +23358,7 @@ mod tests {
             actor_principal: None,
         };
 
-        let first = post_agent_initiative_approval(
+        let first = post_agent_contribution_approval(
             State(state.clone()),
             Path((space_id.clone(), run_id.clone())),
             Json(payload.clone()),
@@ -22146,7 +23370,7 @@ mod tests {
         assert_eq!(first_body["accepted"], true);
 
         let second =
-            post_agent_initiative_approval(State(state), Path((space_id, run_id)), Json(payload))
+            post_agent_contribution_approval(State(state), Path((space_id, run_id)), Json(payload))
                 .await
                 .into_response();
         assert_eq!(second.status(), StatusCode::OK);
@@ -22160,7 +23384,7 @@ mod tests {
                 run_id: "run-authority-test".to_string(),
                 workflow_id: "wf-authority-test".to_string(),
                 space_id: "space-authority-test".to_string(),
-                initiative_id: "initiative-authority-test".to_string(),
+                contribution_id: "contribution-authority-test".to_string(),
                 agent_id: Some("agent:tests-authority".to_string()),
                 status: AgentRunStatus::WaitingApproval,
                 started_at: "2026-02-24T00:00:00Z".to_string(),
@@ -22503,16 +23727,65 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cortex_layout_spec_exposes_studio_and_artifacts_routes() {
+    async fn cortex_layout_spec_exposes_expanded_navigation_planes() {
         let Json(spec) = get_cortex_layout_spec().await;
-        let routes: Vec<String> = spec
+        let routes: std::collections::HashSet<String> = spec
             .navigation_graph
             .entries
             .iter()
             .map(|entry| entry.route_id.clone())
             .collect();
-        assert!(routes.iter().any(|route| route == "/studio"));
-        assert!(routes.iter().any(|route| route == "/artifacts"));
+        let required_routes = [
+            "/spaces",
+            "/heap",
+            "/synthesis",
+            "/playground",
+            "/studio",
+            "/workflows",
+            "/contributions",
+            "/labs",
+            "/system",
+            "/artifacts",
+            "/vfs",
+            "/logs",
+            "/settings",
+            "/inbox",
+            "/agents",
+            "/discovery",
+            "/metrics",
+            "/memory",
+            "/simulation",
+        ];
+        for route in required_routes {
+            assert!(routes.contains(route), "missing required route: {route}");
+        }
+    }
+
+    #[tokio::test]
+    async fn capability_graph_includes_expanded_route_nodes_with_expected_contracts() {
+        let response = get_system_capability_graph().await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        let nodes = body["nodes"].as_array().expect("nodes array");
+
+        let assert_route_contract = |route: &str, pattern_id: &str, role: &str| {
+            let node = nodes
+                .iter()
+                .find(|candidate| candidate["route_id"].as_str() == Some(route))
+                .unwrap_or_else(|| panic!("missing capability graph node for route {}", route));
+            assert_eq!(node["pattern_id"].as_str(), Some(pattern_id));
+            assert_eq!(node["required_role"].as_str(), Some(role));
+        };
+
+        assert_route_contract("/vfs", "pattern.system", "operator");
+        assert_route_contract("/logs", "pattern.system", "operator");
+        assert_route_contract("/settings", "pattern.system", "operator");
+        assert_route_contract("/inbox", "pattern.workflow", "operator");
+        assert_route_contract("/agents", "pattern.system", "operator");
+        assert_route_contract("/discovery", "pattern.spaces", "viewer");
+        assert_route_contract("/metrics", "pattern.testing", "steward");
+        assert_route_contract("/memory", "pattern.studio", "operator");
+        assert_route_contract("/simulation", "pattern.studio", "operator");
     }
 
     #[test]
@@ -23046,6 +24319,10 @@ mod tests {
         assert_eq!(query_response.status(), StatusCode::OK);
         let query_body = response_json(query_response).await;
         assert_eq!(query_body["count"], 1);
+        assert_eq!(
+            query_body["items"][0]["projection"]["pageLinks"][0],
+            "01ARZ3NDEKTSV4RRFFQ69G5FAZ"
+        );
     }
 
     #[tokio::test]
@@ -23084,6 +24361,238 @@ mod tests {
         assert_eq!(mention_query.status(), StatusCode::OK);
         let mention_body = response_json(mention_query).await;
         assert_eq!(mention_body["count"], 0);
+    }
+
+    #[tokio::test]
+    async fn heap_query_attribute_filter_matches_projected_attributes() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-heap-attr".parse().expect("actor header"),
+        );
+
+        let mut payload = heap_emit_fixture(
+            "req-attribute-filter",
+            "Attribute Filter Block",
+            "2026-02-23T10:12:00Z",
+            true,
+            "hash:file_size",
+        );
+        payload["block"]["attributes"] = json!({
+            "priority": "P0",
+            "component": "gateway"
+        });
+
+        let emit = post_cortex_heap_emit(headers, Json(payload)).await;
+        assert_eq!(emit.status(), StatusCode::OK);
+
+        let by_key_value = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            attribute: Some("priority:P0".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(by_key_value.status(), StatusCode::OK);
+        let by_key_value_body = response_json(by_key_value).await;
+        assert_eq!(by_key_value_body["count"], 1);
+
+        let by_key_only = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            attribute: Some("component".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(by_key_only.status(), StatusCode::OK);
+        let by_key_only_body = response_json(by_key_only).await;
+        assert_eq!(by_key_only_body["count"], 1);
+    }
+
+    #[tokio::test]
+    async fn heap_query_page_link_filter_matches_projection() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-heap-pagelink".parse().expect("actor header"),
+        );
+
+        let payload = heap_emit_fixture(
+            "req-page-link-filter",
+            "Page Link Filter Block",
+            "2026-02-23T10:14:00Z",
+            true,
+            "hash:file_size",
+        );
+        let emit = post_cortex_heap_emit(headers, Json(payload)).await;
+        assert_eq!(emit.status(), StatusCode::OK);
+
+        let filtered = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            page_link: Some("01ARZ3NDEKTSV4RRFFQ69G5FAZ".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(filtered.status(), StatusCode::OK);
+        let filtered_body = response_json(filtered).await;
+        assert_eq!(filtered_body["count"], 1);
+
+        let none = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            page_link: Some("01ARZ3NDEKTSV4RRFFQ69G5FAA".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(none.status(), StatusCode::OK);
+        let none_body = response_json(none).await;
+        assert_eq!(none_body["count"], 0);
+    }
+
+    #[tokio::test]
+    async fn heap_query_changed_since_alias_matches_from_ts() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-heap-changed-since".parse().expect("actor header"),
+        );
+
+        let payload = heap_emit_fixture(
+            "req-changed-since",
+            "Changed Since Alias Block",
+            "2026-02-23T10:18:00Z",
+            true,
+            "hash:file_size",
+        );
+        let emit = post_cortex_heap_emit(headers, Json(payload)).await;
+        assert_eq!(emit.status(), StatusCode::OK);
+
+        let by_from_ts = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            from_ts: Some("2026-02-23T10:00:00Z".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(by_from_ts.status(), StatusCode::OK);
+        let by_from_ts_body = response_json(by_from_ts).await;
+
+        let by_changed_since = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            changed_since: Some("2026-02-23T10:00:00Z".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(by_changed_since.status(), StatusCode::OK);
+        let by_changed_since_body = response_json(by_changed_since).await;
+
+        assert_eq!(by_from_ts_body["count"], by_changed_since_body["count"]);
+
+        let from_ts_wins = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            from_ts: Some("2026-02-23T10:00:00Z".to_string()),
+            changed_since: Some("not-a-date".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(from_ts_wins.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn heap_query_usage_metrics_track_changed_since_alias_and_page_link_filter() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        reset_heap_gateway_usage_metrics();
+
+        let response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            changed_since: Some("2026-02-23T10:00:00Z".to_string()),
+            page_link: Some("01ARZ3NDEKTSV4RRFFQ69G5FAZ".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let after_alias = heap_gateway_usage_snapshot();
+        assert_eq!(after_alias.blocks_changed_since_alias_hits, 1);
+        assert_eq!(after_alias.blocks_page_link_filter_hits, 1);
+
+        let from_ts_wins = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            from_ts: Some("2026-02-23T10:00:00Z".to_string()),
+            changed_since: Some("not-a-date".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(from_ts_wins.status(), StatusCode::OK);
+        let after_precedence = heap_gateway_usage_snapshot();
+        assert_eq!(after_precedence.blocks_changed_since_alias_hits, 1);
+        assert_eq!(after_precedence.blocks_page_link_filter_hits, 1);
+    }
+
+    #[tokio::test]
+    async fn heap_changed_blocks_usage_metrics_track_endpoint_alias_and_page_link_filter() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        reset_heap_gateway_usage_metrics();
+
+        let response = get_cortex_heap_changed_blocks(Query(HeapBlocksQuery {
+            changed_since: Some("2026-02-23T10:00:00Z".to_string()),
+            page_link: Some("01ARZ3NDEKTSV4RRFFQ69G5FAZ".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let first = heap_gateway_usage_snapshot();
+        assert_eq!(first.changed_blocks_endpoint_hits, 1);
+        assert_eq!(first.changed_blocks_changed_since_alias_hits, 1);
+        assert_eq!(first.changed_blocks_page_link_filter_hits, 1);
+
+        let second_response = get_cortex_heap_changed_blocks(Query(HeapBlocksQuery {
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(second_response.status(), StatusCode::OK);
+        let second = heap_gateway_usage_snapshot();
+        assert_eq!(second.changed_blocks_endpoint_hits, 2);
+        assert_eq!(second.changed_blocks_changed_since_alias_hits, 1);
+        assert_eq!(second.changed_blocks_page_link_filter_hits, 1);
     }
 
     #[tokio::test]
@@ -23156,6 +24665,139 @@ mod tests {
             .expect("second artifact id")
             .to_string();
         assert_ne!(first_artifact_id, second_artifact_id);
+    }
+
+    #[tokio::test]
+    async fn heap_changed_blocks_returns_changed_and_deleted_with_cursor() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-heap-delta".parse().expect("actor header"),
+        );
+
+        let first_payload = heap_emit_fixture(
+            "req-delta-a",
+            "Delta A",
+            "2026-02-23T10:30:00Z",
+            true,
+            "hash:file_size",
+        );
+        let second_payload = heap_emit_fixture(
+            "req-delta-b",
+            "Delta B",
+            "2026-02-23T10:31:00Z",
+            true,
+            "hash:file_size",
+        );
+        let first_emit = post_cortex_heap_emit(headers.clone(), Json(first_payload)).await;
+        assert_eq!(first_emit.status(), StatusCode::OK);
+        let second_emit = post_cortex_heap_emit(headers.clone(), Json(second_payload)).await;
+        assert_eq!(second_emit.status(), StatusCode::OK);
+
+        let delete =
+            post_cortex_heap_block_delete(headers, Path("artifact-req-delta-a".to_string())).await;
+        assert_eq!(delete.status(), StatusCode::OK);
+
+        let first_page = get_cortex_heap_changed_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            limit: Some(1),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(first_page.status(), StatusCode::OK);
+        let first_page_body = response_json(first_page).await;
+        assert_eq!(first_page_body["count"], 1);
+        assert_eq!(first_page_body["hasMore"], true);
+        let cursor = first_page_body["nextCursor"]
+            .as_str()
+            .expect("cursor")
+            .to_string();
+
+        let second_page = get_cortex_heap_changed_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            limit: Some(1),
+            cursor: Some(cursor),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(second_page.status(), StatusCode::OK);
+        let second_page_body = response_json(second_page).await;
+        assert_eq!(second_page_body["count"], 1);
+        assert_eq!(second_page_body["hasMore"], false);
+
+        let full = get_cortex_heap_changed_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(full.status(), StatusCode::OK);
+        let full_body = response_json(full).await;
+        assert_eq!(full_body["count"], 2);
+        assert_eq!(
+            full_body["changed"].as_array().map(|items| items.len()),
+            Some(1)
+        );
+        assert_eq!(
+            full_body["deleted"].as_array().map(|items| items.len()),
+            Some(1)
+        );
+    }
+
+    #[tokio::test]
+    async fn heap_changed_blocks_honors_space_scope() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-heap-delta-scope".parse().expect("actor header"),
+        );
+
+        let payload_a = heap_emit_fixture(
+            "req-delta-scope-a",
+            "Scope A",
+            "2026-02-23T10:34:00Z",
+            true,
+            "hash:file_size",
+        );
+        let emit_a = post_cortex_heap_emit(headers.clone(), Json(payload_a)).await;
+        assert_eq!(emit_a.status(), StatusCode::OK);
+
+        let mut payload_b = heap_emit_fixture(
+            "req-delta-scope-b",
+            "Scope B",
+            "2026-02-23T10:35:00Z",
+            true,
+            "hash:file_size",
+        );
+        payload_b["workspace_id"] = json!("01ARZ3NDEKTSV4RRFFQ69G5FB0");
+        let emit_b = post_cortex_heap_emit(headers, Json(payload_b)).await;
+        assert_eq!(emit_b.status(), StatusCode::OK);
+
+        let scoped = get_cortex_heap_changed_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(scoped.status(), StatusCode::OK);
+        let scoped_body = response_json(scoped).await;
+        assert_eq!(scoped_body["count"], 1);
     }
 
     #[tokio::test]
@@ -23232,6 +24874,178 @@ mod tests {
         let include_deleted_body = response_json(include_deleted_query).await;
         assert_eq!(include_deleted_body["count"], 1);
         assert!(include_deleted_body["items"][0]["deletedAt"].is_string());
+    }
+
+    #[tokio::test]
+    async fn capability_graph_response_remains_backward_compatible_with_additive_metadata() {
+        let _lock = acquire_testing_env_lock();
+        let response = get_system_capability_graph().await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+
+        assert!(body["schema_version"].is_string());
+        assert!(body["generated_at"].is_string());
+        assert!(body["source_of_truth"].is_string());
+        assert!(body["nodes"].is_array());
+        assert!(body["edges"].is_array());
+
+        assert!(body["graph_hash"].is_string());
+        assert!(body["capabilities_version"].is_string());
+        assert!(body["layout_hints"].is_object());
+        assert!(body["legend"].is_object());
+    }
+
+    #[tokio::test]
+    async fn capability_graph_hash_is_deterministic_for_same_contract_state() {
+        let _lock = acquire_testing_env_lock();
+        let first = get_system_capability_graph().await.into_response();
+        let second = get_system_capability_graph().await.into_response();
+        assert_eq!(first.status(), StatusCode::OK);
+        assert_eq!(second.status(), StatusCode::OK);
+
+        let first_body = response_json(first).await;
+        let second_body = response_json(second).await;
+
+        assert_eq!(first_body["graph_hash"], second_body["graph_hash"]);
+        assert_eq!(first_body["nodes"], second_body["nodes"]);
+        assert_eq!(first_body["edges"], second_body["edges"]);
+        assert_eq!(
+            first_body["capabilities_version"],
+            second_body["capabilities_version"]
+        );
+    }
+
+    #[tokio::test]
+    async fn system_capability_catalog_returns_versioned_catalog() {
+        let _lock = acquire_testing_env_lock();
+        let response = get_system_capability_catalog().await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["schemaVersion"], "1.0.0");
+        assert!(body["catalogVersion"].is_string());
+        assert!(body["catalogHash"].is_string());
+        assert!(body["nodes"].is_array());
+        assert!(body["edges"].is_array());
+    }
+
+    #[tokio::test]
+    async fn space_capability_graph_put_requires_steward_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let create = post_create_space(Json(json!({
+            "space_id": "space-cap-gate",
+            "creation_mode": "blank",
+            "owner": "systems-steward"
+        })))
+        .await
+        .into_response();
+        assert_eq!(create.status(), StatusCode::CREATED);
+
+        let baseline = get_space_capability_graph(Path("space-cap-gate".to_string()))
+            .await
+            .into_response();
+        assert_eq!(baseline.status(), StatusCode::OK);
+        let baseline_body = response_json(baseline).await;
+        let mut graph: SpaceCapabilityGraph =
+            serde_json::from_value(baseline_body).expect("parse graph");
+        graph.lineage_ref = Some("decision:space-cap-gate-1".to_string());
+
+        let mut operator_headers = HeaderMap::new();
+        operator_headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        operator_headers.insert(
+            "x-cortex-actor",
+            "operator-1".parse().expect("actor header"),
+        );
+        let rejected = put_space_capability_graph(
+            Path("space-cap-gate".to_string()),
+            operator_headers,
+            Json(graph.clone()),
+        )
+        .await
+        .into_response();
+        assert_eq!(rejected.status(), StatusCode::FORBIDDEN);
+
+        let mut steward_headers = HeaderMap::new();
+        steward_headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        steward_headers.insert("x-cortex-actor", "steward-1".parse().expect("actor header"));
+        let accepted = put_space_capability_graph(
+            Path("space-cap-gate".to_string()),
+            steward_headers,
+            Json(graph),
+        )
+        .await
+        .into_response();
+        assert_eq!(accepted.status(), StatusCode::OK);
+        let accepted_body = response_json(accepted).await;
+        assert_eq!(accepted_body["accepted"], true);
+        assert!(accepted_body["capabilityGraphHash"].is_string());
+    }
+
+    #[tokio::test]
+    async fn space_navigation_plan_is_deterministic_and_role_filtered() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let create = post_create_space(Json(json!({
+            "space_id": "space-nav-plan",
+            "creation_mode": "blank",
+            "owner": "systems-steward"
+        })))
+        .await
+        .into_response();
+        assert_eq!(create.status(), StatusCode::CREATED);
+
+        let first = get_space_navigation_plan(
+            Path("space-nav-plan".to_string()),
+            Query(SpaceNavigationPlanQuery {
+                actor_role: Some("viewer".to_string()),
+                intent: Some("navigate".to_string()),
+                density: Some("comfortable".to_string()),
+            }),
+        )
+        .await
+        .into_response();
+        let second = get_space_navigation_plan(
+            Path("space-nav-plan".to_string()),
+            Query(SpaceNavigationPlanQuery {
+                actor_role: Some("viewer".to_string()),
+                intent: Some("navigate".to_string()),
+                density: Some("comfortable".to_string()),
+            }),
+        )
+        .await
+        .into_response();
+
+        assert_eq!(first.status(), StatusCode::OK);
+        assert_eq!(second.status(), StatusCode::OK);
+        let first_body = response_json(first).await;
+        let second_body = response_json(second).await;
+        assert_eq!(first_body["planHash"], second_body["planHash"]);
+
+        let visible_routes: Vec<&serde_json::Value> = first_body["entries"]
+            .as_array()
+            .expect("entries array")
+            .iter()
+            .filter(|entry| entry["requiredRole"].as_str().unwrap_or_default() == "viewer")
+            .collect();
+        assert!(!visible_routes.is_empty());
+        assert!(
+            !first_body["entries"]
+                .as_array()
+                .expect("entries array")
+                .iter()
+                .any(|entry| entry["routeId"].as_str() == Some("/logs")),
+            "viewer plan should not include operator-only /logs"
+        );
     }
 
     #[tokio::test]
@@ -23752,7 +25566,7 @@ mod tests {
         let ledger_path = temp.path().join("TASKS.json");
         let ledger = json!({
             "schema_version": "1.0.0",
-            "initiative_id": "116-cortex-realtime-ga-trust-hardening",
+            "contribution_id": "116-cortex-realtime-ga-trust-hardening",
             "generated_at": "2026-02-10T00:00:00Z",
             "tasks": [
                 {
@@ -23794,7 +25608,7 @@ mod tests {
         );
 
         let response = get_cortex_runtime_closeout_tasks(Query(CortexCloseoutTasksQuery {
-            initiative_id: Some("116-cortex-realtime-ga-trust-hardening".to_string()),
+            contribution_id: Some("116-cortex-realtime-ga-trust-hardening".to_string()),
             as_of: Some("2026-02-10T12:00:00Z".to_string()),
         }))
         .await;
@@ -24012,7 +25826,7 @@ mod tests {
         let snapshot_response = get_motoko_graph_snapshot().await.into_response();
         assert_eq!(snapshot_response.status(), StatusCode::OK);
         let snapshot_json = response_json(snapshot_response).await;
-        assert_eq!(snapshot_json["initiative_id"], "078");
+        assert_eq!(snapshot_json["contribution_id"], "078");
         assert_eq!(
             snapshot_json["status"]["authority_mode"],
             "recommendation_only"
@@ -24059,7 +25873,7 @@ mod tests {
 
         let payload = DecisionCaptureRequest {
             schema_version: "1.0.0".to_string(),
-            initiative: "078".to_string(),
+            contribution: "078".to_string(),
             decision_date: "2026-02-08".to_string(),
             selected_option: "Request Additional Evidence".to_string(),
             rationale: "Need additional confidence for dependency progression.".to_string(),
@@ -24105,7 +25919,7 @@ mod tests {
 
         let payload = DecisionCaptureRequest {
             schema_version: "1.0.0".to_string(),
-            initiative: "078".to_string(),
+            contribution: "078".to_string(),
             decision_date: "2026-02-08".to_string(),
             selected_option: "Promote Now".to_string(),
             rationale: "invalid option".to_string(),
@@ -24141,7 +25955,7 @@ mod tests {
         for option in options {
             let payload = DecisionCaptureRequest {
                 schema_version: "1.0.0".to_string(),
-                initiative: "078".to_string(),
+                contribution: "078".to_string(),
                 decision_date: "2026-02-08".to_string(),
                 selected_option: option.to_string(),
                 rationale: format!("fixture rationale for {}", option),
