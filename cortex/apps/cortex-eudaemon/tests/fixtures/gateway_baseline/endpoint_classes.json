@@ -1,0 +1,12 @@
+{
+  "classes": [
+    { "name": "system", "path_prefix": "/api/system/" },
+    { "name": "cortex", "path_prefix": "/api/cortex/" },
+    { "name": "acp", "path_prefix": "/api/acp/" },
+    { "name": "workflow", "path_prefix": "/api/workflow" },
+    { "name": "metrics", "path_prefix": "/api/metrics/" },
+    { "name": "testing", "path_prefix": "/api/testing/" },
+    { "name": "kg", "path_prefix": "/api/kg/" },
+    { "name": "ws", "path_prefix": "/ws" }
+  ]
+}

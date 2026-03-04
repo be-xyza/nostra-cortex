@@ -1,0 +1,38 @@
+{
+  "case_id": "post_api_kg_spaces_param_space_id_agents_contributions_param_run_id_approval",
+  "class": "kg",
+  "request": {
+    "method": "POST",
+    "path": "/api/kg/spaces/:space_id/agents/contributions/:run_id/approval"
+  },
+  "normalization": {
+    "mode": "subset",
+    "ignored_fields": [
+      "generated_at",
+      "generatedAt",
+      "updated_at",
+      "updatedAt",
+      "timestamp",
+      "time",
+      "id",
+      "run_id",
+      "mutation_id",
+      "event_id",
+      "session_id",
+      "traceparent",
+      "tracestate",
+      "baggage"
+    ],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "kg"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "kg"
+  }
+}

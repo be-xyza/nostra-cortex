@@ -106,6 +106,10 @@
     },
     {
       "method": "GET",
+      "path": "/api/cortex/studio/heap/changed_blocks"
+    },
+    {
+      "method": "GET",
       "path": "/api/cortex/views/capability-matrix"
     },
     {
@@ -170,59 +174,59 @@
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/agents/initiatives/:run_id"
+      "path": "/api/kg/spaces/:space_id/agents/contributions/:run_id"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/blast-radius"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/blast-radius"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/doctor"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/doctor"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/edition-diff"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/edition-diff"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/edition-trends"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/edition-trends"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/editions"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/editions"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/graph"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/graph"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/lens-summary"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/lens-summary"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/overview"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/overview"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/path-assessment"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/path-assessment"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/runs"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/runs"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/runs/:run_id"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/runs/:run_id"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/simulations"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/simulations"
     },
     {
       "method": "GET",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/violations/by-node"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/violations/by-node"
     },
     {
       "method": "GET",
@@ -230,7 +234,19 @@
     },
     {
       "method": "GET",
+      "path": "/api/metrics/authz"
+    },
+    {
+      "method": "GET",
       "path": "/api/metrics/resilience"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/:space_id/capability-graph"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/:space_id/navigation-plan"
     },
     {
       "method": "GET",
@@ -242,11 +258,15 @@
     },
     {
       "method": "GET",
-      "path": "/api/system/capability-graph"
+      "path": "/api/system/build"
     },
     {
       "method": "GET",
-      "path": "/api/system/build"
+      "path": "/api/system/capability-catalog"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/capability-graph"
     },
     {
       "method": "GET",
@@ -590,27 +610,27 @@
     },
     {
       "method": "POST",
-      "path": "/api/kg/spaces/:space_id/agents/initiatives"
+      "path": "/api/kg/spaces/:space_id/agents/contributions"
     },
     {
       "method": "POST",
-      "path": "/api/kg/spaces/:space_id/agents/initiatives/:run_id/approval"
+      "path": "/api/kg/spaces/:space_id/agents/contributions/:run_id/approval"
     },
     {
       "method": "POST",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/lens/evaluate"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/lens/evaluate"
     },
     {
       "method": "POST",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/pipeline/query"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/pipeline/query"
     },
     {
       "method": "POST",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/pipeline/run"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/pipeline/run"
     },
     {
       "method": "POST",
-      "path": "/api/kg/spaces/:space_id/initiative-graph/steward-packet/export"
+      "path": "/api/kg/spaces/:space_id/contribution-graph/steward-packet/export"
     },
     {
       "method": "POST",
@@ -655,6 +675,10 @@
     {
       "method": "PUT",
       "path": "/api/cortex/preferences/theme-policy"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/spaces/:space_id/capability-graph"
     }
   ]
 }

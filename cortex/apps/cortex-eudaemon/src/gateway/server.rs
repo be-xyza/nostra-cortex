@@ -13,6 +13,11 @@ use crate::services::artifact_collab_crdt::{
     init_state as init_crdt_state, materialize_markdown as materialize_crdt_markdown,
     state_hash as crdt_state_hash,
 };
+use crate::services::authz::{
+    AuthorizationRequest, allow_unverified_role_header, authorize, authz_decision_version,
+    build_navigation_policy_requirements, get_authz_metrics_snapshot, normalize_required_role,
+    record_authz_identity_unverified, role_rank as authz_role_rank, valid_role as authz_valid_role,
+};
 use crate::services::brand_policy::{BrandPolicyBundle, BrandPolicyRegistryService};
 use crate::services::cortex_ux::{
     ArtifactAuditEvent, ShellLayoutSpec, UX_STATUS_APPROVED, UX_STATUS_BLOCKED_MISSING_BASELINE,
@@ -20,10 +25,10 @@ use crate::services::cortex_ux::{
     UX_STATUS_REMEASURED, UX_STATUS_SHIPPED, UxFeedbackEvent, UxFeedbackQueueItem,
     UxLayoutEvaluationRequest, UxPromotionApproval, UxPromotionDecision, UxPromotionRejection,
     ViewCapabilityManifest, ViewCapabilityMatrixRow, default_artifact_capability_manifest,
-    default_persisted_shell_contract, evaluate_cuqs, has_route_access,
-    load_persisted_shell_contract, resolve_capability_matrix, resolve_pattern_contracts,
-    resolve_shell_layout_spec, resolve_view_capability_manifests, role_rank,
-    save_persisted_shell_contract, valid_feedback_status,
+    default_persisted_shell_contract, evaluate_cuqs, load_persisted_shell_contract,
+    resolve_capability_matrix, resolve_pattern_contracts, resolve_shell_layout_spec,
+    resolve_view_capability_manifests, role_rank, save_persisted_shell_contract,
+    valid_feedback_status,
 };
 use crate::services::cortex_ux_store::{
     CortexReplayResult, CortexSyncStatus, cortex_ux_store_manager, is_cortex_ux_local_path,
@@ -122,10 +127,10 @@ use cortex_domain::simulation::scenario::{
 use cortex_domain::simulation::session::{
     SimulationAction as DomainSimulationAction, run_deterministic_session as run_domain_session,
 };
-use cortex_domain::ux::{CompilationContext, compile_navigation_plan};
+use cortex_domain::ux::{CompilationContext, CompiledSurfacingPlan, compile_navigation_plan};
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use nostra_extraction::contribution_graph::{
-    DoctorReport, EditionDiffReport, ContributionGraphV1, PathAssessmentBundleV1, assess_path,
+    ContributionGraphV1, DoctorReport, EditionDiffReport, PathAssessmentBundleV1, assess_path,
     diff_editions, doctor, ingest_and_write, publish_edition, query_graph, simulate,
     validate_research_portfolio,
 };
@@ -421,6 +426,7 @@ struct SpaceCapabilityGraphUpsertResponse {
 #[derive(Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 struct SpaceNavigationPlanQuery {
+    // Compatibility field: ignored unless dev authz override mode explicitly allows unverified role headers.
     actor_role: Option<String>,
     intent: Option<String>,
     density: Option<String>,
@@ -2995,6 +3001,7 @@ impl GatewayService {
             .route("/api/search", post(search_vector))
             .route("/api/health", get(health_check))
             .route("/api/metrics/acp", get(get_acp_metrics))
+            .route("/api/metrics/authz", get(get_authz_metrics))
             .route("/api/metrics/resilience", get(get_resilience_metrics))
             .route("/api/testing/catalog", get(get_testing_catalog))
             .route("/api/testing/runs", get(get_testing_runs))
@@ -3320,10 +3327,16 @@ mod runtime_dispatch_route_classification_tests {
         assert!(is_local_legacy_bypass_api_route("/api/system/ux/workbench"));
         assert!(is_local_legacy_bypass_api_route("/api/spaces/create"));
         assert!(is_local_legacy_bypass_api_route(
+            "/api/spaces/nostra-governance-v0/capability-graph"
+        ));
+        assert!(is_local_legacy_bypass_api_route(
             "/api/spaces/nostra-governance-v0/navigation-plan"
         ));
         assert!(!is_api_request("/api/system/ux/workbench"));
         assert!(!is_api_request("/api/spaces/create"));
+        assert!(!is_api_request(
+            "/api/spaces/nostra-governance-v0/capability-graph"
+        ));
         assert!(!is_api_request(
             "/api/spaces/nostra-governance-v0/navigation-plan"
         ));
@@ -4161,15 +4174,6 @@ fn cortex_ux_error(
         .into_response()
 }
 
-fn actor_role_from_headers(headers: &HeaderMap) -> String {
-    headers
-        .get("x-cortex-role")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_ascii_lowercase)
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| "operator".to_string())
-}
-
 fn actor_id_from_headers(headers: &HeaderMap) -> String {
     headers
         .get("x-cortex-actor")
@@ -4179,6 +4183,32 @@ fn actor_id_from_headers(headers: &HeaderMap) -> String {
         .unwrap_or_else(|| "cortex-desktop".to_string())
 }
 
+fn authz_program_claims_enabled() -> bool {
+    std::env::var("NOSTRA_AUTHZ_REQUIRE_PROGRAM_CLAIMS")
+        .ok()
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn authz_mutation_claims(resource: &str) -> Vec<String> {
+    if !authz_program_claims_enabled() {
+        return vec![];
+    }
+    vec![format!("capability:mutate:{resource}")]
+}
+
+fn authz_approval_claims(domain: &str) -> Vec<String> {
+    if !authz_program_claims_enabled() {
+        return vec![];
+    }
+    vec![format!("capability:approve:{domain}")]
+}
+
 fn idempotency_key_from_headers(headers: &HeaderMap) -> Option<String> {
     headers
         .get("x-idempotency-key")
@@ -4186,6 +4216,240 @@ fn idempotency_key_from_headers(headers: &HeaderMap) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedActorIdentity {
+    principal: Option<String>,
+    role: String,
+    claims: Vec<String>,
+    verified: bool,
+    source: String,
+}
+
+fn principal_claim_bindings() -> HashMap<String, Vec<String>> {
+    let raw = match std::env::var("NOSTRA_AUTHZ_PRINCIPAL_CLAIM_BINDINGS") {
+        Ok(value) => value,
+        Err(_) => return HashMap::new(),
+    };
+    let parsed = serde_json::from_str::<Value>(&raw).ok();
+    let mut bindings = HashMap::new();
+    if let Some(Value::Object(map)) = parsed {
+        for (principal, claims) in map {
+            if Principal::from_text(&principal).is_err() {
+                continue;
+            }
+            let list = claims
+                .as_array()
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_string)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            bindings.insert(principal, list);
+        }
+    }
+    bindings
+}
+
+fn authz_signature_material(
+    principal: &str,
+    role: &str,
+    endpoint: &str,
+    space_id: Option<&str>,
+    signed_at: u64,
+) -> String {
+    format!(
+        "{}|{}|{}|{}|{}",
+        principal,
+        role,
+        endpoint,
+        space_id.unwrap_or("global"),
+        signed_at
+    )
+}
+
+fn resolve_authz_identity(
+    headers: &HeaderMap,
+    endpoint: &str,
+    space_id: Option<&str>,
+    mutation_required: bool,
+) -> Result<ResolvedActorIdentity, axum::response::Response> {
+    let requested_role =
+        resolve_requested_role(headers, None).unwrap_or_else(|| "operator".to_string());
+    let normalized_requested_role = requested_role.trim().to_ascii_lowercase();
+    let principal = resolve_actor_principal(headers, None);
+    let role_bindings = principal_role_bindings();
+    let claim_bindings = principal_claim_bindings();
+
+    if let Some(principal_value) = principal.as_deref() {
+        if let Some(secret) = decision_signature_secret() {
+            let signed_at = headers
+                .get("x-cortex-signed-at")
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.trim().parse::<u64>().ok());
+            let signature = headers
+                .get("x-cortex-signature")
+                .and_then(|value| value.to_str().ok())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string);
+
+            if let (Some(signed_at), Some(signature)) = (signed_at, signature) {
+                let skew = now_secs().abs_diff(signed_at);
+                if skew > decision_signature_max_skew_secs() {
+                    return Err(cortex_ux_error(
+                        StatusCode::FORBIDDEN,
+                        "STALE_AUTHZ_SIGNATURE",
+                        "Authorization signature timestamp is outside accepted skew window.",
+                        Some(
+                            json!({ "skewSecs": skew, "maxSkewSecs": decision_signature_max_skew_secs() }),
+                        ),
+                    ));
+                }
+                let material = authz_signature_material(
+                    principal_value,
+                    &normalized_requested_role,
+                    endpoint,
+                    space_id,
+                    signed_at,
+                );
+                let expected = signature_hash(&secret, &material);
+                if constant_time_eq(&expected, &signature.to_ascii_lowercase()) {
+                    let claims = claim_bindings
+                        .get(principal_value)
+                        .cloned()
+                        .unwrap_or_default();
+                    return Ok(ResolvedActorIdentity {
+                        principal: Some(principal_value.to_string()),
+                        role: normalized_requested_role,
+                        claims,
+                        verified: true,
+                        source: "signed_principal_claim".to_string(),
+                    });
+                }
+            }
+        }
+
+        if let Some(bound_role) = role_bindings.get(principal_value) {
+            if !normalized_requested_role.is_empty() && &normalized_requested_role != bound_role {
+                if mutation_required {
+                    return Err(cortex_ux_error(
+                        StatusCode::FORBIDDEN,
+                        "ROLE_BINDING_MISMATCH",
+                        "Principal role binding mismatch for mutation endpoint.",
+                        Some(json!({
+                            "principal": principal_value,
+                            "requestedRole": normalized_requested_role,
+                            "boundRole": bound_role
+                        })),
+                    ));
+                }
+                return Ok(ResolvedActorIdentity {
+                    principal: Some(principal_value.to_string()),
+                    role: "viewer".to_string(),
+                    claims: claim_bindings
+                        .get(principal_value)
+                        .cloned()
+                        .unwrap_or_default(),
+                    verified: false,
+                    source: "binding_mismatch_read_fallback".to_string(),
+                });
+            }
+            return Ok(ResolvedActorIdentity {
+                principal: Some(principal_value.to_string()),
+                role: bound_role.clone(),
+                claims: claim_bindings
+                    .get(principal_value)
+                    .cloned()
+                    .unwrap_or_default(),
+                verified: true,
+                source: "principal_binding".to_string(),
+            });
+        }
+    }
+
+    if allow_unverified_role_header() {
+        return Ok(ResolvedActorIdentity {
+            principal,
+            role: normalized_requested_role,
+            claims: vec![],
+            verified: false,
+            source: "dev_unverified_header".to_string(),
+        });
+    }
+
+    if mutation_required {
+        record_authz_identity_unverified(endpoint);
+        return Err(cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            "ACTOR_IDENTITY_UNVERIFIED",
+            "Mutation endpoint requires verified principal-bound role claims.",
+            Some(json!({
+                "endpoint": endpoint,
+                "spaceId": space_id,
+                "allowUnverifiedRoleHeader": false
+            })),
+        ));
+    }
+
+    Ok(ResolvedActorIdentity {
+        principal,
+        role: "viewer".to_string(),
+        claims: vec![],
+        verified: false,
+        source: "read_fallback_viewer".to_string(),
+    })
+}
+
+async fn enforce_role_authorization(
+    headers: &HeaderMap,
+    endpoint: &str,
+    space_id: Option<&str>,
+    resource: &str,
+    action: &str,
+    required_role: &str,
+    required_claims: Vec<String>,
+    mutation_required: bool,
+    policy_requirements: Vec<crate::services::authz::PolicyRequirement>,
+    error_code: &str,
+    error_message: &str,
+) -> Result<ResolvedActorIdentity, axum::response::Response> {
+    let identity = resolve_authz_identity(headers, endpoint, space_id, mutation_required)?;
+    let outcome = authorize(&AuthorizationRequest {
+        endpoint: Some(endpoint.to_string()),
+        principal: identity.principal.clone(),
+        actor_role: identity.role.clone(),
+        actor_claims: identity.claims.clone(),
+        space_id: space_id.map(str::to_string),
+        resource: resource.to_string(),
+        action: action.to_string(),
+        required_role: Some(normalize_required_role(Some(required_role))),
+        required_claims,
+        policy_requirements,
+    })
+    .await;
+    if !outcome.decision.allowed {
+        return Err(cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            error_code,
+            error_message,
+            Some(json!({
+                "endpoint": endpoint,
+                "principal": identity.principal,
+                "role": identity.role,
+                "identityVerified": identity.verified,
+                "identitySource": identity.source,
+                "authorization": outcome.decision
+            })),
+        ));
+    }
+    Ok(identity)
 }
 
 fn artifact_realtime_channel(artifact_id: &str) -> String {
@@ -8605,16 +8869,29 @@ async fn post_cortex_heap_emit(
     headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> axum::response::Response {
-    let actor_role = actor_role_from_headers(&headers);
-    let actor_id = actor_id_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("operator") {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "HEAP_EMIT_FORBIDDEN",
-            "Operator role or higher is required to emit heap blocks.",
-            Some(json!({ "actorRole": actor_role })),
-        );
-    }
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_heap_emit",
+        None,
+        "capability:heap_emit",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "HEAP_EMIT_FORBIDDEN",
+        "Operator role or higher is required to emit heap blocks.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
 
     let request_id_hint = payload
         .get("source")
@@ -9436,8 +9713,29 @@ async fn post_cortex_heap_block_pin(
     headers: HeaderMap,
     Path(artifact_id): Path<String>,
 ) -> axum::response::Response {
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_heap_block_pin",
+        None,
+        "capability:heap_block_pin",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "HEAP_BLOCK_PIN_FORBIDDEN",
+        "Operator role or higher is required to pin heap blocks.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
 
     let mut projections = read_heap_projection_store();
     let Some(entry) = projections
@@ -9493,8 +9791,29 @@ async fn post_cortex_heap_block_delete(
     headers: HeaderMap,
     Path(artifact_id): Path<String>,
 ) -> axum::response::Response {
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_heap_block_delete",
+        None,
+        "capability:heap_block_delete",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "HEAP_BLOCK_DELETE_FORBIDDEN",
+        "Operator role or higher is required to delete heap blocks.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     let deleted_at = now_iso();
 
     let mut projections = read_heap_projection_store();
@@ -9788,19 +10107,30 @@ async fn post_cortex_artifact_create(
             None,
         );
     }
-    let actor_role = actor_role_from_headers(&headers);
-    if !has_route_access(
-        &default_artifact_capability_manifest().required_role_create,
-        &actor_role,
-    ) {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "ARTIFACT_CREATE_FORBIDDEN",
-            "Role is not permitted to create artifacts.",
-            Some(json!({ "role": actor_role })),
-        );
-    }
-    let actor_id = actor_id_from_headers(&headers);
+    let required_role = default_artifact_capability_manifest().required_role_create;
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_create",
+        None,
+        "capability:artifact_create",
+        "create",
+        &required_role,
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_CREATE_FORBIDDEN",
+        "Role is not permitted to create artifacts.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
 
     let mut items = read_artifacts_store();
     let artifact_id = request
@@ -9907,17 +10237,30 @@ async fn post_cortex_artifact_publish(
     Path(artifact_id): Path<String>,
     Json(request): Json<ArtifactPublishRequest>,
 ) -> axum::response::Response {
-    let actor_role = actor_role_from_headers(&headers);
-    let actor_id = actor_id_from_headers(&headers);
     let required_role = default_artifact_capability_manifest().required_role_publish;
-    if role_rank(&actor_role) < role_rank(&required_role) {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "ARTIFACT_PUBLISH_FORBIDDEN",
-            "Role is not permitted to publish artifacts.",
-            Some(json!({ "role": actor_role, "requiredRole": required_role })),
-        );
-    }
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_publish",
+        None,
+        "capability:artifact_publish",
+        "publish",
+        &required_role,
+        authz_mutation_claims("artifact_publish"),
+        true,
+        vec![],
+        "ARTIFACT_PUBLISH_FORBIDDEN",
+        "Role is not permitted to publish artifacts.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     if let Err(response) = require_governance_envelope(&actor_id, request.governance.as_ref()) {
         return response;
     }
@@ -10019,8 +10362,29 @@ async fn post_cortex_artifact_checkout(
     Path(artifact_id): Path<String>,
     Json(request): Json<ArtifactCheckoutRequest>,
 ) -> axum::response::Response {
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_checkout",
+        None,
+        "capability:artifact_checkout",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_CHECKOUT_ROLE_DENIED",
+        "Operator role or higher is required to checkout artifacts.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     let ttl = request.lease_ttl_secs.unwrap_or(900).clamp(60, 3600);
     let acquired_at = Utc::now();
     let expires_at = acquired_at + chrono::Duration::seconds(ttl as i64);
@@ -10085,8 +10449,29 @@ async fn post_cortex_artifact_lease_renew(
             None,
         );
     }
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_lease_renew",
+        None,
+        "capability:artifact_lease_renew",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_LEASE_RENEW_ROLE_DENIED",
+        "Operator role or higher is required to renew artifact leases.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     let ttl = request.lease_ttl_secs.unwrap_or(900).clamp(60, 3600);
     let mut leases = read_artifact_leases();
     let mut renewed = None;
@@ -10150,8 +10535,29 @@ async fn post_cortex_artifact_lease_release(
             None,
         );
     }
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_lease_release",
+        None,
+        "capability:artifact_lease_release",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_LEASE_RELEASE_ROLE_DENIED",
+        "Operator role or higher is required to release artifact leases.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     let mut leases = read_artifact_leases();
     let before = leases.len();
     leases.retain(|lease| {
@@ -10207,8 +10613,29 @@ async fn post_cortex_artifact_save(
             None,
         );
     }
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_save",
+        None,
+        "capability:artifact_save",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_SAVE_ROLE_DENIED",
+        "Operator role or higher is required to save artifacts.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     if let Err(response) = require_active_lease(&artifact_id, &request.lease_id, &actor_id) {
         return response;
     }
@@ -10346,8 +10773,29 @@ async fn post_cortex_artifact_collab_session_open(
     Path(artifact_id): Path<String>,
     Json(request): Json<ArtifactCollabSessionOpenRequest>,
 ) -> axum::response::Response {
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_session_open",
+        None,
+        "capability:artifact_collab_session_open",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_COLLAB_SESSION_OPEN_ROLE_DENIED",
+        "Operator role or higher is required to open collaboration sessions.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     let ttl_secs = request.lease_ttl_secs.unwrap_or(900).clamp(60, 3600);
 
     let items = read_artifacts_store();
@@ -10470,8 +10918,29 @@ async fn post_cortex_artifact_collab_op(
         );
     }
 
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_op",
+        None,
+        "capability:artifact_collab",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_COLLAB_ROLE_DENIED",
+        "Operator role or higher is required for collaboration operations.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     let mut sessions = read_collab_sessions();
     let Some(session) = sessions.iter_mut().find(|session| {
         session.artifact_id == artifact_id && session.session_id == request.session_id
@@ -10669,8 +11138,29 @@ async fn post_cortex_artifact_collab_session_close(
             None,
         );
     }
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_session_close",
+        None,
+        "capability:artifact_collab_session_close",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_COLLAB_SESSION_CLOSE_ROLE_DENIED",
+        "Operator role or higher is required to close collaboration sessions.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     let mut sessions = read_collab_sessions();
     let mut closed = None;
     for session in &mut sessions {
@@ -10824,16 +11314,29 @@ async fn post_cortex_artifact_collab_op_batch(
         );
     }
 
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("operator") {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "ARTIFACT_COLLAB_ROLE_DENIED",
-            "Operator role or higher is required for collaboration operations.",
-            Some(json!({ "actorRole": actor_role })),
-        );
-    }
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_op_batch",
+        None,
+        "capability:artifact_collab",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_COLLAB_ROLE_DENIED",
+        "Operator role or higher is required for collaboration operations.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
 
     let mut sessions = read_collab_sessions();
     let Some(session_idx) = sessions.iter().position(|session| {
@@ -11160,16 +11663,29 @@ async fn post_cortex_artifact_collab_checkpoint(
     Path(artifact_id): Path<String>,
     Json(request): Json<ArtifactCollabCheckpointRequest>,
 ) -> axum::response::Response {
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("operator") {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "ARTIFACT_COLLAB_CHECKPOINT_ROLE_DENIED",
-            "Operator role or higher is required for checkpoint compaction.",
-            Some(json!({ "actorRole": actor_role })),
-        );
-    }
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_checkpoint",
+        None,
+        "capability:artifact_collab_checkpoint",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_COLLAB_CHECKPOINT_ROLE_DENIED",
+        "Operator role or higher is required for checkpoint compaction.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
 
     let items = read_artifacts_store();
     let Some(artifact) = items.iter().find(|item| item.artifact_id == artifact_id) else {
@@ -11263,16 +11779,29 @@ async fn post_cortex_artifact_collab_force_resolve(
         );
     }
 
-    let actor_id = actor_id_from_headers(&headers);
-    let actor_role = actor_role_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("steward") {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "ARTIFACT_COLLAB_FORCE_RESOLVE_STEWARD_REQUIRED",
-            "Steward role is required for force-resolve actions.",
-            Some(json!({ "actorRole": actor_role })),
-        );
-    }
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_force_resolve",
+        None,
+        "capability:artifact_collab_force_resolve",
+        "admin",
+        "steward",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_COLLAB_FORCE_RESOLVE_STEWARD_REQUIRED",
+        "Steward role is required for force-resolve actions.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     if let Err(response) = require_governance_envelope(&actor_id, request.governance.as_ref()) {
         return response;
     }
@@ -11472,14 +12001,22 @@ async fn post_cortex_artifact_collab_realtime_connect(
     let actor_id = request
         .actor_id
         .unwrap_or_else(|| actor_id_from_headers(&headers));
-    let actor_role = actor_role_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("operator") {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "ARTIFACT_REALTIME_CONNECT_ROLE_DENIED",
-            "Operator role or higher is required for realtime connect.",
-            Some(json!({ "actorRole": actor_role })),
-        );
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_realtime_connect",
+        None,
+        "capability:artifact_collab_realtime",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_REALTIME_CONNECT_ROLE_DENIED",
+        "Operator role or higher is required for realtime connect.",
+    )
+    .await
+    {
+        return response;
     }
     match streaming_transport_manager()
         .connect(&actor_id, &artifact_id)
@@ -11500,6 +12037,23 @@ async fn post_cortex_artifact_collab_realtime_disconnect(
     Path(artifact_id): Path<String>,
     Json(request): Json<ArtifactRealtimeDisconnectRequest>,
 ) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_realtime_disconnect",
+        None,
+        "capability:artifact_collab_realtime",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_REALTIME_DISCONNECT_ROLE_DENIED",
+        "Operator role or higher is required for realtime disconnect.",
+    )
+    .await
+    {
+        return response;
+    }
     let actor_id = request
         .actor_id
         .unwrap_or_else(|| actor_id_from_headers(&headers));
@@ -11550,14 +12104,22 @@ async fn post_cortex_artifact_collab_realtime_resync(
     headers: HeaderMap,
     Path(artifact_id): Path<String>,
 ) -> axum::response::Response {
-    let actor_role = actor_role_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("operator") {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "ARTIFACT_REALTIME_RESYNC_ROLE_DENIED",
-            "Operator role or higher is required for realtime resync.",
-            Some(json!({ "actorRole": actor_role })),
-        );
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_realtime_resync",
+        None,
+        "capability:artifact_collab_realtime",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_REALTIME_RESYNC_ROLE_DENIED",
+        "Operator role or higher is required for realtime resync.",
+    )
+    .await
+    {
+        return response;
     }
     match streaming_transport_manager()
         .resync_channel(&artifact_id)
@@ -11587,16 +12149,28 @@ async fn post_cortex_artifact_collab_realtime_ack_reset(
     Path(artifact_id): Path<String>,
     Json(request): Json<ArtifactRealtimeAckResetRequest>,
 ) -> axum::response::Response {
-    let actor_role = actor_role_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("steward") {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "ARTIFACT_REALTIME_ACK_RESET_ROLE_DENIED",
-            "Steward role is required to reset realtime ack cursor.",
-            Some(json!({ "actorRole": actor_role })),
-        );
-    }
-    let actor_id = actor_id_from_headers(&headers);
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_artifact_collab_realtime_ack_reset",
+        None,
+        "capability:artifact_collab_realtime_ack_reset",
+        "admin",
+        "steward",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_REALTIME_ACK_RESET_ROLE_DENIED",
+        "Steward role is required to reset realtime ack cursor.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     if let Err(response) = require_governance_envelope(&actor_id, request.governance.as_ref()) {
         return response;
     }
@@ -11931,7 +12505,9 @@ fn dpub_read_json<T: DeserializeOwned>(path: &FsPath) -> Result<T, axum::respons
     })
 }
 
-fn dpub_load_graph(space_id: Option<&str>) -> Result<ContributionGraphV1, axum::response::Response> {
+fn dpub_load_graph(
+    space_id: Option<&str>,
+) -> Result<ContributionGraphV1, axum::response::Response> {
     dpub_read_json(&dpub_graph_path(space_id))
 }
 
@@ -15284,6 +15860,10 @@ async fn get_acp_metrics() -> impl IntoResponse {
     Json(get_acp_metrics_snapshot())
 }
 
+async fn get_authz_metrics() -> impl IntoResponse {
+    Json(get_authz_metrics_snapshot())
+}
+
 async fn get_testing_catalog() -> impl IntoResponse {
     let path = testing_catalog_path();
     match read_json_artifact::<TestCatalogArtifact>(&path) {
@@ -16453,7 +17033,11 @@ async fn post_contribution_graph_pipeline_query(
         );
     }
 
-    match query_graph(&dpub_managed_workspace_root(&space_id), &payload.kind, &payload.id) {
+    match query_graph(
+        &dpub_managed_workspace_root(&space_id),
+        &payload.kind,
+        &payload.id,
+    ) {
         Ok(result) => Json(result).into_response(),
         Err(err) => dpub_error(
             StatusCode::BAD_REQUEST,
@@ -16526,18 +17110,46 @@ async fn post_contribution_graph_pipeline_run(
         );
     }
 
-    let actor_role = actor_role_from_headers(&headers);
-    let actor_id = actor_id_from_headers(&headers);
     let mutating = dpub_mode_is_mutating(&payload.mode);
+    let required_role = if mutating { "steward" } else { "viewer" };
+    let error_code = if mutating {
+        "DPUB_MUTATION_STEWARD_REQUIRED"
+    } else {
+        "DPUB_PIPELINE_ROLE_DENIED"
+    };
+    let error_message = if mutating {
+        "Steward role is required for mutating pipeline modes."
+    } else {
+        "Role is not permitted for pipeline run."
+    };
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_contribution_graph_pipeline_run",
+        Some(&space_id),
+        "capability:dpub_pipeline_run",
+        if mutating { "mutate" } else { "navigate" },
+        required_role,
+        if mutating {
+            authz_mutation_claims("dpub_pipeline_run")
+        } else {
+            vec![]
+        },
+        mutating,
+        vec![],
+        error_code,
+        error_message,
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
     let approval = if mutating {
-        if role_rank(&actor_role) < role_rank("steward") {
-            return dpub_error(
-                StatusCode::FORBIDDEN,
-                "DPUB_MUTATION_STEWARD_REQUIRED",
-                "Steward role is required for mutating pipeline modes.",
-                Some(json!({ "actorRole": actor_role })),
-            );
-        }
         match dpub_require_approval(&payload.approval) {
             Ok(approval) => Some(approval),
             Err(err) => return err,
@@ -16697,14 +17309,22 @@ async fn post_contribution_graph_steward_packet_export(
     headers: HeaderMap,
     Json(payload): Json<DpubStewardPacketExportRequest>,
 ) -> impl IntoResponse {
-    let actor_role = actor_role_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("steward") {
-        return dpub_error(
-            StatusCode::FORBIDDEN,
-            "DPUB_PACKET_STEWARD_REQUIRED",
-            "Steward role is required for steward packet export.",
-            Some(json!({ "actorRole": actor_role })),
-        );
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "post_contribution_graph_steward_packet_export",
+        Some(&space_id),
+        "capability:dpub_steward_packet_export",
+        "admin",
+        "steward",
+        authz_approval_claims("dpub_steward_packet_export"),
+        true,
+        vec![],
+        "DPUB_PACKET_STEWARD_REQUIRED",
+        "Steward role is required for steward packet export.",
+    )
+    .await
+    {
+        return response;
     }
     let _approval = match dpub_require_approval(&payload.approval) {
         Ok(approval) => approval,
@@ -17038,6 +17658,7 @@ fn build_platform_capability_catalog() -> PlatformCapabilityCatalog {
         icon: None,
         surfacing_heuristic: SurfacingHeuristic::Hidden,
         operational_frequency: OperationalFrequency::Continuous,
+        required_claims: vec![],
         domain_entities: vec![],
         placement_constraint: None,
         root_path: None,
@@ -17063,6 +17684,7 @@ fn build_platform_capability_catalog() -> PlatformCapabilityCatalog {
             icon: Some(entry.icon.clone()),
             surfacing_heuristic: default_surfacing_for_category(&entry.category),
             operational_frequency: default_operational_frequency_for_route(&entry.route_id),
+            required_claims: vec![],
             domain_entities: vec![],
             placement_constraint: None,
             root_path: None,
@@ -17080,10 +17702,7 @@ fn build_platform_capability_catalog() -> PlatformCapabilityCatalog {
         "nodes": &catalog.nodes,
         "edges": &catalog.edges,
     }));
-    catalog.catalog_version = format!(
-        "v1-{}",
-        catalog_hash.chars().take(12).collect::<String>()
-    );
+    catalog.catalog_version = format!("v1-{}", catalog_hash.chars().take(12).collect::<String>());
     catalog.catalog_hash = Some(catalog_hash);
     catalog
 }
@@ -17120,6 +17739,7 @@ fn default_space_capability_graph(
                 local_alias: None,
                 is_active: true,
                 local_required_role: None,
+                local_additional_required_claims: vec![],
                 surfacing_heuristic: None,
                 operational_frequency: None,
                 placement_constraint: None,
@@ -17132,7 +17752,10 @@ fn default_space_capability_graph(
     }
 }
 
-fn write_space_capability_graph(space_id: &str, graph: &SpaceCapabilityGraph) -> Result<(), String> {
+fn write_space_capability_graph(
+    space_id: &str,
+    graph: &SpaceCapabilityGraph,
+) -> Result<(), String> {
     let path = space_capability_graph_path(space_id);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
@@ -17148,7 +17771,8 @@ fn read_space_capability_graph(space_id: &str) -> Result<Option<SpaceCapabilityG
     if !path.exists() {
         return Ok(None);
     }
-    let raw = fs::read_to_string(&path).map_err(|err| format!("failed to read capability graph: {err}"))?;
+    let raw = fs::read_to_string(&path)
+        .map_err(|err| format!("failed to read capability graph: {err}"))?;
     let parsed = serde_json::from_str::<SpaceCapabilityGraph>(&raw)
         .map_err(|err| format!("failed to parse capability graph: {err}"))?;
     Ok(Some(parsed))
@@ -17205,15 +17829,24 @@ async fn put_space_capability_graph(
         );
     }
 
-    let actor_role = actor_role_from_headers(&headers);
-    if role_rank(&actor_role) < role_rank("steward") {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "STEWARD_ROLE_REQUIRED",
-            "Steward role is required for structural capability graph updates.",
-            Some(json!({ "actorRole": actor_role })),
-        );
-    }
+    let identity = match enforce_role_authorization(
+        &headers,
+        "put_space_capability_graph",
+        Some(normalized),
+        "capability_graph",
+        "admin",
+        "steward",
+        authz_approval_claims("capability_graph"),
+        true,
+        vec![],
+        "STEWARD_ROLE_REQUIRED",
+        "Steward role is required for structural capability graph updates.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
 
     if payload.space_id.trim().is_empty() {
         payload.space_id = normalized.to_string();
@@ -17243,17 +17876,119 @@ async fn put_space_capability_graph(
     }
 
     let catalog = build_platform_capability_catalog();
+    let active_catalog_hash = catalog
+        .catalog_hash
+        .clone()
+        .unwrap_or_else(|| hash_json_hex(&catalog));
+
+    if !payload.base_catalog_hash.trim().is_empty()
+        && payload.base_catalog_hash != active_catalog_hash
+    {
+        return cortex_ux_error(
+            StatusCode::CONFLICT,
+            "CAPABILITY_GRAPH_BASE_MISMATCH",
+            "payload base_catalog_hash does not match active platform catalog hash.",
+            Some(json!({
+                "payloadBaseCatalogHash": payload.base_catalog_hash,
+                "activeCatalogHash": active_catalog_hash
+            })),
+        );
+    }
     if payload.base_catalog_version.trim().is_empty() {
         payload.base_catalog_version = catalog.catalog_version.clone();
     }
     if payload.base_catalog_hash.trim().is_empty() {
-        payload.base_catalog_hash = catalog
-            .catalog_hash
-            .clone()
-            .unwrap_or_else(|| hash_json_hex(&catalog));
+        payload.base_catalog_hash = active_catalog_hash.clone();
+    }
+
+    let known_ids: BTreeSet<String> = catalog.nodes.iter().map(|node| node.id.0.clone()).collect();
+    let base_role_by_id: BTreeMap<String, String> = catalog
+        .nodes
+        .iter()
+        .map(|node| {
+            (
+                node.id.0.clone(),
+                normalize_required_role(node.required_role.as_deref()),
+            )
+        })
+        .collect();
+
+    let mut seen_override_ids = BTreeSet::new();
+    for override_node in &payload.nodes {
+        let capability_id = override_node.capability_id.0.trim().to_string();
+        if capability_id.is_empty() || !known_ids.contains(&capability_id) {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "CAPABILITY_ID_UNKNOWN",
+                "capability override references an unknown capability_id.",
+                Some(json!({ "capabilityId": capability_id })),
+            );
+        }
+        if !seen_override_ids.insert(capability_id.clone()) {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "CAPABILITY_ID_DUPLICATE",
+                "duplicate capability override entries are not allowed.",
+                Some(json!({ "capabilityId": capability_id })),
+            );
+        }
+
+        if let Some(local_required_role) = override_node.local_required_role.as_deref() {
+            let normalized = local_required_role.trim().to_ascii_lowercase();
+            if !authz_valid_role(&normalized) {
+                return cortex_ux_error(
+                    StatusCode::BAD_REQUEST,
+                    "INVALID_REQUIRED_ROLE",
+                    "local_required_role must be one of viewer|editor|operator|steward|admin.",
+                    Some(json!({ "capabilityId": capability_id, "role": normalized })),
+                );
+            }
+            if let Some(base_role) = base_role_by_id.get(&capability_id) {
+                if authz_role_rank(&normalized) < authz_role_rank(base_role) {
+                    return cortex_ux_error(
+                        StatusCode::BAD_REQUEST,
+                        "LOCAL_ROLE_WEAKENS_PLATFORM_FLOOR",
+                        "local_required_role cannot weaken the platform-required role floor.",
+                        Some(json!({
+                            "capabilityId": capability_id,
+                            "localRequiredRole": normalized,
+                            "baseRequiredRole": base_role
+                        })),
+                    );
+                }
+            }
+        }
+
+        if override_node
+            .local_additional_required_claims
+            .iter()
+            .any(|claim| claim.trim().is_empty())
+        {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "INVALID_REQUIRED_CLAIM",
+                "local_additional_required_claims entries must not be empty.",
+                Some(json!({ "capabilityId": capability_id })),
+            );
+        }
+    }
+
+    for node in &catalog.nodes {
+        for claim in &node.required_claims {
+            if claim.trim().is_empty() {
+                return cortex_ux_error(
+                    StatusCode::BAD_REQUEST,
+                    "INVALID_REQUIRED_CLAIM",
+                    "required_claims entries must not be empty.",
+                    Some(json!({ "capabilityId": node.id.0 })),
+                );
+            }
+        }
     }
     payload.updated_at = now_iso();
-    payload.updated_by = actor_id_from_headers(&headers);
+    payload.updated_by = identity
+        .principal
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
 
     if let Err(err) = write_space_capability_graph(normalized, &payload) {
         return cortex_ux_error(
@@ -17290,6 +18025,7 @@ async fn put_space_capability_graph(
 
 async fn get_space_navigation_plan(
     Path(space_id): Path<String>,
+    headers: HeaderMap,
     Query(query): Query<SpaceNavigationPlanQuery>,
 ) -> impl IntoResponse {
     let normalized = space_id.trim();
@@ -17311,14 +18047,113 @@ async fn get_space_navigation_plan(
                 .into_response();
         }
     };
+    let identity = match resolve_authz_identity(
+        &headers,
+        "get_space_navigation_plan",
+        Some(normalized),
+        false,
+    ) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = if allow_unverified_role_header() {
+        query.actor_role.as_deref().map(str::trim).and_then(|role| {
+            if role.is_empty() {
+                None
+            } else {
+                let normalized_role = role.to_ascii_lowercase();
+                if authz_valid_role(&normalized_role) {
+                    Some(normalized_role)
+                } else {
+                    None
+                }
+            }
+        })
+    } else {
+        None
+    }
+    .unwrap_or_else(|| identity.role.clone());
+    let authz_outcome = authorize(&AuthorizationRequest {
+        endpoint: Some("get_space_navigation_plan".to_string()),
+        principal: identity.principal.clone(),
+        actor_role: actor_role.clone(),
+        actor_claims: identity.claims.clone(),
+        space_id: Some(normalized.to_string()),
+        resource: "capability:navigation_plan".to_string(),
+        action: "navigate".to_string(),
+        required_role: Some("viewer".to_string()),
+        required_claims: vec![],
+        policy_requirements: vec![],
+    })
+    .await;
+    if !authz_outcome.decision.allowed {
+        return cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            "NAVIGATION_PLAN_FORBIDDEN",
+            "Role is not permitted to access navigation plan.",
+            Some(json!({
+                "spaceId": normalized,
+                "authorization": authz_outcome.decision
+            })),
+        );
+    }
+    let actor_role_for_authz = actor_role.clone();
     let context = CompilationContext {
         space_id: normalized.to_string(),
-        actor_role: query.actor_role.unwrap_or_else(|| "operator".to_string()),
+        actor_role,
         intent: query.intent,
         density: query.density,
     };
     let layout_spec = resolve_shell_layout_spec();
-    let plan = compile_navigation_plan(&catalog, &graph, &layout_spec, &context);
+    let mut plan = compile_navigation_plan(&catalog, &graph, &layout_spec, &context);
+    let navigation_policy_requirements = build_navigation_policy_requirements(&catalog, &graph);
+    let mut filtered_entries = Vec::new();
+    for entry in std::mem::take(&mut plan.entries) {
+        let entry_outcome = authorize(&AuthorizationRequest {
+            endpoint: Some("get_space_navigation_plan".to_string()),
+            principal: identity.principal.clone(),
+            actor_role: actor_role_for_authz.clone(),
+            actor_claims: identity.claims.clone(),
+            space_id: Some(normalized.to_string()),
+            resource: format!("route:{}", entry.route_id),
+            action: "navigate".to_string(),
+            required_role: Some(entry.required_role.clone()),
+            required_claims: vec![],
+            policy_requirements: navigation_policy_requirements.clone(),
+        })
+        .await;
+        if entry_outcome.decision.allowed {
+            filtered_entries.push(entry);
+        }
+    }
+    for (index, entry) in filtered_entries.iter_mut().enumerate() {
+        entry.rank = (index + 1) as u32;
+    }
+    let mut secondary: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut primary_core = Vec::new();
+    let mut contextual_deep = Vec::new();
+    let mut hidden = Vec::new();
+    for entry in &filtered_entries {
+        match entry.surfacing_heuristic.as_str() {
+            "primary_core" => primary_core.push(entry.route_id.clone()),
+            "secondary" => secondary
+                .entry(entry.category.clone())
+                .or_default()
+                .push(entry.route_id.clone()),
+            "contextual_deep" => contextual_deep.push(entry.route_id.clone()),
+            _ => hidden.push(entry.route_id.clone()),
+        }
+    }
+    plan.entries = filtered_entries;
+    plan.surfacing = CompiledSurfacingPlan {
+        primary_core,
+        secondary,
+        contextual_deep,
+        hidden,
+    };
+    plan.authz_engine = Some(authz_outcome.decision.engine);
+    plan.authz_mode = Some(authz_outcome.mode);
+    plan.authz_decision_version = Some(authz_decision_version().to_string());
     (StatusCode::OK, Json(plan)).into_response()
 }
 
@@ -21739,25 +22574,25 @@ async fn drive_agent_run_lifecycle(state: GatewayState, space_id: String, run_id
         );
     }
 
-    let (simulation, action_target) = match evaluate_agent_plan(&run_id, &record.run.contribution_id)
-    {
-        Ok(value) => value,
-        Err(err) => {
-            record.run.status = AgentRunStatus::Failed;
-            emit_agent_event(&state, &mut record, "run_failed", json!({ "error": err }));
-            let _ = persist_agent_run_record(&record);
-            let _ = emit_execution_lifecycle(
-                &record,
-                AgentExecutionPhase::Terminal,
-                "failed",
-                &record.pending_action_target,
-                true,
-            )
-            .await;
-            let _ = persist_agent_run_shadow_comparison(&record);
-            return;
-        }
-    };
+    let (simulation, action_target) =
+        match evaluate_agent_plan(&run_id, &record.run.contribution_id) {
+            Ok(value) => value,
+            Err(err) => {
+                record.run.status = AgentRunStatus::Failed;
+                emit_agent_event(&state, &mut record, "run_failed", json!({ "error": err }));
+                let _ = persist_agent_run_record(&record);
+                let _ = emit_execution_lifecycle(
+                    &record,
+                    AgentExecutionPhase::Terminal,
+                    "failed",
+                    &record.pending_action_target,
+                    true,
+                )
+                .await;
+                let _ = persist_agent_run_shadow_comparison(&record);
+                return;
+            }
+        };
 
     let simulation_value = json!({
         "success": simulation.success,
@@ -22429,17 +23264,16 @@ mod tests {
     use super::*;
     use axum::body::to_bytes;
     use std::path::Path;
-    use std::sync::{LazyLock, Mutex};
-
-    fn testing_env_lock() -> &'static Mutex<()> {
-        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-        &LOCK
-    }
 
     fn acquire_testing_env_lock() -> std::sync::MutexGuard<'static, ()> {
-        testing_env_lock()
+        let guard = crate::services::authz::shared_testing_env_lock()
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        std::env::set_var("NOSTRA_AUTHZ_DEV_MODE", "true");
+        std::env::set_var("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "true");
+        std::env::remove_var("NOSTRA_DECISION_PRINCIPAL_ROLE_BINDINGS");
+        std::env::remove_var("NOSTRA_AUTHZ_PRINCIPAL_CLAIM_BINDINGS");
+        guard
     }
 
     struct TestingLogDirGuard {
@@ -23095,13 +23929,14 @@ mod tests {
         .expect("snake_case decision_ref should deserialize");
         assert_eq!(snake.decision_ref.as_deref(), Some("DEC-456"));
 
-        let with_actor_principal: AgentContributionApprovalRequest = serde_json::from_value(json!({
-            "decision": "approved",
-            "actor": "systems-steward",
-            "decision_ref": "DEC-789",
-            "actor_principal": "2vxsx-fae"
-        }))
-        .expect("snake_case actor_principal should deserialize");
+        let with_actor_principal: AgentContributionApprovalRequest =
+            serde_json::from_value(json!({
+                "decision": "approved",
+                "actor": "systems-steward",
+                "decision_ref": "DEC-789",
+                "actor_principal": "2vxsx-fae"
+            }))
+            .expect("snake_case actor_principal should deserialize");
         assert_eq!(
             with_actor_principal.actor_principal.as_deref(),
             Some("2vxsx-fae")
@@ -23239,7 +24074,7 @@ mod tests {
 
     #[tokio::test]
     async fn agent_contribution_approval_primary_temporal_signal_failure_returns_service_unavailable()
-    {
+     {
         let _lock = acquire_testing_env_lock();
         let temp = TestTempDir::new();
         let _guard = DecisionSurfaceLogDirGuard::set(temp.path());
@@ -23620,6 +24455,34 @@ mod tests {
             "2vxsx-fae".parse().expect("principal header"),
         );
         headers
+    }
+
+    fn role_headers(role: &str, actor: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", role.parse().expect("role header"));
+        headers.insert("x-cortex-actor", actor.parse().expect("actor header"));
+        headers
+    }
+
+    async fn baseline_space_capability_graph_for_tests(space_id: &str) -> SpaceCapabilityGraph {
+        let create = post_create_space(Json(json!({
+            "space_id": space_id,
+            "creation_mode": "blank",
+            "owner": "systems-steward"
+        })))
+        .await
+        .into_response();
+        assert_eq!(create.status(), StatusCode::CREATED);
+
+        let baseline = get_space_capability_graph(Path(space_id.to_string()))
+            .await
+            .into_response();
+        assert_eq!(baseline.status(), StatusCode::OK);
+        let baseline_body = response_json(baseline).await;
+        let mut graph: SpaceCapabilityGraph =
+            serde_json::from_value(baseline_body).expect("parse graph");
+        graph.lineage_ref = Some(format!("decision:{space_id}:1"));
+        graph
     }
 
     fn test_governance_envelope(
@@ -24936,31 +25799,9 @@ mod tests {
             "NOSTRA_WORKSPACE_ROOT",
             temp.path().display().to_string().as_str(),
         );
+        let graph = baseline_space_capability_graph_for_tests("space-cap-gate").await;
 
-        let create = post_create_space(Json(json!({
-            "space_id": "space-cap-gate",
-            "creation_mode": "blank",
-            "owner": "systems-steward"
-        })))
-        .await
-        .into_response();
-        assert_eq!(create.status(), StatusCode::CREATED);
-
-        let baseline = get_space_capability_graph(Path("space-cap-gate".to_string()))
-            .await
-            .into_response();
-        assert_eq!(baseline.status(), StatusCode::OK);
-        let baseline_body = response_json(baseline).await;
-        let mut graph: SpaceCapabilityGraph =
-            serde_json::from_value(baseline_body).expect("parse graph");
-        graph.lineage_ref = Some("decision:space-cap-gate-1".to_string());
-
-        let mut operator_headers = HeaderMap::new();
-        operator_headers.insert("x-cortex-role", "operator".parse().expect("role header"));
-        operator_headers.insert(
-            "x-cortex-actor",
-            "operator-1".parse().expect("actor header"),
-        );
+        let operator_headers = role_headers("operator", "operator-1");
         let rejected = put_space_capability_graph(
             Path("space-cap-gate".to_string()),
             operator_headers,
@@ -24970,9 +25811,7 @@ mod tests {
         .into_response();
         assert_eq!(rejected.status(), StatusCode::FORBIDDEN);
 
-        let mut steward_headers = HeaderMap::new();
-        steward_headers.insert("x-cortex-role", "steward".parse().expect("role header"));
-        steward_headers.insert("x-cortex-actor", "steward-1".parse().expect("actor header"));
+        let steward_headers = role_headers("steward", "steward-1");
         let accepted = put_space_capability_graph(
             Path("space-cap-gate".to_string()),
             steward_headers,
@@ -24984,6 +25823,207 @@ mod tests {
         let accepted_body = response_json(accepted).await;
         assert_eq!(accepted_body["accepted"], true);
         assert!(accepted_body["capabilityGraphHash"].is_string());
+    }
+
+    #[tokio::test]
+    async fn space_capability_graph_put_rejects_base_catalog_hash_mismatch() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let mut graph = baseline_space_capability_graph_for_tests("space-cap-base-hash").await;
+        graph.base_catalog_hash = "catalog_hash_mismatch".to_string();
+
+        let response = put_space_capability_graph(
+            Path("space-cap-base-hash".to_string()),
+            role_headers("steward", "steward-hash-1"),
+            Json(graph),
+        )
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "CAPABILITY_GRAPH_BASE_MISMATCH");
+    }
+
+    #[tokio::test]
+    async fn space_capability_graph_put_rejects_unknown_or_duplicate_capability_ids() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut unknown_graph =
+            baseline_space_capability_graph_for_tests("space-cap-unknown").await;
+        unknown_graph.nodes[0].capability_id = DomainCapabilityId("route:/unknown".to_string());
+        let unknown_response = put_space_capability_graph(
+            Path("space-cap-unknown".to_string()),
+            role_headers("steward", "steward-unknown-1"),
+            Json(unknown_graph),
+        )
+        .await
+        .into_response();
+        assert_eq!(unknown_response.status(), StatusCode::BAD_REQUEST);
+        let unknown_body = response_json(unknown_response).await;
+        assert_eq!(unknown_body["errorCode"], "CAPABILITY_ID_UNKNOWN");
+
+        let mut duplicate_graph =
+            baseline_space_capability_graph_for_tests("space-cap-duplicate").await;
+        let duplicate_id = duplicate_graph.nodes[0].capability_id.clone();
+        duplicate_graph.nodes[1].capability_id = duplicate_id;
+        let duplicate_response = put_space_capability_graph(
+            Path("space-cap-duplicate".to_string()),
+            role_headers("steward", "steward-duplicate-1"),
+            Json(duplicate_graph),
+        )
+        .await
+        .into_response();
+        assert_eq!(duplicate_response.status(), StatusCode::BAD_REQUEST);
+        let duplicate_body = response_json(duplicate_response).await;
+        assert_eq!(duplicate_body["errorCode"], "CAPABILITY_ID_DUPLICATE");
+    }
+
+    #[tokio::test]
+    async fn space_capability_graph_put_rejects_unknown_role_vocabulary() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let mut graph = baseline_space_capability_graph_for_tests("space-cap-role-vocab").await;
+        graph.nodes[0].local_required_role = Some("superuser".to_string());
+
+        let response = put_space_capability_graph(
+            Path("space-cap-role-vocab".to_string()),
+            role_headers("steward", "steward-role-vocab-1"),
+            Json(graph),
+        )
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "INVALID_REQUIRED_ROLE");
+    }
+
+    #[tokio::test]
+    async fn space_capability_graph_put_rejects_role_floor_weakening() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let mut graph = baseline_space_capability_graph_for_tests("space-cap-floor").await;
+        let catalog = build_platform_capability_catalog();
+        let target = catalog
+            .nodes
+            .iter()
+            .find(|node| normalize_required_role(node.required_role.as_deref()) == "operator")
+            .expect("operator node");
+        let override_node = graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.capability_id == target.id)
+            .expect("override node");
+        override_node.local_required_role = Some("viewer".to_string());
+
+        let response = put_space_capability_graph(
+            Path("space-cap-floor".to_string()),
+            role_headers("steward", "steward-floor-1"),
+            Json(graph),
+        )
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "LOCAL_ROLE_WEAKENS_PLATFORM_FLOOR");
+    }
+
+    #[tokio::test]
+    async fn space_capability_graph_put_rejects_unverified_steward_header_when_dev_override_disabled()
+     {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
+        let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
+        let graph = baseline_space_capability_graph_for_tests("space-cap-authz").await;
+
+        let response = put_space_capability_graph(
+            Path("space-cap-authz".to_string()),
+            role_headers("steward", "steward-authz-1"),
+            Json(graph),
+        )
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "ACTOR_IDENTITY_UNVERIFIED");
+    }
+
+    #[tokio::test]
+    async fn heap_block_pin_rejects_unverified_operator_header_and_reports_authz_metrics() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
+        let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
+
+        let response =
+            post_cortex_heap_block_pin(role_headers("operator", "actor-heap-authz"), Path("artifact-missing".to_string()))
+                .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "ACTOR_IDENTITY_UNVERIFIED");
+
+        let metrics_response = get_authz_metrics().await.into_response();
+        assert_eq!(metrics_response.status(), StatusCode::OK);
+        let metrics_body = response_json(metrics_response).await;
+        assert!(metrics_body["authz_decision_total"].is_array());
+        assert!(metrics_body["authz_shadow_mismatch_total"].is_array());
+        assert!(metrics_body["authz_identity_unverified_total"].is_array());
+        assert!(metrics_body["authz_policy_compile_fail_total"].is_number());
+
+        let identity_totals = metrics_body["authz_identity_unverified_total"]
+            .as_array()
+            .expect("identity unverified totals array");
+        assert!(identity_totals.iter().any(|entry| {
+            entry["endpoint"] == "post_cortex_heap_block_pin"
+                && entry["count"].as_u64().unwrap_or_default() >= 1
+        }));
+    }
+
+    #[tokio::test]
+    async fn heap_block_pin_requires_mutation_claim_when_program_claims_enabled() {
+        let _lock = acquire_testing_env_lock();
+        let _claims_guard = EnvVarGuard::set("NOSTRA_AUTHZ_REQUIRE_PROGRAM_CLAIMS", "true");
+
+        let response = post_cortex_heap_block_pin(
+            role_headers("operator", "actor-heap-claims"),
+            Path("artifact-missing".to_string()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "HEAP_BLOCK_PIN_FORBIDDEN");
+        assert!(
+            body["details"]["authorization"]["requiredClaims"]
+                .as_array()
+                .expect("required claims array")
+                .iter()
+                .any(|claim| claim.as_str() == Some("capability:mutate:heap"))
+        );
     }
 
     #[tokio::test]
@@ -25006,6 +26046,7 @@ mod tests {
 
         let first = get_space_navigation_plan(
             Path("space-nav-plan".to_string()),
+            HeaderMap::new(),
             Query(SpaceNavigationPlanQuery {
                 actor_role: Some("viewer".to_string()),
                 intent: Some("navigate".to_string()),
@@ -25016,6 +26057,7 @@ mod tests {
         .into_response();
         let second = get_space_navigation_plan(
             Path("space-nav-plan".to_string()),
+            HeaderMap::new(),
             Query(SpaceNavigationPlanQuery {
                 actor_role: Some("viewer".to_string()),
                 intent: Some("navigate".to_string()),
@@ -25030,6 +26072,9 @@ mod tests {
         let first_body = response_json(first).await;
         let second_body = response_json(second).await;
         assert_eq!(first_body["planHash"], second_body["planHash"]);
+        assert_eq!(first_body["authzMode"], "legacy");
+        assert_eq!(first_body["authzEngine"], "legacy");
+        assert!(first_body["authzDecisionVersion"].is_string());
 
         let visible_routes: Vec<&serde_json::Value> = first_body["entries"]
             .as_array()
@@ -25045,6 +26090,42 @@ mod tests {
                 .iter()
                 .any(|entry| entry["routeId"].as_str() == Some("/logs")),
             "viewer plan should not include operator-only /logs"
+        );
+    }
+
+    #[tokio::test]
+    async fn navigation_plan_ignores_query_actor_role_when_dev_override_disabled() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
+        let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
+        let _graph = baseline_space_capability_graph_for_tests("space-nav-authz").await;
+
+        let response = get_space_navigation_plan(
+            Path("space-nav-authz".to_string()),
+            HeaderMap::new(),
+            Query(SpaceNavigationPlanQuery {
+                actor_role: Some("steward".to_string()),
+                intent: Some("navigate".to_string()),
+                density: Some("comfortable".to_string()),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["actorRole"], "viewer");
+        assert!(
+            !body["entries"]
+                .as_array()
+                .expect("entries array")
+                .iter()
+                .any(|entry| entry["routeId"].as_str() == Some("/logs")),
+            "viewer fallback plan should not include operator-only /logs"
         );
     }
 

@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_views_capability_matrix",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/views/capability-matrix"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/views/capability-matrix"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/views/capability-matrix"
+  }
+}

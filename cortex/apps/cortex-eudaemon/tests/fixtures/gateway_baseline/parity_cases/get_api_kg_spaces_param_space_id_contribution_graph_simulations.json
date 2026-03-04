@@ -1,0 +1,38 @@
+{
+  "case_id": "get_api_kg_spaces_param_space_id_contribution_graph_simulations",
+  "class": "kg",
+  "request": {
+    "method": "GET",
+    "path": "/api/kg/spaces/:space_id/contribution-graph/simulations"
+  },
+  "normalization": {
+    "mode": "subset",
+    "ignored_fields": [
+      "generated_at",
+      "generatedAt",
+      "updated_at",
+      "updatedAt",
+      "timestamp",
+      "time",
+      "id",
+      "run_id",
+      "mutation_id",
+      "event_id",
+      "session_id",
+      "traceparent",
+      "tracestate",
+      "baggage"
+    ],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "kg"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "kg"
+  }
+}

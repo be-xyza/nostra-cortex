@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_brand_policy",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/brand-policy"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/brand-policy"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/brand-policy"
+  }
+}

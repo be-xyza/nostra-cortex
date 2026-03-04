@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_layout_source_state",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/layout/source-state"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/layout/source-state"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/layout/source-state"
+  }
+}

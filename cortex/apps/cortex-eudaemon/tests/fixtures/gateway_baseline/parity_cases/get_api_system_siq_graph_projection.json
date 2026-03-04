@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_siq_graph_projection",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/siq/graph-projection"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/siq/graph-projection"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/siq/graph-projection"
+  }
+}

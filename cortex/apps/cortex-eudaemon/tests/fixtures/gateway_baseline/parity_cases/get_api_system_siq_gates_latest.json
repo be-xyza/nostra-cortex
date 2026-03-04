@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_siq_gates_latest",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/siq/gates/latest"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/siq/gates/latest"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/siq/gates/latest"
+  }
+}

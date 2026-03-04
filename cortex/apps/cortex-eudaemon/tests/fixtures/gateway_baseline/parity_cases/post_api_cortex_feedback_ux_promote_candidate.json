@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_feedback_ux_promote_candidate",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/feedback/ux/promote-candidate"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/feedback/ux/promote-candidate"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/feedback/ux/promote-candidate"
+  }
+}

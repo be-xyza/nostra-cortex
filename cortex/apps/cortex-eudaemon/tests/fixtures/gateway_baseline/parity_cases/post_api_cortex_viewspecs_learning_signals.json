@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_viewspecs_learning_signals",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/viewspecs/learning/signals"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/viewspecs/learning/signals"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/viewspecs/learning/signals"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_acp_terminal_release",
+  "class": "acp",
+  "request": {
+    "method": "POST",
+    "path": "/api/acp/terminal/release"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "acp",
+    "method": "POST",
+    "path": "/api/acp/terminal/release"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "acp",
+    "method": "POST",
+    "path": "/api/acp/terminal/release"
+  }
+}

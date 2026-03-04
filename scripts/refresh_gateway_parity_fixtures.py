@@ -16,12 +16,32 @@ INVENTORY_JSON = FIXTURE_ROOT / "endpoint_inventory.json"
 PARITY_CASES_DIR = FIXTURE_ROOT / "parity_cases"
 CLASSES_JSON = FIXTURE_ROOT / "endpoint_classes.json"
 
-ROUTE_PATTERN = re.compile(r'\.route\(\s*"([^"]+)"\s*,\s*(get|post|put|delete|patch)\(', re.IGNORECASE)
+ROUTE_START_PATTERN = re.compile(r'\.route\(\s*"([^"]+)"\s*,', re.IGNORECASE)
+METHOD_PATTERN = re.compile(r'\b(get|post|put|delete|patch)\s*\(', re.IGNORECASE)
 
 
 def discover_routes() -> list[tuple[str, str]]:
     raw = SERVER_RS.read_text()
-    routes = {(m.group(2).upper(), m.group(1).strip()) for m in ROUTE_PATTERN.finditer(raw)}
+    routes: set[tuple[str, str]] = set()
+    for match in ROUTE_START_PATTERN.finditer(raw):
+        path = match.group(1).strip()
+        open_paren = raw.find("(", match.start())
+        if open_paren == -1:
+            continue
+        depth = 1
+        index = open_paren + 1
+        while index < len(raw) and depth > 0:
+            char = raw[index]
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            index += 1
+        if depth != 0:
+            continue
+        route_call = raw[match.end() : index - 1]
+        for method in METHOD_PATTERN.findall(route_call):
+            routes.add((method.upper(), path))
     return sorted(routes, key=lambda x: (x[0], x[1]))
 
 

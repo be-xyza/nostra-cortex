@@ -9,19 +9,19 @@
     "mode": "strict",
     "ignored_fields": [],
     "required_keys": [
-      "space_id",
-      "status",
-      "message"
+      "status"
     ]
   },
   "legacy_response": {
-    "space_id": "validation-probe",
-    "status": "Active",
-    "message": "Space 'validation-probe' provisioned successfully"
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/spaces/create"
   },
   "runtime_response": {
-    "space_id": "validation-probe",
-    "status": "Active",
-    "message": "Space 'validation-probe' provisioned successfully"
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/spaces/create"
   }
 }

@@ -34,8 +34,28 @@ exemptions_json = fixture_root / "approved_exemptions.json"
 parity_cases_dir = fixture_root / "parity_cases"
 
 raw = server.read_text()
-pattern = re.compile(r'\.route\(\s*"([^"]+)"\s*,\s*(get|post|put|delete|patch)\(', re.IGNORECASE | re.MULTILINE)
-routes = {(m.group(2).upper(), m.group(1).strip()) for m in pattern.finditer(raw)}
+route_start_pattern = re.compile(r'\.route\(\s*"([^"]+)"\s*,', re.IGNORECASE | re.MULTILINE)
+method_pattern = re.compile(r'\b(get|post|put|delete|patch)\s*\(', re.IGNORECASE)
+routes = set()
+for match in route_start_pattern.finditer(raw):
+    path = match.group(1).strip()
+    open_paren = raw.find("(", match.start())
+    if open_paren == -1:
+        continue
+    depth = 1
+    index = open_paren + 1
+    while index < len(raw) and depth > 0:
+        char = raw[index]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        index += 1
+    if depth != 0:
+        continue
+    route_call = raw[match.end() : index - 1]
+    for method in method_pattern.findall(route_call):
+        routes.add((method.upper(), path))
 
 if not routes:
     print("FAIL: no routes discovered from gateway/server.rs")
