@@ -5,11 +5,14 @@ import { SpatialPlanePayload } from "./spatialReplay";
 import { emitA2uiEvent } from "./spatialEventContract";
 import { SPACE_ID, workbenchApi, gatewayBaseUrl } from "../../api";
 import { CapabilityMatrixMap } from "../CapabilityMatrixMap";
-import { PlatformCapabilityGraph } from "../../contracts";
-import { HeapBlockCard as LegacyHeapBlockCard } from "./HeapBlockCard";
+import { CapabilityMapV2 } from "../CapabilityMapV2";
+import type { HeapBlockListItem, PlatformCapabilityGraph } from "../../contracts";
 import { A2UISynthesisSpace } from "./A2UISynthesisSpace";
+import { PlaygroundSurface } from "./PlaygroundSurface";
 import { HeapBlockGrid } from "../heap/HeapBlockGrid";
+import { HeapBlockCard as CanonicalHeapBlockCard } from "../heap/HeapBlockCard";
 import { useUiStore } from "../../store/uiStore";
+import { ForceGraph } from "../ForceGraph";
 
 export type A2UIComponentProps = {
   id: string;
@@ -23,6 +26,117 @@ function readProps(componentProperties: Record<string, unknown>, componentType: 
     return typed as Record<string, unknown>;
   }
   return componentProperties;
+}
+
+function readString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function readStringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const next: Record<string, string> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (item === undefined || item === null) continue;
+    next[key] = String(item);
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function normalizeWidgetPayloadType(props: Record<string, unknown>): "a2ui" | "rich_text" | "media" | "structured_data" | "pointer" {
+  const candidate = readString(props.payload_type)?.toLowerCase();
+  switch (candidate) {
+    case "a2ui":
+    case "rich_text":
+    case "media":
+    case "structured_data":
+    case "pointer":
+      return candidate;
+    default:
+      break;
+  }
+  return typeof props.contentPrefix === "string" || typeof props.content === "string" ? "rich_text" : "structured_data";
+}
+
+function projectWidgetHeapCard(props: Record<string, unknown>): HeapBlockListItem {
+  const nowIso = new Date().toISOString();
+  const title = readString(props.title) || readString(props.blockType) || "Heap Block";
+  const artifactId =
+    readString(props.artifactId) ||
+    readString(props.id) ||
+    `widget_${title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "heap"}`;
+  const blockType = readString(props.blockType) || "note";
+  const payloadType = normalizeWidgetPayloadType(props);
+  const emittedAt = readString(props.timestamp) || readString(props.createdAtUtc) || nowIso;
+  const attributes = readStringRecord(props.attributes);
+  const tags = readStringArray(props.tags);
+  const mentionsInline = readStringArray(props.mentions);
+  const pageLinks = readStringArray(props.pageLinks ?? props.page_links);
+  const behaviors = readStringArray(props.behaviors);
+  const confidenceValue = typeof props.confidence === "number" ? props.confidence : Number(props.confidence);
+  const confidence = Number.isFinite(confidenceValue) ? confidenceValue : 50;
+  const providedSurface = props.surfaceJson;
+  const hasProvidedSurface =
+    providedSurface && typeof providedSurface === "object" && !Array.isArray(providedSurface);
+
+  const surfaceJson: Record<string, unknown> = hasProvidedSurface
+    ? { ...(providedSurface as Record<string, unknown>) }
+    : {
+      payload_type: payloadType,
+      version: readString(props.version) || "v1.0",
+      phase: readString(props.phase) || "Alpha",
+      confidence,
+      authority_scope: readString(props.authority_scope) || "Local",
+      behaviors,
+    };
+
+  if (!hasProvidedSurface) {
+    if (payloadType === "rich_text") {
+      surfaceJson.text = readString(props.contentPrefix) || readString(props.content) || "";
+    } else if (payloadType === "pointer") {
+      surfaceJson.pointer = readString(props.pointer) || readString(props.content) || "";
+    } else if (payloadType === "structured_data") {
+      const structuredSource = props.content ?? props.attributes ?? {};
+      surfaceJson.data =
+        structuredSource && typeof structuredSource === "object" && !Array.isArray(structuredSource)
+          ? structuredSource
+          : { value: String(structuredSource ?? "") };
+    } else if (payloadType === "media") {
+      const media = props.media;
+      if (media && typeof media === "object" && !Array.isArray(media)) {
+        surfaceJson.media = media;
+      }
+    }
+  }
+
+  if (!("payload_type" in surfaceJson)) {
+    surfaceJson.payload_type = payloadType;
+  }
+
+  return {
+    projection: {
+      artifactId,
+      title,
+      blockType,
+      updatedAt: emittedAt,
+      emittedAt,
+      tags,
+      mentionsInline,
+      pageLinks,
+      attributes,
+      hasFiles: false,
+    },
+    surfaceJson,
+    warnings: [],
+  };
 }
 
 type ActionExecutionResult = {
@@ -78,14 +192,14 @@ async function executeWidgetAction(action: unknown, props: Record<string, unknow
         code: "space_provisioned"
       };
     },
-    startAgentInitiative: async (queryParams) => {
+    startAgentContribution: async (queryParams) => {
       const spaceId = queryParams.get("spaceId") || SPACE_ID;
-      const initiativeId = queryParams.get("initiativeId") || `workbench-${Date.now()}`;
-      const response = await workbenchApi.startAgentInitiative(spaceId, initiativeId);
+      const contributionId = queryParams.get("contributionId") || `workbench-${Date.now()}`;
+      const response = await workbenchApi.startAgentContribution(spaceId, contributionId);
       return {
         ok: true,
-        message: `Initiative run started: ${response.runId}`,
-        code: "agent_initiative_started"
+        message: `Contribution run started: ${response.runId}`,
+        code: "agent_contribution_started"
       };
     }
   };
@@ -106,6 +220,11 @@ function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React
   const actorRole = useUiStore((state) => state.sessionUser?.role || "operator");
   const props = readProps(componentProperties, "CapabilityMap");
   const dataSourceUrl = String(props.dataSourceUrl ?? "/api/system/capability-graph");
+  const envV2Flag =
+    ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_CAPABILITY_GRAPH_V2_ENABLED as
+      | string
+      | undefined) ?? "false";
+  const graphV2Enabled = String(props.graphV2Enabled ?? envV2Flag).toLowerCase() === "true";
 
   const [graphData, setGraphData] = React.useState<PlatformCapabilityGraph | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -149,15 +268,40 @@ function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React
     "div",
     { className: "flex flex-col lg:flex-row gap-4 min-h-[540px]" },
     [
-      React.createElement("div", { key: "graph", className: "flex-1 min-h-[520px] border border-cortex-line rounded-cortex bg-cortex-bg-panel" },
-        React.createElement(CapabilityMatrixMap, {
-          nodes: graphData.nodes,
-          edges: graphData.edges,
-          selectedId,
-          currentRole: actorRole,
-          onSelect: handleSelectNode,
-          onNavigate: (routeId: string) => navigate(routeId)
-        })
+      React.createElement("div", { key: "graph", className: "flex-1 min-h-[520px] border border-cortex-line rounded-cortex bg-cortex-bg-panel relative" },
+        [
+          React.createElement(
+            "div",
+            {
+              key: "graph-version-badge",
+              className: "absolute top-2 left-2 z-20 px-2 py-1 text-[10px] rounded border border-cortex-line bg-cortex-bg-elev text-cortex-ink-muted"
+            },
+            graphV2Enabled
+              ? `Graph V2 · ${graphData.capabilities_version ?? "runtime"}`
+              : "Graph V1 (fallback)"
+          ),
+          graphV2Enabled
+            ? React.createElement(CapabilityMapV2, {
+              key: "graph-v2",
+              nodes: graphData.nodes,
+              edges: graphData.edges,
+              selectedId,
+              currentRole: actorRole,
+              layoutHints: graphData.layout_hints,
+              legend: graphData.legend,
+              onSelect: handleSelectNode,
+              onNavigate: (routeId: string) => navigate(routeId)
+            })
+            : React.createElement(CapabilityMatrixMap, {
+              key: "graph-v1",
+              nodes: graphData.nodes,
+              edges: graphData.edges,
+              selectedId,
+              currentRole: actorRole,
+              onSelect: handleSelectNode,
+              onNavigate: (routeId: string) => navigate(routeId)
+            })
+        ]
       ),
       React.createElement(
         "aside",
@@ -166,34 +310,34 @@ function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React
           React.createElement("h4", { key: "title", className: "text-base font-semibold text-cortex-ink" }, "Capability Inspector"),
           selectedNode
             ? React.createElement(
-                React.Fragment,
-                { key: "content" },
-                [
-                  React.createElement("div", { key: "name", className: "text-sm text-cortex-ink font-medium" }, selectedNode.title),
-                  React.createElement("div", { key: "desc", className: "text-xs text-cortex-ink-muted" }, selectedNode.description),
-                  React.createElement("div", { key: "intent", className: "text-xs text-cortex-ink-muted" }, `intent=${selectedNode.intent_type}`),
-                  selectedNode.required_role
-                    ? React.createElement("div", { key: "role", className: "text-xs text-cortex-ink-muted" }, `required_role=${selectedNode.required_role}`)
-                    : null,
-                  selectedNode.pattern_id
-                    ? React.createElement("div", { key: "pattern", className: "text-xs text-cortex-ink-muted" }, `pattern=${selectedNode.pattern_id}`)
-                    : null,
-                  selectedNode.promotion_status
-                    ? React.createElement("div", { key: "status", className: "text-xs text-cortex-ink-muted" }, `promotion_status=${selectedNode.promotion_status}`)
-                    : null,
-                  canNavigate
-                    ? React.createElement(
-                        "button",
-                        {
-                          key: "navigate",
-                          className: "mt-2 px-3 py-2 rounded-cortex border border-cortex-line bg-cortex-bg text-cortex-ink hover:bg-cortex-bg-panel text-sm",
-                          onClick: () => navigate(String(selectedNode.route_id))
-                        },
-                        `Open ${selectedNode.route_id}`
-                      )
-                    : React.createElement("div", { key: "hint", className: "text-xs text-cortex-ink-faint" }, "No route binding for this capability.")
-                ]
-              )
+              React.Fragment,
+              { key: "content" },
+              [
+                React.createElement("div", { key: "name", className: "text-sm text-cortex-ink font-medium" }, selectedNode.title),
+                React.createElement("div", { key: "desc", className: "text-xs text-cortex-ink-muted" }, selectedNode.description),
+                React.createElement("div", { key: "intent", className: "text-xs text-cortex-ink-muted" }, `intent=${selectedNode.intent_type}`),
+                selectedNode.required_role
+                  ? React.createElement("div", { key: "role", className: "text-xs text-cortex-ink-muted" }, `required_role=${selectedNode.required_role}`)
+                  : null,
+                selectedNode.pattern_id
+                  ? React.createElement("div", { key: "pattern", className: "text-xs text-cortex-ink-muted" }, `pattern=${selectedNode.pattern_id}`)
+                  : null,
+                selectedNode.promotion_status
+                  ? React.createElement("div", { key: "status", className: "text-xs text-cortex-ink-muted" }, `promotion_status=${selectedNode.promotion_status}`)
+                  : null,
+                canNavigate
+                  ? React.createElement(
+                    "button",
+                    {
+                      key: "navigate",
+                      className: "mt-2 px-3 py-2 rounded-cortex border border-cortex-line bg-cortex-bg text-cortex-ink hover:bg-cortex-bg-panel text-sm",
+                      onClick: () => navigate(String(selectedNode.route_id))
+                    },
+                    `Open ${selectedNode.route_id}`
+                  )
+                  : React.createElement("div", { key: "hint", className: "text-xs text-cortex-ink-faint" }, "No route binding for this capability.")
+              ]
+            )
             : React.createElement("div", { key: "empty", className: "text-xs text-cortex-ink-faint" }, "Select a node to inspect metadata."),
         ]
       )
@@ -255,12 +399,12 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
       ),
       result
         ? React.createElement(
-            "div",
-            {
-              className: `text-xs ${result.ok ? "text-cortex-ok" : "text-cortex-bad"}`
-            },
-            result.message
-          )
+          "div",
+          {
+            className: `text-xs ${result.ok ? "text-cortex-ok" : "text-cortex-bad"}`
+          },
+          result.message
+        )
         : null
     );
   },
@@ -407,21 +551,21 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
     const rawRows = props.rows ?? props.data;
     const rows = Array.isArray(rawRows)
       ? rawRows
-          .map((row) => {
-            if (row && typeof row === "object" && !Array.isArray(row)) {
-              return row as Record<string, unknown>;
-            }
-            if (Array.isArray(row)) {
-              const mapped: Record<string, unknown> = {};
-              row.forEach((cell, index) => {
-                const columnName = explicitColumns[index] ?? `Column ${index + 1}`;
-                mapped[columnName] = cell;
-              });
-              return mapped;
-            }
-            return null;
-          })
-          .filter((row): row is Record<string, unknown> => row !== null)
+        .map((row) => {
+          if (row && typeof row === "object" && !Array.isArray(row)) {
+            return row as Record<string, unknown>;
+          }
+          if (Array.isArray(row)) {
+            const mapped: Record<string, unknown> = {};
+            row.forEach((cell, index) => {
+              const columnName = explicitColumns[index] ?? `Column ${index + 1}`;
+              mapped[columnName] = cell;
+            });
+            return mapped;
+          }
+          return null;
+        })
+        .filter((row): row is Record<string, unknown> => row !== null)
       : [];
     const columns = explicitColumns.length > 0 ? explicitColumns : (rows[0] ? Object.keys(rows[0]) : []);
 
@@ -445,7 +589,17 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
     );
   },
 
-  HeapBlockCard: LegacyHeapBlockCard,
+  HeapBlockCard: ({ componentProperties, children }) => {
+    const props = componentProperties["HeapBlockCard"] as Record<string, unknown> || {};
+    const projected = projectWidgetHeapCard(props);
+    return React.createElement(CanonicalHeapBlockCard, {
+      block: projected,
+      isSelected: false,
+      isRegenerating: false,
+      onClick: () => undefined,
+      onDoubleClick: () => undefined
+    }, children);
+  },
   HeapBoard: ({ componentProperties }) => {
     const props = componentProperties["HeapBoard"] as Record<string, unknown> || {};
     return React.createElement(HeapBlockGrid, {
@@ -454,7 +608,18 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
     });
   },
   HeapCanvas: () => React.createElement(HeapBlockGrid, { showFilterSidebar: true }),
+  PlaygroundSurface: () => React.createElement(PlaygroundSurface),
   A2UISynthesisSpace: ({ componentProperties }) => React.createElement(A2UISynthesisSpace, { id: "synthesis_space", componentProperties }),
+
+  ContributionGraph: ({ componentProperties }) => {
+    const props = componentProperties["ContributionGraph"] as Record<string, unknown> || {};
+    return React.createElement(ForceGraph, {
+      nodes: Array.isArray(props.nodes) ? props.nodes as any[] : [],
+      edges: Array.isArray(props.edges) ? props.edges as any[] : [],
+      selectedId: typeof props.selectedId === "string" ? props.selectedId : null,
+      onSelect: () => undefined,
+    });
+  },
 
   CapabilityMap: CapabilityMapWidget,
   BrandingLabsWidget: () =>
@@ -475,14 +640,14 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
     ]);
   },
   TextField: ({ componentProperties }) => {
-      const props = readProps(componentProperties, "TextField");
-      return React.createElement("div", { className: "flex flex-col gap-1" }, [
-        React.createElement("label", { key: "label", className: "text-xs font-medium text-cortex-ink-muted uppercase tracking-wider" }, String(props.label || "")),
-        React.createElement("input", { key: "input", className: "bg-cortex-bg p-2 text-sm text-cortex-ink border border-cortex-line focus:outline-none focus:border-cortex-accent disabled:opacity-50" })
-      ]);
+    const props = readProps(componentProperties, "TextField");
+    return React.createElement("div", { className: "flex flex-col gap-1" }, [
+      React.createElement("label", { key: "label", className: "text-xs font-medium text-cortex-ink-muted uppercase tracking-wider" }, String(props.label || "")),
+      React.createElement("input", { key: "input", className: "bg-cortex-bg p-2 text-sm text-cortex-ink border border-cortex-line focus:outline-none focus:border-cortex-accent disabled:opacity-50" })
+    ]);
   },
   Grid: ({ children }) => {
-      return React.createElement("div", { className: "grid grid-cols-2 md:grid-cols-4 gap-4 w-full" }, children);
+    return React.createElement("div", { className: "grid grid-cols-2 md:grid-cols-4 gap-4 w-full" }, children);
   },
   Tabs: ({ componentProperties }) => {
     const props = readProps(componentProperties, "Tabs");

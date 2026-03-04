@@ -42,15 +42,18 @@ export interface DpubSystemBuildResponse {
   workspaceRoot: string;
 }
 
-export interface InitiativeNode {
+export type ContributionKind = "initiative" | "pr" | "bounty" | "decision" | "task";
+
+export interface ContributionNode {
   id: string;
   title: string;
+  kind?: ContributionKind;
   status: string;
   layer: string;
   portfolio_role?: string;
 }
 
-export interface InitiativeEdge {
+export interface ContributionEdge {
   from: string;
   to: string;
   edge_kind?: string;
@@ -58,10 +61,10 @@ export interface InitiativeEdge {
   is_explicit?: boolean;
 }
 
-export interface InitiativeGraph {
+export interface ContributionGraph {
   graph_root_hash: string;
-  nodes: InitiativeNode[];
-  edges: InitiativeEdge[];
+  nodes: ContributionNode[];
+  edges: ContributionEdge[];
 }
 
 export interface CapabilityNode {
@@ -79,20 +82,177 @@ export interface CapabilityNode {
     message?: string;
     context?: Record<string, unknown>;
   }>;
+  cluster_key?: string;
+  domain?: string;
+  locked_reason?: string;
+  visibility_state?: string;
+  health?: string;
+  priority?: string;
+  inspector?: {
+    route_id?: string;
+    category?: string;
+    pattern_label?: string;
+    required_role?: string;
+    required_role_rank?: number;
+    operator_critical?: boolean;
+    approval_required?: boolean;
+    promotion_status?: string;
+  };
 }
 
 export interface CapabilityEdge {
   from: string;
   to: string;
   relationship: string;
+  relationship_label?: string;
+  confidence?: number;
+  policy_ref?: string;
+  rationale?: string;
+  directionality?: string;
+}
+
+export interface CapabilityLayoutGroup {
+  key: string;
+  label: string;
+  order: number;
+  color: string;
+}
+
+export interface CapabilityLayoutHints {
+  engine: string;
+  seed: string;
+  cluster_by: string;
+  groups: CapabilityLayoutGroup[];
+}
+
+export interface CapabilityLegend {
+  intent_type_colors: Record<string, string>;
+  relationship_styles: Record<string, string>;
+  lock_semantics: string;
 }
 
 export interface PlatformCapabilityGraph {
   schema_version: string;
   generated_at: string;
   source_of_truth: string;
+  graph_hash?: string;
+  layout_hints?: CapabilityLayoutHints;
+  legend?: CapabilityLegend;
+  capabilities_version?: string;
   nodes: CapabilityNode[];
   edges: CapabilityEdge[];
+}
+
+export type SurfacingHeuristic =
+  | "PrimaryCore"
+  | "Secondary"
+  | "ContextualDeep"
+  | "Hidden";
+export type OperationalFrequency = "Continuous" | "Daily" | "AdHoc" | "Rare";
+
+export interface DomainEntityRef {
+  entityType: string;
+  entityId?: string;
+  label?: string;
+}
+
+export interface PlacementConstraint {
+  preferredNavBand?: string;
+  preferredCategory?: string;
+  allowContextualOnly?: boolean;
+  maxNavDepth?: number;
+}
+
+export interface PlatformCapabilityCatalogNode {
+  id: { 0: string } | string;
+  name: string;
+  description: string;
+  intentType: string;
+  routeId?: string;
+  category?: string;
+  requiredRole?: string;
+  icon?: string;
+  surfacingHeuristic?: SurfacingHeuristic;
+  operationalFrequency?: OperationalFrequency;
+  domainEntities?: DomainEntityRef[];
+  placementConstraint?: PlacementConstraint;
+  rootPath?: string;
+}
+
+export interface PlatformCapabilityCatalogEdge {
+  source: { 0: string } | string;
+  target: { 0: string } | string;
+  relationship: string;
+}
+
+export interface PlatformCapabilityCatalog {
+  schemaVersion: string;
+  catalogVersion: string;
+  catalogHash?: string;
+  nodes: PlatformCapabilityCatalogNode[];
+  edges: PlatformCapabilityCatalogEdge[];
+}
+
+export interface SpaceCapabilityNodeOverride {
+  capabilityId: { 0: string } | string;
+  localAlias?: string;
+  isActive: boolean;
+  localRequiredRole?: string;
+  surfacingHeuristic?: SurfacingHeuristic;
+  operationalFrequency?: OperationalFrequency;
+  placementConstraint?: PlacementConstraint;
+}
+
+export interface SpaceCapabilityGraph {
+  schemaVersion: string;
+  spaceId: string;
+  baseCatalogVersion: string;
+  baseCatalogHash: string;
+  nodes: SpaceCapabilityNodeOverride[];
+  edges: PlatformCapabilityCatalogEdge[];
+  updatedAt: string;
+  updatedBy: string;
+  lineageRef?: string;
+}
+
+export interface CompilationContext {
+  spaceId: string;
+  actorRole: string;
+  intent?: string;
+  density?: string;
+}
+
+export interface CompiledNavigationEntry {
+  capabilityId: string;
+  routeId: string;
+  label: string;
+  icon: string;
+  category: string;
+  requiredRole: string;
+  navSlot: string;
+  navBand: string;
+  surfacingHeuristic: string;
+  operationalFrequency: string;
+  rank: number;
+}
+
+export interface CompiledSurfacingPlan {
+  primaryCore: string[];
+  secondary: Record<string, string[]>;
+  contextualDeep: string[];
+  hidden: string[];
+}
+
+export interface CompiledNavigationPlan {
+  schemaVersion: string;
+  generatedAt: string;
+  spaceId: string;
+  actorRole: string;
+  intent?: string;
+  density?: string;
+  planHash: string;
+  entries: CompiledNavigationEntry[];
+  surfacing: CompiledSurfacingPlan;
 }
 
 export interface PathAssessment {
@@ -104,7 +264,7 @@ export interface PathAssessment {
   };
 }
 
-export interface AgentInitiativeResponse {
+export interface AgentContributionResponse {
   accepted: boolean;
   runId: string;
   workflowId: string;
@@ -151,7 +311,7 @@ export interface AgentRunRecord {
   runId: string;
   workflowId: string;
   spaceId: string;
-  initiativeId: string;
+  contributionId: string;
   status: string;
   startedAt: string;
   updatedAt: string;
@@ -250,6 +410,7 @@ export interface HeapBlockProjection {
   tags: string[];
   mentionsInline: string[];
   mentionsQuery?: string[];
+  pageLinks?: string[];
   fileKeys?: string[];
   hasFiles?: boolean;
   attributes?: Record<string, string>;
@@ -270,6 +431,225 @@ export interface HeapBlocksResponse {
   hasMore: boolean;
   nextCursor?: string;
   items: HeapBlockListItem[];
+}
+
+export interface HeapDeletedListItem {
+  artifactId: string;
+  deletedAt: string;
+}
+
+export interface HeapChangedBlocksResponse {
+  schemaVersion: "1.0.0";
+  generatedAt: string;
+  count: number;
+  hasMore: boolean;
+  nextCursor?: string;
+  changed: HeapBlockListItem[];
+  deleted: HeapDeletedListItem[];
+}
+
+export interface HeapBlocksQueryParams {
+  spaceId?: string;
+  tag?: string;
+  mention?: string;
+  pageLink?: string;
+  attribute?: string;
+  blockType?: string;
+  hasFiles?: boolean;
+  fromTs?: string;
+  changedSince?: string;
+  toTs?: string;
+  includeDeleted?: boolean;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface HeapContextBundleBlock {
+  artifact_id: string;
+  title: string;
+  block_type: string;
+  tags: string[];
+  mentions: string[];
+  surface_json: Json;
+  updated_at: string;
+}
+
+export interface HeapBlocksContextResponse {
+  context_bundle: {
+    blocks: HeapContextBundleBlock[];
+    block_count: number;
+    prepared_at: string;
+  };
+}
+
+export interface HeapBlockHistoryVersion {
+  version: number;
+  timestamp: string;
+  mutation_type: string;
+  actor: string;
+}
+
+export interface HeapBlockHistoryResponse {
+  artifact_id: string;
+  versions: HeapBlockHistoryVersion[];
+}
+
+export interface CommonsIntegrityViolation {
+  rule_id: string;
+  affected_nodes: string[];
+  severity: string;
+  explanation: string;
+}
+
+export interface SuggestedEnrichment {
+  enrichmentId: string;
+  kind: "mention" | "tag" | "duration" | "pull_request";
+  displayLabel: string;
+  matchedText: string;
+  start: number;
+  end: number;
+  metadata: Json;
+}
+
+export interface CommonsEnforcementOutcome {
+  mode: "shadow" | "warn_or_block";
+  shouldBlock: boolean;
+  shouldWarn: boolean;
+  violations: CommonsIntegrityViolation[];
+  suggestedEnrichments: SuggestedEnrichment[];
+}
+
+export interface HeapStewardGateValidateResponse {
+  schemaVersion: string;
+  artifactId: string;
+  status: "pass" | "action_required";
+  outcome: CommonsEnforcementOutcome;
+  surface?: Json;
+  stewardGateToken?: string;
+}
+
+export interface HeapStewardGateApplyResponse {
+  schemaVersion: string;
+  accepted: boolean;
+  artifactId: string;
+  enrichmentId: string;
+  childArtifactId: string;
+  childBlockId: string;
+  validation: HeapStewardGateValidateResponse;
+}
+
+export interface ArtifactDecisionProof {
+  decisionId: string;
+  signature: string;
+  signer: string;
+  algorithm?: string;
+  nonce?: string;
+  expiresAt?: string;
+}
+
+export interface ArtifactGovernanceEnvelope {
+  approvedBy: string;
+  rationale: string;
+  approvedAt: string;
+  actorId: string;
+  decisionProof: ArtifactDecisionProof;
+  nonce?: string;
+  expiresAt?: string;
+}
+
+export interface ArtifactPublishRequest {
+  leaseId?: string;
+  expectedRevisionId?: string;
+  notes?: string;
+  governance?: ArtifactGovernanceEnvelope;
+  stewardGateToken?: string;
+}
+
+export type HeapPayloadType = "a2ui" | "rich_text" | "media" | "structured_data" | "pointer";
+
+export interface EmitHeapBlockSource {
+  agent_id: string;
+  session_id?: string;
+  request_id?: string;
+  emitted_at: string;
+}
+
+export interface EmitHeapBlockContent {
+  payload_type: HeapPayloadType;
+  a2ui?: {
+    surface_id: string;
+    protocol_version: string;
+    renderer?: "dioxus" | "lit" | "web" | "native" | "other";
+    view_type?: string;
+    tree: Json;
+    data_model?: Json;
+  };
+  rich_text?: {
+    plain_text: string;
+    title_doc?: Json;
+    text_doc?: Json;
+  };
+  media?: {
+    hash: string;
+    mime_type: string;
+  };
+  structured_data?: Json;
+  pointer?: string;
+}
+
+export interface EmitHeapBlockRequest {
+  schema_version: "1.0.0";
+  mode: "heap";
+  workspace_id: string;
+  source: EmitHeapBlockSource;
+  block: {
+    id?: string;
+    type: string;
+    title: string;
+    icon?: string;
+    icon_type?: "emoji" | "image" | "icon" | "none";
+    color?: string;
+    main_tag?: string;
+    attributes?: Record<string, string>;
+    behaviors?: string[];
+  };
+  content: EmitHeapBlockContent;
+  relations?: {
+    tags?: Array<{ to_block_id: string; meta?: Json }>;
+    mentions?: Array<{ to_block_id: string; label?: string; source_path?: string }>;
+    page_links?: Array<{ to_block_id: string; source_path?: string }>;
+  };
+  files?: Array<{
+    hash: string;
+    file_size: number;
+    name: string;
+    mime_type?: string;
+    path?: string;
+    is_uploaded?: boolean;
+    thumbnails?: Array<{
+      type: string;
+      size: string;
+      path?: string;
+      width?: number;
+      height?: number;
+    }>;
+  }>;
+  apps?: Array<{
+    id: string;
+    name?: string;
+    app_type?: string;
+    filter?: Json;
+    sort?: Json;
+    mapping?: Json;
+  }>;
+  meta?: {
+    schema_version?: string;
+    canonical_hash?: string;
+    request_path?: string;
+    reply_to_block_id?: string;
+  };
+  projection_hints?: Json;
+  crdt_projection?: Json;
 }
 
 export interface BrandPalette {
@@ -386,6 +766,14 @@ export interface NavigationEntrySpec {
   icon: string;
   category: string;
   requiredRole: string;
+  navSlot?: string;
+  navMeta?: {
+    badgeCount?: number;
+    badgeTone?: "default" | "info" | "warn" | "critical";
+    attention?: boolean;
+    attentionLabel?: string;
+    collapsibleHint?: "expanded" | "rail" | "hidden";
+  };
 }
 
 export interface NavigationGraphSpec {

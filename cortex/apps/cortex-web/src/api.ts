@@ -9,8 +9,11 @@ import type {
   DpubSystemBuildResponse,
   DpubSystemReadyResponse,
   EmitHeapBlockRequest,
+  ArtifactPublishRequest,
   HeapBlocksQueryParams,
   HeapChangedBlocksResponse,
+  HeapStewardGateApplyResponse,
+  HeapStewardGateValidateResponse,
   HeapBlockHistoryResponse,
   HeapBlocksContextResponse,
   HeapBlocksResponse,
@@ -255,6 +258,41 @@ export const workbenchApi = {
       body: JSON.stringify(payload)
     });
   },
+  validateHeapStewardGate: (artifactId: string) =>
+    request<HeapStewardGateValidateResponse>(
+      `/api/cortex/studio/heap/blocks/${artifactId}/steward-gate/validate`,
+      {
+        method: "POST",
+        headers: {
+          "x-cortex-role": "operator",
+          "x-cortex-actor": "cortex-web"
+        }
+      }
+    ),
+  applyHeapStewardEnrichment: (artifactId: string, enrichmentId: string) =>
+    request<HeapStewardGateApplyResponse>(
+      `/api/cortex/studio/heap/blocks/${artifactId}/steward-gate/apply`,
+      {
+        method: "POST",
+        headers: {
+          "x-cortex-role": "operator",
+          "x-cortex-actor": "cortex-web"
+        },
+        body: JSON.stringify({ enrichmentId })
+      }
+    ),
+  publishArtifact: (artifactId: string, payload: ArtifactPublishRequest) =>
+    request<{ artifactId: string; status: string; headRevisionId: string; publishedAt?: string }>(
+      `/api/cortex/studio/artifacts/${artifactId}/publish`,
+      {
+        method: "POST",
+        headers: {
+          "x-cortex-role": "steward",
+          "x-cortex-actor": "cortex-web"
+        },
+        body: JSON.stringify(payload)
+      }
+    ),
   getBrandPolicy: () => request<BrandPolicyResponse>("/api/system/brand-policy")
 };
 

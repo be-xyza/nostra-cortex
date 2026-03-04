@@ -130,6 +130,8 @@ POST	/api/cortex/studio/artifacts/:artifact_id/publish
 POST	/api/cortex/studio/artifacts/:artifact_id/save
 POST	/api/cortex/studio/heap/blocks/:artifact_id/delete
 POST	/api/cortex/studio/heap/blocks/:artifact_id/pin
+POST	/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/apply
+POST	/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/validate
 POST	/api/cortex/studio/heap/blocks/context
 POST	/api/cortex/studio/heap/emit
 POST	/api/cortex/viewspecs/:view_spec_id/confidence/recompute

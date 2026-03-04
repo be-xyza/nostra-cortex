@@ -41,6 +41,14 @@ use crate::services::heap_mapper::{
     map_emit_heap_block_to_agui_mutations, parse_emit_heap_block,
     parse_iso_timestamp as parse_heap_iso_timestamp, project_heap_block, validate_emit_heap_block,
 };
+use crate::services::heap_nesting::{
+    NestingProjectionRecord, build_nested_a2ui_tree_by_artifact,
+};
+use crate::services::steward_gate::{
+    StewardGateStatus, build_steward_gate_surface, evaluate_heap_steward_gate,
+    find_enrichment_by_id, issue_publish_token, resolve_applied_enrichment_ids,
+    validate_publish_token,
+};
 use crate::services::siq_types::{
     SiqCoverage, SiqDependencyClosure, SiqGateSummary, SiqGraphProjection, SiqHealth,
     SiqRunArtifact,
@@ -114,6 +122,7 @@ use cortex_domain::capabilities::navigation_graph::{
 };
 use cortex_domain::graph::{EdgeKind as DomainEdgeKind, Graph as DomainGraph, Node as DomainNode};
 use cortex_domain::integrity::{
+    CommonsEnforcementOutcome as DomainCommonsEnforcementOutcome,
     Constraint as DomainConstraint, Direction as DomainDirection,
     EdgeSelector as DomainEdgeSelector, IntegrityPredicate as DomainIntegrityPredicate,
     IntegrityRule as DomainIntegrityRule, IntegrityScope as DomainIntegrityScope,
@@ -150,6 +159,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
+use uuid::Uuid;
 
 #[cfg(feature = "temporal-sdk-native")]
 use squads_temporal_client::{
@@ -1358,6 +1368,39 @@ struct ArtifactPublishRequest {
     notes: Option<String>,
     #[serde(default)]
     governance: Option<ArtifactGovernanceEnvelope>,
+    #[serde(default)]
+    steward_gate_token: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct HeapStewardGateValidateResponse {
+    schema_version: String,
+    artifact_id: String,
+    status: String,
+    outcome: DomainCommonsEnforcementOutcome,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    surface: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    steward_gate_token: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct HeapStewardGateApplyRequest {
+    enrichment_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct HeapStewardGateApplyResponse {
+    schema_version: String,
+    accepted: bool,
+    artifact_id: String,
+    enrichment_id: String,
+    child_artifact_id: String,
+    child_block_id: String,
+    validation: HeapStewardGateValidateResponse,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -2665,6 +2708,10 @@ impl GatewayService {
             )
             .route("/api/cortex/layout/spec", get(get_cortex_layout_spec))
             .route(
+                "/api/cortex/layout/discovery",
+                get(get_cortex_layout_discovery),
+            )
+            .route(
                 "/api/cortex/preferences/theme-policy",
                 get(get_cortex_theme_policy),
             )
@@ -2871,6 +2918,14 @@ impl GatewayService {
             .route(
                 "/api/cortex/studio/heap/blocks/:artifact_id/history",
                 get(get_cortex_heap_block_history),
+            )
+            .route(
+                "/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/validate",
+                post(post_cortex_heap_steward_gate_validate),
+            )
+            .route(
+                "/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/apply",
+                post(post_cortex_heap_steward_gate_apply),
             )
             .route(
                 "/api/cortex/studio/artifacts",
@@ -4784,6 +4839,174 @@ fn write_heap_projection_store(items: &[HeapProjectionRecord]) -> Result<(), Str
     write_json_file_vec(&cortex_ux_heap_projection_store_path(), items)
 }
 
+fn generate_block_ulid() -> String {
+    const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    let now_ms = Utc::now().timestamp_millis().max(0) as u128;
+    let random_bits = Uuid::new_v4().as_u128() & ((1u128 << 80) - 1);
+    let mut value = (now_ms << 80) | random_bits;
+    let mut out = [0u8; 26];
+    for idx in (0..26).rev() {
+        let chunk = (value & 0b1_1111) as usize;
+        out[idx] = CROCKFORD[chunk];
+        value >>= 5;
+    }
+    String::from_utf8_lossy(&out).to_string()
+}
+
+fn collect_applied_steward_enrichment_ids(
+    projection_records: &[HeapProjectionRecord],
+    parent_block_id: &str,
+) -> HashSet<String> {
+    let surfaces = projection_records
+        .iter()
+        .filter(|entry| {
+            entry.projection.block_id != parent_block_id
+                && (entry
+                    .projection
+                    .tags
+                    .iter()
+                    .any(|target| target == parent_block_id)
+                    || entry
+                        .projection
+                        .page_links
+                        .iter()
+                        .any(|target| target == parent_block_id))
+        })
+        .map(|entry| entry.surface_json.clone())
+        .collect::<Vec<_>>();
+    resolve_applied_enrichment_ids(&surfaces)
+}
+
+fn projection_records_with_nested_surfaces(rows: Vec<HeapProjectionRecord>) -> Vec<HeapProjectionRecord> {
+    let nesting_records = rows
+        .iter()
+        .map(|entry| NestingProjectionRecord {
+            artifact_id: entry.projection.artifact_id.clone(),
+            block_id: entry.projection.block_id.clone(),
+            title: entry.projection.title.clone(),
+            block_type: entry.projection.block_type.clone(),
+            updated_at: entry.projection.updated_at.clone(),
+            emitted_at: Some(entry.projection.emitted_at.clone()),
+            tags: entry.projection.tags.clone(),
+            mentions_inline: entry.projection.mentions_inline.clone(),
+            page_links: entry.projection.page_links.clone(),
+            attributes: entry.projection.attributes.clone(),
+            surface_json: entry.surface_json.clone(),
+        })
+        .collect::<Vec<_>>();
+    let nested = build_nested_a2ui_tree_by_artifact(&nesting_records, 3);
+
+    rows.into_iter()
+        .map(|mut entry| {
+            if let Some(tree) = nested.get(&entry.projection.artifact_id) {
+                if let Some(surface_obj) = entry.surface_json.as_object_mut() {
+                    surface_obj.insert("nestedA2uiTree".to_string(), tree.clone());
+                } else {
+                    entry.surface_json = json!({
+                        "payload_type": "structured_data",
+                        "data": entry.surface_json,
+                        "nestedA2uiTree": tree,
+                    });
+                }
+            }
+            entry
+        })
+        .collect()
+}
+
+fn build_heap_steward_gate_validation(
+    artifact_id: &str,
+    actor_id: &str,
+) -> Result<HeapStewardGateValidateResponse, axum::response::Response> {
+    let artifacts = read_artifacts_store();
+    let Some(artifact) = artifacts.iter().find(|item| item.artifact_id == artifact_id) else {
+        return Err(cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_BLOCK_NOT_FOUND",
+            "Heap block does not exist.",
+            Some(json!({ "artifactId": artifact_id })),
+        ));
+    };
+
+    let projection_records = read_heap_projection_store();
+    let Some(parent_projection) = projection_records
+        .iter()
+        .find(|entry| entry.projection.artifact_id == artifact_id && entry.deleted_at.is_none())
+    else {
+        return Err(cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_BLOCK_NOT_FOUND",
+            "Heap projection does not exist or was deleted.",
+            Some(json!({ "artifactId": artifact_id })),
+        ));
+    };
+
+    let applied_ids =
+        collect_applied_steward_enrichment_ids(&projection_records, &parent_projection.projection.block_id);
+    let evaluation = evaluate_heap_steward_gate(
+        &workspace_root(),
+        &parent_projection.projection.workspace_id,
+        &parent_projection.projection.block_id,
+        &artifact.markdown_source,
+        &parent_projection.projection.tags,
+        &parent_projection.projection.page_links,
+        &applied_ids,
+    )
+    .map_err(|reason| {
+        cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "STEWARD_GATE_EVALUATION_FAILED",
+            "Failed to evaluate Steward Gate outcome.",
+            Some(json!({
+                "artifactId": artifact_id,
+                "reason": reason
+            })),
+        )
+    })?;
+
+    let mut token = None;
+    if !evaluation.outcome.should_block && !evaluation.outcome.suggested_enrichments.is_empty() {
+        token = Some(
+            issue_publish_token(
+                &artifact.artifact_id,
+                &artifact.head_revision_id,
+                actor_id,
+                &evaluation.outcome,
+            )
+            .map_err(|reason| {
+                cortex_ux_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "STEWARD_GATE_TOKEN_ISSUE_FAILED",
+                    "Failed to issue Steward Gate publish token.",
+                    Some(json!({
+                        "artifactId": artifact_id,
+                        "reason": reason
+                    })),
+                )
+            })?,
+        );
+    }
+
+    let surface = match evaluation.status {
+        StewardGateStatus::ActionRequired => {
+            Some(build_steward_gate_surface(artifact_id, &evaluation))
+        }
+        StewardGateStatus::Pass => None,
+    };
+
+    Ok(HeapStewardGateValidateResponse {
+        schema_version: "1.0.0".to_string(),
+        artifact_id: artifact_id.to_string(),
+        status: match evaluation.status {
+            StewardGateStatus::Pass => "pass".to_string(),
+            StewardGateStatus::ActionRequired => "action_required".to_string(),
+        },
+        outcome: evaluation.outcome,
+        surface,
+        steward_gate_token: token,
+    })
+}
+
 fn append_heap_emit_rejection(event: &HeapEmitRejectionEvent) -> Result<(), String> {
     append_json_line(&cortex_ux_heap_emit_rejections_log_path(), event)
 }
@@ -5503,6 +5726,102 @@ async fn get_cortex_layout_spec() -> Json<ShellLayoutSpec> {
     Json(resolve_shell_layout_spec())
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CortexLayoutDiscoveryEntry {
+    route_id: String,
+    route_label: String,
+    pattern_id: String,
+    required_role: String,
+    promotion_status: String,
+    recommended_nav_slot: String,
+    rationale: String,
+}
+
+fn discovery_slot_weight(slot: &str) -> u32 {
+    match slot {
+        "primary_attention" => 900,
+        "primary_workspace" => 850,
+        "primary_execute" => 800,
+        "secondary_ops" => 600,
+        "secondary_build" => 550,
+        "secondary_agents" => 500,
+        "secondary_admin" => 450,
+        "labs" => 200,
+        "hidden" => 0,
+        _ => 600,
+    }
+}
+
+fn recommend_nav_slot_for_discovery(
+    route_id: &str,
+    route_label: &str,
+    pattern_id: &str,
+) -> (String, String) {
+    let normalized_label = route_label.trim().to_ascii_lowercase();
+    if matches!(route_id, "/inbox" | "/notifications")
+        || normalized_label.contains("inbox")
+        || normalized_label.contains("notification")
+        || normalized_label.contains("approval")
+    {
+        return (
+            "primary_attention".to_string(),
+            "attention surface (inbox/notification/approval) -> primary_attention".to_string(),
+        );
+    }
+
+    let slot = match pattern_id.trim() {
+        "pattern.spaces" => "primary_workspace",
+        "pattern.workflow" => "primary_execute",
+        "pattern.studio" | "pattern.artifacts" => "secondary_build",
+        "pattern.testing" => "secondary_ops",
+        "pattern.system" => "secondary_ops",
+        _ => "secondary_ops",
+    };
+    (
+        slot.to_string(),
+        format!("pattern={pattern_id} -> {slot}"),
+    )
+}
+
+async fn get_cortex_layout_discovery() -> Json<Vec<CortexLayoutDiscoveryEntry>> {
+    let layout_spec = resolve_shell_layout_spec();
+    let nav_routes: std::collections::HashSet<String> = layout_spec
+        .navigation_graph
+        .entries
+        .iter()
+        .map(|entry| entry.route_id.clone())
+        .collect();
+
+    let mut entries = Vec::new();
+    for cap in resolve_view_capability_manifests() {
+        if nav_routes.contains(&cap.route_id) {
+            continue;
+        }
+        let (recommended_nav_slot, rationale) =
+            recommend_nav_slot_for_discovery(&cap.route_id, &cap.route_label, &cap.pattern_id);
+        entries.push(CortexLayoutDiscoveryEntry {
+            route_id: cap.route_id,
+            route_label: cap.route_label,
+            pattern_id: cap.pattern_id,
+            required_role: cap.required_role,
+            promotion_status: cap.promotion_status,
+            recommended_nav_slot,
+            rationale,
+        });
+    }
+
+    entries.sort_by(|left, right| {
+        discovery_slot_weight(&right.recommended_nav_slot)
+            .cmp(&discovery_slot_weight(&left.recommended_nav_slot))
+            .then_with(|| left.pattern_id.cmp(&right.pattern_id))
+            .then_with(|| left.route_label.cmp(&right.route_label))
+            .then_with(|| left.route_id.cmp(&right.route_id))
+    });
+
+    Json(entries)
+}
+
 async fn get_cortex_layout_source_state() -> Json<CortexSourceState> {
     Json(cortex_ux_source_state())
 }
@@ -5723,8 +6042,28 @@ async fn get_cortex_layout_drift_report() -> Json<CortexDriftReport> {
 }
 
 async fn post_cortex_layout_spec(
+    headers: HeaderMap,
     Json(contract): Json<crate::services::cortex_ux::PersistedShellLayoutSpec>,
 ) -> axum::response::Response {
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_layout_spec",
+        None,
+        "layout_spec",
+        "admin",
+        "steward",
+        authz_approval_claims("layout_spec"),
+        true,
+        vec![],
+        "STEWARD_ROLE_REQUIRED",
+        "Steward role is required for shell layout contract updates.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
     if let Err(err) = save_persisted_shell_contract(&contract) {
         return cortex_ux_error(
             StatusCode::BAD_REQUEST,
@@ -5733,6 +6072,70 @@ async fn post_cortex_layout_spec(
             Some(json!({ "reason": err })),
         );
     }
+
+    let audit_path = decision_actions_dir().join("layout_spec_updates.jsonl");
+    if let Some(parent) = audit_path.parent() {
+        if let Err(err) = fs::create_dir_all(parent) {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "LAYOUT_SPEC_AUDIT_DIR_FAILED",
+                "Failed to create decision surface audit directory.",
+                Some(json!({ "path": parent.display().to_string(), "reason": err.to_string() })),
+            );
+        }
+    }
+    let event = json!({
+        "schemaVersion": "1.0.0",
+        "eventType": "layout_spec_update",
+        "generatedAt": now_iso(),
+        "layoutId": contract.layout_spec.layout_id,
+        "approvedBy": contract.navigation_contract.approved_by,
+        "rationale": contract.navigation_contract.rationale,
+        "actor": {
+            "principal": identity.principal,
+            "role": identity.role,
+            "verified": identity.verified,
+            "source": identity.source,
+        },
+        "routeCount": contract.layout_spec.navigation_graph.entries.len(),
+        "capabilityCount": contract.view_capabilities.len(),
+        "patternCount": contract.patterns.len(),
+    });
+    let line = match serde_json::to_string(&event) {
+        Ok(line) => line,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "LAYOUT_SPEC_AUDIT_SERIALIZE_FAILED",
+                "Failed to serialize decision surface audit event.",
+                Some(json!({ "reason": err.to_string() })),
+            );
+        }
+    };
+    let mut file = match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&audit_path)
+    {
+        Ok(file) => file,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "LAYOUT_SPEC_AUDIT_OPEN_FAILED",
+                "Failed to open decision surface audit log file.",
+                Some(json!({ "path": audit_path.display().to_string(), "reason": err.to_string() })),
+            );
+        }
+    };
+    if let Err(err) = writeln!(file, "{}", line) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "LAYOUT_SPEC_AUDIT_WRITE_FAILED",
+            "Failed to write decision surface audit event.",
+            Some(json!({ "path": audit_path.display().to_string(), "reason": err.to_string() })),
+        );
+    }
+
     Json(json!({
         "accepted": true,
         "storedAt": now_iso(),
@@ -8899,7 +9302,7 @@ async fn post_cortex_heap_emit(
         .and_then(|value| value.as_str())
         .map(str::to_string);
 
-    let request = match parse_emit_heap_block(payload) {
+    let mut request = match parse_emit_heap_block(payload) {
         Ok(request) => request,
         Err(err) => {
             append_heap_emit_rejection_safe(
@@ -8918,6 +9321,16 @@ async fn post_cortex_heap_emit(
             );
         }
     };
+    if request
+        .block
+        .id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+    {
+        request.block.id = Some(generate_block_ulid());
+    }
 
     if let Err(err) = validate_emit_heap_block(&request) {
         append_heap_emit_rejection_safe(
@@ -9465,6 +9878,7 @@ async fn get_cortex_heap_blocks(Query(query): Query<HeapBlocksQuery>) -> axum::r
     } else {
         None
     };
+    rows = projection_records_with_nested_surfaces(rows);
 
     let items = rows
         .into_iter()
@@ -9674,6 +10088,7 @@ async fn get_cortex_heap_changed_blocks(
     } else {
         None
     };
+    rows = projection_records_with_nested_surfaces(rows);
 
     let count = rows.len();
     let changed = rows
@@ -10095,6 +10510,284 @@ async fn get_cortex_heap_block_history(
     .into_response()
 }
 
+async fn post_cortex_heap_steward_gate_validate(
+    headers: HeaderMap,
+    Path(artifact_id): Path<String>,
+) -> axum::response::Response {
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_heap_steward_gate_validate",
+        None,
+        "capability:heap_steward_gate_validate",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "HEAP_STEWARD_GATE_VALIDATE_FORBIDDEN",
+        "Operator role or higher is required to validate Steward Gate checks.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
+
+    match build_heap_steward_gate_validation(&artifact_id, &actor_id) {
+        Ok(response) => Json(response).into_response(),
+        Err(err_response) => err_response,
+    }
+}
+
+async fn post_cortex_heap_steward_gate_apply(
+    headers: HeaderMap,
+    Path(artifact_id): Path<String>,
+    Json(request): Json<HeapStewardGateApplyRequest>,
+) -> axum::response::Response {
+    if request.enrichment_id.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "STEWARD_GATE_ENRICHMENT_ID_REQUIRED",
+            "enrichmentId is required.",
+            Some(json!({ "artifactId": artifact_id })),
+        );
+    }
+
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_heap_steward_gate_apply",
+        None,
+        "capability:heap_steward_gate_apply",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "HEAP_STEWARD_GATE_APPLY_FORBIDDEN",
+        "Operator role or higher is required to apply Steward Gate enrichments.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
+
+    let validation = match build_heap_steward_gate_validation(&artifact_id, &actor_id) {
+        Ok(response) => response,
+        Err(err_response) => return err_response,
+    };
+    let Some(enrichment) = find_enrichment_by_id(&validation.outcome, request.enrichment_id.trim())
+    else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "STEWARD_GATE_ENRICHMENT_NOT_FOUND",
+            "Requested enrichment is no longer available.",
+            Some(json!({
+                "artifactId": artifact_id,
+                "enrichmentId": request.enrichment_id,
+            })),
+        );
+    };
+
+    let parent_projection_records = read_heap_projection_store();
+    let Some(parent_projection) = parent_projection_records
+        .iter()
+        .find(|entry| entry.projection.artifact_id == artifact_id && entry.deleted_at.is_none())
+        .cloned()
+    else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_BLOCK_NOT_FOUND",
+            "Heap projection does not exist or was deleted.",
+            Some(json!({ "artifactId": artifact_id })),
+        );
+    };
+
+    let now = now_iso();
+    let child_artifact_id = format!(
+        "artifact_steward_{}_{}",
+        Utc::now().timestamp_millis(),
+        Uuid::new_v4().simple()
+    );
+    let child_block_id = generate_block_ulid();
+    let child_block_type = match enrichment.kind.as_str() {
+        "mention" => "mention",
+        "tag" => "tag",
+        "duration" => "duration",
+        "pull_request" => "pull_request",
+        _ => "steward_enrichment",
+    }
+    .to_string();
+    let child_title = format!("Steward Enrichment · {}", enrichment.matched_text);
+    let child_markdown = format!(
+        "Steward enrichment generated from `{}` in parent artifact `{}`.",
+        enrichment.matched_text, artifact_id
+    );
+    let child_content_hash = hash_markdown(&child_markdown);
+    let child_revision = ArtifactRevision {
+        artifact_id: child_artifact_id.clone(),
+        revision_id: format!(
+            "rev_{}_{}",
+            child_artifact_id,
+            Utc::now().timestamp_millis()
+        ),
+        revision_number: 1,
+        markdown_source: child_markdown.clone(),
+        content_hash: child_content_hash.clone(),
+        created_at: now.clone(),
+        created_by: actor_id.clone(),
+        parent_revision_id: None,
+        published: false,
+    };
+    let source_state = cortex_ux_source_state();
+    let child_record = ArtifactDocumentV2 {
+        artifact_id: child_artifact_id.clone(),
+        title: child_title.clone(),
+        markdown_source: child_markdown.clone(),
+        rich_content: ArtifactRichContentProjection {
+            hash: child_content_hash.clone(),
+            block_count: estimate_markdown_blocks(&child_markdown),
+        },
+        content_hash: child_content_hash,
+        status: "draft".to_string(),
+        created_at: now.clone(),
+        updated_at: now.clone(),
+        published_at: None,
+        head_revision_id: child_revision.revision_id.clone(),
+        version: 1,
+        route_id: "/heap".to_string(),
+        owner_role: actor_role.clone(),
+        source_of_truth: source_state.source_of_truth.clone(),
+        fallback_active: source_state.fallback_active,
+        agui_initial_ui_json: None,
+        agui_tags: Some(vec![parent_projection.projection.block_id.clone()]),
+        agui_mentions: Some(vec![]),
+        heap_workspace_id: Some(parent_projection.projection.workspace_id.clone()),
+        heap_block_type: Some(child_block_type.clone()),
+        heap_emitted_at: Some(now.clone()),
+        heap_file_keys: Some(vec![]),
+        heap_mirror_mentions_to_relations: Some(true),
+        heap_relation_map_version: Some("relations_v1".to_string()),
+        heap_files_key_format: Some("hash:file_size".to_string()),
+    };
+
+    let child_surface = json!({
+        "payload_type": "structured_data",
+        "structured_data": {
+            "widget": "steward_enrichment",
+            "kind": enrichment.kind,
+            "display_label": enrichment.display_label,
+            "matched_text": enrichment.matched_text,
+            "metadata": enrichment.metadata,
+            "parent_artifact_id": artifact_id,
+        },
+        "meta": {
+            "steward_gate": {
+                "source_enrichment_id": enrichment.enrichment_id,
+                "applied_at": now,
+                "applied_by": actor_id,
+            }
+        }
+    });
+    let child_projection = HeapBlockProjection {
+        schema_version: "1.0.0".to_string(),
+        artifact_id: child_artifact_id.clone(),
+        workspace_id: parent_projection.projection.workspace_id.clone(),
+        block_id: child_block_id.clone(),
+        block_type: child_block_type,
+        title: child_title,
+        surface_id: "steward_gate_surface".to_string(),
+        emitted_at: now.clone(),
+        created_at: now.clone(),
+        updated_at: now.clone(),
+        actor_id: actor_id.clone(),
+        actor_role: actor_role.clone(),
+        mirror_mentions_to_relations: true,
+        relation_map_version: "relations_v1".to_string(),
+        files_key_format: "hash:file_size".to_string(),
+        tags: vec![parent_projection.projection.block_id.clone()],
+        mentions_inline: vec![],
+        mentions_query: vec![],
+        page_links: vec![],
+        file_keys: vec![],
+        has_files: false,
+        attributes: None,
+    };
+
+    let mut artifacts = read_artifacts_store();
+    artifacts.push(child_record);
+    if let Err(err) = write_artifacts_store(&artifacts) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "ARTIFACT_STORE_WRITE_FAILED",
+            "Failed to persist steward enrichment artifact.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    let mut revisions = read_artifact_revisions();
+    revisions.push(child_revision);
+    if let Err(err) = write_artifact_revisions(&revisions) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "ARTIFACT_REVISION_STORE_WRITE_FAILED",
+            "Failed to persist steward enrichment revision.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    let mut projections = parent_projection_records;
+    projections.push(HeapProjectionRecord {
+        projection: child_projection,
+        surface_json: child_surface,
+        warnings: vec![],
+        pinned_at: None,
+        deleted_at: None,
+    });
+    if let Err(err) = write_heap_projection_store(&projections) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "HEAP_PROJECTION_WRITE_FAILED",
+            "Failed to persist steward enrichment projection.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    let _ = append_artifact_audit(
+        &artifact_id,
+        "heap_steward_apply",
+        &actor_role,
+        &actor_id,
+        "/heap",
+        Some(format!("enrichment:{}", request.enrichment_id)),
+    );
+
+    let next_validation = match build_heap_steward_gate_validation(&artifact_id, &actor_id) {
+        Ok(response) => response,
+        Err(err_response) => return err_response,
+    };
+
+    Json(HeapStewardGateApplyResponse {
+        schema_version: "1.0.0".to_string(),
+        accepted: true,
+        artifact_id,
+        enrichment_id: request.enrichment_id,
+        child_artifact_id,
+        child_block_id,
+        validation: next_validation,
+    })
+    .into_response()
+}
+
 async fn post_cortex_artifact_create(
     headers: HeaderMap,
     Json(request): Json<ArtifactCreateRequest>,
@@ -10273,6 +10966,7 @@ async fn post_cortex_artifact_publish(
 
     let mut items = read_artifacts_store();
     let mut revisions = read_artifact_revisions();
+    let heap_projection_records = read_heap_projection_store();
     let mut published = None;
     for item in &mut items {
         if item.artifact_id != artifact_id {
@@ -10290,6 +10984,85 @@ async fn post_cortex_artifact_publish(
                         "headRevisionId": item.head_revision_id
                     })),
                 );
+            }
+        }
+
+        if item.route_id == "/heap" || item.heap_workspace_id.is_some() {
+            if let Some(parent_projection) = heap_projection_records
+                .iter()
+                .find(|entry| entry.projection.artifact_id == artifact_id && entry.deleted_at.is_none())
+            {
+                let applied_ids = collect_applied_steward_enrichment_ids(
+                    &heap_projection_records,
+                    &parent_projection.projection.block_id,
+                );
+                let evaluation = match evaluate_heap_steward_gate(
+                    &workspace_root(),
+                    &parent_projection.projection.workspace_id,
+                    &parent_projection.projection.block_id,
+                    &item.markdown_source,
+                    &parent_projection.projection.tags,
+                    &parent_projection.projection.page_links,
+                    &applied_ids,
+                ) {
+                    Ok(outcome) => outcome,
+                    Err(reason) => {
+                        return cortex_ux_error(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "STEWARD_GATE_EVALUATION_FAILED",
+                            "Failed to evaluate Steward Gate checks during publish.",
+                            Some(json!({
+                                "artifactId": artifact_id,
+                                "reason": reason
+                            })),
+                        );
+                    }
+                };
+
+                if evaluation.outcome.should_block {
+                    return cortex_ux_error(
+                        StatusCode::CONFLICT,
+                        "STEWARD_GATE_BLOCKED",
+                        "Publish blocked by Commons integrity violations.",
+                        Some(json!({
+                            "artifactId": artifact_id,
+                            "outcome": evaluation.outcome,
+                            "surface": build_steward_gate_surface(&artifact_id, &evaluation),
+                        })),
+                    );
+                }
+
+                if !evaluation.outcome.suggested_enrichments.is_empty() {
+                    let Some(token) = request.steward_gate_token.as_deref() else {
+                        return cortex_ux_error(
+                            StatusCode::PRECONDITION_REQUIRED,
+                            "STEWARD_GATE_ACK_REQUIRED",
+                            "Steward Gate acknowledgement is required before publish.",
+                            Some(json!({
+                                "artifactId": artifact_id,
+                                "outcome": evaluation.outcome,
+                                "surface": build_steward_gate_surface(&artifact_id, &evaluation),
+                            })),
+                        );
+                    };
+                    if let Err(reason) = validate_publish_token(
+                        token,
+                        &item.artifact_id,
+                        &item.head_revision_id,
+                        &actor_id,
+                        &evaluation.outcome,
+                    ) {
+                        return cortex_ux_error(
+                            StatusCode::PRECONDITION_FAILED,
+                            "STEWARD_GATE_TOKEN_INVALID",
+                            "Steward Gate token was invalid for this publish attempt.",
+                            Some(json!({
+                                "artifactId": artifact_id,
+                                "reason": reason
+                            })),
+                        );
+                    }
+                }
             }
         }
 
@@ -13476,27 +14249,13 @@ fn siq_dependency_closure_path() -> PathBuf {
 }
 
 fn siq_gate_summary_path(space_id: Option<&str>) -> PathBuf {
-    let base = if let Some(sid) = space_id {
-        workspace_root().join("_spaces").join(sid)
-    } else {
-        workspace_root()
-    };
-    base.join(".cortex")
-        .join("logs")
-        .join("siq")
-        .join("siq_gate_summary_latest.json")
+    let _ = space_id;
+    siq_log_dir().join("siq_gate_summary_latest.json")
 }
 
 fn siq_graph_projection_path(space_id: Option<&str>) -> PathBuf {
-    let base = if let Some(sid) = space_id {
-        workspace_root().join("_spaces").join(sid)
-    } else {
-        workspace_root()
-    };
-    base.join(".cortex")
-        .join("logs")
-        .join("siq")
-        .join("graph_projection_latest.json")
+    let _ = space_id;
+    siq_log_dir().join("graph_projection_latest.json")
 }
 
 fn read_json_artifact<T: DeserializeOwned>(path: &FsPath) -> Result<T, axum::response::Response> {
@@ -24601,13 +25360,13 @@ mod tests {
         let required_routes = [
             "/spaces",
             "/heap",
-            "/synthesis",
-            "/playground",
             "/studio",
             "/workflows",
             "/contributions",
             "/labs",
             "/system",
+            "/system/siq",
+            "/testing",
             "/artifacts",
             "/vfs",
             "/logs",
@@ -24791,16 +25550,179 @@ mod tests {
             "NOSTRA_CORTEX_UX_CONTRACT_PATH",
             contract_path.display().to_string().as_str(),
         );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified =
+            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _decision_dir = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().join("decision_surfaces").display().to_string().as_str(),
+        );
 
         let mut contract = default_persisted_shell_contract();
         contract.layout_spec.layout_id = "cortex.desktop.shell.persisted.test".to_string();
         contract.updated_at = "2026-02-09T03:00:00Z".to_string();
 
-        let response = post_cortex_layout_spec(Json(contract)).await;
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("steward"),
+        );
+        let response = post_cortex_layout_spec(headers, Json(contract)).await;
         assert_eq!(response.status(), StatusCode::OK);
 
         let Json(spec) = get_cortex_layout_spec().await;
         assert_eq!(spec.layout_id, "cortex.desktop.shell.persisted.test");
+    }
+
+    #[tokio::test]
+    async fn cortex_layout_spec_rejects_non_steward_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let contract_path = temp.path().join("contract_override.json");
+        let _dir_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _contract_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_CONTRACT_PATH",
+            contract_path.display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified =
+            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _decision_dir = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().join("decision_surfaces").display().to_string().as_str(),
+        );
+
+        let contract = default_persisted_shell_contract();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("operator"),
+        );
+        let response = post_cortex_layout_spec(headers, Json(contract)).await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn cortex_layout_spec_rejects_missing_approval_metadata() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let contract_path = temp.path().join("contract_override.json");
+        let _dir_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _contract_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_CONTRACT_PATH",
+            contract_path.display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified =
+            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _decision_dir = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().join("decision_surfaces").display().to_string().as_str(),
+        );
+
+        let mut contract = default_persisted_shell_contract();
+        contract.navigation_contract.approved_by = "".to_string();
+        contract.navigation_contract.rationale = "".to_string();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("steward"),
+        );
+        let response = post_cortex_layout_spec(headers, Json(contract)).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn cortex_layout_spec_rejects_invalid_nav_slot() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let contract_path = temp.path().join("contract_override.json");
+        let _dir_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _contract_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_CONTRACT_PATH",
+            contract_path.display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified =
+            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _decision_dir = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().join("decision_surfaces").display().to_string().as_str(),
+        );
+
+        let mut contract = default_persisted_shell_contract();
+        if let Some(first) = contract.layout_spec.navigation_graph.entries.first_mut() {
+            first.nav_slot = Some("totally_invalid".to_string());
+        }
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("steward"),
+        );
+        let response = post_cortex_layout_spec(headers, Json(contract)).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn cortex_layout_discovery_lists_unpromoted_capability_routes() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let contract_path = temp.path().join("contract_override.json");
+        let _dir_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _contract_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_CONTRACT_PATH",
+            contract_path.display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified =
+            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _decision_dir = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().join("decision_surfaces").display().to_string().as_str(),
+        );
+
+        let mut contract = default_persisted_shell_contract();
+        contract.view_capabilities.push(ViewCapabilityManifest {
+            route_id: "/notifications".to_string(),
+            route_label: "Notifications".to_string(),
+            view_capability_id: "view.notifications".to_string(),
+            pattern_id: "pattern.workflow".to_string(),
+            promotion_status: UX_STATUS_CANDIDATE.to_string(),
+            operator_critical: true,
+            required_role: "operator".to_string(),
+            approval_required: false,
+            description: "Notifications attention lane".to_string(),
+        });
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("steward"),
+        );
+        let response = post_cortex_layout_spec(headers, Json(contract)).await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let Json(discovery) = get_cortex_layout_discovery().await;
+        assert!(discovery.iter().any(|entry| entry.route_id == "/notifications"));
+        let notifications = discovery
+            .iter()
+            .find(|entry| entry.route_id == "/notifications")
+            .expect("notifications entry");
+        assert_eq!(notifications.recommended_nav_slot, "primary_attention");
     }
 
     #[tokio::test]
@@ -25024,6 +25946,7 @@ mod tests {
                 expected_revision_id: None,
                 notes: Some("ship it".to_string()),
                 governance: None,
+                steward_gate_token: None,
             }),
         )
         .await;
@@ -25224,6 +26147,367 @@ mod tests {
         assert_eq!(mention_query.status(), StatusCode::OK);
         let mention_body = response_json(mention_query).await;
         assert_eq!(mention_body["count"], 0);
+    }
+
+    #[tokio::test]
+    async fn heap_steward_gate_validate_returns_action_required_for_pr_enrichment() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-steward-gate-validate".parse().expect("actor header"),
+        );
+
+        let mut payload = heap_emit_fixture(
+            "req-steward-gate-validate",
+            "Steward Gate Validate",
+            "2026-02-23T11:00:00Z",
+            true,
+            "hash:file_size",
+        );
+        payload["content"] = json!({
+            "payload_type": "rich_text",
+            "rich_text": {
+                "plain_text": "I need to review PR-102 before merge."
+            }
+        });
+        let emit = post_cortex_heap_emit(headers.clone(), Json(payload)).await;
+        assert_eq!(emit.status(), StatusCode::OK);
+
+        let response = post_cortex_heap_steward_gate_validate(
+            headers,
+            Path("artifact-req-steward-gate-validate".to_string()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["status"], "action_required");
+        assert!(
+            body["outcome"]["suggestedEnrichments"]
+                .as_array()
+                .map(|items| !items.is_empty())
+                .unwrap_or(false)
+        );
+        assert!(body["surface"].is_object());
+        assert!(body["stewardGateToken"].is_string());
+    }
+
+    #[tokio::test]
+    async fn artifact_publish_requires_steward_gate_token_when_suggestions_exist() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut emit_headers = HeaderMap::new();
+        emit_headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        emit_headers.insert(
+            "x-cortex-actor",
+            "actor-steward-gate-publish".parse().expect("actor header"),
+        );
+
+        let mut payload = heap_emit_fixture(
+            "req-steward-gate-publish",
+            "Steward Gate Publish",
+            "2026-02-23T11:05:00Z",
+            true,
+            "hash:file_size",
+        );
+        payload["content"] = json!({
+            "payload_type": "rich_text",
+            "rich_text": {
+                "plain_text": "Escalate PR-102 to reviewers."
+            }
+        });
+        let emit = post_cortex_heap_emit(emit_headers, Json(payload)).await;
+        assert_eq!(emit.status(), StatusCode::OK);
+
+        let publish = post_cortex_artifact_publish(
+            role_headers("steward", "steward-gate-publish"),
+            Path("artifact-req-steward-gate-publish".to_string()),
+            Json(ArtifactPublishRequest {
+                lease_id: None,
+                expected_revision_id: None,
+                notes: Some("attempt publish without gate token".to_string()),
+                governance: Some(test_governance_envelope(
+                    "steward-gate-publish",
+                    "Systems Steward",
+                    "validating steward gate acknowledgement",
+                    "2026-02-23T11:10:00Z",
+                    "decision-steward-gate-publish",
+                )),
+                steward_gate_token: None,
+            }),
+        )
+        .await;
+        assert_eq!(publish.status(), StatusCode::PRECONDITION_REQUIRED);
+        let body = response_json(publish).await;
+        assert_eq!(body["errorCode"], "STEWARD_GATE_ACK_REQUIRED");
+    }
+
+    #[tokio::test]
+    async fn artifact_publish_rejects_blocking_commons_violations_even_with_token() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let ruleset_path = temp
+            .path()
+            .join("_spaces")
+            .join("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+            .join("commons_ruleset.json");
+        std::fs::create_dir_all(
+            ruleset_path
+                .parent()
+                .expect("ruleset parent should exist for test"),
+        )
+        .expect("create ruleset parent");
+        std::fs::write(
+            &ruleset_path,
+            serde_json::to_vec_pretty(&json!({
+                "commonsId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "commonsVersion": "1.0.0",
+                "rules": [{
+                    "id": "require_constitution",
+                    "name": "Require constitutional basis",
+                    "description": "heap blocks must reference constitution",
+                    "scope": "global",
+                    "predicate": {
+                        "target": { "entity_type": "heap_block", "tags": null },
+                        "relation": {
+                            "edge_kind": "constitutional_basis",
+                            "direction": "outgoing"
+                        },
+                        "constraint": "requires_constitutional_reference"
+                    },
+                    "severity": "critical"
+                }]
+            }))
+            .expect("ruleset json"),
+        )
+        .expect("write ruleset");
+
+        let mut emit_headers = HeaderMap::new();
+        emit_headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        emit_headers.insert(
+            "x-cortex-actor",
+            "actor-steward-gate-blocking".parse().expect("actor header"),
+        );
+        let mut payload = heap_emit_fixture(
+            "req-steward-gate-blocking",
+            "Steward Gate Blocking",
+            "2026-02-23T11:06:00Z",
+            true,
+            "hash:file_size",
+        );
+        payload["content"] = json!({
+            "payload_type": "rich_text",
+            "rich_text": {
+                "plain_text": "Normal text without constitutional link."
+            }
+        });
+        let emit = post_cortex_heap_emit(emit_headers, Json(payload)).await;
+        assert_eq!(emit.status(), StatusCode::OK);
+
+        let publish = post_cortex_artifact_publish(
+            role_headers("steward", "steward-gate-blocking"),
+            Path("artifact-req-steward-gate-blocking".to_string()),
+            Json(ArtifactPublishRequest {
+                lease_id: None,
+                expected_revision_id: None,
+                notes: Some("publish with blocking ruleset".to_string()),
+                governance: Some(test_governance_envelope(
+                    "steward-gate-blocking",
+                    "Systems Steward",
+                    "validating blocking ruleset path",
+                    "2026-02-23T11:11:00Z",
+                    "decision-steward-gate-blocking",
+                )),
+                steward_gate_token: Some("sgt1.invalid.invalid".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(publish.status(), StatusCode::CONFLICT);
+        let body = response_json(publish).await;
+        assert_eq!(body["errorCode"], "STEWARD_GATE_BLOCKED");
+    }
+
+    #[tokio::test]
+    async fn heap_steward_gate_apply_creates_child_block_linked_to_parent() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-steward-gate-apply".parse().expect("actor header"),
+        );
+
+        let mut payload = heap_emit_fixture(
+            "req-steward-gate-apply",
+            "Steward Gate Apply",
+            "2026-02-23T11:08:00Z",
+            true,
+            "hash:file_size",
+        );
+        payload["content"] = json!({
+            "payload_type": "rich_text",
+            "rich_text": {
+                "plain_text": "Track PR-102 and notify @maintainer."
+            }
+        });
+        let emit = post_cortex_heap_emit(headers.clone(), Json(payload)).await;
+        assert_eq!(emit.status(), StatusCode::OK);
+
+        let validate = post_cortex_heap_steward_gate_validate(
+            headers.clone(),
+            Path("artifact-req-steward-gate-apply".to_string()),
+        )
+        .await;
+        assert_eq!(validate.status(), StatusCode::OK);
+        let validate_body = response_json(validate).await;
+        let enrichment_id = validate_body["outcome"]["suggestedEnrichments"][0]["enrichmentId"]
+            .as_str()
+            .expect("enrichment id")
+            .to_string();
+
+        let apply = post_cortex_heap_steward_gate_apply(
+            headers,
+            Path("artifact-req-steward-gate-apply".to_string()),
+            Json(HeapStewardGateApplyRequest {
+                enrichment_id: enrichment_id.clone(),
+            }),
+        )
+        .await;
+        assert_eq!(apply.status(), StatusCode::OK);
+        let apply_body = response_json(apply).await;
+        assert_eq!(apply_body["accepted"], true);
+
+        let child_artifact_id = apply_body["childArtifactId"]
+            .as_str()
+            .expect("child artifact id");
+        let projections = read_heap_projection_store();
+        let parent = projections
+            .iter()
+            .find(|entry| entry.projection.artifact_id == "artifact-req-steward-gate-apply")
+            .expect("parent projection");
+        let child = projections
+            .iter()
+            .find(|entry| entry.projection.artifact_id == child_artifact_id)
+            .expect("child projection");
+        assert!(child
+            .projection
+            .tags
+            .iter()
+            .any(|tag| tag == &parent.projection.block_id));
+        assert_eq!(
+            child.surface_json["meta"]["steward_gate"]["source_enrichment_id"],
+            enrichment_id
+        );
+    }
+
+    #[tokio::test]
+    async fn heap_query_includes_nested_a2ui_tree_for_logical_child_blocks() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-nested-tree".parse().expect("actor header"),
+        );
+
+        let parent_block_id = "01ARZ3NDEKTSV4RRFFQ69G5FC1";
+        let child_block_id = "01ARZ3NDEKTSV4RRFFQ69G5FC2";
+        let mut parent_payload = heap_emit_fixture(
+            "req-nested-parent",
+            "Nested Parent",
+            "2026-02-23T11:12:00Z",
+            true,
+            "hash:file_size",
+        );
+        parent_payload["block"]["id"] = json!(parent_block_id);
+        parent_payload["relations"] = json!({
+            "tags": [],
+            "mentions": [],
+            "page_links": []
+        });
+        let parent_emit = post_cortex_heap_emit(headers.clone(), Json(parent_payload)).await;
+        assert_eq!(parent_emit.status(), StatusCode::OK);
+
+        let mut child_payload = heap_emit_fixture(
+            "req-nested-child",
+            "Nested Child",
+            "2026-02-23T11:13:00Z",
+            true,
+            "hash:file_size",
+        );
+        child_payload["block"]["id"] = json!(child_block_id);
+        child_payload["relations"] = json!({
+            "tags": [{ "to_block_id": parent_block_id }],
+            "mentions": [],
+            "page_links": []
+        });
+        let child_emit = post_cortex_heap_emit(headers, Json(child_payload)).await;
+        assert_eq!(child_emit.status(), StatusCode::OK);
+
+        let query = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query.status(), StatusCode::OK);
+        let body = response_json(query).await;
+        let items = body["items"].as_array().expect("items array");
+        let parent = items
+            .iter()
+            .find(|entry| entry["projection"]["artifactId"] == "artifact-req-nested-parent")
+            .expect("parent item");
+        let nested = parent["surfaceJson"]["nestedA2uiTree"]["children"]["explicitList"]
+            .as_array()
+            .expect("nested explicit list");
+        assert!(nested.iter().any(|entry| {
+            entry["componentProperties"]["HeapBlockCard"]["artifactId"] == "artifact-req-nested-child"
+        }));
     }
 
     #[tokio::test]
