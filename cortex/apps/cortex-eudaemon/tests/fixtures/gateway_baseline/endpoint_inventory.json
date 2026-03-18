@@ -18,6 +18,10 @@
     },
     {
       "method": "GET",
+      "path": "/api/cortex/layout/discovery"
+    },
+    {
+      "method": "GET",
       "path": "/api/cortex/layout/drift-report"
     },
     {
@@ -47,6 +51,10 @@
     {
       "method": "GET",
       "path": "/api/cortex/runtime/sync-status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts"
     },
     {
       "method": "GET",
@@ -150,6 +158,54 @@
     },
     {
       "method": "GET",
+      "path": "/api/cortex/workflow-definitions/:definition_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-definitions/:definition_id/projections/:projection_kind"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-definitions/active/:scope_key"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/candidates/:candidate_set_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/proposals"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/digest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/replay"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-instances/:instance_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-instances/:instance_id/checkpoints"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-instances/:instance_id/outcome"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-instances/:instance_id/trace"
+    },
+    {
+      "method": "GET",
       "path": "/api/health"
     },
     {
@@ -250,6 +306,14 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/agents/runs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/agents/runs/:space_id/:run_id"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/attribution-domains/:space_id"
     },
     {
@@ -294,11 +358,23 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/llm-adapter/status"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/local-gateway/queue"
     },
     {
       "method": "GET",
       "path": "/api/system/local-gateway/queue/export"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/logs/streams"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/logs/streams/:stream_id/tail"
     },
     {
       "method": "GET",
@@ -347,6 +423,10 @@
     {
       "method": "GET",
       "path": "/api/system/ux/workbench"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/whoami"
     },
     {
       "method": "GET",
@@ -522,11 +602,23 @@
     },
     {
       "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/a2ui/feedback"
+    },
+    {
+      "method": "POST",
       "path": "/api/cortex/studio/heap/blocks/:artifact_id/delete"
     },
     {
       "method": "POST",
       "path": "/api/cortex/studio/heap/blocks/:artifact_id/pin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/apply"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/validate"
     },
     {
       "method": "POST",
@@ -602,6 +694,58 @@
     },
     {
       "method": "POST",
+      "path": "/api/cortex/workflow-drafts/:workflow_draft_id/propose"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/candidates"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/candidates/:candidate_set_id/stage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/compile"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/ratify"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/reject"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/review"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/validate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-instances"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-instances/:instance_id/cancel"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-instances/:instance_id/pause"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-instances/:instance_id/signals"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-intents"
+    },
+    {
+      "method": "POST",
       "path": "/api/ingest"
     },
     {
@@ -638,6 +782,10 @@
     },
     {
       "method": "POST",
+      "path": "/api/spaces/:space_id/action-plan"
+    },
+    {
+      "method": "POST",
       "path": "/api/spaces/create"
     },
     {
@@ -647,6 +795,10 @@
     {
       "method": "POST",
       "path": "/api/system/decision/escalate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/gates/emit-heap-block"
     },
     {
       "method": "POST",

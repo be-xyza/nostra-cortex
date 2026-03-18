@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_workflow_instances_param_instance_id_signals",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/workflow-instances/:instance_id/signals"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/workflow-instances/:instance_id/signals"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/workflow-instances/:instance_id/signals"
+  }
+}

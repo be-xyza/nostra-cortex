@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_workflow_definitions_param_definition_id_projections_param_projection_kind",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/workflow-definitions/:definition_id/projections/:projection_kind"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/workflow-definitions/:definition_id/projections/:projection_kind"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/workflow-definitions/:definition_id/projections/:projection_kind"
+  }
+}

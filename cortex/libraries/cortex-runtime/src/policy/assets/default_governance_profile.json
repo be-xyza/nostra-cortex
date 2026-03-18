@@ -1,0 +1,30 @@
+{
+    "id": "nostra-research-v1",
+    "name": "Nostra Research Repository Governance",
+    "invariants": [
+        {
+            "id": "inv-001",
+            "name": "No orphan active initiatives",
+            "description": "Active initiatives must have at least one dependency edge.",
+            "evaluator_ref": "initiative.no_orphan_active"
+        },
+        {
+            "id": "inv-002",
+            "name": "No dependency cycles",
+            "description": "Initiative dependency graph must be acyclic.",
+            "evaluator_ref": "initiative.no_dependency_cycles"
+        },
+        {
+            "id": "inv-003",
+            "name": "Minimum dependencies",
+            "description": "Initiatives should declare at least one dependency.",
+            "evaluator_ref": "initiative.min_dependency"
+        },
+        {
+            "id": "inv-004",
+            "name": "Constitutional basis required",
+            "description": "Initiatives should link to a constitutional basis.",
+            "evaluator_ref": "initiative.requires_constitutional_basis"
+        }
+    ]
+}

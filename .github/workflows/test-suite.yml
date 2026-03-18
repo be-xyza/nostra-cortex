@@ -9,8 +9,8 @@ on:
 env:
   CORTEX_ROOT: cortex
   CORTEX_LIB_ROOT: cortex/libraries
-  CORTEX_DESKTOP_DIR: cortex/apps/cortex-desktop
-  CORTEX_DESKTOP_MANIFEST: cortex/apps/cortex-desktop/Cargo.toml
+  CORTEX_DESKTOP_DIR: cortex/apps/cortex-eudaemon
+  CORTEX_DESKTOP_MANIFEST: cortex/apps/cortex-eudaemon/Cargo.toml
 
 jobs:
   test-rust:

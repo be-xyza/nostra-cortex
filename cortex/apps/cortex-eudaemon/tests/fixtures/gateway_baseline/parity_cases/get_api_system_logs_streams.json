@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_logs_streams",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/logs/streams"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/logs/streams"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/logs/streams"
+  }
+}

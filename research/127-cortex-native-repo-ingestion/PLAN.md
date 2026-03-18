@@ -5,12 +5,19 @@ title: Execution Plan for Cortex-Native Repo Ingestion
 type: general
 project: nostra
 status: active
+portfolio_role: supporting
+authority_mode: recommendation_only
+execution_plane: "cortex"
 authors:
 - User
 - Antigravity
 tags: ["cortex", "memory-fs", "ingestion", "temporal-boundary"]
+stewardship:
+  layer: "Systems"
+  primary_steward: "Systems Steward"
+  domain: "Sandboxed Repo Ingestion"
 created: '2026-02-25'
-updated: '2026-02-25'
+updated: '2026-03-12'
 ---
 
 # Execution Plan for Cortex-Native Repo Ingestion
@@ -18,7 +25,7 @@ updated: '2026-02-25'
 ## Phase 1: Foundation (Currently Active)
 1.  **Draft Manifest Schema**: Define `ingestion_registry.toml` establishing the governed ruleset for pulling repositories. (Completed)
 2.  **Define Architecture Constraints**: Draft `RESEARCH.md`, `REQUIREMENTS.md`, and `DECISIONS.md` linking ingestion strongly to the MVK and Temporal Boundary. (Completed)
-3.  **Register Initiative**: Update `RESEARCH_INITIATIVES_STATUS.md` with `127-cortex-native-repo-ingestion`. (Pending)
+3.  **Register Initiative**: Update `RESEARCH_INITIATIVES_STATUS.md` with `127-cortex-native-repo-ingestion`. (Completed)
 
 ## Phase 2: Orchestration (L0/L1)
 1.  **Develop System Watcher Daemon**: Implement a Temporal sync loop ensuring `ingestion_registry.toml` targets are fetched cleanly into isolated `cortex-memory-fs/sandboxes/`.

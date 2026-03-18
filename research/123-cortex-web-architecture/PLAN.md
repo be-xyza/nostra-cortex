@@ -21,7 +21,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Execution Hosts"
 created: "2026-02-22"
-updated: "2026-03-01"
+updated: "2026-03-10"
 ---
 
 # Initiative 123: Cortex Web Architecture
@@ -31,11 +31,11 @@ Deliver `cortex-web` as the canonical interactive Cortex execution shell, with `
 
 ## Scope
 1. Canonical app root: `/Users/xaoj/ICP/cortex/apps/cortex-web`.
-2. Runtime authority: `cortex-eudaemon` gateway APIs remain source-of-truth (`/api/system/*`, `/api/kg/spaces/:space_id/initiative-graph/*`).
+2. Runtime authority: `cortex-eudaemon` gateway APIs remain source-of-truth (`/api/system/*`, `/api/kg/spaces/:space_id/contribution-graph/*`), while primary navigation authority is governed by `/api/cortex/layout/spec` and `/api/spaces/:space_id/navigation-plan`.
 3. Web shell responsibility: all interactive Workbench UX (A2UI surfaces, route rendering, action execution) is delivered in `cortex-web`.
 4. Desktop shell responsibility: daemon, worker, and local gateway execution surfaces continue without a primary interactive UI mandate.
 5. Governance parity: steward-gated mutations with approval envelope remain mandatory across runtime boundaries.
-6. Navigation matrix realization: capability graph must be derived from governed runtime UX contracts (layout/capability matrix), not host-local hardcoded scanner paths.
+6. Navigation matrix realization: capability graph and navigation ranking must be derived from governed runtime UX contracts plus the platform graph, not host-local hardcoded scanner paths.
 
 ## Out of Scope
 1. Reinstating Dioxus desktop UI as a primary execution shell.
@@ -83,4 +83,4 @@ Deliver `cortex-web` as the canonical interactive Cortex execution shell, with `
 1. Boundary: Nostra defines authority contracts and governance semantics; Cortex hosts remain execution adapters.
 2. Parity: Desktop and web are required to consume shared runtime contracts, never host-specific forks.
 3. Determinism: parity outcomes and graph outputs must remain reproducible for the same input corpus.
-4. Navigation graph concepts from Initiative 128 remain active as UX primitives, but are implemented in the React `cortex-web` shell per DEC-123-004 and DEC-128-001.
+4. Navigation graph concepts from Initiative 128 remain active as UX primitives, but route promotion and placement are governed through UX contracts (`layout/spec` + `navigation-plan`) rather than historical initiative-graph semantics.

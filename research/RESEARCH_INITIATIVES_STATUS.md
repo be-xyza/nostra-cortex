@@ -1,4 +1,4 @@
-# Research Initiatives Index (127 items)
+# Research Initiatives Index (135 items)
 | ID | Directory | Status |
 |---|---|---|
 | 000 | 000-contribution-graph | active |
@@ -159,3 +159,12 @@
 > dual-host parity baseline (`bash /Users/xaoj/ICP/scripts/check_cortex_dual_host_parity.sh`).
 > Evidence: `research/123-cortex-web-architecture/VERIFY.md`,
 > `research/123-cortex-web-architecture/SPATIAL_PLANE_DESKTOP_PARITY_SPEC.md`.
+| 128 | 128-cortex-desktop-gpui-refactor | active |
+| 129 | 129-cortex-simulation-adapter | draft |
+| 130 | 130-space-capability-graph-governance | active |
+| 131 | 131-openresponses-llm-adapter | active |
+| 132 | 132-eudaemon-alpha-initiative | active |
+| 133 | 133-eval-driven-orchestration | active |
+| 134 | 134-hybrid-workflow-authority-and-execution | active |
+| 135 | 135-nostra-contribution-protocol | active |
+| 144 | 144-meta-workbench-refactoring | draft |

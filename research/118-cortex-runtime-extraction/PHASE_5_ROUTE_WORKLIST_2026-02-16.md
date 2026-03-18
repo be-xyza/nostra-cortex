@@ -1,0 +1,146 @@
+# Initiative 118 - Phase 5 Route Worklist (Contract-Locked)
+
+Date: 2026-02-16
+
+Source: `/Users/xaoj/ICP/research/118-cortex-runtime-extraction/GATEWAY_PROTOCOL_CONTRACT_2026-02-16.json`
+
+## Baseline
+
+- endpoint_count: 123
+- inventory_count: 123
+- sorting: `method,path_template` ascending
+- exemptions policy: `approved_exemptions_count == 0`
+
+## Partition By Transaction Boundary
+
+- read_only: 60
+- single_request_mutation: 7
+- multi_step_best_effort: 2
+- host_managed: 52
+- streaming_session: 2
+
+## Immutable Worklist
+
+- GET /api/canisters | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/feedback/promotions/history | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/feedback/ux | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/feedback/ux/overdue | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/layout/drift-report | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/layout/source-state | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/layout/spec | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/preferences/theme-policy | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/runtime/closeout/tasks | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/runtime/slo/breaches | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/runtime/slo/status | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/runtime/sync-status | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/collab/ops | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/collab/presence | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/collab/realtime/ack | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/collab/realtime/backlog | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/collab/realtime/integrity | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/collab/realtime/status | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/collab/session | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/collab/state | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/revisions | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/studio/artifacts/:artifact_id/revisions/:revision_id | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/views/capability-matrix | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/viewspecs/:view_spec_id | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/viewspecs/active | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/viewspecs/candidates/:candidate_set_id | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/viewspecs/learning/profiles/:space_id | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/viewspecs/proposals | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/viewspecs/proposals/:proposal_id | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/viewspecs/proposals/:proposal_id/digest | boundary=read_only | idempotency=not_applicable
+- GET /api/cortex/viewspecs/proposals/:proposal_id/replay | boundary=read_only | idempotency=not_applicable
+- GET /api/health | boundary=read_only | idempotency=not_applicable
+- GET /api/kg/motoko-graph/decision-history | boundary=read_only | idempotency=not_applicable
+- GET /api/kg/motoko-graph/health | boundary=read_only | idempotency=not_applicable
+- GET /api/kg/motoko-graph/monitoring-runs | boundary=read_only | idempotency=not_applicable
+- GET /api/kg/motoko-graph/monitoring-trends | boundary=read_only | idempotency=not_applicable
+- GET /api/kg/motoko-graph/snapshot | boundary=read_only | idempotency=not_applicable
+- GET /api/metrics/acp | boundary=read_only | idempotency=not_applicable
+- GET /api/metrics/resilience | boundary=read_only | idempotency=not_applicable
+- GET /api/system/attribution-domains/:space_id | boundary=read_only | idempotency=not_applicable
+- GET /api/system/decision-gates/latest | boundary=read_only | idempotency=not_applicable
+- GET /api/system/decision-plane/:space_id | boundary=read_only | idempotency=not_applicable
+- GET /api/system/decision-telemetry/:space_id | boundary=read_only | idempotency=not_applicable
+- GET /api/system/decision/telemetry | boundary=read_only | idempotency=not_applicable
+- GET /api/system/execution-profile/:space_id | boundary=read_only | idempotency=not_applicable
+- GET /api/system/governance-scope/:space_id | boundary=read_only | idempotency=not_applicable
+- GET /api/system/local-gateway/queue | boundary=read_only | idempotency=not_applicable
+- GET /api/system/local-gateway/queue/export | boundary=read_only | idempotency=not_applicable
+- GET /api/system/mutation-gates/:space_id/:mutation_id | boundary=read_only | idempotency=not_applicable
+- GET /api/system/ready | boundary=read_only | idempotency=not_applicable
+- GET /api/system/replay-contract/:mutation_id | boundary=read_only | idempotency=not_applicable
+- GET /api/system/status | boundary=read_only | idempotency=not_applicable
+- GET /api/testing/catalog | boundary=read_only | idempotency=not_applicable
+- GET /api/testing/gates/latest | boundary=read_only | idempotency=not_applicable
+- GET /api/testing/health | boundary=read_only | idempotency=not_applicable
+- GET /api/testing/runs | boundary=read_only | idempotency=not_applicable
+- GET /api/testing/runs/:run_id | boundary=read_only | idempotency=not_applicable
+- GET /api/workflows | boundary=read_only | idempotency=not_applicable
+- GET /api/workflows/catalog | boundary=read_only | idempotency=not_applicable
+- GET /ws | boundary=streaming_session | idempotency=not_applicable
+- GET /ws/cortex/collab | boundary=streaming_session | idempotency=not_applicable
+- POST /api/acp/fs/read_text_file | boundary=host_managed | idempotency=optional_header
+- POST /api/acp/fs/write_text_file | boundary=host_managed | idempotency=optional_header
+- POST /api/acp/rpc | boundary=host_managed | idempotency=optional_header
+- POST /api/acp/terminal/create | boundary=host_managed | idempotency=optional_header
+- POST /api/acp/terminal/kill | boundary=host_managed | idempotency=optional_header
+- POST /api/acp/terminal/output | boundary=host_managed | idempotency=optional_header
+- POST /api/acp/terminal/release | boundary=host_managed | idempotency=optional_header
+- POST /api/acp/terminal/wait_for_exit | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/feedback/promotions/approve | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/feedback/promotions/reject | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/feedback/triage | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/feedback/ux | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/feedback/ux/mark-remeasured | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/feedback/ux/mark-shipped | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/feedback/ux/promote-candidate | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/layout/evaluate | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/layout/spec | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/runtime/sync/replay | boundary=multi_step_best_effort | idempotency=optional_header
+- POST /api/cortex/studio/artifacts | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/checkout | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/checkpoint | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/force-resolve | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/op | boundary=host_managed | idempotency=recommended_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/op/batch | boundary=multi_step_best_effort | idempotency=recommended_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/realtime/ack/reset | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/realtime/connect | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/realtime/disconnect | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/realtime/resync | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/session/close | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/collab/session/open | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/lease/release | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/lease/renew | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/publish | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/studio/artifacts/:artifact_id/save | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/:view_spec_id/confidence/recompute | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/:view_spec_id/fork | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/:view_spec_id/propose | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/candidates | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/candidates/:candidate_set_id/stage | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/compile | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/learning/profiles/:space_id/recompute | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/learning/profiles/:space_id/reset | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/learning/signals | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/lock | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/proposals/:proposal_id/merge | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/proposals/:proposal_id/ratify | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/proposals/:proposal_id/reject | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/proposals/:proposal_id/review | boundary=host_managed | idempotency=optional_header
+- POST /api/cortex/viewspecs/validate | boundary=host_managed | idempotency=optional_header
+- POST /api/ingest | boundary=single_request_mutation | idempotency=optional_header
+- POST /api/kg/motoko-graph/decision-capture | boundary=host_managed | idempotency=optional_header
+- POST /api/search | boundary=host_managed | idempotency=optional_header
+- POST /api/system/decision/ack | boundary=single_request_mutation | idempotency=recommended_header
+- POST /api/system/decision/escalate | boundary=single_request_mutation | idempotency=recommended_header
+- POST /api/system/local-gateway/queue/:mutation_id/discard | boundary=single_request_mutation | idempotency=optional_header
+- POST /api/system/local-gateway/queue/:mutation_id/fork | boundary=single_request_mutation | idempotency=optional_header
+- POST /api/system/local-gateway/queue/:mutation_id/retry | boundary=single_request_mutation | idempotency=optional_header
+- POST /api/workflow/read | boundary=host_managed | idempotency=optional_header
+- POST /api/workflow/run | boundary=single_request_mutation | idempotency=optional_header
+- POST /api/workflow/save | boundary=host_managed | idempotency=optional_header
+- PUT /api/cortex/preferences/theme-policy | boundary=host_managed | idempotency=optional_header

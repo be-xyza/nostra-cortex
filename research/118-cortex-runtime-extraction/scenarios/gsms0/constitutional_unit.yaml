@@ -1,0 +1,30 @@
+scenario:
+  id: "constitutional-unit-001"
+  name: "Constitutional Reference Enforcement"
+  seed: 42
+  commons_version: "nostra-core-v0"
+  siqs_version: "1.0.0"
+
+constraints:
+  max_mutations: 32
+  max_rounds: 8
+  max_runtime_ms: 500
+
+rounds:
+  - round: 1
+    actions:
+      - actor: "member-1"
+        action: "add_node"
+        node_id: "initiative-alpha"
+        node_type: "initiative"
+  - round: 2
+    actions:
+      - actor: "steward-1"
+        action: "add_node"
+        node_id: "constitution-core"
+        node_type: "constitution"
+      - actor: "steward-1"
+        action: "add_edge"
+        source: "initiative-alpha"
+        target: "constitution-core"
+        edge_kind: "constitutional_basis"

@@ -15,8 +15,9 @@ use crate::services::artifact_collab_crdt::{
 };
 use crate::services::authz::{
     AuthorizationRequest, allow_unverified_role_header, authorize, authz_decision_version,
-    build_navigation_policy_requirements, get_authz_metrics_snapshot, normalize_required_role,
-    record_authz_identity_unverified, role_rank as authz_role_rank, valid_role as authz_valid_role,
+    authz_dev_mode_enabled, build_navigation_policy_requirements, get_authz_metrics_snapshot,
+    normalize_required_role, record_authz_identity_unverified, role_rank as authz_role_rank,
+    valid_role as authz_valid_role,
 };
 use crate::services::brand_policy::{BrandPolicyBundle, BrandPolicyRegistryService};
 use crate::services::cortex_ux::{
@@ -41,17 +42,21 @@ use crate::services::heap_mapper::{
     map_emit_heap_block_to_agui_mutations, parse_emit_heap_block,
     parse_iso_timestamp as parse_heap_iso_timestamp, project_heap_block, validate_emit_heap_block,
 };
-use crate::services::heap_nesting::{
-    NestingProjectionRecord, build_nested_a2ui_tree_by_artifact,
+use crate::services::heap_nesting::{NestingProjectionRecord, build_nested_a2ui_tree_by_artifact};
+use crate::services::llm_adapter::client::{LlmAdapterClient, LlmStreamEvent};
+use crate::services::llm_adapter::config::{LlmAdapterFailMode, llm_adapter_config_from_env};
+use crate::services::llm_adapter::tool_loop::{builtin_tools, run_responses_tool_loop};
+use crate::services::ops_agents::{AgentContributionApprovalRequest, AgentRunRecord};
+#[cfg(test)]
+use crate::services::ops_flows::{WorkflowAutomationDescriptor, WorkflowCatalogEntry};
+use crate::services::siq_types::{
+    SiqCoverage, SiqDependencyClosure, SiqGateSummary, SiqGraphProjection, SiqHealth,
+    SiqRunArtifact,
 };
 use crate::services::steward_gate::{
     StewardGateStatus, build_steward_gate_surface, evaluate_heap_steward_gate,
     find_enrichment_by_id, issue_publish_token, resolve_applied_enrichment_ids,
     validate_publish_token,
-};
-use crate::services::siq_types::{
-    SiqCoverage, SiqDependencyClosure, SiqGateSummary, SiqGraphProjection, SiqHealth,
-    SiqRunArtifact,
 };
 use crate::services::streaming_transport::{
     ArtifactRealtimeAckCursor, ArtifactRealtimeBacklogItem, ArtifactRealtimeEnvelope,
@@ -116,17 +121,18 @@ use cortex_domain::brand::policy::{
 };
 use cortex_domain::capabilities::navigation_graph::{
     CapabilityEdge as DomainCapabilityEdge, CapabilityId as DomainCapabilityId,
-    CapabilityNode as DomainCapabilityNode, EdgeRelationship as DomainEdgeRelationship,
-    IntentType as DomainIntentType, OperationalFrequency, PlatformCapabilityCatalog,
-    SpaceCapabilityGraph, SpaceCapabilityNodeOverride, SurfacingHeuristic,
+    CapabilityNode as DomainCapabilityNode, DomainEntityRef,
+    EdgeRelationship as DomainEdgeRelationship, IntentType as DomainIntentType,
+    OperationalFrequency, PlatformCapabilityCatalog, SpaceCapabilityGraph,
+    SpaceCapabilityNodeOverride, SurfacingHeuristic,
 };
 use cortex_domain::graph::{EdgeKind as DomainEdgeKind, Graph as DomainGraph, Node as DomainNode};
 use cortex_domain::integrity::{
-    CommonsEnforcementOutcome as DomainCommonsEnforcementOutcome,
-    Constraint as DomainConstraint, Direction as DomainDirection,
-    EdgeSelector as DomainEdgeSelector, IntegrityPredicate as DomainIntegrityPredicate,
-    IntegrityRule as DomainIntegrityRule, IntegrityScope as DomainIntegrityScope,
-    NodeSelector as DomainNodeSelector, Severity as DomainSeverity,
+    CommonsEnforcementOutcome as DomainCommonsEnforcementOutcome, Constraint as DomainConstraint,
+    Direction as DomainDirection, EdgeSelector as DomainEdgeSelector,
+    IntegrityPredicate as DomainIntegrityPredicate, IntegrityRule as DomainIntegrityRule,
+    IntegrityScope as DomainIntegrityScope, NodeSelector as DomainNodeSelector,
+    Severity as DomainSeverity,
 };
 use cortex_domain::simulation::scenario::{
     ScenarioConstraints as DomainScenarioConstraints,
@@ -136,13 +142,34 @@ use cortex_domain::simulation::scenario::{
 use cortex_domain::simulation::session::{
     SimulationAction as DomainSimulationAction, run_deterministic_session as run_domain_session,
 };
-use cortex_domain::ux::{CompilationContext, CompiledSurfacingPlan, compile_navigation_plan};
+use cortex_domain::ux::{
+    CompilationContext, CompiledActionPlan, CompiledActionPlanRequest, CompiledSurfacingPlan,
+    compile_action_plan, compile_navigation_plan,
+};
+use cortex_domain::workflow::{
+    WORKFLOW_CANDIDATE_SET_INDEX_KEY, WORKFLOW_INDEX_KEY, WorkflowCandidateEnvelope,
+    WorkflowCandidateSet, WorkflowCandidateSetIndexEntry, WorkflowCheckpointPolicyV1,
+    WorkflowCheckpointResultV1, WorkflowCheckpointV1, WorkflowCompileResult,
+    WorkflowConstraintRule, WorkflowDefinitionV1, WorkflowDraftV1, WorkflowExecutionAdapterKind,
+    WorkflowExecutionBindingV1, WorkflowExecutionPlanV1, WorkflowExecutionProfileKind,
+    WorkflowGenerationMode, WorkflowGovernanceRef, WorkflowInstanceV1, WorkflowIntentV1,
+    WorkflowMotifKind, WorkflowOutcomeV1, WorkflowProposalDecisionRecord, WorkflowProposalEnvelope,
+    WorkflowProposalReviewRecord, WorkflowProposalStatus, WorkflowScope,
+    WorkflowScopeAdoptionRecord, WorkflowSignalV1, WorkflowTraceEventV1, WorkflowValidationResult,
+    compile_workflow_draft, compute_candidate_input_hash as compute_workflow_candidate_input_hash,
+    generate_candidate_set as generate_workflow_candidate_set, scope_key as workflow_scope_key,
+    validate_workflow_draft,
+};
+use cortex_runtime::ports::TimeProvider as RuntimeTimeProvider;
+use cortex_runtime::workflow::adapter::WorkflowExecutionAdapter;
+use cortex_runtime::workflow::local_durable_worker::LocalDurableWorkerAdapter;
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use nostra_extraction::contribution_graph::{
     ContributionGraphV1, DoctorReport, EditionDiffReport, PathAssessmentBundleV1, assess_path,
     diff_editions, doctor, ingest_and_write, publish_edition, query_graph, simulate,
     validate_research_portfolio,
 };
+use nostra_resource_ref::{PredicateRef, ResourceRef};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -357,6 +384,12 @@ struct SystemCapabilityGraphLegend {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct SystemCapabilityGraphNode {
     id: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "resourceRef"
+    )]
+    resource_ref: Option<String>,
     title: String,
     description: String,
     intent_type: String,
@@ -500,6 +533,23 @@ struct CortexFeedbackTriageResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
+struct CortexA2uiFeedbackRequest {
+    decision: String,
+    #[serde(default)]
+    feedback: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct CortexA2uiFeedbackResponse {
+    accepted: bool,
+    artifact_id: String,
+    feedback_artifact_id: String,
+    stored_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
 struct CortexPromotionHistoryQuery {
     limit: Option<usize>,
 }
@@ -597,6 +647,393 @@ struct ViewSpecCandidateRequest {
     created_by: Option<String>,
     #[serde(default)]
     source_mode: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowIntentRequest {
+    intent: String,
+    motif_kind: String,
+    #[serde(default)]
+    scope: Option<WorkflowScope>,
+    #[serde(default)]
+    constraints: Vec<WorkflowConstraintRule>,
+    #[serde(default)]
+    authority_ceiling: Option<String>,
+    #[serde(default)]
+    created_by: Option<String>,
+    #[serde(default)]
+    source_mode: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowIntentResponse {
+    accepted: bool,
+    workflow_intent: WorkflowIntentV1,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowCandidateRequest {
+    intent: String,
+    motif_kind: String,
+    #[serde(default)]
+    scope: Option<WorkflowScope>,
+    #[serde(default)]
+    generation_mode: Option<String>,
+    #[serde(default)]
+    candidate_set_id: Option<String>,
+    #[serde(default)]
+    constraints: Vec<WorkflowConstraintRule>,
+    #[serde(default)]
+    count: Option<usize>,
+    #[serde(default)]
+    created_by: Option<String>,
+    #[serde(default)]
+    source_mode: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowCandidatesResponse {
+    schema_version: String,
+    generated_at: String,
+    candidate_set_id: String,
+    candidates: Vec<WorkflowCandidateEnvelope>,
+    blocked_count: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowCandidateSetResponse {
+    schema_version: String,
+    generated_at: String,
+    candidate_set: WorkflowCandidateSet,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowCandidateStageRequest {
+    candidate_id: String,
+    staged_by: String,
+    rationale: String,
+    expected_input_hash: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowCandidateStageResponse {
+    accepted: bool,
+    workflow_draft_id: String,
+    scope_key: String,
+    stored_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowValidateRequest {
+    workflow_draft: WorkflowDraftV1,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowValidationResponse {
+    schema_version: String,
+    generated_at: String,
+    validation: WorkflowValidationResult,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowCompileRequest {
+    workflow_draft: WorkflowDraftV1,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowCompileResponse {
+    schema_version: String,
+    generated_at: String,
+    validation: WorkflowValidationResult,
+    compile_result: WorkflowCompileResult,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProposeRequest {
+    proposed_by: String,
+    rationale: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProposalResponse {
+    accepted: bool,
+    proposal: WorkflowProposalEnvelope,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProposalListQuery {
+    #[serde(default)]
+    scope_key: Option<String>,
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProposalListResponse {
+    schema_version: String,
+    generated_at: String,
+    proposals: Vec<WorkflowProposalEnvelope>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProposalReviewRequest {
+    reviewed_by: String,
+    summary: String,
+    #[serde(default)]
+    checks: Vec<String>,
+    approved: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProposalDecisionRequest {
+    decided_by: String,
+    rationale: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProposalActionResponse {
+    accepted: bool,
+    proposal: WorkflowProposalEnvelope,
+    gate_level: String,
+    gate_status: String,
+    decision_gate_id: String,
+    replay_contract_ref: String,
+    source_of_truth: String,
+    lineage_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    degraded_reason: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowDefinitionResponse {
+    schema_version: String,
+    generated_at: String,
+    definition: WorkflowDefinitionV1,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProjectionDescriptor {
+    kind: String,
+    label: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProjectionResponse {
+    schema_version: String,
+    generated_at: String,
+    projection_kind: String,
+    projection: Value,
+    available_projections: Vec<WorkflowProjectionDescriptor>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowInstanceStartRequest {
+    definition_id: String,
+    #[serde(default)]
+    binding_id: Option<String>,
+    #[serde(default)]
+    instance_id: Option<String>,
+    #[serde(default)]
+    adapter: Option<String>,
+    #[serde(default)]
+    execution_profile: Option<String>,
+    #[serde(default)]
+    checkpoint_policy: Option<WorkflowCheckpointPolicyV1>,
+    #[serde(default)]
+    runtime_limits: BTreeMap<String, Value>,
+    #[serde(default)]
+    started_by: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowInstanceSignalRequest {
+    signal_type: String,
+    #[serde(default)]
+    checkpoint_id: Option<String>,
+    #[serde(default)]
+    payload: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowInstanceStartResponse {
+    accepted: bool,
+    plan: WorkflowExecutionPlanV1,
+    binding: WorkflowExecutionBindingV1,
+    instance: WorkflowInstanceV1,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowInstanceResponse {
+    schema_version: String,
+    generated_at: String,
+    instance: WorkflowInstanceV1,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowTraceResponse {
+    schema_version: String,
+    generated_at: String,
+    trace: Vec<WorkflowTraceEventV1>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowCheckpointResponse {
+    schema_version: String,
+    generated_at: String,
+    checkpoints: Vec<WorkflowCheckpointV1>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowOutcomeResponse {
+    schema_version: String,
+    generated_at: String,
+    outcome: Option<WorkflowOutcomeV1>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowInstanceActionResponse {
+    accepted: bool,
+    result: WorkflowCheckpointResultV1,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowReplayResponse {
+    schema_version: String,
+    generated_at: String,
+    replay: WorkflowReplayArtifact,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowDigestResponse {
+    schema_version: String,
+    generated_at: String,
+    digest: WorkflowDigestArtifact,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowActiveResponse {
+    schema_version: String,
+    generated_at: String,
+    active: WorkflowScopeAdoptionRecord,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowDraftIndexEntry {
+    workflow_draft_id: String,
+    scope_key: String,
+    updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowIntentIndexEntry {
+    workflow_intent_id: String,
+    scope_key: String,
+    updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowProposalIndexEntry {
+    proposal_id: String,
+    scope_key: String,
+    updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowReplayIndexEntry {
+    proposal_id: String,
+    run_id: String,
+    key: String,
+    updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowDefinitionArtifact {
+    definition: WorkflowDefinitionV1,
+    compile_result: WorkflowCompileResult,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowReplayArtifact {
+    schema_version: String,
+    run_id: String,
+    proposal_id: String,
+    scope_key: String,
+    generated_at: String,
+    proposal: WorkflowProposalEnvelope,
+    definition: WorkflowDefinitionV1,
+    #[serde(default)]
+    gate_metadata: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowDigestArtifact {
+    schema_version: String,
+    proposal_id: String,
+    digest: String,
+    generated_at: String,
+    scope_key: String,
+    status: String,
+    #[serde(default)]
+    payload: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowEventRecord {
+    event_id: String,
+    event_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    workflow_draft_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    definition_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proposal_id: Option<String>,
+    scope_key: String,
+    actor: String,
+    timestamp: String,
+    #[serde(default)]
+    payload: Value,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -902,6 +1339,11 @@ struct SpatialExperimentRunSummary {
 const VIEWSPEC_PROPOSAL_INDEX_KEY: &str = "/cortex/ux/viewspecs/proposals/index.json";
 const VIEWSPEC_ACTIVE_SCOPE_INDEX_KEY: &str = "/cortex/ux/viewspecs/active/index.json";
 const VIEWSPEC_REPLAY_INDEX_KEY: &str = "/cortex/ux/viewspecs/replay/index.json";
+const WORKFLOW_INTENT_INDEX_KEY: &str = "/cortex/workflows/intents/index.json";
+const WORKFLOW_DRAFT_INDEX_KEY: &str = "/cortex/workflows/drafts/current/index.json";
+const WORKFLOW_PROPOSAL_INDEX_KEY: &str = "/cortex/workflows/drafts/proposals/index.json";
+const WORKFLOW_ACTIVE_SCOPE_INDEX_KEY: &str = "/cortex/workflows/definitions/active/index.json";
+const WORKFLOW_REPLAY_INDEX_KEY: &str = "/cortex/workflows/replay/index.json";
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -1797,36 +2239,7 @@ struct WorkflowSaveRequest {
     content: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-struct WorkflowCatalogEntry {
-    name: String,
-    path: String,
-    source: String,
-    status: String,
-    description: Option<String>,
-    launch_template: Option<String>,
-    read_only: bool,
-    automation: Option<WorkflowAutomationDescriptor>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-struct WorkflowAutomationDescriptor {
-    automation_key: String,
-    enabled: bool,
-    paused: bool,
-    interval_secs: u64,
-    active_workflow_id: Option<String>,
-    last_workflow_id: Option<String>,
-    last_run_at: Option<String>,
-    last_status: Option<String>,
-    can_run_now: bool,
-    can_pause: bool,
-    can_resume: bool,
-    pause_reason: Option<String>,
-}
-
+#[cfg(test)]
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct WorkerAcpAutomationStatus {
@@ -1936,6 +2349,41 @@ struct TestGateSummaryArtifact {
 struct TestGateLatestResponse {
     summary: TestGateSummaryArtifact,
     surface: Option<Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct EmitGateSummaryHeapBlockRequest {
+    schema_version: String,
+    workspace_id: String,
+    kind: String,
+    #[serde(default)]
+    artifact_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct EmitGateSummaryHeapBlockResponse {
+    schema_version: String,
+    accepted: bool,
+    kind: String,
+    workspace_id: String,
+    heap_workspace_id: String,
+    artifact_id: String,
+    block_id: String,
+    emitted_at: String,
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Default)]
+struct SystemLogsTailQuery {
+    cursor: Option<u64>,
+    limit: Option<u32>,
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Default)]
+pub(crate) struct AgentRunsQuery {
+    pub space_id: Option<String>,
+    pub limit: Option<usize>,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Default)]
@@ -2621,8 +3069,13 @@ impl GatewayService {
             .route("/ws", get(ws_handler))
             .route("/ws/cortex/collab", get(ws_collab_handler))
             .route("/api/system/status", get(get_system_status))
+            .route("/api/system/whoami", get(get_system_whoami))
             .route("/api/system/ready", get(get_system_ready))
             .route("/api/system/build", get(get_system_build))
+            .route(
+                "/api/system/llm-adapter/status",
+                get(get_system_llm_adapter_status),
+            )
             .route("/api/system/brand-policy", get(get_system_brand_policy))
             .route(
                 "/api/system/capability-graph",
@@ -2644,6 +3097,10 @@ impl GatewayService {
             .route(
                 "/api/spaces/:space_id/navigation-plan",
                 get(get_space_navigation_plan),
+            )
+            .route(
+                "/api/spaces/:space_id/action-plan",
+                post(post_space_action_plan),
             )
             .route(
                 "/api/system/local-gateway/queue",
@@ -2668,6 +3125,11 @@ impl GatewayService {
             .route(
                 "/api/system/execution-profile/:space_id",
                 get(get_system_execution_profile),
+            )
+            .route("/api/system/agents/runs", get(get_system_agents_runs))
+            .route(
+                "/api/system/agents/runs/:space_id/:run_id",
+                get(get_system_agents_run),
             )
             .route(
                 "/api/system/attribution-domains/:space_id",
@@ -2852,6 +3314,106 @@ impl GatewayService {
                 "/api/cortex/viewspecs/:view_spec_id/confidence/recompute",
                 post(post_cortex_viewspec_confidence_recompute),
             )
+            .route(
+                "/api/cortex/workflow-intents",
+                post(post_cortex_workflow_intent),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/candidates",
+                post(post_cortex_workflow_candidates),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/candidates/:candidate_set_id",
+                get(get_cortex_workflow_candidate_set),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/candidates/:candidate_set_id/stage",
+                post(post_cortex_workflow_candidate_stage),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/validate",
+                post(post_cortex_workflow_validate),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/compile",
+                post(post_cortex_workflow_compile),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/proposals",
+                get(get_cortex_workflow_proposals),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/proposals/:proposal_id",
+                get(get_cortex_workflow_proposal),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/proposals/:proposal_id/replay",
+                get(get_cortex_workflow_proposal_replay),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/proposals/:proposal_id/digest",
+                get(get_cortex_workflow_proposal_digest),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/proposals/:proposal_id/review",
+                post(post_cortex_workflow_proposal_review),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/proposals/:proposal_id/ratify",
+                post(post_cortex_workflow_proposal_ratify),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/proposals/:proposal_id/reject",
+                post(post_cortex_workflow_proposal_reject),
+            )
+            .route(
+                "/api/cortex/workflow-drafts/:workflow_draft_id/propose",
+                post(post_cortex_workflow_propose),
+            )
+            .route(
+                "/api/cortex/workflow-definitions/active/:scope_key",
+                get(get_cortex_workflow_active_definition),
+            )
+            .route(
+                "/api/cortex/workflow-definitions/:definition_id/projections/:projection_kind",
+                get(get_cortex_workflow_definition_projection),
+            )
+            .route(
+                "/api/cortex/workflow-definitions/:definition_id",
+                get(get_cortex_workflow_definition),
+            )
+            .route(
+                "/api/cortex/workflow-instances",
+                post(post_cortex_workflow_instance_start),
+            )
+            .route(
+                "/api/cortex/workflow-instances/:instance_id",
+                get(get_cortex_workflow_instance),
+            )
+            .route(
+                "/api/cortex/workflow-instances/:instance_id/trace",
+                get(get_cortex_workflow_instance_trace),
+            )
+            .route(
+                "/api/cortex/workflow-instances/:instance_id/checkpoints",
+                get(get_cortex_workflow_instance_checkpoints),
+            )
+            .route(
+                "/api/cortex/workflow-instances/:instance_id/signals",
+                post(post_cortex_workflow_instance_signal),
+            )
+            .route(
+                "/api/cortex/workflow-instances/:instance_id/pause",
+                post(post_cortex_workflow_instance_pause),
+            )
+            .route(
+                "/api/cortex/workflow-instances/:instance_id/cancel",
+                post(post_cortex_workflow_instance_cancel),
+            )
+            .route(
+                "/api/cortex/workflow-instances/:instance_id/outcome",
+                get(get_cortex_workflow_instance_outcome),
+            )
             .route("/api/cortex/feedback/ux", post(post_cortex_feedback_ux))
             .route("/api/cortex/feedback/ux", get(get_cortex_feedback_ux))
             .route(
@@ -2920,6 +3482,10 @@ impl GatewayService {
                 get(get_cortex_heap_block_history),
             )
             .route(
+                "/api/cortex/studio/heap/blocks/:artifact_id/a2ui/feedback",
+                post(post_cortex_heap_block_a2ui_feedback),
+            )
+            .route(
                 "/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/validate",
                 post(post_cortex_heap_steward_gate_validate),
             )
@@ -2929,7 +3495,7 @@ impl GatewayService {
             )
             .route(
                 "/api/cortex/studio/artifacts",
-                post(post_cortex_artifact_create),
+                get(get_cortex_artifacts).post(post_cortex_artifact_create),
             )
             .route(
                 "/api/cortex/studio/artifacts/:artifact_id",
@@ -3063,6 +3629,10 @@ impl GatewayService {
             .route("/api/testing/runs/:run_id", get(get_testing_run))
             .route("/api/testing/gates/latest", get(get_testing_gates_latest))
             .route("/api/testing/health", get(get_testing_health))
+            .route(
+                "/api/system/gates/emit-heap-block",
+                post(post_system_gates_emit_heap_block),
+            )
             .route("/api/system/siq/coverage", get(get_siq_coverage))
             .route(
                 "/api/system/siq/dependency-closure",
@@ -3076,6 +3646,11 @@ impl GatewayService {
             .route("/api/system/siq/runs", get(get_siq_runs))
             .route("/api/system/siq/runs/:run_id", get(get_siq_run))
             .route("/api/system/siq/health", get(get_siq_health))
+            .route("/api/system/logs/streams", get(get_system_logs_streams))
+            .route(
+                "/api/system/logs/streams/:stream_id/tail",
+                get(get_system_logs_stream_tail),
+            )
             .route(
                 "/api/kg/motoko-graph/snapshot",
                 get(get_motoko_graph_snapshot),
@@ -3361,6 +3936,8 @@ fn is_local_legacy_bypass_api_route(path: &str) -> bool {
         || path.starts_with("/api/system/")
         || path == "/api/spaces/create"
         || path.starts_with("/api/spaces/")
+        || path == "/api/cortex/studio/heap"
+        || path.starts_with("/api/cortex/studio/heap/")
 }
 
 fn has_legacy_bypass_header(request: &Request) -> bool {
@@ -3385,6 +3962,12 @@ mod runtime_dispatch_route_classification_tests {
             "/api/spaces/nostra-governance-v0/capability-graph"
         ));
         assert!(is_local_legacy_bypass_api_route(
+            "/api/cortex/studio/heap/blocks"
+        ));
+        assert!(is_local_legacy_bypass_api_route(
+            "/api/cortex/studio/heap/blocks/01KM005NGZ9K7RMRF919TQJ9AS/a2ui/feedback"
+        ));
+        assert!(is_local_legacy_bypass_api_route(
             "/api/spaces/nostra-governance-v0/navigation-plan"
         ));
         assert!(!is_api_request("/api/system/ux/workbench"));
@@ -3394,6 +3977,10 @@ mod runtime_dispatch_route_classification_tests {
         ));
         assert!(!is_api_request(
             "/api/spaces/nostra-governance-v0/navigation-plan"
+        ));
+        assert!(!is_api_request("/api/cortex/studio/heap/blocks"));
+        assert!(!is_api_request(
+            "/api/cortex/studio/heap/blocks/01KM005NGZ9K7RMRF919TQJ9AS/a2ui/feedback"
         ));
     }
 
@@ -3479,42 +4066,16 @@ async fn list_workflows() -> Json<Vec<crate::services::file_system_service::Work
     Json(files)
 }
 
-async fn list_workflow_catalog() -> Json<Vec<WorkflowCatalogEntry>> {
-    let mut catalog = Vec::new();
-    let files = crate::services::file_system_service::FileSystemService::list_workflows();
-    for flow in files {
-        catalog.push(WorkflowCatalogEntry {
-            name: flow.name,
-            path: flow.path,
-            source: "filesystem".to_string(),
-            status: "available".to_string(),
-            description: Some("Local workflow file".to_string()),
-            launch_template: None,
-            read_only: false,
-            automation: None,
-        });
-    }
-
-    let worker_status = fetch_worker_acp_status().await;
-    catalog.push(build_acp_native_entry(worker_status));
-
-    Json(catalog)
+pub(crate) async fn list_workflow_catalog()
+-> Json<Vec<crate::services::ops_flows::WorkflowCatalogEntry>> {
+    Json(
+        crate::services::ops_flows::load_workflow_catalog()
+            .await
+            .unwrap_or_default(),
+    )
 }
 
-async fn fetch_worker_acp_status() -> Option<WorkerAcpAutomationStatus> {
-    let response = reqwest::Client::new()
-        .get("http://127.0.0.1:3003/automations/acp/status")
-        .send()
-        .await
-        .ok()?;
-
-    if !response.status().is_success() {
-        return None;
-    }
-
-    response.json::<WorkerAcpAutomationStatus>().await.ok()
-}
-
+#[cfg(test)]
 fn build_acp_native_entry(status: Option<WorkerAcpAutomationStatus>) -> WorkflowCatalogEntry {
     let derived_status = match status.as_ref() {
         Some(s) if !s.enabled => "disabled".to_string(),
@@ -4853,6 +5414,67 @@ fn generate_block_ulid() -> String {
     String::from_utf8_lossy(&out).to_string()
 }
 
+fn deterministic_ulid_from_seed(seed: &str) -> String {
+    const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    let digest = Sha256::digest(seed.as_bytes());
+    let mut value = u128::from_be_bytes(digest[..16].try_into().unwrap_or_else(|_| [0u8; 16]));
+    let mut out = [0u8; 26];
+    for idx in (0..26).rev() {
+        let chunk = (value & 0b1_1111) as usize;
+        out[idx] = CROCKFORD[chunk];
+        value >>= 5;
+    }
+    String::from_utf8_lossy(&out).to_string()
+}
+
+fn is_crockford_ulid(value: &str) -> bool {
+    if value.len() != 26 {
+        return false;
+    }
+    value.chars().all(
+        |ch| matches!(ch, '0'..='9' | 'A'..='H' | 'J'..='K' | 'M'..='N' | 'P'..='T' | 'V'..='Z'),
+    )
+}
+
+fn sanitize_space_id_for_env(space_id: &str) -> String {
+    let mut out = String::with_capacity(space_id.len());
+    for ch in space_id.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_uppercase());
+        } else {
+            out.push('_');
+        }
+    }
+    out
+}
+
+fn resolve_heap_workspace_id(workspace_hint: &str) -> String {
+    let trimmed = workspace_hint.trim();
+    if is_crockford_ulid(trimmed) {
+        return trimmed.to_string();
+    }
+
+    if !trimmed.is_empty() {
+        let env_key = format!(
+            "CORTEX_HEAP_WORKSPACE_ID_FOR_SPACE_{}",
+            sanitize_space_id_for_env(trimmed)
+        );
+        if let Ok(value) = std::env::var(env_key) {
+            let candidate = value.trim().to_string();
+            if is_crockford_ulid(&candidate) {
+                return candidate;
+            }
+        }
+    }
+
+    let seed_hint = if trimmed.is_empty() {
+        "default"
+    } else {
+        trimmed
+    };
+    deterministic_ulid_from_seed(&format!("heap_workspace:{seed_hint}"))
+}
+
 fn collect_applied_steward_enrichment_ids(
     projection_records: &[HeapProjectionRecord],
     parent_block_id: &str,
@@ -4877,7 +5499,9 @@ fn collect_applied_steward_enrichment_ids(
     resolve_applied_enrichment_ids(&surfaces)
 }
 
-fn projection_records_with_nested_surfaces(rows: Vec<HeapProjectionRecord>) -> Vec<HeapProjectionRecord> {
+fn projection_records_with_nested_surfaces(
+    rows: Vec<HeapProjectionRecord>,
+) -> Vec<HeapProjectionRecord> {
     let nesting_records = rows
         .iter()
         .map(|entry| NestingProjectionRecord {
@@ -4919,7 +5543,10 @@ fn build_heap_steward_gate_validation(
     actor_id: &str,
 ) -> Result<HeapStewardGateValidateResponse, axum::response::Response> {
     let artifacts = read_artifacts_store();
-    let Some(artifact) = artifacts.iter().find(|item| item.artifact_id == artifact_id) else {
+    let Some(artifact) = artifacts
+        .iter()
+        .find(|item| item.artifact_id == artifact_id)
+    else {
         return Err(cortex_ux_error(
             StatusCode::NOT_FOUND,
             "HEAP_BLOCK_NOT_FOUND",
@@ -4941,8 +5568,10 @@ fn build_heap_steward_gate_validation(
         ));
     };
 
-    let applied_ids =
-        collect_applied_steward_enrichment_ids(&projection_records, &parent_projection.projection.block_id);
+    let applied_ids = collect_applied_steward_enrichment_ids(
+        &projection_records,
+        &parent_projection.projection.block_id,
+    );
     let evaluation = evaluate_heap_steward_gate(
         &workspace_root(),
         &parent_projection.projection.workspace_id,
@@ -5243,6 +5872,817 @@ fn viewspec_replay_digest_latest_key(proposal_id: &str) -> String {
         "/cortex/ux/viewspecs/replay/{}/digest_latest.json",
         sanitize_viewspec_candidate_set_token(proposal_id),
     )
+}
+
+fn sanitize_workflow_token(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+fn workflow_events_key_today() -> String {
+    format!(
+        "/cortex/workflows/events/{}.jsonl",
+        Utc::now().format("%Y-%m-%d")
+    )
+}
+
+fn workflow_proposal_events_key(date_yyyy_mm_dd: &str) -> String {
+    format!("/cortex/workflows/proposals/events/{date_yyyy_mm_dd}.jsonl")
+}
+
+fn workflow_governance_events_key(date_yyyy_mm_dd: &str) -> String {
+    format!("/cortex/workflows/governance/events/{date_yyyy_mm_dd}.jsonl")
+}
+
+fn workflow_draft_key(scope: &WorkflowScope, workflow_draft_id: &str) -> String {
+    format!(
+        "/cortex/workflows/drafts/current/{}/{}.json",
+        workflow_scope_key(scope),
+        sanitize_workflow_token(workflow_draft_id)
+    )
+}
+
+fn workflow_proposal_key(scope_key: &str, proposal_id: &str) -> String {
+    format!(
+        "/cortex/workflows/drafts/proposals/{}/{}.json",
+        scope_key,
+        sanitize_workflow_token(proposal_id)
+    )
+}
+
+fn workflow_proposal_history_key(scope_key: &str, proposal_id: &str, timestamp: &str) -> String {
+    format!(
+        "/cortex/workflows/drafts/proposals/history/{}/{}_{}.json",
+        scope_key,
+        sanitize_workflow_token(timestamp),
+        sanitize_workflow_token(proposal_id),
+    )
+}
+
+fn workflow_active_scope_key(scope_key: &str) -> String {
+    format!(
+        "/cortex/workflows/definitions/active/{}.json",
+        sanitize_workflow_token(scope_key)
+    )
+}
+
+fn workflow_definition_key(scope: &WorkflowScope, definition_id: &str) -> String {
+    format!(
+        "/cortex/workflows/definitions/current/{}/{}.json",
+        workflow_scope_key(scope),
+        sanitize_workflow_token(definition_id)
+    )
+}
+
+fn workflow_definition_history_key(
+    scope: &WorkflowScope,
+    definition_id: &str,
+    timestamp: &str,
+) -> String {
+    format!(
+        "/cortex/workflows/definitions/history/{}/{}_{}.json",
+        workflow_scope_key(scope),
+        sanitize_workflow_token(timestamp),
+        sanitize_workflow_token(definition_id),
+    )
+}
+
+fn workflow_replay_key(proposal_id: &str, run_id: &str) -> String {
+    format!(
+        "/cortex/workflows/replay/{}/{}.json",
+        sanitize_workflow_token(proposal_id),
+        sanitize_workflow_token(run_id),
+    )
+}
+
+fn workflow_replay_digest_latest_key(proposal_id: &str) -> String {
+    format!(
+        "/cortex/workflows/replay/{}/digest_latest.json",
+        sanitize_workflow_token(proposal_id),
+    )
+}
+
+fn parse_workflow_motif_kind(value: &str) -> Option<WorkflowMotifKind> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "sequential" => Some(WorkflowMotifKind::Sequential),
+        "parallel_compare" => Some(WorkflowMotifKind::ParallelCompare),
+        "repair_loop" => Some(WorkflowMotifKind::RepairLoop),
+        "fan_out_join" => Some(WorkflowMotifKind::FanOutJoin),
+        "human_gate" => Some(WorkflowMotifKind::HumanGate),
+        _ => None,
+    }
+}
+
+fn parse_workflow_generation_mode(value: Option<&str>) -> WorkflowGenerationMode {
+    match value
+        .map(|entry| entry.trim().to_ascii_lowercase())
+        .unwrap_or_else(|| "deterministic_scaffold".to_string())
+        .as_str()
+    {
+        "motif_hybrid" => WorkflowGenerationMode::MotifHybrid,
+        _ => WorkflowGenerationMode::DeterministicScaffold,
+    }
+}
+
+fn workflow_proposal_status_matches(value: &str, status: &WorkflowProposalStatus) -> bool {
+    matches!(
+        (value.trim().to_ascii_lowercase().as_str(), status),
+        ("staged", WorkflowProposalStatus::Staged)
+            | ("under_review", WorkflowProposalStatus::UnderReview)
+            | ("approved", WorkflowProposalStatus::Approved)
+            | ("ratified", WorkflowProposalStatus::Ratified)
+            | ("rejected", WorkflowProposalStatus::Rejected)
+    )
+}
+
+fn workflow_proposal_status_name(status: &WorkflowProposalStatus) -> &'static str {
+    match status {
+        WorkflowProposalStatus::Staged => "staged",
+        WorkflowProposalStatus::UnderReview => "under_review",
+        WorkflowProposalStatus::Approved => "approved",
+        WorkflowProposalStatus::Ratified => "ratified",
+        WorkflowProposalStatus::Rejected => "rejected",
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WorkflowGovernanceDecisionGate {
+    gate_level: String,
+    gate_status: String,
+    decision_gate_id: String,
+    replay_contract_ref: String,
+    source_of_truth: String,
+    lineage_id: String,
+    degraded_reason: Option<String>,
+}
+
+fn fallback_workflow_governance_gate(
+    proposal_id: &str,
+    action_target: &str,
+    gate_level: &str,
+) -> WorkflowGovernanceDecisionGate {
+    WorkflowGovernanceDecisionGate {
+        gate_level: gate_level.to_string(),
+        gate_status: "fallback_allow".to_string(),
+        decision_gate_id: format!(
+            "workflow_gate:{}:{}",
+            sanitize_workflow_token(action_target),
+            sanitize_workflow_token(proposal_id)
+        ),
+        replay_contract_ref: format!(
+            "workflow_replay_contract:{}",
+            sanitize_workflow_token(proposal_id)
+        ),
+        source_of_truth: "fallback".to_string(),
+        lineage_id: format!("workflow_lineage:{}", sanitize_workflow_token(proposal_id)),
+        degraded_reason: Some("canonical_workflow_governance_unwired".to_string()),
+    }
+}
+
+fn workflow_governance_ref_from_gate(
+    gate: &WorkflowGovernanceDecisionGate,
+    definition_digest: &str,
+    binding_digest: &str,
+) -> WorkflowGovernanceRef {
+    WorkflowGovernanceRef {
+        gate_level: gate.gate_level.clone(),
+        gate_status: gate.gate_status.clone(),
+        decision_gate_id: gate.decision_gate_id.clone(),
+        replay_contract_ref: gate.replay_contract_ref.clone(),
+        source_of_truth: gate.source_of_truth.clone(),
+        lineage_id: gate.lineage_id.clone(),
+        degraded_reason: gate.degraded_reason.clone(),
+        definition_digest: definition_digest.to_string(),
+        binding_digest: binding_digest.to_string(),
+    }
+}
+
+struct GatewayWorkflowTimeProvider;
+
+impl RuntimeTimeProvider for GatewayWorkflowTimeProvider {
+    fn now_unix_secs(&self) -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or_default()
+    }
+
+    fn to_rfc3339(&self, unix_secs: u64) -> Result<String, cortex_runtime::RuntimeError> {
+        let timestamp = DateTime::<Utc>::from_timestamp(unix_secs as i64, 0)
+            .ok_or(cortex_runtime::RuntimeError::InvalidTimestamp(unix_secs))?;
+        Ok(timestamp.to_rfc3339())
+    }
+}
+
+fn workflow_runtime_adapter() -> LocalDurableWorkerAdapter<GatewayWorkflowTimeProvider> {
+    LocalDurableWorkerAdapter::new(
+        temporal_runtime_root(),
+        Arc::new(GatewayWorkflowTimeProvider),
+    )
+}
+
+fn parse_workflow_execution_profile(value: Option<&str>) -> WorkflowExecutionProfileKind {
+    match value
+        .map(|entry| entry.trim().to_ascii_lowercase())
+        .filter(|entry| !entry.is_empty())
+        .as_deref()
+    {
+        Some("sync") => WorkflowExecutionProfileKind::Sync,
+        _ => WorkflowExecutionProfileKind::Async,
+    }
+}
+
+fn workflow_runtime_error_is_not_found(err: &cortex_runtime::RuntimeError) -> bool {
+    matches!(
+        err,
+        cortex_runtime::RuntimeError::Storage(message)
+            if message.contains("No such file") || message.contains("not found")
+    )
+}
+
+fn build_workflow_execution_binding(
+    definition: &WorkflowDefinitionV1,
+    request: &WorkflowInstanceStartRequest,
+) -> Result<WorkflowExecutionBindingV1, String> {
+    let adapter = match request
+        .adapter
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        None | Some("local_durable_worker_v1") => {
+            WorkflowExecutionAdapterKind::LocalDurableWorkerV1
+        }
+        Some("workflow_engine_canister_v1") => {
+            return Err(
+                "workflow_engine_canister_v1 is not validated for execution in this slice."
+                    .to_string(),
+            );
+        }
+        Some(other) => {
+            return Err(format!(
+                "adapter must be local_durable_worker_v1; received '{}'.",
+                other
+            ));
+        }
+    };
+    let created_at = viewspec_now_iso();
+    let mut runtime_limits = request.runtime_limits.clone();
+    runtime_limits
+        .entry("spaceId".to_string())
+        .or_insert_with(|| {
+            json!(
+                definition
+                    .scope
+                    .space_id
+                    .clone()
+                    .unwrap_or_else(|| "workflow-space".to_string())
+            )
+        });
+    runtime_limits
+        .entry("workflowId".to_string())
+        .or_insert_with(|| json!(definition.definition_id.clone()));
+    runtime_limits
+        .entry("contributionId".to_string())
+        .or_insert_with(|| json!(format!("workflow-definition:{}", definition.definition_id)));
+    runtime_limits
+        .entry("taskQueue".to_string())
+        .or_insert_with(|| json!("SIMULATION_TASK_QUEUE"));
+    runtime_limits
+        .entry("namespace".to_string())
+        .or_insert_with(|| json!("default"));
+    runtime_limits
+        .entry("approvalTimeoutSeconds".to_string())
+        .or_insert_with(|| {
+            json!(
+                request
+                    .checkpoint_policy
+                    .as_ref()
+                    .and_then(|policy| policy.timeout_seconds)
+                    .unwrap_or(3600)
+            )
+        });
+    if let Some(instance_id) = request
+        .instance_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        runtime_limits
+            .entry("instanceId".to_string())
+            .or_insert_with(|| json!(instance_id));
+    }
+
+    Ok(WorkflowExecutionBindingV1 {
+        schema_version: "1.0.0".to_string(),
+        binding_id: request.binding_id.clone().unwrap_or_else(|| {
+            format!(
+                "workflow_binding_{}_{}",
+                sanitize_workflow_token(&definition.definition_id),
+                Utc::now().timestamp_millis()
+            )
+        }),
+        definition_id: definition.definition_id.clone(),
+        adapter,
+        execution_profile: parse_workflow_execution_profile(request.execution_profile.as_deref()),
+        checkpoint_policy: request.checkpoint_policy.clone(),
+        runtime_limits,
+        governance_ref: definition.governance_ref.clone(),
+        provenance: cortex_domain::workflow::WorkflowProvenance {
+            created_by: request
+                .started_by
+                .clone()
+                .unwrap_or_else(|| "cortex-workflow-runtime".to_string()),
+            created_at,
+            source_mode: "runtime".to_string(),
+        },
+    })
+}
+
+async fn read_workflow_intent_index() -> Result<BTreeMap<String, WorkflowIntentIndexEntry>, String>
+{
+    Ok(
+        store_read_json::<BTreeMap<String, WorkflowIntentIndexEntry>>(WORKFLOW_INTENT_INDEX_KEY)
+            .await?
+            .unwrap_or_default(),
+    )
+}
+
+async fn write_workflow_intent_index(
+    index: &BTreeMap<String, WorkflowIntentIndexEntry>,
+) -> Result<(), String> {
+    store_write_json(WORKFLOW_INTENT_INDEX_KEY, index).await
+}
+
+async fn read_workflow_draft_index() -> Result<BTreeMap<String, WorkflowDraftIndexEntry>, String> {
+    Ok(
+        store_read_json::<BTreeMap<String, WorkflowDraftIndexEntry>>(WORKFLOW_DRAFT_INDEX_KEY)
+            .await?
+            .unwrap_or_default(),
+    )
+}
+
+async fn write_workflow_draft_index(
+    index: &BTreeMap<String, WorkflowDraftIndexEntry>,
+) -> Result<(), String> {
+    store_write_json(WORKFLOW_DRAFT_INDEX_KEY, index).await
+}
+
+async fn read_workflow_candidate_set_index()
+-> Result<BTreeMap<String, WorkflowCandidateSetIndexEntry>, String> {
+    Ok(
+        store_read_json::<BTreeMap<String, WorkflowCandidateSetIndexEntry>>(
+            WORKFLOW_CANDIDATE_SET_INDEX_KEY,
+        )
+        .await?
+        .unwrap_or_default(),
+    )
+}
+
+async fn write_workflow_candidate_set_index(
+    index: &BTreeMap<String, WorkflowCandidateSetIndexEntry>,
+) -> Result<(), String> {
+    store_write_json(WORKFLOW_CANDIDATE_SET_INDEX_KEY, index).await
+}
+
+async fn read_workflow_definition_index()
+-> Result<BTreeMap<String, WorkflowDraftIndexEntry>, String> {
+    Ok(
+        store_read_json::<BTreeMap<String, WorkflowDraftIndexEntry>>(WORKFLOW_INDEX_KEY)
+            .await?
+            .unwrap_or_default(),
+    )
+}
+
+async fn write_workflow_definition_index(
+    index: &BTreeMap<String, WorkflowDraftIndexEntry>,
+) -> Result<(), String> {
+    store_write_json(WORKFLOW_INDEX_KEY, index).await
+}
+
+async fn read_workflow_proposal_index()
+-> Result<BTreeMap<String, WorkflowProposalIndexEntry>, String> {
+    Ok(
+        store_read_json::<BTreeMap<String, WorkflowProposalIndexEntry>>(
+            WORKFLOW_PROPOSAL_INDEX_KEY,
+        )
+        .await?
+        .unwrap_or_default(),
+    )
+}
+
+async fn write_workflow_proposal_index(
+    index: &BTreeMap<String, WorkflowProposalIndexEntry>,
+) -> Result<(), String> {
+    store_write_json(WORKFLOW_PROPOSAL_INDEX_KEY, index).await
+}
+
+async fn read_workflow_active_scope_index()
+-> Result<BTreeMap<String, WorkflowScopeAdoptionRecord>, String> {
+    Ok(
+        store_read_json::<BTreeMap<String, WorkflowScopeAdoptionRecord>>(
+            WORKFLOW_ACTIVE_SCOPE_INDEX_KEY,
+        )
+        .await?
+        .unwrap_or_default(),
+    )
+}
+
+async fn write_workflow_active_scope_index(
+    index: &BTreeMap<String, WorkflowScopeAdoptionRecord>,
+) -> Result<(), String> {
+    store_write_json(WORKFLOW_ACTIVE_SCOPE_INDEX_KEY, index).await
+}
+
+async fn read_workflow_replay_index() -> Result<BTreeMap<String, WorkflowReplayIndexEntry>, String>
+{
+    Ok(
+        store_read_json::<BTreeMap<String, WorkflowReplayIndexEntry>>(WORKFLOW_REPLAY_INDEX_KEY)
+            .await?
+            .unwrap_or_default(),
+    )
+}
+
+async fn write_workflow_replay_index(
+    index: &BTreeMap<String, WorkflowReplayIndexEntry>,
+) -> Result<(), String> {
+    store_write_json(WORKFLOW_REPLAY_INDEX_KEY, index).await
+}
+
+async fn store_workflow_intent(intent: &WorkflowIntentV1) -> Result<(), String> {
+    let key = format!(
+        "/cortex/workflows/intents/{}/{}.json",
+        workflow_scope_key(&intent.scope),
+        sanitize_workflow_token(&intent.workflow_intent_id)
+    );
+    store_write_json(key.as_str(), intent).await?;
+    let mut index = read_workflow_intent_index().await?;
+    index.insert(
+        intent.workflow_intent_id.clone(),
+        WorkflowIntentIndexEntry {
+            workflow_intent_id: intent.workflow_intent_id.clone(),
+            scope_key: workflow_scope_key(&intent.scope),
+            updated_at: viewspec_now_iso(),
+        },
+    );
+    write_workflow_intent_index(&index).await
+}
+
+async fn store_workflow_candidate_set(
+    scope: &WorkflowScope,
+    candidate_set: &WorkflowCandidateSet,
+) -> Result<(), String> {
+    let key = format!(
+        "/cortex/workflows/drafts/candidates/{}/{}.json",
+        workflow_scope_key(scope),
+        sanitize_workflow_token(&candidate_set.candidate_set_id)
+    );
+    store_write_json(key.as_str(), candidate_set).await?;
+    let mut index = read_workflow_candidate_set_index().await?;
+    index.insert(
+        candidate_set.candidate_set_id.clone(),
+        WorkflowCandidateSetIndexEntry {
+            candidate_set_id: candidate_set.candidate_set_id.clone(),
+            scope_key: candidate_set.scope_key.clone(),
+            updated_at: viewspec_now_iso(),
+        },
+    );
+    write_workflow_candidate_set_index(&index).await
+}
+
+async fn load_workflow_candidate_set(
+    candidate_set_id: &str,
+) -> Result<Option<WorkflowCandidateSet>, String> {
+    let index = read_workflow_candidate_set_index().await?;
+    let Some(entry) = index.get(candidate_set_id) else {
+        return Ok(None);
+    };
+    let key = format!(
+        "/cortex/workflows/drafts/candidates/{}/{}.json",
+        entry.scope_key,
+        sanitize_workflow_token(candidate_set_id)
+    );
+    store_read_json::<WorkflowCandidateSet>(key.as_str()).await
+}
+
+async fn store_workflow_draft(draft: &WorkflowDraftV1) -> Result<(), String> {
+    let key = workflow_draft_key(&draft.scope, &draft.workflow_draft_id);
+    store_write_json(key.as_str(), draft).await?;
+    let mut index = read_workflow_draft_index().await?;
+    index.insert(
+        draft.workflow_draft_id.clone(),
+        WorkflowDraftIndexEntry {
+            workflow_draft_id: draft.workflow_draft_id.clone(),
+            scope_key: workflow_scope_key(&draft.scope),
+            updated_at: viewspec_now_iso(),
+        },
+    );
+    write_workflow_draft_index(&index).await
+}
+
+async fn load_workflow_draft(workflow_draft_id: &str) -> Result<Option<WorkflowDraftV1>, String> {
+    let index = read_workflow_draft_index().await?;
+    let Some(entry) = index.get(workflow_draft_id) else {
+        return Ok(None);
+    };
+    let key = format!(
+        "/cortex/workflows/drafts/current/{}/{}.json",
+        entry.scope_key,
+        sanitize_workflow_token(workflow_draft_id)
+    );
+    store_read_json::<WorkflowDraftV1>(key.as_str()).await
+}
+
+async fn append_workflow_event(
+    event_type: &str,
+    workflow_draft_id: Option<&str>,
+    definition_id: Option<&str>,
+    proposal_id: Option<&str>,
+    scope_key: &str,
+    actor: &str,
+    payload: Value,
+) -> Result<(), String> {
+    let record = WorkflowEventRecord {
+        event_id: format!("workflow_evt_{}", Utc::now().timestamp_millis()),
+        event_type: event_type.to_string(),
+        workflow_draft_id: workflow_draft_id.map(|value| value.to_string()),
+        definition_id: definition_id.map(|value| value.to_string()),
+        proposal_id: proposal_id.map(|value| value.to_string()),
+        scope_key: scope_key.to_string(),
+        actor: actor.to_string(),
+        timestamp: viewspec_now_iso(),
+        payload,
+    };
+    store_append_jsonl(workflow_events_key_today().as_str(), &record).await
+}
+
+async fn append_workflow_proposal_event(
+    event_type: &str,
+    proposal: &WorkflowProposalEnvelope,
+    actor: &str,
+    payload: Value,
+) -> Result<(), String> {
+    let record = WorkflowEventRecord {
+        event_id: format!("workflow_evt_{}", Utc::now().timestamp_millis()),
+        event_type: event_type.to_string(),
+        workflow_draft_id: Some(proposal.workflow_draft_id.clone()),
+        definition_id: Some(proposal.definition_id.clone()),
+        proposal_id: Some(proposal.proposal_id.clone()),
+        scope_key: proposal.scope_key.clone(),
+        actor: actor.to_string(),
+        timestamp: viewspec_now_iso(),
+        payload,
+    };
+    let date = Utc::now().format("%Y-%m-%d").to_string();
+    store_append_jsonl(workflow_proposal_events_key(&date).as_str(), &record).await
+}
+
+async fn append_workflow_governance_event(
+    event_type: &str,
+    proposal: &WorkflowProposalEnvelope,
+    actor: &str,
+    payload: Value,
+) -> Result<(), String> {
+    let record = WorkflowEventRecord {
+        event_id: format!("workflow_evt_{}", Utc::now().timestamp_millis()),
+        event_type: event_type.to_string(),
+        workflow_draft_id: Some(proposal.workflow_draft_id.clone()),
+        definition_id: Some(proposal.definition_id.clone()),
+        proposal_id: Some(proposal.proposal_id.clone()),
+        scope_key: proposal.scope_key.clone(),
+        actor: actor.to_string(),
+        timestamp: viewspec_now_iso(),
+        payload,
+    };
+    let date = Utc::now().format("%Y-%m-%d").to_string();
+    store_append_jsonl(workflow_governance_events_key(&date).as_str(), &record).await
+}
+
+async fn store_workflow_proposal(
+    scope: &WorkflowScope,
+    proposal: &WorkflowProposalEnvelope,
+) -> Result<(), String> {
+    let proposal_key = workflow_proposal_key(&proposal.scope_key, &proposal.proposal_id);
+    let history_key = workflow_proposal_history_key(
+        &proposal.scope_key,
+        &proposal.proposal_id,
+        &viewspec_now_iso(),
+    );
+    store_write_json(proposal_key.as_str(), proposal).await?;
+    store_write_json(history_key.as_str(), proposal).await?;
+    let mut index = read_workflow_proposal_index().await?;
+    index.insert(
+        proposal.proposal_id.clone(),
+        WorkflowProposalIndexEntry {
+            proposal_id: proposal.proposal_id.clone(),
+            scope_key: workflow_scope_key(scope),
+            updated_at: viewspec_now_iso(),
+        },
+    );
+    write_workflow_proposal_index(&index).await
+}
+
+async fn load_workflow_proposal(
+    proposal_id: &str,
+) -> Result<Option<WorkflowProposalEnvelope>, String> {
+    let index = read_workflow_proposal_index().await?;
+    let Some(entry) = index.get(proposal_id) else {
+        return Ok(None);
+    };
+    let key = workflow_proposal_key(&entry.scope_key, proposal_id);
+    store_read_json::<WorkflowProposalEnvelope>(key.as_str()).await
+}
+
+async fn list_workflow_proposals() -> Result<Vec<WorkflowProposalEnvelope>, String> {
+    let index = read_workflow_proposal_index().await?;
+    let mut proposals = Vec::new();
+    for entry in index.values() {
+        let key = workflow_proposal_key(&entry.scope_key, &entry.proposal_id);
+        if let Some(proposal) = store_read_json::<WorkflowProposalEnvelope>(key.as_str()).await? {
+            proposals.push(proposal);
+        }
+    }
+    proposals.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    Ok(proposals)
+}
+
+async fn store_workflow_scope_adoption(record: &WorkflowScopeAdoptionRecord) -> Result<(), String> {
+    let key = workflow_active_scope_key(&record.scope_key);
+    store_write_json(key.as_str(), record).await?;
+    let mut index = read_workflow_active_scope_index().await?;
+    index.insert(record.scope_key.clone(), record.clone());
+    write_workflow_active_scope_index(&index).await
+}
+
+async fn load_workflow_active_scope(
+    scope_key_value: &str,
+) -> Result<Option<WorkflowScopeAdoptionRecord>, String> {
+    let key = workflow_active_scope_key(scope_key_value);
+    store_read_json::<WorkflowScopeAdoptionRecord>(key.as_str()).await
+}
+
+async fn store_workflow_definition_artifact(
+    scope: &WorkflowScope,
+    artifact: &WorkflowDefinitionArtifact,
+) -> Result<(), String> {
+    let key = workflow_definition_key(scope, &artifact.definition.definition_id);
+    let history_key = workflow_definition_history_key(
+        scope,
+        &artifact.definition.definition_id,
+        &viewspec_now_iso(),
+    );
+    store_write_json(key.as_str(), artifact).await?;
+    store_write_json(history_key.as_str(), artifact).await?;
+    let mut index = read_workflow_definition_index().await?;
+    index.insert(
+        artifact.definition.definition_id.clone(),
+        WorkflowDraftIndexEntry {
+            workflow_draft_id: artifact.definition.definition_id.clone(),
+            scope_key: workflow_scope_key(scope),
+            updated_at: viewspec_now_iso(),
+        },
+    );
+    write_workflow_definition_index(&index).await
+}
+
+async fn load_workflow_definition_artifact(
+    definition_id: &str,
+) -> Result<Option<WorkflowDefinitionArtifact>, String> {
+    let index = read_workflow_definition_index().await?;
+    let Some(entry) = index.get(definition_id) else {
+        return Ok(None);
+    };
+    let key = format!(
+        "/cortex/workflows/definitions/current/{}/{}.json",
+        entry.scope_key,
+        sanitize_workflow_token(definition_id)
+    );
+    store_read_json::<WorkflowDefinitionArtifact>(key.as_str()).await
+}
+
+async fn store_workflow_replay_artifact(
+    proposal_id: &str,
+    replay: &WorkflowReplayArtifact,
+    digest: &WorkflowDigestArtifact,
+) -> Result<(), String> {
+    let replay_key = workflow_replay_key(proposal_id, &replay.run_id);
+    store_write_json(replay_key.as_str(), replay).await?;
+    store_write_json(
+        workflow_replay_digest_latest_key(proposal_id).as_str(),
+        digest,
+    )
+    .await?;
+    let mut index = read_workflow_replay_index().await?;
+    index.insert(
+        proposal_id.to_string(),
+        WorkflowReplayIndexEntry {
+            proposal_id: proposal_id.to_string(),
+            run_id: replay.run_id.clone(),
+            key: replay_key,
+            updated_at: viewspec_now_iso(),
+        },
+    );
+    write_workflow_replay_index(&index).await
+}
+
+async fn load_workflow_replay_artifact(
+    proposal_id: &str,
+) -> Result<Option<WorkflowReplayArtifact>, String> {
+    let index = read_workflow_replay_index().await?;
+    let Some(entry) = index.get(proposal_id) else {
+        return Ok(None);
+    };
+    store_read_json::<WorkflowReplayArtifact>(entry.key.as_str()).await
+}
+
+async fn load_workflow_digest_artifact(
+    proposal_id: &str,
+) -> Result<Option<WorkflowDigestArtifact>, String> {
+    let index = read_workflow_replay_index().await?;
+    if !index.contains_key(proposal_id) {
+        return Ok(None);
+    }
+    store_read_json::<WorkflowDigestArtifact>(
+        workflow_replay_digest_latest_key(proposal_id).as_str(),
+    )
+    .await
+}
+
+fn workflow_digest_hex(value: &Value) -> String {
+    cortex_runtime::workflow::digest::workflow_digest_hex(value)
+}
+
+fn workflow_binding_digest_hex(definition_id: &str) -> String {
+    workflow_digest_hex(&json!({
+        "bindingId": format!("binding:{}", sanitize_workflow_token(definition_id)),
+        "adapter": "local_durable_worker_v1",
+        "executionProfile": "async"
+    }))
+}
+
+fn build_definition_from_draft(
+    draft: &WorkflowDraftV1,
+    definition_id: &str,
+    governance_ref: Option<WorkflowGovernanceRef>,
+    digest: String,
+) -> WorkflowDefinitionV1 {
+    WorkflowDefinitionV1 {
+        schema_version: draft.schema_version.clone(),
+        definition_id: definition_id.to_string(),
+        scope: draft.scope.clone(),
+        intent_ref: draft.intent_ref.clone(),
+        intent: draft.intent.clone(),
+        motif_kind: draft.motif_kind.clone(),
+        constraints: draft.constraints.clone(),
+        graph: draft.graph.clone(),
+        context_contract: draft.context_contract.clone(),
+        confidence: draft.confidence.clone(),
+        lineage: draft.lineage.clone(),
+        policy: draft.policy.clone(),
+        provenance: draft.provenance.clone(),
+        governance_ref,
+        digest: Some(digest),
+    }
+}
+
+fn build_workflow_replay_and_digest(
+    proposal: &WorkflowProposalEnvelope,
+    definition: &WorkflowDefinitionV1,
+) -> (WorkflowReplayArtifact, WorkflowDigestArtifact) {
+    let run_id = format!("workflow_replay_{}", Utc::now().timestamp_millis());
+    let replay = WorkflowReplayArtifact {
+        schema_version: "1.0.0".to_string(),
+        run_id: run_id.clone(),
+        proposal_id: proposal.proposal_id.clone(),
+        scope_key: proposal.scope_key.clone(),
+        generated_at: viewspec_now_iso(),
+        proposal: proposal.clone(),
+        definition: definition.clone(),
+        gate_metadata: json!(proposal.governance_ref),
+    };
+    let payload = json!({
+        "proposal": replay.proposal,
+        "definition": replay.definition,
+        "gateMetadata": replay.gate_metadata,
+    });
+    let digest = WorkflowDigestArtifact {
+        schema_version: "1.0.0".to_string(),
+        proposal_id: proposal.proposal_id.clone(),
+        digest: workflow_digest_hex(&payload),
+        generated_at: viewspec_now_iso(),
+        scope_key: proposal.scope_key.clone(),
+        status: workflow_proposal_status_name(&proposal.status).to_string(),
+        payload,
+    };
+    (replay, digest)
 }
 
 fn spatial_experiment_events_key(date_yyyy_mm_dd: &str) -> String {
@@ -5778,10 +7218,7 @@ fn recommend_nav_slot_for_discovery(
         "pattern.system" => "secondary_ops",
         _ => "secondary_ops",
     };
-    (
-        slot.to_string(),
-        format!("pattern={pattern_id} -> {slot}"),
-    )
+    (slot.to_string(), format!("pattern={pattern_id} -> {slot}"))
 }
 
 async fn get_cortex_layout_discovery() -> Json<Vec<CortexLayoutDiscoveryEntry>> {
@@ -5843,11 +7280,11 @@ async fn post_cortex_runtime_sync_replay() -> axum::response::Response {
 }
 
 async fn get_cortex_runtime_slo_status() -> Json<CortexRealtimeSloStatus> {
-    Json(streaming_transport_manager().slo_status().await)
+    Json(streaming_transport_manager().await.slo_status().await)
 }
 
 async fn get_cortex_runtime_slo_breaches() -> Json<Vec<CortexRealtimeSloBreachEvent>> {
-    Json(streaming_transport_manager().slo_breaches().await)
+    Json(streaming_transport_manager().await.slo_breaches().await)
 }
 
 async fn get_cortex_runtime_closeout_tasks(
@@ -6123,7 +7560,9 @@ async fn post_cortex_layout_spec(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "LAYOUT_SPEC_AUDIT_OPEN_FAILED",
                 "Failed to open decision surface audit log file.",
-                Some(json!({ "path": audit_path.display().to_string(), "reason": err.to_string() })),
+                Some(
+                    json!({ "path": audit_path.display().to_string(), "reason": err.to_string() }),
+                ),
             );
         }
     };
@@ -8568,6 +10007,1393 @@ async fn get_cortex_viewspec_proposal_digest(
     .into_response()
 }
 
+async fn post_cortex_workflow_intent(
+    Json(request): Json<WorkflowIntentRequest>,
+) -> axum::response::Response {
+    if request.intent.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_INTENT_REQUEST",
+            "intent is required.",
+            None,
+        );
+    }
+    let Some(motif_kind) = parse_workflow_motif_kind(&request.motif_kind) else {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_MOTIF_KIND",
+            "motifKind must be one of sequential|parallel_compare|repair_loop|fan_out_join|human_gate.",
+            Some(json!({ "motifKind": request.motif_kind })),
+        );
+    };
+    let source_mode = request
+        .source_mode
+        .unwrap_or_else(|| "hybrid".to_string())
+        .to_ascii_lowercase();
+    let workflow_intent = WorkflowIntentV1 {
+        schema_version: "1.0.0".to_string(),
+        workflow_intent_id: format!("workflow_intent_{}", Utc::now().timestamp_millis()),
+        scope: request.scope.unwrap_or_default(),
+        intent: request.intent,
+        motif_kind,
+        constraints: request.constraints,
+        authority_ceiling: request
+            .authority_ceiling
+            .unwrap_or_else(|| "l2".to_string()),
+        provenance: cortex_domain::workflow::WorkflowProvenance {
+            created_by: request
+                .created_by
+                .unwrap_or_else(|| "cortex-workflow-agent".to_string()),
+            created_at: viewspec_now_iso(),
+            source_mode: if matches!(source_mode.as_str(), "human" | "agent" | "hybrid") {
+                source_mode
+            } else {
+                "hybrid".to_string()
+            },
+        },
+    };
+    if let Err(err) = store_workflow_intent(&workflow_intent).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_INTENT_STORE_FAILED",
+            "Failed to persist workflow intent.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    Json(WorkflowIntentResponse {
+        accepted: true,
+        workflow_intent,
+    })
+    .into_response()
+}
+
+async fn post_cortex_workflow_candidates(
+    Json(request): Json<WorkflowCandidateRequest>,
+) -> axum::response::Response {
+    if request.intent.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_CANDIDATE_REQUEST",
+            "intent is required.",
+            None,
+        );
+    }
+    let Some(motif_kind) = parse_workflow_motif_kind(&request.motif_kind) else {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_MOTIF_KIND",
+            "motifKind must be one of sequential|parallel_compare|repair_loop|fan_out_join|human_gate.",
+            Some(json!({ "motifKind": request.motif_kind })),
+        );
+    };
+    let scope = request.scope.unwrap_or_default();
+    let created_by = request
+        .created_by
+        .unwrap_or_else(|| "cortex-workflow-agent".to_string());
+    let source_mode = request
+        .source_mode
+        .unwrap_or_else(|| "hybrid".to_string())
+        .to_ascii_lowercase();
+    let mode = parse_workflow_generation_mode(request.generation_mode.as_deref());
+    let candidate_set_id = request
+        .candidate_set_id
+        .clone()
+        .unwrap_or_else(|| format!("workflow_set_{}", Utc::now().timestamp_millis()));
+    let created_at = viewspec_now_iso();
+    let candidate_seed = format!("workflow_candidate_{}", Utc::now().timestamp_millis());
+    let candidate_set = generate_workflow_candidate_set(
+        scope.clone(),
+        &request.intent,
+        motif_kind,
+        &request.constraints,
+        request.count.unwrap_or(3),
+        &created_by,
+        if matches!(source_mode.as_str(), "human" | "agent" | "hybrid") {
+            source_mode.as_str()
+        } else {
+            "hybrid"
+        },
+        mode,
+        &candidate_set_id,
+        &created_at,
+        &candidate_seed,
+    );
+
+    if let Err(err) = store_workflow_candidate_set(&scope, &candidate_set).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_CANDIDATE_SET_STORE_FAILED",
+            "Failed to persist workflow candidate set.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    if let Err(err) = append_workflow_event(
+        "workflow_candidates_generated",
+        None,
+        None,
+        None,
+        &candidate_set.scope_key,
+        &created_by,
+        json!({
+            "candidateSetId": candidate_set.candidate_set_id,
+            "candidateCount": candidate_set.candidates.len(),
+            "blockedCount": cortex_domain::workflow::blocked_count(&candidate_set.candidates),
+            "motifKind": request.motif_kind,
+        }),
+    )
+    .await
+    {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_EVENT_STORE_FAILED",
+            "Failed to append workflow candidate event.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    Json(WorkflowCandidatesResponse {
+        schema_version: "1.0.0".to_string(),
+        generated_at: viewspec_now_iso(),
+        candidate_set_id: candidate_set.candidate_set_id.clone(),
+        blocked_count: cortex_domain::workflow::blocked_count(&candidate_set.candidates),
+        candidates: candidate_set.candidates,
+    })
+    .into_response()
+}
+
+async fn get_cortex_workflow_candidate_set(
+    Path(candidate_set_id): Path<String>,
+) -> axum::response::Response {
+    if candidate_set_id.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_CANDIDATE_SET_ID",
+            "candidate_set_id is required.",
+            None,
+        );
+    }
+    match load_workflow_candidate_set(candidate_set_id.as_str()).await {
+        Ok(Some(candidate_set)) => Json(WorkflowCandidateSetResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            candidate_set,
+        })
+        .into_response(),
+        Ok(None) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_CANDIDATE_SET_NOT_FOUND",
+            "Workflow candidate set not found.",
+            Some(json!({ "candidateSetId": candidate_set_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_CANDIDATE_SET_LOAD_FAILED",
+            "Failed to load workflow candidate set.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn post_cortex_workflow_candidate_stage(
+    Path(candidate_set_id): Path<String>,
+    Json(request): Json<WorkflowCandidateStageRequest>,
+) -> axum::response::Response {
+    if request.candidate_id.trim().is_empty()
+        || request.staged_by.trim().is_empty()
+        || request.rationale.trim().is_empty()
+        || request.expected_input_hash.trim().is_empty()
+    {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_STAGE_REQUEST",
+            "candidateId, stagedBy, rationale, and expectedInputHash are required.",
+            None,
+        );
+    }
+    let Some(candidate_set) = (match load_workflow_candidate_set(candidate_set_id.as_str()).await {
+        Ok(value) => value,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_CANDIDATE_SET_LOAD_FAILED",
+                "Failed to load workflow candidate set.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    }) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_CANDIDATE_SET_NOT_FOUND",
+            "Workflow candidate set not found.",
+            Some(json!({ "candidateSetId": candidate_set_id })),
+        );
+    };
+    let Some(candidate) = candidate_set
+        .candidates
+        .iter()
+        .find(|candidate| candidate.candidate_id == request.candidate_id)
+    else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_CANDIDATE_NOT_FOUND",
+            "Workflow candidate not found in candidate set.",
+            Some(json!({
+                "candidateSetId": candidate_set_id,
+                "candidateId": request.candidate_id
+            })),
+        );
+    };
+    let recomputed_hash = compute_workflow_candidate_input_hash(
+        &candidate.workflow_draft,
+        &candidate.generation_trace,
+        &candidate_set.mode,
+    );
+    if recomputed_hash != candidate.input_hash {
+        return cortex_ux_error(
+            StatusCode::CONFLICT,
+            "WORKFLOW_CANDIDATE_TAMPERED",
+            "Candidate input hash does not match persisted candidate content.",
+            Some(json!({
+                "candidateSetId": candidate_set_id,
+                "candidateId": request.candidate_id
+            })),
+        );
+    }
+    if request.expected_input_hash != candidate.input_hash {
+        return cortex_ux_error(
+            StatusCode::CONFLICT,
+            "WORKFLOW_STAGE_HASH_MISMATCH",
+            "expectedInputHash does not match candidate input hash.",
+            Some(json!({
+                "candidateSetId": candidate_set_id,
+                "candidateId": request.candidate_id
+            })),
+        );
+    }
+    let validation = validate_workflow_draft(&candidate.workflow_draft);
+    if !validation.valid {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "WORKFLOW_STAGE_BLOCKED",
+            "Candidate workflow draft failed validation and cannot be staged.",
+            Some(json!({ "validation": validation })),
+        );
+    }
+    if let Err(err) = store_workflow_draft(&candidate.workflow_draft).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_DRAFT_STORE_FAILED",
+            "Failed to persist staged workflow draft.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    if let Err(err) = append_workflow_event(
+        "workflow_candidate_staged",
+        Some(&candidate.workflow_draft.workflow_draft_id),
+        None,
+        None,
+        &candidate_set.scope_key,
+        &request.staged_by,
+        json!({
+            "candidateSetId": candidate_set_id,
+            "candidateId": request.candidate_id,
+            "rationale": request.rationale,
+            "expectedInputHash": request.expected_input_hash
+        }),
+    )
+    .await
+    {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_EVENT_STORE_FAILED",
+            "Failed to append workflow candidate staging event.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    Json(WorkflowCandidateStageResponse {
+        accepted: true,
+        workflow_draft_id: candidate.workflow_draft.workflow_draft_id.clone(),
+        scope_key: workflow_scope_key(&candidate.workflow_draft.scope),
+        stored_at: viewspec_now_iso(),
+    })
+    .into_response()
+}
+
+async fn post_cortex_workflow_validate(
+    Json(request): Json<WorkflowValidateRequest>,
+) -> axum::response::Response {
+    let validation = validate_workflow_draft(&request.workflow_draft);
+    Json(WorkflowValidationResponse {
+        schema_version: "1.0.0".to_string(),
+        generated_at: viewspec_now_iso(),
+        validation,
+    })
+    .into_response()
+}
+
+async fn post_cortex_workflow_compile(
+    Json(request): Json<WorkflowCompileRequest>,
+) -> axum::response::Response {
+    let validation = validate_workflow_draft(&request.workflow_draft);
+    if !validation.valid {
+        return Json(WorkflowCompileResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            validation,
+            compile_result: WorkflowCompileResult {
+                valid: false,
+                normalized_graph: json!({}),
+                serverless_workflow_projection: json!({}),
+                a2ui_surface_projection: json!({}),
+                flow_graph_projection: json!({}),
+                warnings: vec![],
+                digest: String::new(),
+            },
+        })
+        .into_response();
+    }
+    match compile_workflow_draft(&request.workflow_draft) {
+        Ok(compile_result) => Json(WorkflowCompileResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            validation,
+            compile_result,
+        })
+        .into_response(),
+        Err(validation) => Json(WorkflowCompileResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            validation,
+            compile_result: WorkflowCompileResult {
+                valid: false,
+                normalized_graph: json!({}),
+                serverless_workflow_projection: json!({}),
+                a2ui_surface_projection: json!({}),
+                flow_graph_projection: json!({}),
+                warnings: vec![],
+                digest: String::new(),
+            },
+        })
+        .into_response(),
+    }
+}
+
+async fn post_cortex_workflow_propose(
+    Path(workflow_draft_id): Path<String>,
+    Json(request): Json<WorkflowProposeRequest>,
+) -> axum::response::Response {
+    if request.proposed_by.trim().is_empty() || request.rationale.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_PROPOSE_REQUEST",
+            "proposedBy and rationale are required.",
+            None,
+        );
+    }
+    let Some(draft) = (match load_workflow_draft(workflow_draft_id.as_str()).await {
+        Ok(value) => value,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_DRAFT_LOAD_FAILED",
+                "Failed to load workflow draft.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    }) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_DRAFT_NOT_FOUND",
+            "Workflow draft not found.",
+            Some(json!({ "workflowDraftId": workflow_draft_id })),
+        );
+    };
+    let validation = validate_workflow_draft(&draft);
+    if !validation.valid {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "WORKFLOW_PROPOSE_BLOCKED",
+            "Workflow draft failed validation and cannot be proposed.",
+            Some(json!({ "validation": validation })),
+        );
+    }
+    let definition_id = format!(
+        "workflow_def_{}",
+        sanitize_workflow_token(&draft.workflow_draft_id)
+    );
+    let proposal = WorkflowProposalEnvelope {
+        proposal_id: format!("workflow_proposal_{}", Utc::now().timestamp_millis()),
+        workflow_draft_id: draft.workflow_draft_id.clone(),
+        definition_id,
+        scope_key: workflow_scope_key(&draft.scope),
+        proposed_by: request.proposed_by.clone(),
+        rationale: request.rationale.clone(),
+        created_at: viewspec_now_iso(),
+        status: WorkflowProposalStatus::Staged,
+        review: None,
+        decision: None,
+        governance_ref: None,
+    };
+    if let Err(err) = store_workflow_proposal(&draft.scope, &proposal).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_PROPOSAL_STORE_FAILED",
+            "Failed to persist workflow proposal.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    if let Err(err) = append_workflow_proposal_event(
+        "workflow_proposed",
+        &proposal,
+        &request.proposed_by,
+        json!({ "rationale": request.rationale }),
+    )
+    .await
+    {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_PROPOSAL_EVENT_STORE_FAILED",
+            "Failed to append workflow proposal event.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    Json(WorkflowProposalResponse {
+        accepted: true,
+        proposal,
+    })
+    .into_response()
+}
+
+async fn get_cortex_workflow_proposals(
+    Query(query): Query<WorkflowProposalListQuery>,
+) -> axum::response::Response {
+    match list_workflow_proposals().await {
+        Ok(mut proposals) => {
+            if let Some(scope_key) = query.scope_key.as_deref() {
+                proposals.retain(|proposal| proposal.scope_key == scope_key);
+            }
+            if let Some(status) = query.status.as_deref() {
+                proposals
+                    .retain(|proposal| workflow_proposal_status_matches(status, &proposal.status));
+            }
+            if let Some(limit) = query.limit {
+                proposals.truncate(limit);
+            }
+            Json(WorkflowProposalListResponse {
+                schema_version: "1.0.0".to_string(),
+                generated_at: viewspec_now_iso(),
+                proposals,
+            })
+            .into_response()
+        }
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_PROPOSAL_LIST_FAILED",
+            "Failed to list workflow proposals.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn get_cortex_workflow_proposal(Path(proposal_id): Path<String>) -> axum::response::Response {
+    match load_workflow_proposal(proposal_id.as_str()).await {
+        Ok(Some(proposal)) => Json(proposal).into_response(),
+        Ok(None) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_PROPOSAL_NOT_FOUND",
+            "Workflow proposal not found.",
+            Some(json!({ "proposalId": proposal_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_PROPOSAL_LOAD_FAILED",
+            "Failed to load workflow proposal.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn get_cortex_workflow_proposal_replay(
+    Path(proposal_id): Path<String>,
+) -> axum::response::Response {
+    match load_workflow_replay_artifact(proposal_id.as_str()).await {
+        Ok(Some(replay)) => Json(WorkflowReplayResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            replay,
+        })
+        .into_response(),
+        Ok(None) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_REPLAY_NOT_FOUND",
+            "Workflow replay artifact not found.",
+            Some(json!({ "proposalId": proposal_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_REPLAY_LOAD_FAILED",
+            "Failed to load workflow replay artifact.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn get_cortex_workflow_proposal_digest(
+    Path(proposal_id): Path<String>,
+) -> axum::response::Response {
+    match load_workflow_digest_artifact(proposal_id.as_str()).await {
+        Ok(Some(digest)) => Json(WorkflowDigestResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            digest,
+        })
+        .into_response(),
+        Ok(None) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_DIGEST_NOT_FOUND",
+            "Workflow digest artifact not found.",
+            Some(json!({ "proposalId": proposal_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_DIGEST_LOAD_FAILED",
+            "Failed to load workflow digest artifact.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn post_cortex_workflow_proposal_review(
+    Path(proposal_id): Path<String>,
+    Json(request): Json<WorkflowProposalReviewRequest>,
+) -> axum::response::Response {
+    if request.reviewed_by.trim().is_empty() || request.summary.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_PROPOSAL_REVIEW_REQUEST",
+            "reviewedBy and summary are required.",
+            None,
+        );
+    }
+    let Some(mut proposal) = (match load_workflow_proposal(proposal_id.as_str()).await {
+        Ok(value) => value,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_PROPOSAL_LOAD_FAILED",
+                "Failed to load workflow proposal for review.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    }) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_PROPOSAL_NOT_FOUND",
+            "Workflow proposal not found.",
+            Some(json!({ "proposalId": proposal_id })),
+        );
+    };
+    if !matches!(
+        proposal.status,
+        WorkflowProposalStatus::Staged | WorkflowProposalStatus::UnderReview
+    ) {
+        return cortex_ux_error(
+            StatusCode::CONFLICT,
+            "WORKFLOW_PROPOSAL_REVIEW_INVALID_STATE",
+            "Proposal review is only allowed from staged or under_review states.",
+            Some(json!({
+                "proposalId": proposal_id,
+                "status": workflow_proposal_status_name(&proposal.status)
+            })),
+        );
+    }
+    let gate = fallback_workflow_governance_gate(
+        proposal.proposal_id.as_str(),
+        "governance:workflow:review",
+        "informational",
+    );
+    proposal.review = Some(WorkflowProposalReviewRecord {
+        reviewed_by: request.reviewed_by.clone(),
+        reviewed_at: viewspec_now_iso(),
+        summary: request.summary.clone(),
+        checks: request.checks.clone(),
+        approved: request.approved,
+    });
+    proposal.status = if request.approved {
+        WorkflowProposalStatus::Approved
+    } else {
+        WorkflowProposalStatus::UnderReview
+    };
+    proposal.governance_ref = Some(workflow_governance_ref_from_gate(&gate, "", ""));
+    let Some(draft) = load_workflow_draft(proposal.workflow_draft_id.as_str())
+        .await
+        .ok()
+        .flatten()
+    else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_DRAFT_NOT_FOUND",
+            "Workflow draft not found for proposal review.",
+            Some(json!({ "workflowDraftId": proposal.workflow_draft_id })),
+        );
+    };
+    if let Err(err) = store_workflow_proposal(&draft.scope, &proposal).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_PROPOSAL_STORE_FAILED",
+            "Failed to persist proposal review.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    let _ = append_workflow_proposal_event(
+        "workflow_proposal_reviewed",
+        &proposal,
+        &request.reviewed_by,
+        json!({ "approved": request.approved, "summary": request.summary, "checks": request.checks }),
+    )
+    .await;
+    let _ = append_workflow_governance_event(
+        "governance:workflow:review",
+        &proposal,
+        &request.reviewed_by,
+        json!({
+            "gateLevel": gate.gate_level,
+            "gateStatus": gate.gate_status,
+            "decisionGateId": gate.decision_gate_id,
+            "sourceOfTruth": gate.source_of_truth,
+            "lineageId": gate.lineage_id,
+            "degradedReason": gate.degraded_reason
+        }),
+    )
+    .await;
+    Json(WorkflowProposalActionResponse {
+        accepted: true,
+        proposal,
+        gate_level: gate.gate_level,
+        gate_status: gate.gate_status,
+        decision_gate_id: gate.decision_gate_id,
+        replay_contract_ref: gate.replay_contract_ref,
+        source_of_truth: gate.source_of_truth,
+        lineage_id: gate.lineage_id,
+        degraded_reason: gate.degraded_reason,
+    })
+    .into_response()
+}
+
+async fn post_cortex_workflow_proposal_ratify(
+    Path(proposal_id): Path<String>,
+    Json(request): Json<WorkflowProposalDecisionRequest>,
+) -> axum::response::Response {
+    if request.decided_by.trim().is_empty() || request.rationale.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_PROPOSAL_RATIFY_REQUEST",
+            "decidedBy and rationale are required.",
+            None,
+        );
+    }
+    let Some(mut proposal) = (match load_workflow_proposal(proposal_id.as_str()).await {
+        Ok(value) => value,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_PROPOSAL_LOAD_FAILED",
+                "Failed to load workflow proposal for ratification.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    }) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_PROPOSAL_NOT_FOUND",
+            "Workflow proposal not found.",
+            Some(json!({ "proposalId": proposal_id })),
+        );
+    };
+    if !matches!(proposal.status, WorkflowProposalStatus::Approved) {
+        return cortex_ux_error(
+            StatusCode::CONFLICT,
+            "WORKFLOW_PROPOSAL_RATIFY_INVALID_STATE",
+            "Proposal can only be ratified from approved state.",
+            Some(json!({
+                "proposalId": proposal_id,
+                "status": workflow_proposal_status_name(&proposal.status)
+            })),
+        );
+    }
+    if proposal
+        .proposed_by
+        .trim()
+        .eq_ignore_ascii_case(request.decided_by.trim())
+    {
+        return cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            "WORKFLOW_PROPOSAL_SELF_RATIFY_BLOCKED",
+            "Proposer cannot self-ratify a workflow proposal.",
+            Some(json!({ "proposalId": proposal_id, "proposedBy": proposal.proposed_by })),
+        );
+    }
+    let Some(draft) = (match load_workflow_draft(proposal.workflow_draft_id.as_str()).await {
+        Ok(value) => value,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_DRAFT_LOAD_FAILED",
+                "Failed to load workflow draft for ratification.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    }) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_DRAFT_NOT_FOUND",
+            "Workflow draft not found for proposal ratification.",
+            Some(json!({ "workflowDraftId": proposal.workflow_draft_id })),
+        );
+    };
+    let compile_result = match compile_workflow_draft(&draft) {
+        Ok(value) => value,
+        Err(validation) => {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "WORKFLOW_RATIFY_COMPILE_BLOCKED",
+                "Workflow draft failed compile validation and cannot be ratified.",
+                Some(json!({ "validation": validation })),
+            );
+        }
+    };
+    let binding_digest = workflow_binding_digest_hex(&proposal.definition_id);
+    let gate = fallback_workflow_governance_gate(
+        proposal.proposal_id.as_str(),
+        "governance:workflow:ratify",
+        "release_blocker",
+    );
+    let governance_ref =
+        workflow_governance_ref_from_gate(&gate, &compile_result.digest, &binding_digest);
+    let definition = build_definition_from_draft(
+        &draft,
+        &proposal.definition_id,
+        Some(governance_ref.clone()),
+        compile_result.digest.clone(),
+    );
+    let artifact = WorkflowDefinitionArtifact {
+        definition: definition.clone(),
+        compile_result: compile_result.clone(),
+    };
+
+    proposal.decision = Some(WorkflowProposalDecisionRecord {
+        decided_by: request.decided_by.clone(),
+        decided_at: viewspec_now_iso(),
+        decision: "ratified".to_string(),
+        rationale: request.rationale.clone(),
+    });
+    proposal.status = WorkflowProposalStatus::Ratified;
+    proposal.governance_ref = Some(governance_ref);
+
+    if let Err(err) = store_workflow_proposal(&draft.scope, &proposal).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_PROPOSAL_STORE_FAILED",
+            "Failed to persist workflow ratification.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    if let Err(err) = store_workflow_definition_artifact(&draft.scope, &artifact).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_DEFINITION_STORE_FAILED",
+            "Failed to persist workflow definition artifact.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    let adoption = WorkflowScopeAdoptionRecord {
+        scope_key: proposal.scope_key.clone(),
+        active_definition_id: proposal.definition_id.clone(),
+        adopted_from_proposal_id: proposal.proposal_id.clone(),
+        adopted_at: viewspec_now_iso(),
+        adopted_by: request.decided_by.clone(),
+    };
+    if let Err(err) = store_workflow_scope_adoption(&adoption).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_ACTIVE_SCOPE_STORE_FAILED",
+            "Failed to persist active workflow scope pointer.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    let _ = append_workflow_proposal_event(
+        "workflow_proposal_ratified",
+        &proposal,
+        &request.decided_by,
+        json!({
+            "rationale": request.rationale,
+            "activeScope": adoption.scope_key,
+            "activeDefinitionId": adoption.active_definition_id
+        }),
+    )
+    .await;
+    let _ = append_workflow_governance_event(
+        "governance:workflow:ratify",
+        &proposal,
+        &request.decided_by,
+        json!({
+            "gateLevel": gate.gate_level,
+            "gateStatus": gate.gate_status,
+            "decisionGateId": gate.decision_gate_id,
+            "sourceOfTruth": gate.source_of_truth,
+            "lineageId": gate.lineage_id,
+            "degradedReason": gate.degraded_reason
+        }),
+    )
+    .await;
+    let (replay, digest) = build_workflow_replay_and_digest(&proposal, &definition);
+    let _ = store_workflow_replay_artifact(proposal.proposal_id.as_str(), &replay, &digest).await;
+
+    Json(WorkflowProposalActionResponse {
+        accepted: true,
+        proposal,
+        gate_level: gate.gate_level,
+        gate_status: gate.gate_status,
+        decision_gate_id: gate.decision_gate_id,
+        replay_contract_ref: gate.replay_contract_ref,
+        source_of_truth: gate.source_of_truth,
+        lineage_id: gate.lineage_id,
+        degraded_reason: gate.degraded_reason,
+    })
+    .into_response()
+}
+
+async fn post_cortex_workflow_proposal_reject(
+    Path(proposal_id): Path<String>,
+    Json(request): Json<WorkflowProposalDecisionRequest>,
+) -> axum::response::Response {
+    if request.decided_by.trim().is_empty() || request.rationale.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_PROPOSAL_REJECT_REQUEST",
+            "decidedBy and rationale are required.",
+            None,
+        );
+    }
+    let Some(mut proposal) = (match load_workflow_proposal(proposal_id.as_str()).await {
+        Ok(value) => value,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_PROPOSAL_LOAD_FAILED",
+                "Failed to load workflow proposal for rejection.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    }) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_PROPOSAL_NOT_FOUND",
+            "Workflow proposal not found.",
+            Some(json!({ "proposalId": proposal_id })),
+        );
+    };
+    if !matches!(
+        proposal.status,
+        WorkflowProposalStatus::Staged
+            | WorkflowProposalStatus::UnderReview
+            | WorkflowProposalStatus::Approved
+    ) {
+        return cortex_ux_error(
+            StatusCode::CONFLICT,
+            "WORKFLOW_PROPOSAL_REJECT_INVALID_STATE",
+            "Proposal reject is only allowed from staged, under_review, or approved states.",
+            Some(json!({
+                "proposalId": proposal_id,
+                "status": workflow_proposal_status_name(&proposal.status)
+            })),
+        );
+    }
+    let gate = fallback_workflow_governance_gate(
+        proposal.proposal_id.as_str(),
+        "governance:workflow:reject",
+        "informational",
+    );
+    proposal.decision = Some(WorkflowProposalDecisionRecord {
+        decided_by: request.decided_by.clone(),
+        decided_at: viewspec_now_iso(),
+        decision: "rejected".to_string(),
+        rationale: request.rationale.clone(),
+    });
+    proposal.status = WorkflowProposalStatus::Rejected;
+    proposal.governance_ref = Some(workflow_governance_ref_from_gate(&gate, "", ""));
+    let Some(draft) = load_workflow_draft(proposal.workflow_draft_id.as_str())
+        .await
+        .ok()
+        .flatten()
+    else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_DRAFT_NOT_FOUND",
+            "Workflow draft not found for proposal rejection.",
+            Some(json!({ "workflowDraftId": proposal.workflow_draft_id })),
+        );
+    };
+    if let Err(err) = store_workflow_proposal(&draft.scope, &proposal).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_PROPOSAL_STORE_FAILED",
+            "Failed to persist workflow rejection.",
+            Some(json!({ "reason": err })),
+        );
+    }
+    let _ = append_workflow_proposal_event(
+        "workflow_proposal_rejected",
+        &proposal,
+        &request.decided_by,
+        json!({ "rationale": request.rationale }),
+    )
+    .await;
+    let _ = append_workflow_governance_event(
+        "governance:workflow:reject",
+        &proposal,
+        &request.decided_by,
+        json!({
+            "gateLevel": gate.gate_level,
+            "gateStatus": gate.gate_status,
+            "decisionGateId": gate.decision_gate_id,
+            "sourceOfTruth": gate.source_of_truth,
+            "lineageId": gate.lineage_id,
+            "degradedReason": gate.degraded_reason
+        }),
+    )
+    .await;
+    Json(WorkflowProposalActionResponse {
+        accepted: true,
+        proposal,
+        gate_level: gate.gate_level,
+        gate_status: gate.gate_status,
+        decision_gate_id: gate.decision_gate_id,
+        replay_contract_ref: gate.replay_contract_ref,
+        source_of_truth: gate.source_of_truth,
+        lineage_id: gate.lineage_id,
+        degraded_reason: gate.degraded_reason,
+    })
+    .into_response()
+}
+
+async fn get_cortex_workflow_definition(
+    Path(definition_id): Path<String>,
+) -> axum::response::Response {
+    match load_workflow_definition_artifact(definition_id.as_str()).await {
+        Ok(Some(artifact)) => Json(WorkflowDefinitionResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            definition: artifact.definition,
+        })
+        .into_response(),
+        Ok(None) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_DEFINITION_NOT_FOUND",
+            "Workflow definition not found.",
+            Some(json!({ "definitionId": definition_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_DEFINITION_LOAD_FAILED",
+            "Failed to load workflow definition.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn get_cortex_workflow_active_definition(
+    Path(scope_key): Path<String>,
+) -> axum::response::Response {
+    match load_workflow_active_scope(scope_key.as_str()).await {
+        Ok(Some(active)) => Json(WorkflowActiveResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            active,
+        })
+        .into_response(),
+        Ok(None) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_ACTIVE_SCOPE_NOT_FOUND",
+            "Active workflow scope not found.",
+            Some(json!({ "scopeKey": scope_key })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_ACTIVE_SCOPE_LOAD_FAILED",
+            "Failed to load active workflow scope.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn get_cortex_workflow_definition_projection(
+    Path((definition_id, projection_kind)): Path<(String, String)>,
+) -> axum::response::Response {
+    let available_projections = vec![
+        WorkflowProjectionDescriptor {
+            kind: "flow_graph_v1".to_string(),
+            label: "Graph".to_string(),
+        },
+        WorkflowProjectionDescriptor {
+            kind: "a2ui_surface_v1".to_string(),
+            label: "A2UI".to_string(),
+        },
+        WorkflowProjectionDescriptor {
+            kind: "serverless_workflow_v0_8".to_string(),
+            label: "SW".to_string(),
+        },
+        WorkflowProjectionDescriptor {
+            kind: "normalized_graph_v1".to_string(),
+            label: "Normalized".to_string(),
+        },
+    ];
+    let Some(artifact) = (match load_workflow_definition_artifact(definition_id.as_str()).await {
+        Ok(value) => value,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_DEFINITION_LOAD_FAILED",
+                "Failed to load workflow definition artifact.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    }) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_DEFINITION_NOT_FOUND",
+            "Workflow definition not found.",
+            Some(json!({ "definitionId": definition_id })),
+        );
+    };
+    let projection = match projection_kind.trim().to_ascii_lowercase().as_str() {
+        "serverless_workflow_v0_8" => artifact.compile_result.serverless_workflow_projection,
+        "a2ui_surface_v1" => artifact.compile_result.a2ui_surface_projection,
+        "flow_graph_v1" => artifact.compile_result.flow_graph_projection,
+        "normalized_graph_v1" => artifact.compile_result.normalized_graph,
+        _ => {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "WORKFLOW_PROJECTION_KIND_UNSUPPORTED",
+                "projection_kind must be one of serverless_workflow_v0_8|a2ui_surface_v1|flow_graph_v1|normalized_graph_v1.",
+                Some(json!({ "projectionKind": projection_kind })),
+            );
+        }
+    };
+    Json(WorkflowProjectionResponse {
+        schema_version: "1.0.0".to_string(),
+        generated_at: viewspec_now_iso(),
+        projection_kind,
+        projection,
+        available_projections,
+    })
+    .into_response()
+}
+
+async fn post_cortex_workflow_instance_start(
+    Json(request): Json<WorkflowInstanceStartRequest>,
+) -> axum::response::Response {
+    if request.definition_id.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_INSTANCE_START_REQUEST",
+            "definitionId is required.",
+            None,
+        );
+    }
+    let Some(artifact) =
+        (match load_workflow_definition_artifact(request.definition_id.as_str()).await {
+            Ok(value) => value,
+            Err(err) => {
+                return cortex_ux_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "WORKFLOW_DEFINITION_LOAD_FAILED",
+                    "Failed to load workflow definition for instance start.",
+                    Some(json!({ "reason": err })),
+                );
+            }
+        })
+    else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_DEFINITION_NOT_FOUND",
+            "Workflow definition not found for instance start.",
+            Some(json!({ "definitionId": request.definition_id })),
+        );
+    };
+    let binding = match build_workflow_execution_binding(&artifact.definition, &request) {
+        Ok(binding) => binding,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "WORKFLOW_BINDING_INVALID",
+                "Workflow execution binding is invalid.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    };
+    let adapter = workflow_runtime_adapter();
+    let plan = match adapter.compile(&artifact.definition, &binding) {
+        Ok(plan) => plan,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_PLAN_COMPILE_FAILED",
+                "Failed to compile workflow execution plan.",
+                Some(json!({ "reason": err.to_string() })),
+            );
+        }
+    };
+    let instance = match adapter.start(&artifact.definition, &binding).await {
+        Ok(instance) => instance,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_INSTANCE_START_FAILED",
+                "Failed to start workflow instance.",
+                Some(json!({ "reason": err.to_string() })),
+            );
+        }
+    };
+    let _ = append_workflow_event(
+        "workflow_instance_started",
+        None,
+        Some(&artifact.definition.definition_id),
+        None,
+        &workflow_scope_key(&artifact.definition.scope),
+        binding.provenance.created_by.as_str(),
+        json!({
+            "instanceId": instance.instance_id.clone(),
+            "bindingId": binding.binding_id.clone(),
+            "planId": plan.plan_id.clone()
+        }),
+    )
+    .await;
+    Json(WorkflowInstanceStartResponse {
+        accepted: true,
+        plan,
+        binding,
+        instance,
+    })
+    .into_response()
+}
+
+async fn get_cortex_workflow_instance(Path(instance_id): Path<String>) -> axum::response::Response {
+    let adapter = workflow_runtime_adapter();
+    match adapter.snapshot(instance_id.as_str()).await {
+        Ok(snapshot) => Json(WorkflowInstanceResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            instance: snapshot.instance,
+        })
+        .into_response(),
+        Err(err) if workflow_runtime_error_is_not_found(&err) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_INSTANCE_NOT_FOUND",
+            "Workflow instance not found.",
+            Some(json!({ "instanceId": instance_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_INSTANCE_LOAD_FAILED",
+            "Failed to load workflow instance.",
+            Some(json!({ "reason": err.to_string() })),
+        ),
+    }
+}
+
+async fn get_cortex_workflow_instance_trace(
+    Path(instance_id): Path<String>,
+) -> axum::response::Response {
+    let adapter = workflow_runtime_adapter();
+    match adapter.snapshot(instance_id.as_str()).await {
+        Ok(snapshot) => Json(WorkflowTraceResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            trace: snapshot.trace,
+        })
+        .into_response(),
+        Err(err) if workflow_runtime_error_is_not_found(&err) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_INSTANCE_NOT_FOUND",
+            "Workflow instance not found.",
+            Some(json!({ "instanceId": instance_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_INSTANCE_TRACE_LOAD_FAILED",
+            "Failed to load workflow instance trace.",
+            Some(json!({ "reason": err.to_string() })),
+        ),
+    }
+}
+
+async fn get_cortex_workflow_instance_checkpoints(
+    Path(instance_id): Path<String>,
+) -> axum::response::Response {
+    let adapter = workflow_runtime_adapter();
+    match adapter.snapshot(instance_id.as_str()).await {
+        Ok(snapshot) => Json(WorkflowCheckpointResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            checkpoints: snapshot.checkpoints,
+        })
+        .into_response(),
+        Err(err) if workflow_runtime_error_is_not_found(&err) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_INSTANCE_NOT_FOUND",
+            "Workflow instance not found.",
+            Some(json!({ "instanceId": instance_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_INSTANCE_CHECKPOINTS_LOAD_FAILED",
+            "Failed to load workflow instance checkpoints.",
+            Some(json!({ "reason": err.to_string() })),
+        ),
+    }
+}
+
+async fn post_cortex_workflow_instance_signal(
+    Path(instance_id): Path<String>,
+    Json(request): Json<WorkflowInstanceSignalRequest>,
+) -> axum::response::Response {
+    if request.signal_type.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_SIGNAL_REQUEST",
+            "signalType is required.",
+            None,
+        );
+    }
+    let adapter = workflow_runtime_adapter();
+    if let Err(err) = adapter.snapshot(instance_id.as_str()).await {
+        if workflow_runtime_error_is_not_found(&err) {
+            return cortex_ux_error(
+                StatusCode::NOT_FOUND,
+                "WORKFLOW_INSTANCE_NOT_FOUND",
+                "Workflow instance not found.",
+                Some(json!({ "instanceId": instance_id })),
+            );
+        }
+    }
+    match adapter
+        .signal(
+            instance_id.as_str(),
+            WorkflowSignalV1 {
+                signal_type: request.signal_type,
+                checkpoint_id: request.checkpoint_id,
+                payload: request.payload,
+            },
+        )
+        .await
+    {
+        Ok(result) => Json(WorkflowInstanceActionResponse {
+            accepted: true,
+            result,
+        })
+        .into_response(),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_INSTANCE_SIGNAL_FAILED",
+            "Failed to signal workflow instance.",
+            Some(json!({ "reason": err.to_string() })),
+        ),
+    }
+}
+
+async fn post_cortex_workflow_instance_pause(
+    Path(instance_id): Path<String>,
+    Json(request): Json<WorkflowInstanceSignalRequest>,
+) -> axum::response::Response {
+    let payload = if request.payload.is_null() {
+        json!({ "decision": "pause", "actor": "workflow-operator" })
+    } else {
+        request.payload
+    };
+    post_cortex_workflow_instance_signal(
+        Path(instance_id),
+        Json(WorkflowInstanceSignalRequest {
+            signal_type: if request.signal_type.trim().is_empty() {
+                "pause".to_string()
+            } else {
+                request.signal_type
+            },
+            checkpoint_id: request.checkpoint_id,
+            payload,
+        }),
+    )
+    .await
+}
+
+async fn post_cortex_workflow_instance_cancel(
+    Path(instance_id): Path<String>,
+    Json(request): Json<WorkflowProposalDecisionRequest>,
+) -> axum::response::Response {
+    if request.decided_by.trim().is_empty() || request.rationale.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_WORKFLOW_CANCEL_REQUEST",
+            "decidedBy and rationale are required.",
+            None,
+        );
+    }
+    let adapter = workflow_runtime_adapter();
+    if let Err(err) = adapter.snapshot(instance_id.as_str()).await {
+        if workflow_runtime_error_is_not_found(&err) {
+            return cortex_ux_error(
+                StatusCode::NOT_FOUND,
+                "WORKFLOW_INSTANCE_NOT_FOUND",
+                "Workflow instance not found.",
+                Some(json!({ "instanceId": instance_id })),
+            );
+        }
+    }
+    match adapter
+        .cancel(instance_id.as_str(), request.rationale.as_str())
+        .await
+    {
+        Ok(result) => Json(WorkflowInstanceActionResponse {
+            accepted: true,
+            result,
+        })
+        .into_response(),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_INSTANCE_CANCEL_FAILED",
+            "Failed to cancel workflow instance.",
+            Some(json!({ "reason": err.to_string() })),
+        ),
+    }
+}
+
+async fn get_cortex_workflow_instance_outcome(
+    Path(instance_id): Path<String>,
+) -> axum::response::Response {
+    let adapter = workflow_runtime_adapter();
+    match adapter.snapshot(instance_id.as_str()).await {
+        Ok(snapshot) => Json(WorkflowOutcomeResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: viewspec_now_iso(),
+            outcome: snapshot.outcome,
+        })
+        .into_response(),
+        Err(err) if workflow_runtime_error_is_not_found(&err) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "WORKFLOW_INSTANCE_NOT_FOUND",
+            "Workflow instance not found.",
+            Some(json!({ "instanceId": instance_id })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_INSTANCE_OUTCOME_LOAD_FAILED",
+            "Failed to load workflow instance outcome.",
+            Some(json!({ "reason": err.to_string() })),
+        ),
+    }
+}
+
 async fn get_cortex_capability_matrix() -> Json<CortexCapabilityMatrixResponse> {
     let persisted =
         load_persisted_shell_contract().unwrap_or_else(|_| default_persisted_shell_contract());
@@ -9302,7 +12128,7 @@ async fn post_cortex_heap_emit(
         .and_then(|value| value.as_str())
         .map(str::to_string);
 
-    let mut request = match parse_emit_heap_block(payload) {
+    let request = match parse_emit_heap_block(payload) {
         Ok(request) => request,
         Err(err) => {
             append_heap_emit_rejection_safe(
@@ -9321,6 +12147,18 @@ async fn post_cortex_heap_emit(
             );
         }
     };
+
+    match emit_heap_block_core(request, actor_id, actor_role) {
+        Ok(response) => Json(response).into_response(),
+        Err(response) => response,
+    }
+}
+
+fn emit_heap_block_core(
+    mut request: EmitHeapBlockRequest,
+    actor_id: String,
+    actor_role: String,
+) -> Result<EmitHeapBlockResponse, axum::response::Response> {
     if request
         .block
         .id
@@ -9341,12 +12179,12 @@ async fn post_cortex_heap_emit(
             &err.message,
             err.details.clone(),
         );
-        return cortex_ux_error(
+        return Err(cortex_ux_error(
             heap_emit_error_status(&err.code),
             &err.code,
             &err.message,
             err.details,
-        );
+        ));
     }
 
     let canonical = match canonicalize_emit_heap_block(&request) {
@@ -9360,12 +12198,12 @@ async fn post_cortex_heap_emit(
                 &err.message,
                 err.details.clone(),
             );
-            return cortex_ux_error(
+            return Err(cortex_ux_error(
                 heap_emit_error_status(&err.code),
                 &err.code,
                 &err.message,
                 err.details,
-            );
+            ));
         }
     };
 
@@ -9380,12 +12218,12 @@ async fn post_cortex_heap_emit(
                 &err.message,
                 err.details.clone(),
             );
-            return cortex_ux_error(
+            return Err(cortex_ux_error(
                 heap_emit_error_status(&err.code),
                 &err.code,
                 &err.message,
                 err.details,
-            );
+            ));
         }
     };
 
@@ -9475,12 +12313,12 @@ async fn post_cortex_heap_emit(
     }
 
     let Some(artifact_idx) = artifact_idx else {
-        return cortex_ux_error(
+        return Err(cortex_ux_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "HEAP_ARTIFACT_RESOLUTION_FAILED",
             "Failed to resolve heap artifact record.",
             Some(json!({ "artifactId": artifact_id })),
-        );
+        ));
     };
 
     let seed_markdown = items[artifact_idx].markdown_source.clone();
@@ -9521,7 +12359,7 @@ async fn post_cortex_heap_emit(
     let apply_result = match apply_crdt_update(&mut state, &envelope, now_iso()) {
         Ok(result) => result,
         Err(err) => {
-            return cortex_ux_error(
+            return Err(cortex_ux_error(
                 StatusCode::CONFLICT,
                 "HEAP_CRDT_APPLY_FAILED",
                 "Failed to apply heap CRDT update envelope.",
@@ -9530,17 +12368,17 @@ async fn post_cortex_heap_emit(
                     "opId": op_id,
                     "reason": err
                 })),
-            );
+            ));
         }
     };
 
     if let Err(err) = write_artifact_crdt_state(&artifact_id, &state) {
-        return cortex_ux_error(
+        return Err(cortex_ux_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "HEAP_CRDT_STATE_WRITE_FAILED",
             "Failed to persist heap CRDT snapshot.",
             Some(json!({ "artifactId": artifact_id, "reason": err })),
-        );
+        ));
     }
 
     let mut existing_ops = read_artifact_crdt_ops(&artifact_id);
@@ -9550,12 +12388,12 @@ async fn post_cortex_heap_emit(
     {
         existing_ops.push(envelope.clone());
         if let Err(err) = write_artifact_crdt_ops(&artifact_id, &existing_ops) {
-            return cortex_ux_error(
+            return Err(cortex_ux_error(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "HEAP_CRDT_OPS_WRITE_FAILED",
                 "Failed to persist heap CRDT operation log.",
                 Some(json!({ "artifactId": artifact_id, "reason": err })),
-            );
+            ));
         }
     }
 
@@ -9616,21 +12454,21 @@ async fn post_cortex_heap_emit(
     }
 
     if let Err(err) = write_artifacts_store(&items) {
-        return cortex_ux_error(
+        return Err(cortex_ux_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "HEAP_ARTIFACT_STORE_WRITE_FAILED",
             "Failed to persist heap artifact state.",
             Some(json!({ "artifactId": artifact_id, "reason": err })),
-        );
+        ));
     }
     if revisions_dirty {
         if let Err(err) = write_artifact_revisions(&revisions) {
-            return cortex_ux_error(
+            return Err(cortex_ux_error(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "HEAP_ARTIFACT_REVISION_WRITE_FAILED",
                 "Failed to persist heap artifact revisions.",
                 Some(json!({ "artifactId": artifact_id, "reason": err })),
-            );
+            ));
         }
     }
 
@@ -9665,12 +12503,12 @@ async fn post_cortex_heap_emit(
     }
 
     if let Err(err) = write_heap_projection_store(&projections) {
-        return cortex_ux_error(
+        return Err(cortex_ux_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "HEAP_PROJECTION_WRITE_FAILED",
             "Failed to persist heap projection store.",
             Some(json!({ "artifactId": artifact_id, "reason": err })),
-        );
+        ));
     }
 
     let _ = append_artifact_audit(
@@ -9682,7 +12520,7 @@ async fn post_cortex_heap_emit(
         request.source.request_id.clone(),
     );
 
-    Json(EmitHeapBlockResponse {
+    Ok(EmitHeapBlockResponse {
         schema_version: "1.0.0".to_string(),
         accepted: true,
         artifact_id: artifact_id.clone(),
@@ -9694,7 +12532,402 @@ async fn post_cortex_heap_emit(
         source_of_truth: source_state.source_of_truth,
         fallback_active: source_state.fallback_active,
     })
-    .into_response()
+}
+
+async fn post_system_gates_emit_heap_block(
+    headers: HeaderMap,
+    Json(payload): Json<EmitGateSummaryHeapBlockRequest>,
+) -> axum::response::Response {
+    let workspace_hint = payload.workspace_id.trim();
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_system_gates_emit_heap_block",
+        if workspace_hint.is_empty() {
+            None
+        } else {
+            Some(workspace_hint)
+        },
+        "capability:heap_emit",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "GATE_SUMMARY_HEAP_EMIT_FORBIDDEN",
+        "Operator role or higher is required to emit gate summaries into Heap.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    let workspace_id = workspace_hint;
+    let workspace_hint_for_seed = if workspace_id.is_empty() {
+        "default"
+    } else {
+        workspace_id
+    };
+
+    let kind_raw = payload.kind.trim().to_ascii_lowercase();
+    let (kind, default_artifact_id, primary_route) = match kind_raw.as_str() {
+        "siq" => ("siq".to_string(), "gate_summary_siq_latest", "/system/siq"),
+        "testing" => (
+            "testing".to_string(),
+            "gate_summary_testing_latest",
+            "/testing",
+        ),
+        _ => {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "INVALID_GATE_KIND",
+                "kind must be one of: siq, testing",
+                Some(json!({ "kind": payload.kind })),
+            );
+        }
+    };
+
+    let artifact_id = payload
+        .artifact_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(default_artifact_id);
+    let artifact_id = sanitize_fs_component(artifact_id);
+
+    let artifact_path = match kind.as_str() {
+        "siq" => siq_gate_summary_path(None),
+        "testing" => testing_gate_summary_path(),
+        _ => {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "INVALID_GATE_KIND",
+                "kind must be one of: siq, testing",
+                Some(json!({ "kind": kind })),
+            );
+        }
+    };
+
+    let raw = match fs::read_to_string(&artifact_path) {
+        Ok(raw) => raw,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "GATE_ARTIFACT_MISSING",
+                "Gate artifact is missing or unavailable.",
+                Some(json!({
+                    "kind": kind,
+                    "path": artifact_path.display().to_string(),
+                    "reason": err.to_string()
+                })),
+            );
+        }
+    };
+
+    let artifact_value: Value = match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "GATE_ARTIFACT_INVALID",
+                "Gate artifact JSON is invalid.",
+                Some(json!({
+                    "kind": kind,
+                    "path": artifact_path.display().to_string(),
+                    "reason": err.to_string()
+                })),
+            );
+        }
+    };
+
+    let (block_payload, latest_run_id) = match normalize_gate_summary_artifact_to_heap_block(
+        &kind,
+        &artifact_value,
+        primary_route,
+    ) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let overall_verdict_for_audit = block_payload
+        .get("overall_verdict")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let required_gates_pass_for_audit = block_payload
+        .get("required_gates_pass")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
+
+    let emitted_at = now_iso();
+    let request_id = format!("gate_summary_emit:{kind}:{latest_run_id}:{workspace_hint_for_seed}");
+    let block_id = deterministic_ulid_from_seed(&request_id);
+    let heap_workspace_id = resolve_heap_workspace_id(workspace_id);
+
+    let request = EmitHeapBlockRequest {
+        schema_version: "1.0.0".to_string(),
+        mode: "heap".to_string(),
+        workspace_id: heap_workspace_id.clone(),
+        source: crate::services::heap_mapper::HeapSource {
+            agent_id: "cortex-eudaemon".to_string(),
+            session_id: None,
+            request_id: Some(request_id),
+            emitted_at: emitted_at.clone(),
+        },
+        block: crate::services::heap_mapper::HeapBlock {
+            id: Some(block_id),
+            r#type: "gate_summary".to_string(),
+            title: match kind.as_str() {
+                "siq" => "SIQ Gate Summary (latest)".to_string(),
+                "testing" => "Testing Gate Summary (latest)".to_string(),
+                _ => "Gate Summary (latest)".to_string(),
+            },
+            icon: None,
+            icon_type: None,
+            color: None,
+            main_tag: None,
+            attributes: None,
+            behaviors: None,
+        },
+        content: crate::services::heap_mapper::HeapContent {
+            payload_type: crate::services::heap_mapper::HeapPayloadType::StructuredData,
+            a2ui: None,
+            rich_text: None,
+            media: None,
+            structured_data: Some(block_payload),
+            pointer: None,
+        },
+        relations: crate::services::heap_mapper::HeapRelations::default(),
+        files: vec![],
+        apps: vec![],
+        meta: None,
+        projection_hints: crate::services::heap_mapper::HeapProjectionHints::default(),
+        crdt_projection: crate::services::heap_mapper::HeapCrdtProjection {
+            artifact_id: Some(artifact_id.clone()),
+            ..crate::services::heap_mapper::HeapCrdtProjection::default()
+        },
+    };
+
+    match emit_heap_block_core(request, actor_id, actor_role) {
+        Ok(resp) => {
+            let response = EmitGateSummaryHeapBlockResponse {
+                schema_version: "1.0.0".to_string(),
+                accepted: resp.accepted,
+                kind: kind.clone(),
+                workspace_id: workspace_id.to_string(),
+                heap_workspace_id: heap_workspace_id.clone(),
+                artifact_id: resp.artifact_id.clone(),
+                block_id: resp.block_id.clone(),
+                emitted_at: emitted_at.clone(),
+            };
+
+            let audit_event = json!({
+                "schemaVersion": "1.0.0",
+                "eventType": "gate_emit_audit",
+                "emittedAt": emitted_at,
+                "kind": kind,
+                "spaceIdHint": workspace_id,
+                "heapWorkspaceId": heap_workspace_id,
+                "artifactId": resp.artifact_id,
+                "blockId": resp.block_id,
+                "latestRunId": latest_run_id,
+                "overallVerdict": overall_verdict_for_audit,
+                "requiredGatesPass": required_gates_pass_for_audit,
+                "actor": {
+                    "principal": identity.principal,
+                    "role": identity.role,
+                    "verified": identity.verified,
+                    "source": identity.source,
+                }
+            });
+            let _ = append_gate_emit_audit_event(&audit_event);
+
+            Json(response).into_response()
+        }
+        Err(response) => response,
+    }
+}
+
+fn append_gate_emit_audit_event(event: &Value) -> Result<(), String> {
+    let audit_path = decision_actions_dir().join("gate_emit_audit.jsonl");
+    if let Some(parent) = audit_path.parent() {
+        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+    }
+    let line = serde_json::to_string(event).map_err(|err| err.to_string())?;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&audit_path)
+        .map_err(|err| err.to_string())?;
+    writeln!(file, "{}", line).map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+fn normalize_gate_summary_artifact_to_heap_block(
+    kind: &str,
+    artifact: &Value,
+    primary_route: &str,
+) -> Result<(Value, String), axum::response::Response> {
+    let get_str = |keys: &[&str]| {
+        keys.iter()
+            .find_map(|key| artifact.get(*key))
+            .and_then(|value| value.as_str())
+            .map(str::to_string)
+            .filter(|value| !value.trim().is_empty())
+    };
+    let get_bool = |keys: &[&str]| {
+        keys.iter()
+            .find_map(|key| artifact.get(*key))
+            .and_then(|v| v.as_bool())
+    };
+
+    let generated_at = get_str(&["generated_at", "generatedAt"]).ok_or_else(|| {
+        cortex_ux_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "GATE_ARTIFACT_INVALID",
+            "Gate artifact is missing generated_at.",
+            Some(json!({ "kind": kind })),
+        )
+    })?;
+    let overall_verdict = get_str(&["overall_verdict", "overallVerdict"]).ok_or_else(|| {
+        cortex_ux_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "GATE_ARTIFACT_INVALID",
+            "Gate artifact is missing overall_verdict.",
+            Some(json!({ "kind": kind })),
+        )
+    })?;
+
+    let latest_run_id =
+        get_str(&["latest_run_id", "latestRunId"]).unwrap_or_else(|| "unknown".to_string());
+    let required_gates_pass = if kind == "testing" {
+        get_bool(&[
+            "required_blockers_pass",
+            "requiredBlockersPass",
+            "required_gates_pass",
+            "requiredGatesPass",
+        ])
+        .unwrap_or(false)
+    } else {
+        get_bool(&["required_gates_pass", "requiredGatesPass"]).unwrap_or(false)
+    };
+
+    let counts_value =
+        if let Some(value) = artifact.get("counts").or_else(|| artifact.get("counts")) {
+            value.clone()
+        } else {
+            Value::Null
+        };
+    if !counts_value.is_object() {
+        return Err(cortex_ux_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "GATE_ARTIFACT_INVALID",
+            "Gate artifact is missing counts object.",
+            Some(json!({ "kind": kind })),
+        ));
+    }
+
+    let failures_raw = artifact
+        .get("failures")
+        .or_else(|| artifact.get("failures"));
+    let failures_arr = failures_raw.and_then(|v| v.as_array()).ok_or_else(|| {
+        cortex_ux_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "GATE_ARTIFACT_INVALID",
+            "Gate artifact is missing failures array.",
+            Some(json!({ "kind": kind })),
+        )
+    })?;
+    let failures = failures_arr
+        .iter()
+        .map(|row| normalize_gate_failure_row(row))
+        .collect::<Vec<_>>();
+
+    let raw_value = clamp_raw_json_object(artifact, 64 * 1024);
+
+    let latest_run_id_for_payload = latest_run_id.clone();
+    let mut payload = serde_json::Map::new();
+    payload.insert(
+        "schema_id".to_string(),
+        Value::String("nostra.heap.block.gate_summary.v1".to_string()),
+    );
+    payload.insert("kind".to_string(), Value::String(kind.to_string()));
+    payload.insert("generated_at".to_string(), Value::String(generated_at));
+    payload.insert(
+        "latest_run_id".to_string(),
+        Value::String(latest_run_id_for_payload),
+    );
+    payload.insert(
+        "overall_verdict".to_string(),
+        Value::String(overall_verdict),
+    );
+    payload.insert(
+        "required_gates_pass".to_string(),
+        Value::Bool(required_gates_pass),
+    );
+    payload.insert("counts".to_string(), counts_value);
+    payload.insert("failures".to_string(), Value::Array(failures));
+    payload.insert(
+        "render_hints".to_string(),
+        json!({
+            "primary_route": primary_route,
+            "log_stream_id": match kind {
+                "siq" => "siq_gate_summary_latest",
+                "testing" => "testing_gate_summary_latest",
+                _ => "unknown",
+            }
+        }),
+    );
+    if let Some(raw) = raw_value {
+        payload.insert("raw".to_string(), raw);
+    }
+
+    Ok((Value::Object(payload), latest_run_id))
+}
+
+fn normalize_gate_failure_row(row: &Value) -> Value {
+    if let Some(obj) = row.as_object() {
+        let code = obj
+            .get("code")
+            .or_else(|| obj.get("failureCode"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let message = obj
+            .get("message")
+            .or_else(|| obj.get("failureMessage"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| row.to_string());
+        let mut normalized = serde_json::Map::new();
+        normalized.insert("code".to_string(), Value::String(code.to_string()));
+        normalized.insert("message".to_string(), Value::String(message));
+        for (key, value) in obj.iter() {
+            if key != "code" && key != "message" {
+                normalized.insert(key.clone(), value.clone());
+            }
+        }
+        return Value::Object(normalized);
+    }
+    if let Some(text) = row.as_str() {
+        return json!({ "code": "unknown", "message": text });
+    }
+    json!({ "code": "unknown", "message": row.to_string() })
+}
+
+fn clamp_raw_json_object(value: &Value, max_bytes: usize) -> Option<Value> {
+    if !value.is_object() {
+        return None;
+    }
+    let encoded = serde_json::to_string(value).ok()?;
+    if encoded.as_bytes().len() > max_bytes {
+        return None;
+    }
+    Some(value.clone())
 }
 
 async fn get_cortex_heap_blocks(Query(query): Query<HeapBlocksQuery>) -> axum::response::Response {
@@ -9758,7 +12991,9 @@ async fn get_cortex_heap_blocks(Query(query): Query<HeapBlocksQuery>) -> axum::r
         rows.retain(|entry| entry.deleted_at.is_none());
     }
     if let Some(space_id) = query.space_id.as_deref() {
-        rows.retain(|entry| entry.projection.workspace_id == space_id);
+        if space_id != "meta" {
+            rows.retain(|entry| entry.projection.workspace_id == space_id);
+        }
     }
     if let Some(tag) = query.tag.as_deref() {
         let target = tag.trim().to_ascii_lowercase();
@@ -9968,7 +13203,9 @@ async fn get_cortex_heap_changed_blocks(
         rows.retain(|entry| entry.deleted_at.is_none());
     }
     if let Some(space_id) = query.space_id.as_deref() {
-        rows.retain(|entry| entry.projection.workspace_id == space_id);
+        if space_id != "meta" {
+            rows.retain(|entry| entry.projection.workspace_id == space_id);
+        }
     }
     if let Some(tag) = query.tag.as_deref() {
         let target = tag.trim().to_ascii_lowercase();
@@ -10510,6 +13747,142 @@ async fn get_cortex_heap_block_history(
     .into_response()
 }
 
+async fn post_cortex_heap_block_a2ui_feedback(
+    headers: HeaderMap,
+    Path(artifact_id): Path<String>,
+    Json(request): Json<CortexA2uiFeedbackRequest>,
+) -> axum::response::Response {
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_heap_block_a2ui_feedback",
+        None,
+        "capability:heap_emit",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "HEAP_A2UI_FEEDBACK_FORBIDDEN",
+        "Operator role or higher is required to submit A2UI feedback.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    let decision = request.decision.trim();
+    if decision.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "A2UI_FEEDBACK_INVALID",
+            "decision is required.",
+            Some(json!({ "artifactId": artifact_id })),
+        );
+    }
+
+    let parent_projection = {
+        let projections = read_heap_projection_store();
+        projections
+            .iter()
+            .find(|entry| entry.projection.artifact_id == artifact_id && entry.deleted_at.is_none())
+            .cloned()
+    };
+
+    let Some(parent_projection) = parent_projection else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_BLOCK_NOT_FOUND",
+            "Heap block does not exist.",
+            Some(json!({ "artifactId": artifact_id })),
+        );
+    };
+
+    let actor_role = identity.role.clone();
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
+    let submitted_by = actor_id_from_headers(&headers);
+    let stored_at = now_iso();
+    let feedback_artifact_id = format!(
+        "feedback_{}_{}",
+        artifact_id,
+        Utc::now().timestamp_millis()
+    );
+    let feedback_notes = request
+        .feedback
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let feedback_summary = feedback_notes
+        .clone()
+        .unwrap_or_else(|| format!("Steward marked {decision}."));
+
+    let payload = json!({
+        "schema_version": "1.0.0",
+        "mode": "heap",
+        "workspace_id": parent_projection.projection.workspace_id.clone(),
+        "source": {
+            "agent_id": actor_id.clone(),
+            "request_id": format!("a2ui_feedback_{}_{}", artifact_id, Utc::now().timestamp_millis()),
+            "emitted_at": stored_at.clone(),
+            "session_id": format!("heap_feedback:{}", parent_projection.projection.workspace_id),
+        },
+        "block": {
+            "type": "steward_feedback",
+            "title": format!("Steward feedback for {}", parent_projection.projection.title),
+        },
+        "content": {
+            "payload_type": "structured_data",
+            "structured_data": {
+                "type": "steward_feedback",
+                "artifact_id": artifact_id.clone(),
+                "parent_artifact_id": parent_projection.projection.artifact_id.clone(),
+                "space_id": parent_projection.projection.workspace_id.clone(),
+                "decision": decision,
+                "feedback": feedback_summary.clone(),
+                "message": feedback_summary,
+                "notes": feedback_notes,
+                "submitted_by": submitted_by,
+                "submitted_at": stored_at.clone(),
+            }
+        },
+        "projection_hints": {
+            "mirror_mentions_to_relations": true,
+            "relation_map_version": "relations_v1",
+            "files_key_format": "hash:file_size",
+        },
+        "crdt_projection": {
+            "artifact_id": feedback_artifact_id,
+        }
+    });
+
+    let emit_request = match parse_emit_heap_block(payload) {
+        Ok(request) => request,
+        Err(err) => {
+            return cortex_ux_error(
+                heap_emit_error_status(&err.code),
+                &err.code,
+                &err.message,
+                err.details,
+            );
+        }
+    };
+
+    match emit_heap_block_core(emit_request, actor_id, actor_role) {
+        Ok(_) => Json(CortexA2uiFeedbackResponse {
+            accepted: true,
+            artifact_id,
+            feedback_artifact_id,
+            stored_at,
+        })
+        .into_response(),
+        Err(response) => response,
+    }
+}
+
 async fn post_cortex_heap_steward_gate_validate(
     headers: HeaderMap,
     Path(artifact_id): Path<String>,
@@ -10788,6 +14161,38 @@ async fn post_cortex_heap_steward_gate_apply(
     .into_response()
 }
 
+pub(crate) async fn get_cortex_artifacts(headers: HeaderMap) -> axum::response::Response {
+    let identity = match enforce_role_authorization(
+        &headers,
+        "get_cortex_artifacts",
+        None,
+        "capability:artifact_index",
+        "read",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "ARTIFACT_INDEX_FORBIDDEN",
+        "Operator role or higher is required to list artifacts.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let _ = identity;
+
+    match crate::services::ops_artifacts::list_artifacts(200) {
+        Ok(response) => Json(response).into_response(),
+        Err(err) => cortex_ux_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "ARTIFACT_INDEX_UNAVAILABLE",
+            "Artifact index is unavailable.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
 async fn post_cortex_artifact_create(
     headers: HeaderMap,
     Json(request): Json<ArtifactCreateRequest>,
@@ -10988,10 +14393,9 @@ async fn post_cortex_artifact_publish(
         }
 
         if item.route_id == "/heap" || item.heap_workspace_id.is_some() {
-            if let Some(parent_projection) = heap_projection_records
-                .iter()
-                .find(|entry| entry.projection.artifact_id == artifact_id && entry.deleted_at.is_none())
-            {
+            if let Some(parent_projection) = heap_projection_records.iter().find(|entry| {
+                entry.projection.artifact_id == artifact_id && entry.deleted_at.is_none()
+            }) {
                 let applied_ids = collect_applied_steward_enrichment_ids(
                     &heap_projection_records,
                     &parent_projection.projection.block_id,
@@ -12343,7 +15747,7 @@ async fn post_cortex_artifact_collab_op_batch(
                     "batchSequence": request.batch_sequence
                 }),
             };
-            let _ = streaming_transport_manager().publish(envelope).await;
+            let _ = streaming_transport_manager().await.publish(envelope).await;
         }
         let presence_event = ArtifactRealtimeEnvelope {
             schema_version: "1.0.0".to_string(),
@@ -12360,7 +15764,10 @@ async fn post_cortex_artifact_collab_op_batch(
                 "presenceCount": presence.len(),
             }),
         };
-        let _ = streaming_transport_manager().publish(presence_event).await;
+        let _ = streaming_transport_manager()
+            .await
+            .publish(presence_event)
+            .await;
     }
 
     let _ = append_artifact_audit(
@@ -12376,7 +15783,7 @@ async fn post_cortex_artifact_collab_op_batch(
     );
 
     let source_state = cortex_ux_source_state();
-    let realtime_status = streaming_transport_manager().status().await;
+    let realtime_status = streaming_transport_manager().await.status().await;
     Json(json!({
         "artifactId": artifact_id,
         "sessionId": request.session_id,
@@ -12755,7 +16162,7 @@ async fn post_cortex_artifact_collab_force_resolve(
 async fn get_cortex_artifact_collab_realtime_status(
     Path(_artifact_id): Path<String>,
 ) -> Json<ArtifactRealtimeTransportStatus> {
-    Json(streaming_transport_manager().status().await)
+    Json(streaming_transport_manager().await.status().await)
 }
 
 async fn post_cortex_artifact_collab_realtime_connect(
@@ -12792,6 +16199,7 @@ async fn post_cortex_artifact_collab_realtime_connect(
         return response;
     }
     match streaming_transport_manager()
+        .await
         .connect(&actor_id, &artifact_id)
         .await
     {
@@ -12831,6 +16239,7 @@ async fn post_cortex_artifact_collab_realtime_disconnect(
         .actor_id
         .unwrap_or_else(|| actor_id_from_headers(&headers));
     match streaming_transport_manager()
+        .await
         .disconnect(&actor_id, &artifact_id)
         .await
     {
@@ -12849,6 +16258,7 @@ async fn get_cortex_artifact_collab_realtime_backlog(
     Query(query): Query<ArtifactRealtimeBacklogQuery>,
 ) -> Json<Value> {
     let mut backlog: Vec<ArtifactRealtimeBacklogItem> = streaming_transport_manager()
+        .await
         .backlog(Some(&artifact_id))
         .await;
     backlog.sort_by(|a, b| b.enqueued_at.cmp(&a.enqueued_at));
@@ -12868,6 +16278,7 @@ async fn get_cortex_artifact_collab_realtime_integrity(
 ) -> Json<ArtifactRealtimeIntegrityReport> {
     Json(
         streaming_transport_manager()
+            .await
             .integrity_report(&artifact_id)
             .await,
     )
@@ -12895,6 +16306,7 @@ async fn post_cortex_artifact_collab_realtime_resync(
         return response;
     }
     match streaming_transport_manager()
+        .await
         .resync_channel(&artifact_id)
         .await
     {
@@ -12909,8 +16321,10 @@ async fn post_cortex_artifact_collab_realtime_resync(
 }
 
 async fn get_cortex_artifact_collab_realtime_ack(Path(artifact_id): Path<String>) -> Json<Value> {
-    let cursor: Option<ArtifactRealtimeAckCursor> =
-        streaming_transport_manager().ack_cursor(&artifact_id).await;
+    let cursor: Option<ArtifactRealtimeAckCursor> = streaming_transport_manager()
+        .await
+        .ack_cursor(&artifact_id)
+        .await;
     Json(json!({
         "artifactId": artifact_id,
         "ackCursor": cursor,
@@ -12948,6 +16362,7 @@ async fn post_cortex_artifact_collab_realtime_ack_reset(
         return response;
     }
     let reset = streaming_transport_manager()
+        .await
         .reset_ack_cursor(&artifact_id)
         .await;
     Json(json!({
@@ -12975,6 +16390,7 @@ async fn handle_collab_socket(socket: WebSocket) {
         tokio::select! {
             _ = heartbeat.tick() => {
                 let ArtifactRealtimePollResult { next_nonce, events } = streaming_transport_manager()
+                    .await
                     .poll(since_nonce, 200, Some(&subscribed))
                     .await;
                 since_nonce = next_nonce;
@@ -12989,7 +16405,7 @@ async fn handle_collab_socket(socket: WebSocket) {
                         break;
                     }
                 }
-                let status = streaming_transport_manager().status().await;
+                let status = streaming_transport_manager().await.status().await;
                 let status_payload = json!({
                     "type": "status",
                     "status": status
@@ -13023,7 +16439,7 @@ async fn handle_collab_socket(socket: WebSocket) {
                                 if let Some(value) = command.actor_id {
                                     actor_id = value;
                                 }
-                                let _ = streaming_transport_manager().connect(
+                                let _ = streaming_transport_manager().await.connect(
                                     &actor_id,
                                     command.artifact_id.as_deref().unwrap_or_default(),
                                 ).await;
@@ -13038,6 +16454,7 @@ async fn handle_collab_socket(socket: WebSocket) {
                                 if let Some(artifact_id) = command.artifact_id.as_ref() {
                                     subscribed.remove(artifact_id);
                                     let _ = streaming_transport_manager()
+                                        .await
                                         .disconnect(&actor_id, artifact_id)
                                         .await;
                                 }
@@ -13048,7 +16465,7 @@ async fn handle_collab_socket(socket: WebSocket) {
                                 }).to_string())).await;
                             }
                             "replay" => {
-                                let pending = streaming_transport_manager().replay_pending().await.unwrap_or(0);
+                                let pending = streaming_transport_manager().await.replay_pending().await.unwrap_or(0);
                                 let _ = sender.send(Message::Text(json!({
                                     "type": "replay",
                                     "pending": pending
@@ -15620,7 +19037,7 @@ async fn resolve_viewspec_governance_gate(
                 };
             }
         }
-    } else if let Ok(client) = GovernanceClient::from_env() {
+    } else if let Ok(client) = GovernanceClient::from_env().await {
         match client
             .get_actor_role_binding(space_id, &actor_principal)
             .await
@@ -15997,7 +19414,7 @@ async fn record_decision_action(
             Some(json!({ "principal": actor.principal })),
         )
     })?;
-    let governance_client = GovernanceClient::from_env().ok();
+    let governance_client = GovernanceClient::from_env().await.ok();
     #[cfg(test)]
     let mock_role_binding = test_override_actor_role_binding();
     #[cfg(not(test))]
@@ -16695,11 +20112,30 @@ async fn get_testing_run(Path(run_id): Path<String>) -> impl IntoResponse {
     }
 }
 
-async fn get_testing_gates_latest() -> impl IntoResponse {
-    let path = testing_gate_summary_path();
-    let summary = match read_json_artifact::<TestGateSummaryArtifact>(&path) {
-        Ok(summary) => summary,
-        Err(err) => return err,
+pub(crate) async fn get_testing_gates_latest() -> impl IntoResponse {
+    let summary = match crate::services::ops_gates::load_testing_gate_summary() {
+        Ok(summary) => match serde_json::to_value(summary)
+            .ok()
+            .and_then(|value| serde_json::from_value::<TestGateSummaryArtifact>(value).ok())
+        {
+            Some(summary) => summary,
+            None => {
+                return cortex_ux_error(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "TEST_GATE_SUMMARY_INVALID",
+                    "Testing gate summary payload could not be normalized.",
+                    None,
+                );
+            }
+        },
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::NOT_FOUND,
+                "TEST_GATE_SUMMARY_NOT_FOUND",
+                "Testing gate summary does not exist.",
+                Some(json!({ "reason": err })),
+            );
+        }
     };
 
     let response = TestGateLatestResponse {
@@ -16784,11 +20220,15 @@ async fn get_siq_dependency_closure() -> impl IntoResponse {
     }
 }
 
-async fn get_siq_gates_latest() -> impl IntoResponse {
-    let path = siq_gate_summary_path(None);
-    match read_siq_json_artifact::<SiqGateSummary>(&path) {
+pub(crate) async fn get_siq_gates_latest() -> impl IntoResponse {
+    match crate::services::ops_gates::load_siq_gate_summary() {
         Ok(payload) => Json(payload).into_response(),
-        Err(err) => err,
+        Err(err) => siq_error(
+            StatusCode::NOT_FOUND,
+            "GATE_SUMMARY_NOT_FOUND",
+            "SIQ gate summary does not exist",
+            Some(json!({ "reason": err })),
+        ),
     }
 }
 
@@ -16926,6 +20366,78 @@ async fn get_siq_health() -> impl IntoResponse {
         projection_fresh,
     })
     .into_response()
+}
+
+async fn get_system_logs_streams(headers: HeaderMap) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "get_system_logs_streams",
+        None,
+        "capability:system_logs_streams",
+        "read",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SYSTEM_LOGS_STREAMS_FORBIDDEN",
+        "Operator role or higher is required to list curated log streams.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    Json(crate::services::system_logs::inventory_response(&now_iso())).into_response()
+}
+
+async fn get_system_logs_stream_tail(
+    headers: HeaderMap,
+    Path(stream_id): Path<String>,
+    Query(query): Query<SystemLogsTailQuery>,
+) -> axum::response::Response {
+    let stream_id = stream_id.trim().to_string();
+    let Some((def, _path)) = crate::services::system_logs::resolve_stream(&stream_id) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "SYSTEM_LOG_STREAM_NOT_FOUND",
+            "Unknown log stream.",
+            Some(crate::services::system_logs::stream_missing_error(
+                &stream_id,
+            )),
+        );
+    };
+
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "get_system_logs_stream_tail",
+        None,
+        "capability:system_logs_tail",
+        "read",
+        def.required_role,
+        vec![],
+        true,
+        vec![],
+        "SYSTEM_LOG_STREAM_FORBIDDEN",
+        "Insufficient role for this log stream.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    let cursor = query.cursor.unwrap_or(0);
+    let limit = query.limit.unwrap_or(200);
+    match crate::services::system_logs::tail_stream(&stream_id, cursor, limit) {
+        Ok((_def, response)) => {
+            Json(serde_json::to_value(response).unwrap_or_default()).into_response()
+        }
+        Err(reason) => cortex_ux_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "SYSTEM_LOG_TAIL_FAILED",
+            "Failed to tail log stream.",
+            Some(json!({ "streamId": stream_id, "reason": reason })),
+        ),
+    }
 }
 
 async fn get_motoko_graph_snapshot() -> impl IntoResponse {
@@ -18248,6 +21760,70 @@ async fn get_system_build() -> Json<SystemBuild> {
     })
 }
 
+async fn get_system_llm_adapter_status() -> axum::response::Response {
+    let cfg = llm_adapter_config_from_env();
+    if !cfg.enabled {
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "enabled": false,
+                "baseUrl": cfg.base_url,
+                "failMode": match cfg.fail_mode {
+                    LlmAdapterFailMode::Fallback => "fallback",
+                    LlmAdapterFailMode::FailClosed => "fail_closed",
+                },
+                "model": cfg.default_model,
+            })),
+        )
+            .into_response();
+    }
+
+    let client = match LlmAdapterClient::new(cfg.clone()) {
+        Ok(client) => client,
+        Err(err) => {
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "enabled": true,
+                    "baseUrl": cfg.base_url,
+                    "failMode": match cfg.fail_mode {
+                        LlmAdapterFailMode::Fallback => "fallback",
+                        LlmAdapterFailMode::FailClosed => "fail_closed",
+                    },
+                    "model": cfg.default_model,
+                    "adapterHealthError": err,
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let mut response = json!({
+        "enabled": true,
+        "baseUrl": cfg.base_url,
+        "failMode": match cfg.fail_mode {
+            LlmAdapterFailMode::Fallback => "fallback",
+            LlmAdapterFailMode::FailClosed => "fail_closed",
+        },
+        "model": cfg.default_model,
+    });
+
+    match client.health_adapter().await {
+        Ok(value) => response["adapterHealth"] = value,
+        Err(err) => response["adapterHealthError"] = Value::String(err),
+    }
+    match client.openapi_paths().await {
+        Ok(value) => response["openapiPaths"] = serde_json::to_value(value).unwrap_or(Value::Null),
+        Err(err) => response["openapiError"] = Value::String(err),
+    }
+    match client.health_upstream_models().await {
+        Ok(value) => response["upstreamModels"] = value,
+        Err(err) => response["upstreamModelsError"] = Value::String(err),
+    }
+
+    (StatusCode::OK, Json(response)).into_response()
+}
+
 fn route_node_id(route_id: &str) -> String {
     let token: String = route_id
         .chars()
@@ -18396,6 +21972,104 @@ fn default_operational_frequency_for_route(route: &str) -> OperationalFrequency 
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct CapabilityLineageMapV1 {
+    schema_id: String,
+    #[serde(default)]
+    entries: Vec<CapabilityLineageEntryV1>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CapabilityLineageEntryV1 {
+    capability_id: String,
+    contribution_id: String,
+    #[serde(default = "default_lineage_predicate")]
+    predicate: String,
+}
+
+fn default_lineage_predicate() -> String {
+    "derives_from".to_string()
+}
+
+fn capability_lineage_map_path() -> PathBuf {
+    workspace_root()
+        .join("shared")
+        .join("mappings")
+        .join("capability_lineage.v1.json")
+}
+
+fn apply_capability_lineage_links(catalog: &mut PlatformCapabilityCatalog) {
+    let path = capability_lineage_map_path();
+    if !path.exists() {
+        return;
+    }
+
+    let raw = match fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(_) => return,
+    };
+
+    let parsed = match serde_json::from_str::<CapabilityLineageMapV1>(&raw) {
+        Ok(parsed) => parsed,
+        Err(_) => return,
+    };
+
+    if parsed.schema_id != "nostra.capability_lineage.v1" {
+        return;
+    }
+
+    let mut by_capability: BTreeMap<String, Vec<DomainEntityRef>> = BTreeMap::new();
+    for entry in parsed.entries {
+        let capability_id = entry.capability_id.trim();
+        let contribution_id = entry.contribution_id.trim();
+        let predicate = entry.predicate.trim();
+
+        if capability_id.is_empty() {
+            continue;
+        }
+        if contribution_id.len() != 3 || !contribution_id.chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
+        if PredicateRef::governed(predicate).is_err() {
+            continue;
+        }
+
+        let contribution_ref = match ResourceRef::contribution(contribution_id) {
+            Ok(rr) => rr.to_string(),
+            Err(_) => continue,
+        };
+
+        by_capability
+            .entry(capability_id.to_string())
+            .or_default()
+            .push(DomainEntityRef {
+                entity_type: "contribution".to_string(),
+                entity_id: Some(contribution_ref),
+                label: None,
+            });
+    }
+
+    if by_capability.is_empty() {
+        return;
+    }
+
+    for node in catalog.nodes.iter_mut() {
+        if let Some(additions) = by_capability.get(&node.id.0) {
+            for entity in additions {
+                if !node.domain_entities.contains(entity) {
+                    node.domain_entities.push(entity.clone());
+                }
+            }
+            node.domain_entities.sort_by(|a, b| {
+                a.entity_type
+                    .cmp(&b.entity_type)
+                    .then(a.entity_id.cmp(&b.entity_id))
+                    .then(a.label.cmp(&b.label))
+            });
+        }
+    }
+}
+
 fn build_platform_capability_catalog() -> PlatformCapabilityCatalog {
     let layout_spec = resolve_shell_layout_spec();
     let capabilities = resolve_view_capability_manifests();
@@ -18408,6 +22082,9 @@ fn build_platform_capability_catalog() -> PlatformCapabilityCatalog {
     let root_id = DomainCapabilityId("cortex.workbench.root".to_string());
     catalog.unverified_add_node(DomainCapabilityNode {
         id: root_id.clone(),
+        resource_ref: ResourceRef::capability(&root_id.0)
+            .ok()
+            .map(|rr| rr.to_string()),
         name: "Cortex Workbench".to_string(),
         description: "Canonical Cortex capability catalog root".to_string(),
         intent_type: DomainIntentType::Monitor,
@@ -18430,6 +22107,9 @@ fn build_platform_capability_catalog() -> PlatformCapabilityCatalog {
         let node_id = DomainCapabilityId(format!("route:{}", entry.route_id));
         catalog.unverified_add_node(DomainCapabilityNode {
             id: node_id.clone(),
+            resource_ref: ResourceRef::capability(&node_id.0)
+                .ok()
+                .map(|rr| rr.to_string()),
             name: capability
                 .map(|item| item.route_label.clone())
                 .unwrap_or_else(|| entry.label.clone()),
@@ -18455,6 +22135,8 @@ fn build_platform_capability_catalog() -> PlatformCapabilityCatalog {
             relationship: DomainEdgeRelationship::ChildOf,
         });
     }
+
+    apply_capability_lineage_links(&mut catalog);
 
     let catalog_hash = hash_json_hex(&json!({
         "schemaVersion": catalog.schema_version,
@@ -18795,6 +22477,59 @@ async fn get_space_navigation_plan(
         )
             .into_response();
     }
+
+    if normalized == "meta" {
+        return (
+            StatusCode::OK,
+            Json(cortex_domain::ux::types::CompiledNavigationPlan {
+                schema_version: "1.0.0".to_string(),
+                generated_at: "0".to_string(),
+                space_id: "meta".to_string(),
+                actor_role: "operator".to_string(),
+                intent: query.intent,
+                density: query.density,
+                plan_hash: "meta-hash".to_string(),
+                authz_engine: Some("meta_bypass".to_string()),
+                authz_mode: Some("enforcing".to_string()),
+                authz_decision_version: Some("1.0.0".to_string()),
+                entries: vec![
+                    cortex_domain::ux::types::CompiledNavigationEntry {
+                        capability_id: "cap.meta.heap".to_string(),
+                        route_id: "/heap".to_string(),
+                        label: "Global Heap".to_string(),
+                        icon: "layers".to_string(),
+                        category: "core".to_string(),
+                        required_role: "viewer".to_string(),
+                        nav_slot: "primary_workspace".to_string(),
+                        nav_band: "primary".to_string(),
+                        surfacing_heuristic: "primary_core".to_string(),
+                        operational_frequency: "continuous".to_string(),
+                        rank: 1,
+                    },
+                    cortex_domain::ux::types::CompiledNavigationEntry {
+                        capability_id: "cap.meta.discovery".to_string(),
+                        route_id: "/discovery".to_string(),
+                        label: "Global Discovery".to_string(),
+                        icon: "globe".to_string(),
+                        category: "core".to_string(),
+                        required_role: "viewer".to_string(),
+                        nav_slot: "primary_workspace".to_string(),
+                        nav_band: "primary".to_string(),
+                        surfacing_heuristic: "primary_core".to_string(),
+                        operational_frequency: "continuous".to_string(),
+                        rank: 2,
+                    },
+                ],
+                surfacing: cortex_domain::ux::types::CompiledSurfacingPlan {
+                    primary_core: vec!["/heap".to_string(), "/discovery".to_string()],
+                    secondary: std::collections::BTreeMap::new(),
+                    contextual_deep: vec![],
+                    hidden: vec![],
+                },
+            }),
+        )
+            .into_response();
+    }
     let catalog = build_platform_capability_catalog();
     let graph = match load_or_initialize_space_capability_graph(normalized, &catalog) {
         Ok(graph) => graph,
@@ -18916,6 +22651,96 @@ async fn get_space_navigation_plan(
     (StatusCode::OK, Json(plan)).into_response()
 }
 
+async fn post_space_action_plan(
+    Path(space_id): Path<String>,
+    headers: HeaderMap,
+    Json(payload): Json<CompiledActionPlanRequest>,
+) -> impl IntoResponse {
+    let normalized = space_id.trim();
+    if normalized.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "space_id is required" })),
+        )
+            .into_response();
+    }
+
+    let catalog = build_platform_capability_catalog();
+    let graph = match load_or_initialize_space_capability_graph(normalized, &catalog) {
+        Ok(graph) => graph,
+        Err(err) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": err })),
+            )
+                .into_response();
+        }
+    };
+
+    let identity =
+        match resolve_authz_identity(&headers, "post_space_action_plan", Some(normalized), false) {
+            Ok(identity) => identity,
+            Err(response) => return response,
+        };
+
+    let actor_role = if allow_unverified_role_header() {
+        if payload.actor_role.trim().is_empty() {
+            None
+        } else {
+            let normalized_role = payload.actor_role.to_ascii_lowercase();
+            if authz_valid_role(&normalized_role) {
+                Some(normalized_role)
+            } else {
+                None
+            }
+        }
+    } else {
+        None
+    }
+    .unwrap_or_else(|| identity.role.clone());
+
+    let authz_outcome = authorize(&AuthorizationRequest {
+        endpoint: Some("post_space_action_plan".to_string()),
+        principal: identity.principal.clone(),
+        actor_role: actor_role.clone(),
+        actor_claims: identity.claims.clone(),
+        space_id: Some(normalized.to_string()),
+        resource: "capability:action_plan".to_string(),
+        action: "read".to_string(),
+        required_role: Some("operator".to_string()),
+        required_claims: vec![],
+        policy_requirements: vec![],
+    })
+    .await;
+
+    if !authz_outcome.decision.allowed {
+        return cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            "ACTION_PLAN_FORBIDDEN",
+            "Role is not permitted to access action plan.",
+            Some(json!({
+                "spaceId": normalized,
+                "authorization": authz_outcome.decision
+            })),
+        );
+    }
+
+    // We assume the payload request already contains the requested role
+    // we just want to ensure it is valid, and override it if not allowed
+    // by the authz evaluation. We create a copy of the request here.
+    let mut compiled_request = payload.clone();
+    compiled_request.actor_role = actor_role;
+
+    let layout_spec = resolve_shell_layout_spec();
+    let plan = compile_action_plan(&catalog, &graph, &layout_spec, &compiled_request);
+
+    // In a fully integrated system we might run authz per-action here.
+    // For the vertical slice we trust the compiled action plan which
+    // has already factored in constraints.
+
+    (StatusCode::OK, Json(plan)).into_response()
+}
+
 async fn get_system_capability_graph() -> impl IntoResponse {
     let layout_spec = resolve_shell_layout_spec();
     let capabilities = resolve_view_capability_manifests();
@@ -18956,6 +22781,9 @@ async fn get_system_capability_graph() -> impl IntoResponse {
 
     let mut nodes = vec![SystemCapabilityGraphNode {
         id: "cortex.workbench.root".to_string(),
+        resource_ref: ResourceRef::capability("cortex.workbench.root")
+            .ok()
+            .map(|rr| rr.to_string()),
         title: "Cortex Workbench".to_string(),
         description: "Canonical Cortex web navigation root".to_string(),
         intent_type: "monitor".to_string(),
@@ -18984,8 +22812,10 @@ async fn get_system_capability_graph() -> impl IntoResponse {
 
     for pattern in pattern_contracts.iter() {
         let required_role = Some(pattern.required_role.clone());
+        let id = pattern_node_id(&pattern.pattern_id);
         nodes.push(SystemCapabilityGraphNode {
-            id: pattern_node_id(&pattern.pattern_id),
+            resource_ref: ResourceRef::capability(&id).ok().map(|rr| rr.to_string()),
+            id,
             title: pattern.label.clone(),
             description: pattern.description.clone(),
             intent_type: "configure".to_string(),
@@ -18998,7 +22828,7 @@ async fn get_system_capability_graph() -> impl IntoResponse {
             domain: Some("pattern".to_string()),
             locked_reason: locked_reason(required_role.as_deref()),
             visibility_state: Some(visibility_state(required_role.as_deref())),
-            health: Some("healthy".to_string()),
+            health: Some(if pattern.label.contains("Log") { "warning".to_string() } else { "healthy".to_string() }),
             priority: Some("normal".to_string()),
             inspector: Some(SystemCapabilityNodeInspector {
                 route_id: None,
@@ -19038,8 +22868,10 @@ async fn get_system_capability_graph() -> impl IntoResponse {
             .as_ref()
             .and_then(|id| pattern_by_id.get(id))
             .map(|pattern| pattern.label.clone());
+        let id = route_node_id(&entry.route_id);
         nodes.push(SystemCapabilityGraphNode {
-            id: route_node_id(&entry.route_id),
+            resource_ref: ResourceRef::capability(&id).ok().map(|rr| rr.to_string()),
+            id,
             title: capability
                 .map(|item| item.route_label.clone())
                 .unwrap_or_else(|| entry.label.clone()),
@@ -19094,8 +22926,10 @@ async fn get_system_capability_graph() -> impl IntoResponse {
         let pattern_label = pattern_by_id
             .get(&row.pattern_id)
             .map(|pattern| pattern.label.clone());
+        let id = route_node_id(&row.route_id);
         nodes.push(SystemCapabilityGraphNode {
-            id: route_node_id(&row.route_id),
+            resource_ref: ResourceRef::capability(&id).ok().map(|rr| rr.to_string()),
+            id,
             title: capability
                 .map(|item| item.route_label.clone())
                 .unwrap_or_else(|| row.route_id.clone()),
@@ -19211,7 +23045,7 @@ async fn get_system_capability_graph() -> impl IntoResponse {
         })
         .collect();
     let layout_hints = SystemCapabilityGraphLayoutHints {
-        engine: "react_flow".to_string(),
+        engine: "dagre".to_string(),
         seed: "capability-graph-v2".to_string(),
         cluster_by: "domain".to_string(),
         groups,
@@ -19403,11 +23237,13 @@ async fn post_create_space(Json(payload): Json<serde_json::Value>) -> impl IntoR
         capability_graph_uri: Some(graph_uri.clone()),
         capability_graph_version: Some(initial_graph.base_catalog_version.clone()),
         capability_graph_hash: Some(graph_hash.clone()),
-        owner,
+        owner: owner.clone(),
         created_at: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| format!("{}", d.as_secs()))
             .unwrap_or_else(|_| "0".to_string()),
+        members: vec![owner.clone()],
+        archetype: None,
     };
 
     let registry_path = workspace_root().join("_spaces").join("registry.json");
@@ -19469,8 +23305,51 @@ async fn get_system_status() -> Json<SystemStatus> {
     })
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WhoAmIResponse {
+    schema_version: String,
+    generated_at: String,
+    principal: Option<String>,
+    requested_role: String,
+    effective_role: String,
+    claims: Vec<String>,
+    identity_verified: bool,
+    identity_source: String,
+    authz_dev_mode: bool,
+    allow_unverified_role_header: bool,
+    authz_decision_version: String,
+}
+
+async fn get_system_whoami(headers: HeaderMap) -> impl IntoResponse {
+    let requested_role =
+        resolve_requested_role(&headers, None).unwrap_or_else(|| "operator".to_string());
+    let identity = match resolve_authz_identity(&headers, "get_system_whoami", None, false) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+
+    (
+        StatusCode::OK,
+        Json(WhoAmIResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: now_iso(),
+            principal: identity.principal.clone(),
+            requested_role,
+            effective_role: identity.role,
+            claims: identity.claims,
+            identity_verified: identity.verified,
+            identity_source: identity.source,
+            authz_dev_mode: authz_dev_mode_enabled(),
+            allow_unverified_role_header: allow_unverified_role_header(),
+            authz_decision_version: authz_decision_version().to_string(),
+        }),
+    )
+        .into_response()
+}
+
 async fn fetch_canonical_brand_policy_bundle() -> Option<BrandPolicyCacheRecord> {
-    let service = BrandPolicyRegistryService::from_env().ok()?;
+    let service = BrandPolicyRegistryService::from_env().await.ok()?;
     let BrandPolicyBundle {
         policy,
         policy_version,
@@ -19846,7 +23725,7 @@ async fn get_system_execution_profile(Path(space_id): Path<String>) -> impl Into
         "execution_profile_{}.json",
         sanitize_fs_component(space_id)
     ));
-    let canonical = match WorkflowEngineClient::from_env() {
+    let canonical = match WorkflowEngineClient::from_env().await {
         Ok(client) => client
             .get_space_execution_profile(space_id)
             .await
@@ -19928,7 +23807,7 @@ async fn get_system_attribution_domains(Path(space_id): Path<String>) -> impl In
         "attribution_domains_{}.json",
         sanitize_fs_component(space_id)
     ));
-    let canonical = match WorkflowEngineClient::from_env() {
+    let canonical = match WorkflowEngineClient::from_env().await {
         Ok(client) => client.get_attribution_domains(space_id).await.ok(),
         Err(_) => None,
     };
@@ -20013,7 +23892,7 @@ async fn get_system_governance_scope(Path(space_id): Path<String>) -> impl IntoR
         .ok()
         .and_then(|value| Principal::from_text(value.trim()).ok())
         .unwrap_or_else(Principal::anonymous);
-    let canonical = match GovernanceClient::from_env() {
+    let canonical = match GovernanceClient::from_env().await {
         Ok(client) => client
             .evaluate_action_scope_with_actor(
                 space_id,
@@ -20107,7 +23986,7 @@ async fn get_system_replay_contract(Path(mutation_id): Path<String>) -> impl Int
         "replay_contract_{}.json",
         sanitize_fs_component(mutation_id)
     ));
-    let canonical = match WorkflowEngineClient::from_env() {
+    let canonical = match WorkflowEngineClient::from_env().await {
         Ok(client) => {
             let replay = client.get_replay_contract(mutation_id).await.ok().flatten();
             if let Some(mut replay) = replay {
@@ -20293,8 +24172,8 @@ async fn get_system_mutation_gates(
         sanitize_fs_component(mutation_id)
     ));
 
-    let workflow_client = WorkflowEngineClient::from_env().ok();
-    let governance_client = GovernanceClient::from_env().ok();
+    let workflow_client = WorkflowEngineClient::from_env().await.ok();
+    let governance_client = GovernanceClient::from_env().await.ok();
 
     let mut degraded = Vec::<String>::new();
     let assessment = if let Some(client) = workflow_client.as_ref() {
@@ -20519,7 +24398,7 @@ async fn get_system_mutation_gates(
     Json(envelope).into_response()
 }
 
-async fn get_system_decision_plane(Path(space_id): Path<String>) -> impl IntoResponse {
+pub(crate) async fn get_system_decision_plane(Path(space_id): Path<String>) -> impl IntoResponse {
     async fn extract_surface(
         label: &str,
         response: axum::response::Response,
@@ -20612,7 +24491,7 @@ async fn get_system_decision_plane(Path(space_id): Path<String>) -> impl IntoRes
         surfaces.push(surface);
     }
 
-    let canonical_gate_mutation = match WorkflowEngineClient::from_env() {
+    let canonical_gate_mutation = match WorkflowEngineClient::from_env().await {
         Ok(client) => match client.list_space_decision_lineage(space_id, 1).await {
             Ok(rows) => rows.first().map(|entry| entry.mutation_id.clone()),
             Err(err) => {
@@ -20899,21 +24778,6 @@ struct AgentContributionResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct AgentContributionApprovalRequest {
-    decision: String,
-    #[serde(default)]
-    rationale: Option<String>,
-    actor: String,
-    #[serde(default)]
-    #[serde(alias = "decision_ref")]
-    decision_ref: Option<String>,
-    #[serde(default)]
-    #[serde(alias = "actor_principal")]
-    actor_principal: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
 struct AgentContributionApprovalResponse {
     accepted: bool,
     run_id: String,
@@ -20929,19 +24793,6 @@ struct AgentSimulationEvaluation {
     siqs_score: f32,
     session_id: String,
     structural_diff_summary: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-struct AgentRunRecord {
-    #[serde(flatten)]
-    run: AgentRun,
-    #[serde(default)]
-    events: Vec<AgentRunEvent>,
-    #[serde(default)]
-    pending_action_target: Option<ActionTarget>,
-    #[serde(default)]
-    approval: Option<AgentContributionApprovalRequest>,
 }
 
 fn agent_runs_dir() -> PathBuf {
@@ -20963,9 +24814,103 @@ fn persist_agent_run_record(record: &AgentRunRecord) -> Result<(), String> {
 }
 
 fn load_agent_run_record(space_id: &str, run_id: &str) -> Result<AgentRunRecord, String> {
-    let path = agent_run_path(space_id, run_id);
-    let raw = fs::read_to_string(path).map_err(|err| err.to_string())?;
-    serde_json::from_str::<AgentRunRecord>(&raw).map_err(|err| err.to_string())
+    crate::services::ops_agents::load_agent_run(space_id, run_id)
+}
+
+pub(crate) async fn get_system_agents_runs(
+    headers: HeaderMap,
+    Query(query): Query<AgentRunsQuery>,
+) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "get_system_agents_runs",
+        query.space_id.as_deref(),
+        "capability:system_agents_runs",
+        "read",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SYSTEM_AGENTS_RUNS_FORBIDDEN",
+        "Operator role or higher is required to list agent runs.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    let Some(space_id) = query
+        .space_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    else {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "MISSING_SPACE_ID",
+            "space_id is required.",
+            None,
+        );
+    };
+
+    match crate::services::ops_agents::list_agent_runs(space_id, query.limit.unwrap_or(25)) {
+        Ok(summaries) => Json(summaries).into_response(),
+        Err(err) => cortex_ux_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "SYSTEM_AGENTS_RUNS_UNAVAILABLE",
+            "Agent runs are unavailable.",
+            Some(json!({ "spaceId": space_id, "reason": err })),
+        ),
+    }
+}
+
+pub(crate) async fn get_system_agents_run(
+    headers: HeaderMap,
+    Path((space_id, run_id)): Path<(String, String)>,
+) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "get_system_agents_run",
+        Some(space_id.as_str()),
+        "capability:system_agents_run",
+        "read",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SYSTEM_AGENTS_RUN_FORBIDDEN",
+        "Operator role or higher is required to read agent runs.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    let space_id = space_id.trim();
+    let run_id = run_id.trim();
+    if space_id.is_empty() || run_id.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_AGENT_RUN_REF",
+            "space_id and run_id are required.",
+            None,
+        );
+    }
+
+    match crate::services::ops_agents::load_agent_run(space_id, run_id) {
+        Ok(mut record) => {
+            if record.events.len() > 500 {
+                record.events.truncate(500);
+            }
+            Json(record).into_response()
+        }
+        Err(err) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "AGENT_RUN_NOT_FOUND",
+            "Agent run record was not found.",
+            Some(json!({ "spaceId": space_id, "runId": run_id, "reason": err })),
+        ),
+    }
 }
 
 fn next_agent_run_id(space_id: &str, contribution_id: &str) -> String {
@@ -21007,14 +24952,46 @@ fn default_agent_identity() -> String {
         .unwrap_or_else(|| "agent:cortex-default".to_string())
 }
 
-fn resolve_agent_identity(request_agent_id: Option<&str>, headers: &HeaderMap) -> String {
-    normalize_agent_identity(
+fn actor_registry_path() -> PathBuf {
+    std::env::var("NOSTRA_ACTOR_REGISTRY_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| workspace_root().join("_spaces").join("actors.json"))
+}
+
+fn agent_identity_enforcement_enabled() -> bool {
+    matches!(
+        std::env::var("NOSTRA_AGENT_IDENTITY_ENFORCEMENT")
+            .ok()
+            .as_deref()
+            .map(str::trim),
+        Some("1") | Some("true") | Some("TRUE") | Some("yes") | Some("YES")
+    )
+}
+
+fn resolve_agent_identity(
+    request_agent_id: Option<&str>,
+    headers: &HeaderMap,
+) -> Result<String, String> {
+    let candidate = normalize_agent_identity(
         headers
             .get("x-cortex-agent-id")
             .and_then(|value| value.to_str().ok()),
     )
     .or_else(|| normalize_agent_identity(request_agent_id))
-    .unwrap_or_else(default_agent_identity)
+    .unwrap_or_else(default_agent_identity);
+
+    if !agent_identity_enforcement_enabled() || authz_dev_mode_enabled() {
+        return Ok(candidate);
+    }
+
+    let registry = cortex_domain::actors::ActorRegistry::load_from_path(&actor_registry_path())
+        .map_err(|err| format!("failed_to_load_actor_registry:{err}"))?;
+
+    if registry.contains(candidate.as_str()) {
+        Ok(candidate)
+    } else {
+        Err(format!("unknown_agent_id:{candidate}"))
+    }
 }
 
 fn agent_approval_timeout_seconds(space_id: &str) -> u64 {
@@ -22230,14 +26207,300 @@ fn build_agent_simulation_scenario(
     }
 }
 
-fn evaluate_agent_plan(
-    run_id: &str,
-    contribution_id: &str,
-) -> Result<(AgentSimulationEvaluation, ActionTarget), String> {
-    let intent = AgentIntent::CreateContextNode {
+fn fallback_agent_intent(contribution_id: &str) -> AgentIntent {
+    AgentIntent::CreateContextNode {
         node_id: format!("ctx_{}", sanitize_fs_component(contribution_id)),
         content: format!("Proposed contribution: {contribution_id}"),
+    }
+}
+
+fn extract_last_json_object(text: &str) -> Option<String> {
+    let mut stack: Vec<usize> = Vec::new();
+    let mut last: Option<String> = None;
+
+    let mut in_string = false;
+    let mut escape = false;
+
+    for (idx, ch) in text.char_indices() {
+        if in_string {
+            if escape {
+                escape = false;
+                continue;
+            }
+            if ch == '\\' {
+                escape = true;
+                continue;
+            }
+            if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        match ch {
+            '"' => in_string = true,
+            '{' => stack.push(idx),
+            '}' => {
+                let Some(start) = stack.pop() else {
+                    continue;
+                };
+                if stack.is_empty() {
+                    let end = idx + ch.len_utf8();
+                    let candidate = text[start..end].trim();
+                    if !candidate.is_empty() {
+                        last = Some(candidate.to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    last
+}
+
+fn parse_agent_intent_from_model_text(text: &str) -> Result<AgentIntent, String> {
+    let trimmed = text.trim();
+    if !trimmed.is_empty() {
+        if let Ok(intent) = serde_json::from_str::<AgentIntent>(trimmed) {
+            return Ok(intent);
+        }
+    }
+
+    let candidate = extract_last_json_object(text)
+        .ok_or_else(|| "planner_output_missing_json_object".to_string())?;
+    serde_json::from_str::<AgentIntent>(&candidate)
+        .map_err(|err| format!("planner_output_intent_parse_failed:{err}"))
+}
+
+fn build_a2ui_planner_surface_payload(
+    space_id: &str,
+    run_id: &str,
+    transcript: &str,
+    tool_status: Option<&str>,
+    note: Option<&str>,
+) -> Value {
+    let mut list = vec![json!({
+        "id": "planner-header",
+        "componentProperties": {
+            "Heading": {
+                "text": format!("Planner (space: {}, run: {})", space_id, run_id)
+            }
+        }
+    })];
+
+    if let Some(note) = note.filter(|value| !value.trim().is_empty()) {
+        list.push(json!({
+            "id": "planner-note",
+            "componentProperties": { "Text": { "text": note } }
+        }));
+    }
+
+    if let Some(tool_status) = tool_status.filter(|value| !value.trim().is_empty()) {
+        list.push(json!({
+            "id": "planner-tool-status",
+            "componentProperties": { "Text": { "text": tool_status } }
+        }));
+    }
+
+    list.push(json!({
+        "id": "planner-transcript",
+        "componentProperties": {
+            "DiffViewer": {
+                "diffText": transcript
+            }
+        }
+    }));
+
+    json!({
+        "type": "Container",
+        "children": { "explicitList": list }
+    })
+}
+
+async fn plan_agent_intent_v1(
+    state: &GatewayState,
+    record: &mut AgentRunRecord,
+) -> Result<(AgentIntent, bool), String> {
+    let cfg = llm_adapter_config_from_env();
+    let contribution_id = record.run.contribution_id.clone();
+    let space_id = record.run.space_id.clone();
+    let run_id = record.run.run_id.clone();
+
+    emit_agent_event(
+        state,
+        record,
+        "planner_started",
+        json!({
+            "enabled": cfg.enabled,
+            "baseUrl": cfg.base_url,
+            "model": cfg.default_model,
+        }),
+    );
+
+    let mut live_transcript = String::new();
+    let mut tool_status: Option<String> = None;
+    let mut last_emit = Instant::now()
+        .checked_sub(Duration::from_secs(3600))
+        .unwrap_or_else(Instant::now);
+    let emit_rate = Duration::from_millis(150);
+
+    let mut emit_surface = |force: bool, transcript: &str, tool_status: Option<&str>| {
+        if !force && last_emit.elapsed() < emit_rate {
+            return;
+        }
+        last_emit = Instant::now();
+        let surface = build_a2ui_planner_surface_payload(
+            &space_id,
+            &run_id,
+            transcript,
+            tool_status,
+            Some("Streaming planner transcript (LLM adapter)."),
+        );
+        emit_agent_event(
+            state,
+            record,
+            "surface_update",
+            json!({ "surfaceUpdate": surface }),
+        );
     };
+
+    emit_surface(true, &live_transcript, tool_status.as_deref());
+
+    if !cfg.enabled {
+        let fallback = fallback_agent_intent(&contribution_id);
+        emit_agent_event(
+            state,
+            record,
+            "planner_fallback",
+            json!({ "reason": "adapter_disabled" }),
+        );
+        return Ok((fallback, true));
+    }
+
+    let client = match LlmAdapterClient::new(cfg.clone()) {
+        Ok(client) => client,
+        Err(err) => {
+            if cfg.fail_mode == LlmAdapterFailMode::FailClosed {
+                return Err(format!("llm_adapter_client_init_failed:{err}"));
+            }
+            emit_agent_event(
+                state,
+                record,
+                "planner_fallback",
+                json!({ "reason": "adapter_client_init_failed", "error": err }),
+            );
+            return Ok((fallback_agent_intent(&contribution_id), true));
+        }
+    };
+
+    let instructions = [
+        "You are Cortex Planner (v1).",
+        "Return EXACTLY one JSON object and nothing else.",
+        "The JSON MUST deserialize as AgentIntent (tagged with key: intent).",
+        "Allowed intents in v1: create_context_node or apply_action_target.",
+        "",
+        "Examples:",
+        "{\"intent\":\"create_context_node\",\"node_id\":\"ctx_123\",\"content\":\"...\"}",
+        "{\"intent\":\"apply_action_target\",\"action_target\":{\"protocol\":\"ic\",\"address\":\"kg-canister\",\"method\":\"create_context_node\",\"payload\":\"...\"}}",
+    ]
+    .join("\n");
+
+    let user_text = format!(
+        "contribution_id={}\n\nSelect an intent and return a single AgentIntent JSON object.",
+        contribution_id
+    );
+
+    let tools = builtin_tools();
+    let (final_text, response_id): (String, String) = match run_responses_tool_loop(
+        &client,
+        &cfg.default_model,
+        &instructions,
+        &user_text,
+        &tools,
+        |event| match event {
+            LlmStreamEvent::TextDelta(delta) => {
+                live_transcript.push_str(&delta);
+                emit_surface(false, &live_transcript, tool_status.as_deref());
+            }
+            LlmStreamEvent::ToolCallReady(call) => {
+                tool_status = Some(format!(
+                    "Tool running: {} args={}",
+                    call.name, call.arguments_json
+                ));
+                emit_surface(true, &live_transcript, tool_status.as_deref());
+            }
+            LlmStreamEvent::Completed { response_id } => {
+                tool_status = Some(format!("Planner completed (response_id={})", response_id));
+                emit_surface(true, &live_transcript, tool_status.as_deref());
+            }
+        },
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(err) => {
+            if cfg.fail_mode == LlmAdapterFailMode::FailClosed {
+                return Err(err);
+            }
+            emit_agent_event(
+                state,
+                record,
+                "planner_fallback",
+                json!({ "reason": "llm_adapter_request_failed", "error": err }),
+            );
+            return Ok((fallback_agent_intent(&contribution_id), true));
+        }
+    };
+
+    emit_agent_event(
+        state,
+        record,
+        "planner_completed",
+        json!({ "responseId": response_id, "outputChars": final_text.len() }),
+    );
+
+    let mut intent = match parse_agent_intent_from_model_text(&final_text) {
+        Ok(intent) => intent,
+        Err(err) => {
+            if cfg.fail_mode == LlmAdapterFailMode::FailClosed {
+                return Err(err);
+            }
+            emit_agent_event(
+                state,
+                record,
+                "planner_fallback",
+                json!({ "reason": "planner_output_invalid", "error": err }),
+            );
+            return Ok((fallback_agent_intent(&contribution_id), true));
+        }
+    };
+
+    let supported = matches!(
+        intent,
+        AgentIntent::CreateContextNode { .. } | AgentIntent::ApplyActionTarget { .. }
+    );
+    if !supported {
+        if cfg.fail_mode == LlmAdapterFailMode::FailClosed {
+            return Err("planner_output_unsupported_intent_v1".to_string());
+        }
+        emit_agent_event(
+            state,
+            record,
+            "planner_fallback",
+            json!({ "reason": "planner_output_unsupported_intent_v1" }),
+        );
+        intent = fallback_agent_intent(&contribution_id);
+        return Ok((intent, true));
+    }
+
+    Ok((intent, false))
+}
+
+fn evaluate_agent_plan_from_intent(
+    run_id: &str,
+    intent: AgentIntent,
+) -> Result<(AgentSimulationEvaluation, ActionTarget), String> {
     let action_target = agent_intent_to_action_target(intent);
     let action = simulation_action_from_action_target(&action_target);
     let scenario = build_agent_simulation_scenario(&format!("sim-{run_id}"), &action);
@@ -22534,7 +26797,7 @@ fn persist_agent_proposal_record(
 }
 
 async fn lookup_replay_contract_refs(run: &AgentRunRecord) -> (Option<String>, Option<String>) {
-    let Ok(client) = WorkflowEngineClient::from_env() else {
+    let Ok(client) = WorkflowEngineClient::from_env().await else {
         return (None, None);
     };
     match client.get_replay_contract(run.run.run_id.as_str()).await {
@@ -22668,6 +26931,7 @@ async fn emit_execution_lifecycle(
             .as_ref()
             .and_then(|value| value.get("siqsScore"))
             .and_then(|value| value.as_f64()),
+        benchmark: None,
         promotion_level: Some(authority_scope.as_str().to_string()),
         started_at: Some(run.run.started_at.clone()),
         ended_at: if matches!(
@@ -22801,7 +27065,7 @@ async fn apply_authority_guard(
             }
         }
     } else {
-        let governance = match GovernanceClient::from_env() {
+        let governance = match GovernanceClient::from_env().await {
             Ok(client) => client,
             Err(err) => {
                 let recommendation_id = persist_agent_recommendation_record(
@@ -23333,25 +27597,43 @@ async fn drive_agent_run_lifecycle(state: GatewayState, space_id: String, run_id
         );
     }
 
-    let (simulation, action_target) =
-        match evaluate_agent_plan(&run_id, &record.run.contribution_id) {
-            Ok(value) => value,
-            Err(err) => {
-                record.run.status = AgentRunStatus::Failed;
-                emit_agent_event(&state, &mut record, "run_failed", json!({ "error": err }));
-                let _ = persist_agent_run_record(&record);
-                let _ = emit_execution_lifecycle(
-                    &record,
-                    AgentExecutionPhase::Terminal,
-                    "failed",
-                    &record.pending_action_target,
-                    true,
-                )
-                .await;
-                let _ = persist_agent_run_shadow_comparison(&record);
-                return;
-            }
-        };
+    let (intent, _planner_fallback) = match plan_agent_intent_v1(&state, &mut record).await {
+        Ok(value) => value,
+        Err(err) => {
+            record.run.status = AgentRunStatus::Failed;
+            emit_agent_event(&state, &mut record, "run_failed", json!({ "error": err }));
+            let _ = persist_agent_run_record(&record);
+            let _ = emit_execution_lifecycle(
+                &record,
+                AgentExecutionPhase::Terminal,
+                "failed",
+                &record.pending_action_target,
+                true,
+            )
+            .await;
+            let _ = persist_agent_run_shadow_comparison(&record);
+            return;
+        }
+    };
+
+    let (simulation, action_target) = match evaluate_agent_plan_from_intent(&run_id, intent) {
+        Ok(value) => value,
+        Err(err) => {
+            record.run.status = AgentRunStatus::Failed;
+            emit_agent_event(&state, &mut record, "run_failed", json!({ "error": err }));
+            let _ = persist_agent_run_record(&record);
+            let _ = emit_execution_lifecycle(
+                &record,
+                AgentExecutionPhase::Terminal,
+                "failed",
+                &record.pending_action_target,
+                true,
+            )
+            .await;
+            let _ = persist_agent_run_shadow_comparison(&record);
+            return;
+        }
+    };
 
     let simulation_value = json!({
         "success": simulation.success,
@@ -23595,7 +27877,19 @@ async fn post_agent_contribution(
     let workflow_id = format!("wf-{}-{}", normalized_space, payload.contribution_id);
     let execution_id = next_execution_id(run_id.as_str());
     let attempt_id = next_attempt_id(execution_id.as_str());
-    let agent_id = resolve_agent_identity(payload.agent_id.as_deref(), &headers);
+    let agent_id = match resolve_agent_identity(payload.agent_id.as_deref(), &headers) {
+        Ok(agent_id) => agent_id,
+        Err(reason) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "error": "unknown_agent_id",
+                    "reason": reason
+                })),
+            )
+                .into_response();
+        }
+    };
     let mode = effective_runtime_mode_for_run();
     let temporal_backend = temporal_execution_backend();
     let approval_timeout_seconds = agent_approval_timeout_seconds(&normalized_space);
@@ -24654,10 +28948,13 @@ mod tests {
 
         let no_header = HeaderMap::new();
         assert_eq!(
-            resolve_agent_identity(Some("agent:request"), &no_header),
+            resolve_agent_identity(Some("agent:request"), &no_header).expect("request agent"),
             "agent:request"
         );
-        assert_eq!(resolve_agent_identity(None, &no_header), "agent:env");
+        assert_eq!(
+            resolve_agent_identity(None, &no_header).expect("env agent"),
+            "agent:env"
+        );
 
         let mut with_header = HeaderMap::new();
         with_header.insert(
@@ -24665,9 +28962,41 @@ mod tests {
             "agent:header".parse().expect("header value"),
         );
         assert_eq!(
-            resolve_agent_identity(Some("agent:request"), &with_header),
+            resolve_agent_identity(Some("agent:request"), &with_header).expect("header agent"),
             "agent:header"
         );
+    }
+
+    #[test]
+    fn agent_identity_resolution_rejects_unknown_agent_when_enforced() {
+        let _env_lock = acquire_testing_env_lock();
+        let temp_dir = std::env::temp_dir().join(format!(
+            "actor-registry-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&temp_dir).expect("temp dir");
+        let registry_path = temp_dir.join("actors.json");
+        let registry = cortex_domain::actors::ActorRegistry::default();
+        registry
+            .save_to_path(&registry_path)
+            .expect("save empty registry");
+
+        let _registry_guard = EnvVarGuard::set(
+            "NOSTRA_ACTOR_REGISTRY_PATH",
+            registry_path.display().to_string().as_str(),
+        );
+        let _enforcement_guard = EnvVarGuard::set("NOSTRA_AGENT_IDENTITY_ENFORCEMENT", "1");
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "0");
+
+        let no_header = HeaderMap::new();
+        let result = resolve_agent_identity(Some("agent:unknown"), &no_header);
+        assert!(result.is_err());
+
+        let _ = std::fs::remove_file(registry_path);
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 
     #[test]
@@ -25551,11 +29880,14 @@ mod tests {
             contract_path.display().to_string().as_str(),
         );
         let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
-        let _authz_unverified =
-            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
         let _decision_dir = EnvVarGuard::set(
             "NOSTRA_DECISION_SURFACE_LOG_DIR",
-            temp.path().join("decision_surfaces").display().to_string().as_str(),
+            temp.path()
+                .join("decision_surfaces")
+                .display()
+                .to_string()
+                .as_str(),
         );
 
         let mut contract = default_persisted_shell_contract();
@@ -25588,11 +29920,14 @@ mod tests {
             contract_path.display().to_string().as_str(),
         );
         let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
-        let _authz_unverified =
-            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
         let _decision_dir = EnvVarGuard::set(
             "NOSTRA_DECISION_SURFACE_LOG_DIR",
-            temp.path().join("decision_surfaces").display().to_string().as_str(),
+            temp.path()
+                .join("decision_surfaces")
+                .display()
+                .to_string()
+                .as_str(),
         );
 
         let contract = default_persisted_shell_contract();
@@ -25619,11 +29954,14 @@ mod tests {
             contract_path.display().to_string().as_str(),
         );
         let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
-        let _authz_unverified =
-            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
         let _decision_dir = EnvVarGuard::set(
             "NOSTRA_DECISION_SURFACE_LOG_DIR",
-            temp.path().join("decision_surfaces").display().to_string().as_str(),
+            temp.path()
+                .join("decision_surfaces")
+                .display()
+                .to_string()
+                .as_str(),
         );
 
         let mut contract = default_persisted_shell_contract();
@@ -25653,11 +29991,14 @@ mod tests {
             contract_path.display().to_string().as_str(),
         );
         let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
-        let _authz_unverified =
-            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
         let _decision_dir = EnvVarGuard::set(
             "NOSTRA_DECISION_SURFACE_LOG_DIR",
-            temp.path().join("decision_surfaces").display().to_string().as_str(),
+            temp.path()
+                .join("decision_surfaces")
+                .display()
+                .to_string()
+                .as_str(),
         );
 
         let mut contract = default_persisted_shell_contract();
@@ -25688,11 +30029,14 @@ mod tests {
             contract_path.display().to_string().as_str(),
         );
         let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
-        let _authz_unverified =
-            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
         let _decision_dir = EnvVarGuard::set(
             "NOSTRA_DECISION_SURFACE_LOG_DIR",
-            temp.path().join("decision_surfaces").display().to_string().as_str(),
+            temp.path()
+                .join("decision_surfaces")
+                .display()
+                .to_string()
+                .as_str(),
         );
 
         let mut contract = default_persisted_shell_contract();
@@ -25717,7 +30061,11 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let Json(discovery) = get_cortex_layout_discovery().await;
-        assert!(discovery.iter().any(|entry| entry.route_id == "/notifications"));
+        assert!(
+            discovery
+                .iter()
+                .any(|entry| entry.route_id == "/notifications")
+        );
         let notifications = discovery
             .iter()
             .find(|entry| entry.route_id == "/notifications")
@@ -26112,6 +30460,638 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn heap_block_a2ui_feedback_emits_steward_feedback_block() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "cortex-web".parse().expect("actor header"),
+        );
+
+        let payload = heap_emit_fixture(
+            "req-feedback-parent",
+            "Parent Block",
+            "2026-03-18T01:00:00Z",
+            true,
+            "hash:file_size",
+        );
+        let emit_response = post_cortex_heap_emit(headers.clone(), Json(payload)).await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path("artifact-req-feedback-parent".to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Proceed with bounded live run.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["accepted"], true);
+        assert_eq!(body["artifactId"], "artifact-req-feedback-parent");
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("steward_feedback".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["structured_data"]["decision"],
+            "approved"
+        );
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["structured_data"]["feedback"],
+            "Proceed with bounded live run."
+        );
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["structured_data"]["parent_artifact_id"],
+            "artifact-req-feedback-parent"
+        );
+    }
+
+    #[tokio::test]
+    async fn gate_summary_heap_emit_requires_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "viewer".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-gate-emit-1".parse().expect("actor header"),
+        );
+
+        let response = post_system_gates_emit_heap_block(
+            headers,
+            Json(EmitGateSummaryHeapBlockRequest {
+                schema_version: "1.0.0".to_string(),
+                workspace_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string(),
+                kind: "siq".to_string(),
+                artifact_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "GATE_SUMMARY_HEAP_EMIT_FORBIDDEN");
+    }
+
+    #[tokio::test]
+    async fn gate_summary_heap_emit_returns_missing_artifact() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let siq_dir = temp.path().join("siq");
+        std::fs::create_dir_all(&siq_dir).expect("siq dir");
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _siq_guard =
+            EnvVarGuard::set("NOSTRA_SIQ_LOG_DIR", siq_dir.display().to_string().as_str());
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-gate-emit-2".parse().expect("actor header"),
+        );
+
+        let response = post_system_gates_emit_heap_block(
+            headers,
+            Json(EmitGateSummaryHeapBlockRequest {
+                schema_version: "1.0.0".to_string(),
+                workspace_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string(),
+                kind: "siq".to_string(),
+                artifact_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "GATE_ARTIFACT_MISSING");
+    }
+
+    #[tokio::test]
+    async fn gate_summary_heap_emit_accepts_non_ulid_workspace_id_hint() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let siq_dir = temp.path().join("siq");
+        std::fs::create_dir_all(&siq_dir).expect("siq dir");
+        write_siq_fixture(&siq_dir);
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _siq_guard =
+            EnvVarGuard::set("NOSTRA_SIQ_LOG_DIR", siq_dir.display().to_string().as_str());
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-gate-emit-hint".parse().expect("actor header"),
+        );
+
+        let response = post_system_gates_emit_heap_block(
+            headers,
+            Json(EmitGateSummaryHeapBlockRequest {
+                schema_version: "1.0.0".to_string(),
+                workspace_id: "nostra-governance-v0".to_string(),
+                kind: "siq".to_string(),
+                artifact_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["accepted"], true);
+        assert_eq!(body["workspaceId"], "nostra-governance-v0");
+        assert_eq!(
+            body["heapWorkspaceId"],
+            deterministic_ulid_from_seed("heap_workspace:nostra-governance-v0")
+        );
+
+        let projections = read_heap_projection_store();
+        assert_eq!(projections.len(), 1);
+        let expected = deterministic_ulid_from_seed("heap_workspace:nostra-governance-v0");
+        assert_eq!(projections[0].projection.workspace_id, expected);
+    }
+
+    #[tokio::test]
+    async fn gate_summary_heap_emit_uses_per_space_workspace_override() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let siq_dir = temp.path().join("siq");
+        std::fs::create_dir_all(&siq_dir).expect("siq dir");
+        write_siq_fixture(&siq_dir);
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _siq_guard =
+            EnvVarGuard::set("NOSTRA_SIQ_LOG_DIR", siq_dir.display().to_string().as_str());
+        let _override_guard = EnvVarGuard::set(
+            "CORTEX_HEAP_WORKSPACE_ID_FOR_SPACE_NOSTRA_GOVERNANCE_V0",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-gate-emit-override".parse().expect("actor header"),
+        );
+
+        let response = post_system_gates_emit_heap_block(
+            headers,
+            Json(EmitGateSummaryHeapBlockRequest {
+                schema_version: "1.0.0".to_string(),
+                workspace_id: "nostra-governance-v0".to_string(),
+                kind: "siq".to_string(),
+                artifact_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["workspaceId"], "nostra-governance-v0");
+        assert_eq!(body["heapWorkspaceId"], "01ARZ3NDEKTSV4RRFFQ69G5FAV");
+
+        let projections = read_heap_projection_store();
+        assert_eq!(projections.len(), 1);
+        assert_eq!(
+            projections[0].projection.workspace_id,
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        );
+    }
+
+    #[tokio::test]
+    async fn gate_summary_heap_emit_derives_default_workspace_when_hint_empty() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let siq_dir = temp.path().join("siq");
+        std::fs::create_dir_all(&siq_dir).expect("siq dir");
+        write_siq_fixture(&siq_dir);
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _siq_guard =
+            EnvVarGuard::set("NOSTRA_SIQ_LOG_DIR", siq_dir.display().to_string().as_str());
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-gate-emit-default".parse().expect("actor header"),
+        );
+
+        let response = post_system_gates_emit_heap_block(
+            headers,
+            Json(EmitGateSummaryHeapBlockRequest {
+                schema_version: "1.0.0".to_string(),
+                workspace_id: "".to_string(),
+                kind: "siq".to_string(),
+                artifact_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["workspaceId"], "");
+        assert_eq!(
+            body["heapWorkspaceId"],
+            deterministic_ulid_from_seed("heap_workspace:default")
+        );
+
+        let projections = read_heap_projection_store();
+        assert_eq!(projections.len(), 1);
+        assert_eq!(
+            projections[0].projection.workspace_id,
+            deterministic_ulid_from_seed("heap_workspace:default")
+        );
+    }
+
+    #[tokio::test]
+    async fn gate_summary_heap_emit_is_idempotent_for_latest_artifact_id() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let siq_dir = temp.path().join("siq");
+        std::fs::create_dir_all(&siq_dir).expect("siq dir");
+        write_siq_fixture(&siq_dir);
+        let _decision_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _siq_guard =
+            EnvVarGuard::set("NOSTRA_SIQ_LOG_DIR", siq_dir.display().to_string().as_str());
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-gate-emit-3".parse().expect("actor header"),
+        );
+
+        let first = post_system_gates_emit_heap_block(
+            headers.clone(),
+            Json(EmitGateSummaryHeapBlockRequest {
+                schema_version: "1.0.0".to_string(),
+                workspace_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string(),
+                kind: "siq".to_string(),
+                artifact_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(first.status(), StatusCode::OK);
+        let first_body = response_json(first).await;
+        assert_eq!(first_body["accepted"], true);
+        assert_eq!(first_body["artifactId"], "gate_summary_siq_latest");
+        let first_block_id = first_body["blockId"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        assert_eq!(first_block_id.len(), 26);
+
+        let second = post_system_gates_emit_heap_block(
+            headers,
+            Json(EmitGateSummaryHeapBlockRequest {
+                schema_version: "1.0.0".to_string(),
+                workspace_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string(),
+                kind: "siq".to_string(),
+                artifact_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(second.status(), StatusCode::OK);
+        let second_body = response_json(second).await;
+        assert_eq!(second_body["artifactId"], "gate_summary_siq_latest");
+        assert_eq!(
+            second_body["blockId"].as_str().unwrap_or_default(),
+            first_block_id.as_str()
+        );
+
+        let projections = read_heap_projection_store();
+        assert_eq!(projections.len(), 1);
+        assert_eq!(
+            projections[0].projection.artifact_id,
+            "gate_summary_siq_latest"
+        );
+        assert_eq!(projections[0].projection.block_id, first_block_id);
+
+        let audit_rows = read_jsonl(&decision_actions_dir().join("gate_emit_audit.jsonl"));
+        assert!(!audit_rows.is_empty());
+        let last = audit_rows.last().expect("audit row");
+        assert_eq!(last["eventType"], "gate_emit_audit");
+        assert_eq!(last["kind"], "siq");
+        assert_eq!(last["latestRunId"], "siq_fixture_run");
+        assert_eq!(last["overallVerdict"], "ready");
+        assert_eq!(last["requiredGatesPass"], true);
+    }
+
+    #[tokio::test]
+    async fn system_logs_inventory_requires_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "viewer".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-logs-1".parse().expect("actor header"),
+        );
+
+        let response = get_system_logs_streams(headers).await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SYSTEM_LOGS_STREAMS_FORBIDDEN");
+    }
+
+    #[tokio::test]
+    async fn system_logs_inventory_is_deterministic_and_sorted() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-logs-2".parse().expect("actor header"),
+        );
+
+        let first = get_system_logs_streams(headers.clone()).await;
+        assert_eq!(first.status(), StatusCode::OK);
+        let first_body = response_json(first).await;
+        let second = get_system_logs_streams(headers).await;
+        let second_body = response_json(second).await;
+
+        assert_eq!(first_body["streams"], second_body["streams"]);
+        let streams = first_body["streams"]
+            .as_array()
+            .map(|value| value.as_slice())
+            .unwrap_or(&[]);
+        let stream_ids = streams
+            .iter()
+            .filter_map(|row| row.get("streamId").and_then(|v| v.as_str()))
+            .collect::<Vec<_>>();
+        let mut sorted = stream_ids.clone();
+        sorted.sort();
+        assert_eq!(stream_ids, sorted);
+    }
+
+    #[tokio::test]
+    async fn system_logs_tail_unknown_stream_returns_404() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-logs-3".parse().expect("actor header"),
+        );
+
+        let response = get_system_logs_stream_tail(
+            headers,
+            Path("nope".to_string()),
+            Query(SystemLogsTailQuery::default()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SYSTEM_LOG_STREAM_NOT_FOUND");
+    }
+
+    #[tokio::test]
+    async fn system_logs_tail_enforces_stream_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-logs-4".parse().expect("actor header"),
+        );
+
+        let response = get_system_logs_stream_tail(
+            headers,
+            Path("layout_spec_updates".to_string()),
+            Query(SystemLogsTailQuery::default()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SYSTEM_LOG_STREAM_FORBIDDEN");
+    }
+
+    #[tokio::test]
+    async fn system_logs_tail_resets_cursor_when_out_of_range() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let audit_dir = temp.path().join("actions");
+        std::fs::create_dir_all(&audit_dir).expect("audit dir");
+        std::fs::write(
+            audit_dir.join("gate_emit_audit.jsonl"),
+            "{\"ts\":\"2026-03-04T00:00:00Z\",\"level\":\"info\",\"message\":\"test\"}\n",
+        )
+        .expect("write log");
+        let _log_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-logs-5".parse().expect("actor header"),
+        );
+
+        let response = get_system_logs_stream_tail(
+            headers,
+            Path("gate_emit_audit".to_string()),
+            Query(SystemLogsTailQuery {
+                cursor: Some(9_999_999),
+                limit: Some(10),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["reset"], true);
+        assert_eq!(body["cursor"], 0);
+    }
+
+    #[tokio::test]
+    async fn system_agents_runs_requires_space_id_query() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = DecisionSurfaceLogDirGuard::set(temp.path());
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-agent-runs-1".parse().expect("actor header"),
+        );
+
+        let response = get_system_agents_runs(headers, Query(AgentRunsQuery::default())).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "MISSING_SPACE_ID");
+    }
+
+    #[tokio::test]
+    async fn system_agents_runs_lists_recent_runs_in_desc_order() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = DecisionSurfaceLogDirGuard::set(temp.path());
+
+        let record_a = AgentRunRecord {
+            run: AgentRun {
+                run_id: "run-a".to_string(),
+                workflow_id: "wf-a".to_string(),
+                space_id: "space-a".to_string(),
+                contribution_id: "contrib-a".to_string(),
+                agent_id: Some("agent:tests".to_string()),
+                status: AgentRunStatus::Completed,
+                started_at: "2026-03-04T00:00:01Z".to_string(),
+                updated_at: "2026-03-04T00:00:01Z".to_string(),
+                stream_channel: None,
+                simulation: None,
+                surface_update: None,
+                authority_outcome: None,
+                authority_level: None,
+                execution_id: None,
+                attempt_id: None,
+                temporal_binding: None,
+                shadow_summary: None,
+                approval_timeout_seconds: None,
+            },
+            events: Vec::new(),
+            pending_action_target: None,
+            approval: None,
+        };
+        let record_b = AgentRunRecord {
+            run: AgentRun {
+                run_id: "run-b".to_string(),
+                workflow_id: "wf-b".to_string(),
+                space_id: "space-a".to_string(),
+                contribution_id: "contrib-b".to_string(),
+                agent_id: Some("agent:tests".to_string()),
+                status: AgentRunStatus::WaitingApproval,
+                started_at: "2026-03-04T00:00:02Z".to_string(),
+                updated_at: "2026-03-04T00:00:02Z".to_string(),
+                stream_channel: None,
+                simulation: None,
+                surface_update: None,
+                authority_outcome: None,
+                authority_level: None,
+                execution_id: None,
+                attempt_id: None,
+                temporal_binding: None,
+                shadow_summary: None,
+                approval_timeout_seconds: None,
+            },
+            events: Vec::new(),
+            pending_action_target: None,
+            approval: Some(AgentContributionApprovalRequest {
+                decision: "approved".to_string(),
+                rationale: Some("ok".to_string()),
+                actor: "steward".to_string(),
+                decision_ref: None,
+                actor_principal: None,
+            }),
+        };
+
+        persist_agent_run_record(&record_a).expect("persist record a");
+        persist_agent_run_record(&record_b).expect("persist record b");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-agent-runs-2".parse().expect("actor header"),
+        );
+
+        let response = get_system_agents_runs(
+            headers,
+            Query(AgentRunsQuery {
+                space_id: Some("space-a".to_string()),
+                limit: Some(10),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body.as_array().map(|v| v.len()).unwrap_or(0), 2);
+        assert_eq!(body[0]["runId"], "run-b");
+        assert_eq!(body[0]["requiresReview"], true);
+        assert_eq!(body[1]["runId"], "run-a");
+    }
+
+    #[tokio::test]
     async fn heap_emit_mention_mirror_policy_controls_query_visibility() {
         let _lock = acquire_testing_env_lock();
         let temp = TestTempDir::new();
@@ -26428,11 +31408,13 @@ mod tests {
             .iter()
             .find(|entry| entry.projection.artifact_id == child_artifact_id)
             .expect("child projection");
-        assert!(child
-            .projection
-            .tags
-            .iter()
-            .any(|tag| tag == &parent.projection.block_id));
+        assert!(
+            child
+                .projection
+                .tags
+                .iter()
+                .any(|tag| tag == &parent.projection.block_id)
+        );
         assert_eq!(
             child.surface_json["meta"]["steward_gate"]["source_enrichment_id"],
             enrichment_id
@@ -26506,7 +31488,8 @@ mod tests {
             .as_array()
             .expect("nested explicit list");
         assert!(nested.iter().any(|entry| {
-            entry["componentProperties"]["HeapBlockCard"]["artifactId"] == "artifact-req-nested-child"
+            entry["componentProperties"]["HeapBlockCard"]["artifactId"]
+                == "artifact-req-nested-child"
         }));
     }
 
@@ -27076,6 +32059,31 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn system_capability_catalog_projects_contribution_lineage_and_resource_refs() {
+        let _lock = acquire_testing_env_lock();
+        let catalog = build_platform_capability_catalog();
+
+        let system_node = catalog
+            .nodes
+            .iter()
+            .find(|node| node.id.0 == "route:/system")
+            .expect("expected /system route node");
+
+        assert_eq!(
+            system_node.resource_ref.as_deref(),
+            Some("nostra://capability?id=route:%2Fsystem")
+        );
+        assert!(
+            system_node.domain_entities.contains(&DomainEntityRef {
+                entity_type: "contribution".to_string(),
+                entity_id: Some("nostra://contribution?id=074".to_string()),
+                label: None,
+            }),
+            "expected capability lineage domain entity ref"
+        );
+    }
+
+    #[tokio::test]
     async fn space_capability_graph_put_requires_steward_role() {
         let _lock = acquire_testing_env_lock();
         let temp = TestTempDir::new();
@@ -27264,9 +32272,11 @@ mod tests {
         let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
         let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
 
-        let response =
-            post_cortex_heap_block_pin(role_headers("operator", "actor-heap-authz"), Path("artifact-missing".to_string()))
-                .await;
+        let response = post_cortex_heap_block_pin(
+            role_headers("operator", "actor-heap-authz"),
+            Path("artifact-missing".to_string()),
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         let body = response_json(response).await;
         assert_eq!(body["errorCode"], "ACTOR_IDENTITY_UNVERIFIED");
@@ -29514,6 +34524,697 @@ mod tests {
         assert_eq!(
             replay_body_a["replay"]["signalCount"],
             replay_body_b["replay"]["signalCount"]
+        );
+    }
+
+    async fn ratify_workflow_definition_fixture(
+        motif_kind: &str,
+        intent: &str,
+    ) -> (String, String, String, String) {
+        let unique = Utc::now().timestamp_millis();
+        let space_id = format!("workflow-space-fixture-{}", unique);
+        let set_id = format!("workflow_set_fixture_{}", unique);
+
+        let generate_response = post_cortex_workflow_candidates(Json(WorkflowCandidateRequest {
+            intent: intent.to_string(),
+            motif_kind: motif_kind.to_string(),
+            scope: Some(WorkflowScope {
+                space_id: Some(space_id.clone()),
+                route_id: Some("/workflows".to_string()),
+                role: Some("operator".to_string()),
+            }),
+            generation_mode: Some("deterministic_scaffold".to_string()),
+            candidate_set_id: Some(set_id),
+            constraints: vec![],
+            count: Some(1),
+            created_by: Some("tester".to_string()),
+            source_mode: Some("human".to_string()),
+        }))
+        .await
+        .into_response();
+        assert_eq!(generate_response.status(), StatusCode::OK);
+        let generate_body = response_json(generate_response).await;
+        let candidate_set_id = generate_body["candidateSetId"]
+            .as_str()
+            .expect("candidate set id")
+            .to_string();
+        let candidate_id = generate_body["candidates"][0]["candidateId"]
+            .as_str()
+            .expect("candidate id")
+            .to_string();
+        let expected_hash = generate_body["candidates"][0]["inputHash"]
+            .as_str()
+            .expect("input hash")
+            .to_string();
+
+        let stage_response = post_cortex_workflow_candidate_stage(
+            Path(candidate_set_id),
+            Json(WorkflowCandidateStageRequest {
+                candidate_id,
+                staged_by: "tester".to_string(),
+                rationale: "stage workflow fixture".to_string(),
+                expected_input_hash: expected_hash,
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(stage_response.status(), StatusCode::OK);
+        let stage_body = response_json(stage_response).await;
+        let workflow_draft_id = stage_body["workflowDraftId"]
+            .as_str()
+            .expect("workflow draft id")
+            .to_string();
+
+        let propose_response = post_cortex_workflow_propose(
+            Path(workflow_draft_id),
+            Json(WorkflowProposeRequest {
+                proposed_by: "proposer".to_string(),
+                rationale: "submit workflow fixture".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(propose_response.status(), StatusCode::OK);
+        let propose_body = response_json(propose_response).await;
+        let proposal_id = propose_body["proposal"]["proposalId"]
+            .as_str()
+            .expect("proposal id")
+            .to_string();
+
+        let review_response = post_cortex_workflow_proposal_review(
+            Path(proposal_id.clone()),
+            Json(WorkflowProposalReviewRequest {
+                reviewed_by: "reviewer".to_string(),
+                summary: "approved fixture".to_string(),
+                checks: vec!["compile_valid".to_string()],
+                approved: true,
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(review_response.status(), StatusCode::OK);
+
+        let ratify_response = post_cortex_workflow_proposal_ratify(
+            Path(proposal_id.clone()),
+            Json(WorkflowProposalDecisionRequest {
+                decided_by: "ratifier".to_string(),
+                rationale: "ratify workflow fixture".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(ratify_response.status(), StatusCode::OK);
+        let ratify_body = response_json(ratify_response).await;
+        let definition_id = ratify_body["proposal"]["definitionId"]
+            .as_str()
+            .expect("definition id")
+            .to_string();
+        let scope_key = ratify_body["proposal"]["scopeKey"]
+            .as_str()
+            .expect("scope key")
+            .to_string();
+        (definition_id, proposal_id, scope_key, space_id)
+    }
+
+    #[tokio::test]
+    async fn workflow_candidate_stage_rejects_hash_mismatch() {
+        let _lock = acquire_testing_env_lock();
+
+        let unique = Utc::now().timestamp_millis();
+        let space_id = format!("workflow-space-stage-{}", unique);
+        let set_id = format!("workflow_set_stage_{}", unique);
+
+        let generate_response = post_cortex_workflow_candidates(Json(WorkflowCandidateRequest {
+            intent: "Compare two synthesis paths before promotion".to_string(),
+            motif_kind: "parallel_compare".to_string(),
+            scope: Some(WorkflowScope {
+                space_id: Some(space_id.clone()),
+                route_id: Some("/workflows".to_string()),
+                role: Some("operator".to_string()),
+            }),
+            generation_mode: Some("deterministic_scaffold".to_string()),
+            candidate_set_id: Some(set_id),
+            constraints: vec![],
+            count: Some(1),
+            created_by: Some("tester".to_string()),
+            source_mode: Some("human".to_string()),
+        }))
+        .await
+        .into_response();
+        assert_eq!(generate_response.status(), StatusCode::OK);
+        let generate_body = response_json(generate_response).await;
+        let candidate_set_id = generate_body["candidateSetId"]
+            .as_str()
+            .expect("candidate set id")
+            .to_string();
+        let candidate_id = generate_body["candidates"][0]["candidateId"]
+            .as_str()
+            .expect("candidate id")
+            .to_string();
+
+        let stage_response = post_cortex_workflow_candidate_stage(
+            Path(candidate_set_id),
+            Json(WorkflowCandidateStageRequest {
+                candidate_id,
+                staged_by: "tester".to_string(),
+                rationale: "attempt stage with wrong hash".to_string(),
+                expected_input_hash: "workflow_hash_wrong".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(stage_response.status(), StatusCode::CONFLICT);
+        let body = response_json(stage_response).await;
+        assert_eq!(body["errorCode"], "WORKFLOW_STAGE_HASH_MISMATCH");
+    }
+
+    #[tokio::test]
+    async fn workflow_proposal_cannot_ratify_without_approved_review() {
+        let _lock = acquire_testing_env_lock();
+
+        let unique = Utc::now().timestamp_millis();
+        let space_id = format!("workflow-space-ratify-{}", unique);
+        let set_id = format!("workflow_set_ratify_{}", unique);
+
+        let generate_response = post_cortex_workflow_candidates(Json(WorkflowCandidateRequest {
+            intent: "Repair failing branch until evaluation passes".to_string(),
+            motif_kind: "repair_loop".to_string(),
+            scope: Some(WorkflowScope {
+                space_id: Some(space_id.clone()),
+                route_id: Some("/workflows".to_string()),
+                role: Some("operator".to_string()),
+            }),
+            generation_mode: Some("deterministic_scaffold".to_string()),
+            candidate_set_id: Some(set_id),
+            constraints: vec![],
+            count: Some(1),
+            created_by: Some("tester".to_string()),
+            source_mode: Some("human".to_string()),
+        }))
+        .await
+        .into_response();
+        assert_eq!(generate_response.status(), StatusCode::OK);
+        let generate_body = response_json(generate_response).await;
+        let candidate_set_id = generate_body["candidateSetId"]
+            .as_str()
+            .expect("candidate set id")
+            .to_string();
+        let candidate_id = generate_body["candidates"][0]["candidateId"]
+            .as_str()
+            .expect("candidate id")
+            .to_string();
+        let expected_hash = generate_body["candidates"][0]["inputHash"]
+            .as_str()
+            .expect("input hash")
+            .to_string();
+
+        let stage_response = post_cortex_workflow_candidate_stage(
+            Path(candidate_set_id),
+            Json(WorkflowCandidateStageRequest {
+                candidate_id,
+                staged_by: "tester".to_string(),
+                rationale: "stage for workflow proposal".to_string(),
+                expected_input_hash: expected_hash,
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(stage_response.status(), StatusCode::OK);
+        let stage_body = response_json(stage_response).await;
+        let workflow_draft_id = stage_body["workflowDraftId"]
+            .as_str()
+            .expect("workflow draft id")
+            .to_string();
+
+        let propose_response = post_cortex_workflow_propose(
+            Path(workflow_draft_id),
+            Json(WorkflowProposeRequest {
+                proposed_by: "proposer".to_string(),
+                rationale: "submit for ratification".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(propose_response.status(), StatusCode::OK);
+        let propose_body = response_json(propose_response).await;
+        let proposal_id = propose_body["proposal"]["proposalId"]
+            .as_str()
+            .expect("proposal id")
+            .to_string();
+
+        let ratify_response = post_cortex_workflow_proposal_ratify(
+            Path(proposal_id),
+            Json(WorkflowProposalDecisionRequest {
+                decided_by: "ratifier".to_string(),
+                rationale: "attempt ratify without review".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(ratify_response.status(), StatusCode::CONFLICT);
+        let body = response_json(ratify_response).await;
+        assert_eq!(body["errorCode"], "WORKFLOW_PROPOSAL_RATIFY_INVALID_STATE");
+    }
+
+    #[tokio::test]
+    async fn workflow_proposal_ratify_writes_active_scope_and_definition_artifact() {
+        let _lock = acquire_testing_env_lock();
+
+        let unique = Utc::now().timestamp_millis();
+        let space_id = format!("workflow-space-active-{}", unique);
+        let set_id = format!("workflow_set_active_{}", unique);
+
+        let generate_response = post_cortex_workflow_candidates(Json(WorkflowCandidateRequest {
+            intent: "Compare candidate branches and keep the strongest path".to_string(),
+            motif_kind: "parallel_compare".to_string(),
+            scope: Some(WorkflowScope {
+                space_id: Some(space_id.clone()),
+                route_id: Some("/workflows".to_string()),
+                role: Some("operator".to_string()),
+            }),
+            generation_mode: Some("deterministic_scaffold".to_string()),
+            candidate_set_id: Some(set_id),
+            constraints: vec![],
+            count: Some(1),
+            created_by: Some("tester".to_string()),
+            source_mode: Some("human".to_string()),
+        }))
+        .await
+        .into_response();
+        assert_eq!(generate_response.status(), StatusCode::OK);
+        let generate_body = response_json(generate_response).await;
+        let candidate_set_id = generate_body["candidateSetId"]
+            .as_str()
+            .expect("candidate set id")
+            .to_string();
+        let candidate_id = generate_body["candidates"][0]["candidateId"]
+            .as_str()
+            .expect("candidate id")
+            .to_string();
+        let expected_hash = generate_body["candidates"][0]["inputHash"]
+            .as_str()
+            .expect("input hash")
+            .to_string();
+
+        let stage_response = post_cortex_workflow_candidate_stage(
+            Path(candidate_set_id),
+            Json(WorkflowCandidateStageRequest {
+                candidate_id,
+                staged_by: "tester".to_string(),
+                rationale: "stage for workflow ratify".to_string(),
+                expected_input_hash: expected_hash,
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(stage_response.status(), StatusCode::OK);
+        let stage_body = response_json(stage_response).await;
+        let workflow_draft_id = stage_body["workflowDraftId"]
+            .as_str()
+            .expect("workflow draft id")
+            .to_string();
+
+        let propose_response = post_cortex_workflow_propose(
+            Path(workflow_draft_id),
+            Json(WorkflowProposeRequest {
+                proposed_by: "proposer".to_string(),
+                rationale: "submit for workflow governance".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(propose_response.status(), StatusCode::OK);
+        let propose_body = response_json(propose_response).await;
+        let proposal_id = propose_body["proposal"]["proposalId"]
+            .as_str()
+            .expect("proposal id")
+            .to_string();
+
+        let review_response = post_cortex_workflow_proposal_review(
+            Path(proposal_id.clone()),
+            Json(WorkflowProposalReviewRequest {
+                reviewed_by: "reviewer".to_string(),
+                summary: "approved after bounded validation".to_string(),
+                checks: vec!["compile_valid".to_string(), "motif_bounded".to_string()],
+                approved: true,
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(review_response.status(), StatusCode::OK);
+
+        let ratify_response = post_cortex_workflow_proposal_ratify(
+            Path(proposal_id.clone()),
+            Json(WorkflowProposalDecisionRequest {
+                decided_by: "ratifier".to_string(),
+                rationale: "ratify approved workflow proposal".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(ratify_response.status(), StatusCode::OK);
+        let ratify_body = response_json(ratify_response).await;
+        assert_eq!(ratify_body["gateStatus"], "fallback_allow");
+        assert_eq!(ratify_body["sourceOfTruth"], "fallback");
+        let scope_key = ratify_body["proposal"]["scopeKey"]
+            .as_str()
+            .expect("scope key")
+            .to_string();
+        let definition_id = ratify_body["proposal"]["definitionId"]
+            .as_str()
+            .expect("definition id")
+            .to_string();
+
+        let active_response = get_cortex_workflow_active_definition(Path(scope_key.clone()))
+            .await
+            .into_response();
+        assert_eq!(active_response.status(), StatusCode::OK);
+        let active_body = response_json(active_response).await;
+        assert_eq!(active_body["active"]["scopeKey"], scope_key);
+        assert_eq!(active_body["active"]["activeDefinitionId"], definition_id);
+        assert_eq!(active_body["active"]["adoptedFromProposalId"], proposal_id);
+
+        let definition_response = get_cortex_workflow_definition(Path(definition_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(definition_response.status(), StatusCode::OK);
+        let definition_body = response_json(definition_response).await;
+        assert_eq!(definition_body["definition"]["definitionId"], definition_id);
+        assert_eq!(definition_body["definition"]["scope"]["spaceId"], space_id);
+
+        let proposal_events = store_read_jsonl::<WorkflowEventRecord>(
+            workflow_proposal_events_key(&Utc::now().format("%Y-%m-%d").to_string()).as_str(),
+        )
+        .await
+        .expect("load workflow proposal events");
+        assert!(
+            proposal_events
+                .iter()
+                .any(|event| event.event_type == "workflow_proposal_ratified")
+        );
+    }
+
+    #[tokio::test]
+    async fn workflow_replay_digest_readback_is_stable_after_ratify() {
+        let _lock = acquire_testing_env_lock();
+
+        let unique = Utc::now().timestamp_millis();
+        let space_id = format!("workflow-space-digest-{}", unique);
+        let set_id = format!("workflow_set_digest_{}", unique);
+
+        let generate_response = post_cortex_workflow_candidates(Json(WorkflowCandidateRequest {
+            intent: "Compare candidate branches and preserve replay evidence".to_string(),
+            motif_kind: "parallel_compare".to_string(),
+            scope: Some(WorkflowScope {
+                space_id: Some(space_id),
+                route_id: Some("/workflows".to_string()),
+                role: Some("operator".to_string()),
+            }),
+            generation_mode: Some("deterministic_scaffold".to_string()),
+            candidate_set_id: Some(set_id),
+            constraints: vec![],
+            count: Some(1),
+            created_by: Some("tester".to_string()),
+            source_mode: Some("human".to_string()),
+        }))
+        .await
+        .into_response();
+        assert_eq!(generate_response.status(), StatusCode::OK);
+        let generate_body = response_json(generate_response).await;
+        let candidate_set_id = generate_body["candidateSetId"]
+            .as_str()
+            .expect("candidate set id")
+            .to_string();
+        let candidate_id = generate_body["candidates"][0]["candidateId"]
+            .as_str()
+            .expect("candidate id")
+            .to_string();
+        let expected_hash = generate_body["candidates"][0]["inputHash"]
+            .as_str()
+            .expect("input hash")
+            .to_string();
+
+        let stage_response = post_cortex_workflow_candidate_stage(
+            Path(candidate_set_id),
+            Json(WorkflowCandidateStageRequest {
+                candidate_id,
+                staged_by: "tester".to_string(),
+                rationale: "stage for workflow replay digest".to_string(),
+                expected_input_hash: expected_hash,
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(stage_response.status(), StatusCode::OK);
+        let stage_body = response_json(stage_response).await;
+        let workflow_draft_id = stage_body["workflowDraftId"]
+            .as_str()
+            .expect("workflow draft id")
+            .to_string();
+
+        let propose_response = post_cortex_workflow_propose(
+            Path(workflow_draft_id),
+            Json(WorkflowProposeRequest {
+                proposed_by: "proposer".to_string(),
+                rationale: "submit for replay digest".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(propose_response.status(), StatusCode::OK);
+        let propose_body = response_json(propose_response).await;
+        let proposal_id = propose_body["proposal"]["proposalId"]
+            .as_str()
+            .expect("proposal id")
+            .to_string();
+
+        let review_response = post_cortex_workflow_proposal_review(
+            Path(proposal_id.clone()),
+            Json(WorkflowProposalReviewRequest {
+                reviewed_by: "reviewer".to_string(),
+                summary: "approved for replay digest".to_string(),
+                checks: vec!["compile_valid".to_string()],
+                approved: true,
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(review_response.status(), StatusCode::OK);
+
+        let ratify_response = post_cortex_workflow_proposal_ratify(
+            Path(proposal_id.clone()),
+            Json(WorkflowProposalDecisionRequest {
+                decided_by: "ratifier".to_string(),
+                rationale: "ratify replay digest proposal".to_string(),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(ratify_response.status(), StatusCode::OK);
+
+        let replay_a = get_cortex_workflow_proposal_replay(Path(proposal_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(replay_a.status(), StatusCode::OK);
+        let replay_body_a = response_json(replay_a).await;
+
+        let replay_b = get_cortex_workflow_proposal_replay(Path(proposal_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(replay_b.status(), StatusCode::OK);
+        let replay_body_b = response_json(replay_b).await;
+
+        let digest_a = get_cortex_workflow_proposal_digest(Path(proposal_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(digest_a.status(), StatusCode::OK);
+        let digest_body_a = response_json(digest_a).await;
+
+        let digest_b = get_cortex_workflow_proposal_digest(Path(proposal_id))
+            .await
+            .into_response();
+        assert_eq!(digest_b.status(), StatusCode::OK);
+        let digest_body_b = response_json(digest_b).await;
+
+        assert_eq!(
+            replay_body_a["replay"]["runId"],
+            replay_body_b["replay"]["runId"]
+        );
+        assert_eq!(
+            digest_body_a["digest"]["digest"],
+            digest_body_b["digest"]["digest"]
+        );
+    }
+
+    #[tokio::test]
+    async fn workflow_instance_start_returns_queued_instance_without_snapshot() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = DecisionSurfaceLogDirGuard::set(temp.path());
+
+        let (definition_id, _proposal_id, _scope_key, _space_id) =
+            ratify_workflow_definition_fixture(
+                "parallel_compare",
+                "Start a workflow instance against the local durable worker.",
+            )
+            .await;
+
+        let start_response =
+            post_cortex_workflow_instance_start(Json(WorkflowInstanceStartRequest {
+                definition_id,
+                binding_id: Some("workflow_binding_instance_test".to_string()),
+                instance_id: Some("workflow_instance_test".to_string()),
+                adapter: Some("local_durable_worker_v1".to_string()),
+                execution_profile: Some("async".to_string()),
+                checkpoint_policy: Some(WorkflowCheckpointPolicyV1 {
+                    resume_allowed: true,
+                    cancel_allowed: true,
+                    pause_allowed: true,
+                    timeout_seconds: Some(120),
+                }),
+                runtime_limits: BTreeMap::new(),
+                started_by: Some("tester".to_string()),
+            }))
+            .await
+            .into_response();
+        assert_eq!(start_response.status(), StatusCode::OK);
+        let start_body = response_json(start_response).await;
+        let instance_id = start_body["instance"]["instanceId"]
+            .as_str()
+            .expect("instance id")
+            .to_string();
+        assert_eq!(start_body["instance"]["status"], "queued");
+        assert_eq!(
+            start_body["plan"]["projection"]["runtime"],
+            "local_durable_worker_v1"
+        );
+
+        let get_response = get_cortex_workflow_instance(Path(instance_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(get_response.status(), StatusCode::OK);
+        let get_body = response_json(get_response).await;
+        assert_eq!(get_body["instance"]["instanceId"], instance_id);
+        assert_eq!(get_body["instance"]["status"], "queued");
+
+        let start_commands_dir = temp
+            .path()
+            .join("temporal_bridge_runtime")
+            .join("commands")
+            .join("start");
+        assert_eq!(
+            std::fs::read_dir(start_commands_dir)
+                .expect("start command dir")
+                .count(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn workflow_instance_trace_and_outcome_project_from_temporal_snapshot() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = DecisionSurfaceLogDirGuard::set(temp.path());
+
+        let (definition_id, _proposal_id, _scope_key, space_id) =
+            ratify_workflow_definition_fixture(
+                "repair_loop",
+                "Project worker snapshot data into workflow runtime views.",
+            )
+            .await;
+
+        let start_response =
+            post_cortex_workflow_instance_start(Json(WorkflowInstanceStartRequest {
+                definition_id,
+                binding_id: Some("workflow_binding_snapshot_test".to_string()),
+                instance_id: Some("workflow_instance_snapshot_test".to_string()),
+                adapter: Some("local_durable_worker_v1".to_string()),
+                execution_profile: Some("async".to_string()),
+                checkpoint_policy: Some(WorkflowCheckpointPolicyV1 {
+                    resume_allowed: true,
+                    cancel_allowed: true,
+                    pause_allowed: true,
+                    timeout_seconds: Some(300),
+                }),
+                runtime_limits: BTreeMap::new(),
+                started_by: Some("tester".to_string()),
+            }))
+            .await
+            .into_response();
+        assert_eq!(start_response.status(), StatusCode::OK);
+        let start_body = response_json(start_response).await;
+        let instance_id = start_body["instance"]["instanceId"]
+            .as_str()
+            .expect("instance id")
+            .to_string();
+
+        let snapshot_dir = temp
+            .path()
+            .join("temporal_bridge_runtime")
+            .join("snapshots");
+        std::fs::create_dir_all(&snapshot_dir).expect("snapshot dir");
+        let snapshot = TemporalBridgeRunSnapshot {
+            schema_version: "1.0.0".to_string(),
+            run_id: instance_id.clone(),
+            workflow_id: "workflow_def_runtime".to_string(),
+            space_id: space_id.clone(),
+            contribution_id: "workflow-definition:test".to_string(),
+            status: "completed".to_string(),
+            started_at: "2026-03-11T00:00:00Z".to_string(),
+            updated_at: "2026-03-11T00:02:00Z".to_string(),
+            sequence: 1,
+            events: vec![AgentRunEvent {
+                event_type: "run_completed".to_string(),
+                run_id: instance_id.clone(),
+                space_id: space_id.clone(),
+                timestamp: "2026-03-11T00:02:00Z".to_string(),
+                sequence: 1,
+                payload: json!({ "status": "completed" }),
+            }],
+            simulation: None,
+            surface_update: None,
+            authority_outcome: None,
+            provider_trace: None,
+            approval_timeout_seconds: 300,
+            terminal: true,
+            error: None,
+        };
+        let snapshot_path = snapshot_dir.join(format!("{}.json", instance_id));
+        std::fs::write(
+            snapshot_path,
+            serde_json::to_vec_pretty(&snapshot).expect("encode snapshot"),
+        )
+        .expect("write snapshot");
+
+        let trace_response = get_cortex_workflow_instance_trace(Path(instance_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(trace_response.status(), StatusCode::OK);
+        let trace_body = response_json(trace_response).await;
+        assert_eq!(trace_body["trace"][0]["eventType"], "run_completed");
+
+        let outcome_response = get_cortex_workflow_instance_outcome(Path(instance_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(outcome_response.status(), StatusCode::OK);
+        let outcome_body = response_json(outcome_response).await;
+        assert_eq!(outcome_body["outcome"]["status"], "completed");
+        assert_eq!(
+            outcome_body["outcome"]["contributionRefs"][0],
+            "workflow-definition:test"
+        );
+
+        let checkpoints_response = get_cortex_workflow_instance_checkpoints(Path(instance_id))
+            .await
+            .into_response();
+        assert_eq!(checkpoints_response.status(), StatusCode::OK);
+        let checkpoints_body = response_json(checkpoints_response).await;
+        assert_eq!(
+            checkpoints_body["checkpoints"]
+                .as_array()
+                .map(|value| value.len())
+                .unwrap_or_default(),
+            0
         );
     }
 

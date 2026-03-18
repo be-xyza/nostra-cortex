@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_system_gates_emit_heap_block",
+  "class": "system",
+  "request": {
+    "method": "POST",
+    "path": "/api/system/gates/emit-heap-block"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/system/gates/emit-heap-block"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/system/gates/emit-heap-block"
+  }
+}

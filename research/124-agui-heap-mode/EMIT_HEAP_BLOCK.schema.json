@@ -1,0 +1,537 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "research/124-agui-heap-mode/EMIT_HEAP_BLOCK.schema.json",
+  "title": "EmitHeapBlock",
+  "description": "Agent payload contract for emitting a heap-mode block that can be persisted as a Nostra contribution and projected into CRDT + query layers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "workspace_id",
+    "source",
+    "block",
+    "content"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "mode": {
+      "type": "string",
+      "const": "heap"
+    },
+    "workspace_id": {
+      "$ref": "#/$defs/ulid"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "emitted_at"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emitted_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ulid"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Heap block type label (e.g. note, widget, task, view)."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "icon": {
+          "type": "string"
+        },
+        "icon_type": {
+          "type": "string",
+          "enum": [
+            "emoji",
+            "image",
+            "icon",
+            "none"
+          ]
+        },
+        "color": {
+          "type": "string"
+        },
+        "main_tag": {
+          "$ref": "#/$defs/ulid"
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Flat key-value map for classification and policy targeting (e.g., location, behavior, media_type)."
+        },
+        "behaviors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Contextual UI/UX state toggles (e.g., 'pinned', 'muted', 'read-only', 'collapsed')."
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_type"
+      ],
+      "properties": {
+        "payload_type": {
+          "type": "string",
+          "enum": [
+            "a2ui",
+            "rich_text",
+            "media",
+            "structured_data",
+            "pointer"
+          ]
+        },
+        "a2ui": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "surface_id",
+            "protocol_version",
+            "tree"
+          ],
+          "properties": {
+            "surface_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "protocol_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "renderer": {
+              "type": "string",
+              "enum": [
+                "dioxus",
+                "lit",
+                "web",
+                "native",
+                "other"
+              ]
+            },
+            "view_type": {
+              "type": "string"
+            },
+            "tree": {
+              "type": "object",
+              "description": "A2UI component tree snapshot."
+            },
+            "data_model": {
+              "type": "object",
+              "description": "Structured dynamic state model used by UI updates."
+            }
+          }
+        },
+        "rich_text": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plain_text"
+          ],
+          "properties": {
+            "title_doc": {
+              "type": "object",
+              "description": "Optional ProseMirror-compatible title document snapshot."
+            },
+            "text_doc": {
+              "type": "object",
+              "description": "Optional ProseMirror-compatible content document snapshot."
+            },
+            "plain_text": {
+              "type": "string"
+            }
+          }
+        },
+        "media": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hash",
+            "mime_type"
+          ],
+          "properties": {
+            "hash": {
+              "type": "string"
+            },
+            "mime_type": {
+              "type": "string"
+            }
+          }
+        },
+        "structured_data": {
+          "type": "object"
+        },
+        "pointer": {
+          "type": "string"
+        }
+      }
+    },
+    "relations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationTag"
+          },
+          "default": []
+        },
+        "mentions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationMention"
+          },
+          "default": []
+        },
+        "page_links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pageLink"
+          },
+          "default": []
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileRef"
+      },
+      "default": []
+    },
+    "apps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/appConfig"
+      },
+      "default": []
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deleted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "permanently_deleted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sidebar_order": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ulid"
+          }
+        }
+      }
+    },
+    "projection_hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mirror_mentions_to_relations": {
+          "type": "boolean",
+          "default": true
+        },
+        "files_key_format": {
+          "type": "string",
+          "enum": [
+            "hash",
+            "hash:file_size"
+          ],
+          "default": "hash:file_size"
+        },
+        "relation_map_version": {
+          "type": "string",
+          "enum": [
+            "relations_v0",
+            "relations_v1"
+          ],
+          "default": "relations_v1"
+        }
+      }
+    },
+    "crdt_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mutations": {
+          "type": "array",
+          "description": "Deterministic mutation stream translatable to ArtifactCrdtMutation.",
+          "items": {
+            "$ref": "#/$defs/artifactCrdtMutation"
+          },
+          "default": []
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ulid": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "relationTag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "to_block_id"
+      ],
+      "properties": {
+        "to_block_id": {
+          "$ref": "#/$defs/ulid"
+        },
+        "meta": {
+          "type": "object"
+        }
+      }
+    },
+    "relationMention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "to_block_id"
+      ],
+      "properties": {
+        "to_block_id": {
+          "$ref": "#/$defs/ulid"
+        },
+        "label": {
+          "type": "string"
+        },
+        "source_path": {
+          "type": "string",
+          "description": "Path to inline node in content tree, if available."
+        }
+      }
+    },
+    "pageLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "to_block_id"
+      ],
+      "properties": {
+        "to_block_id": {
+          "$ref": "#/$defs/ulid"
+        },
+        "source_path": {
+          "type": "string"
+        }
+      }
+    },
+    "fileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash",
+        "file_size",
+        "name"
+      ],
+      "properties": {
+        "hash": {
+          "type": "string",
+          "minLength": 8
+        },
+        "file_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mime_type": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "is_uploaded": {
+          "type": "boolean"
+        },
+        "thumbnails": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/thumbnail"
+          },
+          "default": []
+        }
+      }
+    },
+    "thumbnail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "size"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "image",
+            "video_preview",
+            "sprite",
+            "animated"
+          ]
+        },
+        "size": {
+          "type": "string",
+          "enum": [
+            "small",
+            "medium",
+            "large"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "appConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ulid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "app_type": {
+          "type": "string"
+        },
+        "filter": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "sort": {
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "mapping": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "settings": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "artifactCrdtMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "path"
+      ],
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "map_set",
+            "map_delete",
+            "array_insert",
+            "array_delete",
+            "text_insert",
+            "text_delete"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Deterministic JSON-pointer-like path in artifact state."
+        },
+        "value": {
+          "description": "Value for set/insert operations."
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delete_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string"
+        },
+        "clock": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

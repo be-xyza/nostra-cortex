@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_workflow_drafts_candidates_param_candidate_set_id_stage",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/workflow-drafts/candidates/:candidate_set_id/stage"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/workflow-drafts/candidates/:candidate_set_id/stage"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/workflow-drafts/candidates/:candidate_set_id/stage"
+  }
+}
