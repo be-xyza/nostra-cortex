@@ -1,5 +1,5 @@
-use cortex_desktop::gateway::server::GatewayService;
-use cortex_desktop::services::file_system_service::FileSystemService;
+use cortex_eudaemon::gateway::server::GatewayService;
+use cortex_eudaemon::services::file_system_service::FileSystemService;
 use serde_json::{Value, json};
 use std::net::TcpListener;
 use std::time::Duration;

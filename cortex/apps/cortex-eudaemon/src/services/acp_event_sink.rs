@@ -1,5 +1,6 @@
 use crate::services::acp_event_projector::{AcpProjectedEvent, to_cloud_event};
 use crate::services::acp_metrics::{record_emit_attempt, record_emit_failure, record_emit_success};
+use crate::services::local_gateway::get_gateway;
 use serde_json::json;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -176,6 +177,13 @@ impl AcpEventSink {
             "timestamp": now_secs(),
             "source": "cortex-desktop"
         });
+
+        if let Err(queue_err) = get_gateway().queue_observability_payload(&payload) {
+            tracing::warn!(
+                "failed to queue ACP observability fallback in local gateway: {}",
+                queue_err
+            );
+        }
 
         if let Err(queue_err) = self.append_fallback_payload(&payload) {
             tracing::warn!(

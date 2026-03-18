@@ -1,4 +1,4 @@
-use crate::services::acp_metrics::record_fallback_flush;
+use crate::services::acp_metrics::{record_fallback_flush, record_fallback_queued};
 use crate::services::dfx_client::DfxClient;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -133,14 +133,16 @@ impl LocalGateway {
         if online {
             Ok("Synced".to_string())
         } else {
-            let mut q = self.queue.lock().unwrap();
-            q.push(mutation);
-            let size = q.len();
-            drop(q);
-            let _ = self.save_queue();
-            println!("Queued mutation locally. Queue size: {:?}", size);
-            Ok("Queued".to_string())
+            self.enqueue_mutation(mutation)
         }
+    }
+
+    pub fn queue_observability_payload(&self, payload: &serde_json::Value) -> Result<String, String> {
+        let command = format!(
+            "observability.emit {}",
+            serde_json::to_string(payload).map_err(|e| e.to_string())?
+        );
+        self.enqueue_mutation(Mutation::new(command))
     }
 
     pub async fn flush_observability_events(&self, endpoint: &str) -> Result<usize, String> {
@@ -427,6 +429,17 @@ impl LocalGateway {
             fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
         Ok(())
+    }
+
+    fn enqueue_mutation(&self, mutation: Mutation) -> Result<String, String> {
+        let mut q = self.queue.lock().unwrap();
+        q.push(mutation);
+        let size = q.len();
+        drop(q);
+        record_fallback_queued();
+        self.save_queue()?;
+        println!("Queued mutation locally. Queue size: {:?}", size);
+        Ok("Queued".to_string())
     }
 
     fn default_storage_path() -> PathBuf {

@@ -1,4 +1,4 @@
-use cortex_desktop::gateway::server::GatewayService;
+use cortex_eudaemon::gateway::server::GatewayService;
 use serde_json::{Value, json};
 use std::fs;
 use std::net::TcpListener;
