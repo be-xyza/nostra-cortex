@@ -1,6 +1,6 @@
 use cortex_domain::capabilities::navigation_graph::{
     CapabilityEdge, CapabilityId, CapabilityNode, EdgeRelationship, IntentType,
-    PlatformCapabilityGraph,
+    OperationalFrequency, PlatformCapabilityGraph, SurfacingHeuristic,
 };
 use std::path::PathBuf;
 use tracing::{info, warn};
@@ -25,9 +25,19 @@ Enable CORTEX_CAPABILITY_GRAPH_SCANNER_ENABLED=1 for explicit fallback scanning.
             let root_id = CapabilityId("cortex.workbench.root".to_string());
             graph.unverified_add_node(CapabilityNode {
                 id: root_id,
+                resource_ref: None,
                 name: "Cortex Workbench".to_string(),
                 description: "Capability scanner fallback root".to_string(),
                 intent_type: IntentType::Monitor,
+                route_id: None,
+                category: None,
+                required_role: None,
+                required_claims: vec![],
+                icon: None,
+                surfacing_heuristic: SurfacingHeuristic::default(),
+                operational_frequency: OperationalFrequency::default(),
+                domain_entities: vec![],
+                placement_constraint: None,
                 root_path: None,
                 invariant_violations: vec![],
             });
@@ -38,9 +48,19 @@ Enable CORTEX_CAPABILITY_GRAPH_SCANNER_ENABLED=1 for explicit fallback scanning.
         let root_id = CapabilityId("cortex.core.system".to_string());
         graph.unverified_add_node(CapabilityNode {
             id: root_id.clone(),
+            resource_ref: None,
             name: "Cortex Native System".to_string(),
             description: "Root kernel of the Cortex Daemon ecosystem".to_string(),
             intent_type: IntentType::Monitor,
+            route_id: None,
+            category: None,
+            required_role: None,
+            required_claims: vec![],
+            icon: None,
+            surfacing_heuristic: SurfacingHeuristic::default(),
+            operational_frequency: OperationalFrequency::default(),
+            domain_entities: vec![],
+            placement_constraint: None,
             root_path: None,
             invariant_violations: vec![],
         });
@@ -49,9 +69,19 @@ Enable CORTEX_CAPABILITY_GRAPH_SCANNER_ENABLED=1 for explicit fallback scanning.
         let daemon_id = CapabilityId("cortex.daemon.sandbox".to_string());
         graph.unverified_add_node(CapabilityNode {
             id: daemon_id.clone(),
+            resource_ref: None,
             name: "Cortex Daemon (Headless)".to_string(),
             description: "MVK-aligned gateway server execution context".to_string(),
             intent_type: IntentType::Execute,
+            route_id: None,
+            category: None,
+            required_role: None,
+            required_claims: vec![],
+            icon: None,
+            surfacing_heuristic: SurfacingHeuristic::default(),
+            operational_frequency: OperationalFrequency::default(),
+            domain_entities: vec![],
+            placement_constraint: None,
             root_path: Some(
                 workspace_root
                     .join("cortex/apps/cortex-eudaemon")
@@ -71,9 +101,19 @@ Enable CORTEX_CAPABILITY_GRAPH_SCANNER_ENABLED=1 for explicit fallback scanning.
         let web_ui_id = CapabilityId("cortex.web.shell".to_string());
         graph.unverified_add_node(CapabilityNode {
             id: web_ui_id.clone(),
+            resource_ref: None,
             name: "Cortex Web UI".to_string(),
             description: "D3/React Flow Capability Visualizer and A2UI bridge".to_string(),
             intent_type: IntentType::Visualize,
+            route_id: None,
+            category: None,
+            required_role: None,
+            required_claims: vec![],
+            icon: None,
+            surfacing_heuristic: SurfacingHeuristic::default(),
+            operational_frequency: OperationalFrequency::default(),
+            domain_entities: vec![],
+            placement_constraint: None,
             root_path: Some(
                 workspace_root
                     .join("cortex/apps/cortex-web")
@@ -99,10 +139,25 @@ Enable CORTEX_CAPABILITY_GRAPH_SCANNER_ENABLED=1 for explicit fallback scanning.
         let invariant_id = CapabilityId("nostra.invariant.engine".to_string());
         graph.unverified_add_node(CapabilityNode {
             id: invariant_id.clone(),
+            resource_ref: None,
             name: "Invariant Engine".to_string(),
             description: "Enforces MVK and Execution constraints on capabilities".to_string(),
             intent_type: IntentType::Mutate,
-            root_path: Some(workspace_root.join("nostra/extraction").display().to_string()),
+            route_id: None,
+            category: None,
+            required_role: None,
+            required_claims: vec![],
+            icon: None,
+            surfacing_heuristic: SurfacingHeuristic::default(),
+            operational_frequency: OperationalFrequency::default(),
+            domain_entities: vec![],
+            placement_constraint: None,
+            root_path: Some(
+                workspace_root
+                    .join("nostra/extraction")
+                    .display()
+                    .to_string(),
+            ),
             invariant_violations: vec![],
         });
 
@@ -116,9 +171,19 @@ Enable CORTEX_CAPABILITY_GRAPH_SCANNER_ENABLED=1 for explicit fallback scanning.
         let workspace_id = CapabilityId("nostra.gaming.protocol".to_string());
         graph.unverified_add_node(CapabilityNode {
             id: workspace_id.clone(),
+            resource_ref: None,
             name: "Nostra Gaming Protocol (Init 049)".to_string(),
             description: "Active research and Godot compute layer".to_string(),
             intent_type: IntentType::Execute,
+            route_id: None,
+            category: None,
+            required_role: None,
+            required_claims: vec![],
+            icon: None,
+            surfacing_heuristic: SurfacingHeuristic::default(),
+            operational_frequency: OperationalFrequency::default(),
+            domain_entities: vec![],
+            placement_constraint: None,
             root_path: Some(
                 workspace_root
                     .join("research/049-nostra-gaming-protocol")

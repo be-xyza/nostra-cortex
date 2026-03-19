@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_workflow_definitions_active_param_scope_key",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/workflow-definitions/active/:scope_key"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/workflow-definitions/active/:scope_key"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/workflow-definitions/active/:scope_key"
+  }
+}

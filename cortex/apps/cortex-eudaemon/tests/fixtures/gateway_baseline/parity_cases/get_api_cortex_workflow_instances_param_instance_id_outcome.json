@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_workflow_instances_param_instance_id_outcome",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/workflow-instances/:instance_id/outcome"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/workflow-instances/:instance_id/outcome"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/workflow-instances/:instance_id/outcome"
+  }
+}

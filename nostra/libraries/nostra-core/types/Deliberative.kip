@@ -1,0 +1,127 @@
+// =============================================================================
+// Nostra Core Library: Deliberative Phase Types
+// =============================================================================
+// Types for the Deliberative phase: Issue, Poll, Proposal, Review
+// These narrow options and require attention & context.
+// =============================================================================
+
+// --- ISSUE: A problem or challenge to address ---
+UPSERT {
+    CONCEPT ?issue_type {
+        {type: "$ConceptType", name: "Issue"}
+        SET ATTRIBUTES {
+            description: "A problem, challenge, or opportunity requiring attention. Issues drive convergence.",
+            tags: ["core", "contribution", "deliberative"],
+            icon: "🔴",
+            extends: "Contribution",
+            phase: "deliberative",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": true },
+                "severity": { 
+                    "type": "string", 
+                    "enum": ["low", "medium", "high", "critical"],
+                    "default": "medium"
+                },
+                "category": { "type": "string", "is_required": false },
+                "is_blocking": { "type": "boolean", "default": false },
+                "phase": { "type": "string", "default": "deliberative" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- POLL: A structured query to gauge consensus ---
+UPSERT {
+    CONCEPT ?poll_type {
+        {type: "$ConceptType", name: "Poll"}
+        SET ATTRIBUTES {
+            description: "A structured query to gauge consensus or gather opinions from the community.",
+            tags: ["core", "contribution", "deliberative"],
+            icon: "📊",
+            extends: "Contribution",
+            phase: "deliberative",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true, "description": "The question being polled" },
+                "options": { 
+                    "type": "array", 
+                    "item_type": "string", 
+                    "is_required": true,
+                    "description": "Available choices"
+                },
+                "poll_type": { 
+                    "type": "string", 
+                    "enum": ["single_choice", "multiple_choice", "ranked"],
+                    "default": "single_choice"
+                },
+                "ends_at": { "type": "string", "is_required": false, "description": "ISO 8601 deadline" },
+                "is_anonymous": { "type": "boolean", "default": false },
+                "phase": { "type": "string", "default": "deliberative" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- PROPOSAL: A formal suggestion for action ---
+UPSERT {
+    CONCEPT ?proposal_type {
+        {type: "$ConceptType", name: "Proposal"}
+        SET ATTRIBUTES {
+            description: "A formal suggestion for action, policy, or change requiring deliberation.",
+            tags: ["core", "contribution", "deliberative", "governance"],
+            icon: "📋",
+            extends: "Contribution",
+            phase: "deliberative",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": true },
+                "rationale": { "type": "string", "is_required": false },
+                "alternatives_considered": { "type": "array", "item_type": "string" },
+                "impact_assessment": { "type": "string", "is_required": false },
+                "phase": { "type": "string", "default": "deliberative" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- REVIEW: A formal evaluation of work ---
+UPSERT {
+    CONCEPT ?review_type {
+        {type: "$ConceptType", name: "Review"}
+        SET ATTRIBUTES {
+            description: "A formal evaluation of work, providing feedback and assessment.",
+            tags: ["core", "contribution", "deliberative"],
+            icon: "🔍",
+            extends: "Contribution",
+            phase: "deliberative",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": true },
+                "target_id": { "type": "string", "is_required": true, "description": "ID of contribution being reviewed" },
+                "verdict": { 
+                    "type": "string", 
+                    "enum": ["approved", "request_changes", "rejected", "pending"],
+                    "default": "pending"
+                },
+                "score": { "type": "number", "is_required": false, "description": "Numeric rating if applicable" },
+                "phase": { "type": "string", "default": "deliberative" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

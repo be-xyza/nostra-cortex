@@ -21,19 +21,19 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Portfolio Integrity"
 created: "2026-02-23"
-updated: "2026-02-24"
+updated: "2026-03-10"
 ---
 
 # Initiative 125: SIQ Program Operationalization
 
 ## Objective
-Operationalize SIQ from local contract checks into portfolio governance, CI enforcement (`observe -> softgate`), and read-only host intake for Cortex and initiative-graph consumers.
+Operationalize SIQ from local contract checks into portfolio governance, CI enforcement (`observe -> softgate`), and read-only host intake for Cortex plus contribution-graph metadata consumers.
 
 ## Scope
 1. Integrity set coverage and closure for `097/099/101/103/105/118/121/123`.
 2. CI enforcement staged from observe to softgate without introducing SIQ mutation APIs.
 3. Read-only SIQ gateway/service APIs in Cortex Desktop.
-4. Optional initiative-graph SIQ intake with deterministic ordering and backward-compatible fields.
+4. Optional contribution-graph SIQ intake with deterministic ordering and backward-compatible fields.
 5. Residue/drift prevention: template residue, gate-surface script-reference integrity, and weekly drift checks.
 
 ## Out of Scope
@@ -91,12 +91,12 @@ Operationalize SIQ from local contract checks into portfolio governance, CI enfo
 - Add `NOSTRA_SIQ_LOG_DIR` override (default: `/Users/xaoj/ICP/logs/siq`).
 - Add typed SIQ service methods in Cortex Desktop.
 
-### F. Initiative-Graph Intake Bridge
+### F. Contribution-Graph Intake Bridge
 - Optionally consume SIQ projection artifact for overview metadata.
 - Deterministic handling for SIQ ingest material:
   - stable sort by `id` and `edge_id`
   - deterministic null/optional handling
-- Keep initiative-graph contract backward-compatible (optional SIQ fields only).
+- Keep the contribution-graph contract backward-compatible (optional SIQ fields only) and treat any historical `initiative-graph` alias as deprecated lineage, not nav authority.
 
 ### G. Drift and Residue Prevention
 - Weekly SIQ drift check in CI schedule.
@@ -121,7 +121,7 @@ Operationalize SIQ from local contract checks into portfolio governance, CI enfo
 4. CI SIQ observe is running with artifacts and consistency checks.
 5. Softgate path is implemented and can enforce P0 failures after promotion criteria.
 6. SIQ read-only gateway endpoints return valid payloads from filesystem artifacts.
-7. Initiative-graph can consume SIQ metadata without contract regression.
+7. Contribution-graph consumers can consume SIQ metadata without contract regression.
 8. No SIQ governance mutation endpoint introduced.
 9. CI warning-bypass scanner is enforced in active workflows and registered as alignment contract P0 control.
 

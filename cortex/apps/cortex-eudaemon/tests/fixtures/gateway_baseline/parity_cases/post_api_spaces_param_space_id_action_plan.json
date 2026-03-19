@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_spaces_param_space_id_action_plan",
+  "class": "system",
+  "request": {
+    "method": "POST",
+    "path": "/api/spaces/:space_id/action-plan"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/spaces/:space_id/action-plan"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/spaces/:space_id/action-plan"
+  }
+}

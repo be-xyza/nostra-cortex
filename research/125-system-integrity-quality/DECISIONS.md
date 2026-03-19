@@ -11,7 +11,7 @@ tags:
   - "siq"
   - "adr"
 created: "2026-02-23"
-updated: "2026-02-24"
+updated: "2026-03-10"
 ---
 
 # Decision Log: SIQ Program Operationalization
@@ -64,11 +64,11 @@ updated: "2026-02-24"
 - Missing owner/expiry is a governance contract failure.
 - Review cadence: weekly during observe/softgate rollout.
 
-## ADR-125-005: Initiative-Graph SIQ Bridge Must Stay Backward-Compatible
+## ADR-125-005: Contribution-Graph SIQ Bridge Must Stay Backward-Compatible
 **Date**: 2026-02-23
 **Status**: Accepted
 
-**Decision**: SIQ fields exposed via initiative-graph overview are optional metadata only.
+**Decision**: SIQ fields exposed via contribution-graph overview are optional metadata only. Any retained `initiative-graph` alias is legacy compatibility and must not be treated as navigation authority.
 
 **Fields**:
 - `siq_run_id`

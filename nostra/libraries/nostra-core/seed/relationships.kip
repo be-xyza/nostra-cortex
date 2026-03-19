@@ -1,0 +1,95 @@
+// =============================================================================
+// Nostra Core Library: Core Relationships
+// =============================================================================
+// Defines the semantic structure of the Nostra Concept Graph.
+// Links abstract types to their parents, establishes domain ownership,
+// and connects related concepts using standard KIP predicates.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Type Hierarchy (Inheritance)
+// -----------------------------------------------------------------------------
+
+UPSERT {
+    CONCEPT ?contribution_rel {
+        {type: "Contribution", name: "Contribution"}
+        // Propositions using simplified syntax (@ "predicate" "target")
+        @ "extends" "Entity"
+        @ "belongs_to_domain" "NostraCore"
+    }
+}
+
+UPSERT {
+    CONCEPT ?sleeptask_rel {
+        {type: "ConceptType", name: "SleepTask"}
+        // Propositions
+        @ "extends" "Task"
+        @ "belongs_to_domain" "NostraCore"
+    }
+}
+
+UPSERT {
+    CONCEPT ?license_rel {
+        {type: "Standard", name: "SchemaLicense"}
+        @ "extends" "Component"
+        @ "belongs_to_domain" "NostraCore"
+    }
+}
+
+UPSERT {
+    CONCEPT ?idea_rel {
+        {type: "Component", name: "Idea"}
+        @ "spawns" "Proposal"
+    }
+}
+
+UPSERT {
+    CONCEPT ?proposal_rel {
+        {type: "Component", name: "Proposal"}
+        @ "resolves" "Issue"
+        @ "extends" "Contribution"
+    }
+}
+
+UPSERT {
+    CONCEPT ?implementation_rel {
+        {type: "Component", name: "Implementation"}
+        @ "implements" "Proposal"
+        @ "extends" "Contribution"
+    }
+}
+
+
+UPSERT {
+    CONCEPT ?schemalicense_rel {
+        {type: "ConceptType", name: "SchemaLicense"}
+        SET PROPOSITIONS {
+            ("extends", {type: "ConceptType", name: "Component"}),
+            ("belongs_to_domain", {type: "Domain", name: "NostraCore"})
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Cross-Phase Relationships
+// -----------------------------------------------------------------------------
+
+UPSERT {
+    CONCEPT ?idea_rel {
+        {type: "ConceptType", name: "Idea"}
+        SET PROPOSITIONS {
+            ("spawns", {type: "ConceptType", name: "Proposal"}),
+            ("relates_to", {type: "ConceptType", name: "Question"})
+        }
+    }
+}
+
+UPSERT {
+    CONCEPT ?proposal_rel {
+        {type: "ConceptType", name: "Proposal"}
+        SET PROPOSITIONS {
+            ("resolves", {type: "ConceptType", name: "Issue"}),
+            ("implements", {type: "ConceptType", name: "Idea"})
+        }
+    }
+}

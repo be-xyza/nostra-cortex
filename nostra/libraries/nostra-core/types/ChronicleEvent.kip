@@ -1,0 +1,89 @@
+// =============================================================================
+// Nostra Core Library: Chronicle Event Type
+// =============================================================================
+// Chronicle events record temporal activity in Living Libraries using KIP's
+// built-in Event type with event_class: "chronicle:*" prefix.
+// See: DEC-005 in research/021-kip-integration/DECISIONS.md
+// =============================================================================
+
+// --- Chronicle Event Categories ---
+// Uses KIP Event type with event_class prefix for categorization:
+//
+// | Category | event_class Value |
+// |:---|:---|
+// | Entity Created | chronicle:EntityCreated |
+// | Entity Updated | chronicle:EntityUpdated |
+// | Entity Archived | chronicle:EntityArchived |
+// | Relationship Formed | chronicle:RelationshipFormed |
+// | Relationship Removed | chronicle:RelationshipRemoved |
+// | Workflow Started | chronicle:WorkflowStarted |
+// | Workflow Completed | chronicle:WorkflowCompleted |
+// | Library Seeded | chronicle:LibrarySeeded |
+// | Library Merged | chronicle:LibraryMerged |
+// | Library Forked | chronicle:LibraryForked |
+
+// --- Example: Entity Created Chronicle Event ---
+// Note: This uses KIP's built-in Event type, not a custom ChronicleEvent type
+//
+// UPSERT {
+//   CONCEPT ?event {
+//     {type: "Event", name: "chronicle:EntityCreated:icp:2026-01-16T12:00:00Z"}
+//     SET ATTRIBUTES {
+//       event_class: "chronicle:EntityCreated",
+//       content_summary: "Created Internet Computer entity",
+//       key_concepts: ["icp"],
+//       context: { 
+//         "library_id": "MyPersonalLibrary",
+//         "entity_type": "Protocol",
+//         "entity_id": "icp"
+//       }
+//     }
+//     SET PROPOSITIONS {
+//       ("belongs_to_domain", {type: "Domain", name: "MyPersonalLibrary"}),
+//       ("relates_to", {type: "Protocol", name: "Internet Computer"})
+//     }
+//   }
+// }
+// WITH METADATA { author: "user-principal", observed_at: "2026-01-16T12:00:00Z" }
+
+// --- Chronicle Query Helpers ---
+// 
+// Query chronicle events for a library:
+// FIND(?e) WHERE {
+//   ?e {type: "Event"}
+//   (?e, "belongs_to_domain", {type: "Domain", name: :libraryName})
+//   FILTER(STARTS_WITH(?e.attributes.event_class, "chronicle:"))
+// }
+// ORDER BY ?e.metadata.observed_at DESC
+// LIMIT 50
+//
+// Query chronicle events by time range:
+// FIND(?e) WHERE {
+//   ?e {type: "Event"}
+//   FILTER(
+//     STARTS_WITH(?e.attributes.event_class, "chronicle:") &&
+//     ?e.metadata.observed_at >= :since &&
+//     ?e.metadata.observed_at <= :until
+//   )
+// }
+// ORDER BY ?e.metadata.observed_at ASC
+
+// --- Storage Strategy (DEC-007) ---
+//
+// | Event Type | Storage Strategy |
+// |:---|:---|
+// | chronicle:EntityCreated | Full storage |
+// | chronicle:EntityUpdated | Full storage |
+// | chronicle:EntityArchived | Full storage |
+// | chronicle:RelationshipFormed | Full storage |
+// | chronicle:RelationshipRemoved | Full storage |
+// | chronicle:WorkflowStarted | Full storage |
+// | chronicle:WorkflowCompleted | Full storage |
+// | chronicle:LibrarySeeded | Full storage |
+// | chronicle:LibraryMerged | Full storage |
+// | chronicle:LibraryForked | Full storage |
+// | EntityViewed | Aggregate to ViewSummary (weekly) |
+// | QueryExecuted | Discard (ephemeral) |
+
+// Note: This file is documentation-only. Chronicle events use KIP's built-in
+// Event type rather than a custom $ConceptType. See DEC-005.

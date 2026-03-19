@@ -22,9 +22,10 @@
 - [ ] `NOSTRA_SIQ_LOG_DIR` override works.
 - [ ] `siq_service` typed fetch methods compile.
 
-### E. Initiative-Graph Bridge
+### E. Contribution-Graph Bridge
 - [ ] Overview payload includes optional SIQ metadata fields.
-- [ ] Existing initiative-graph payload contracts remain valid.
+- [ ] Existing contribution-graph payload contracts remain valid.
+- [ ] Any retained `initiative-graph` compatibility path is treated as legacy metadata-only lineage, not navigation authority.
 
 ### F. No Mutation API Expansion
 - [ ] No SIQ governance mutation endpoint introduced.

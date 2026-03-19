@@ -187,7 +187,10 @@ mod tests {
         assert_eq!(explicit_list.len(), 1);
 
         let child_node = &explicit_list[0];
-        assert_eq!(child_node.get("type").and_then(Value::as_str), Some("HeapBlockCard"));
+        assert_eq!(
+            child_node.get("type").and_then(Value::as_str),
+            Some("HeapBlockCard")
+        );
         let child_children = child_node
             .get("children")
             .and_then(|children| children.get("explicitList"))

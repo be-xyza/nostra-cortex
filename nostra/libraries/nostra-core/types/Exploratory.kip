@@ -1,0 +1,109 @@
+// =============================================================================
+// Nostra Core Library: Exploratory Phase Types
+// =============================================================================
+// Types for the Exploratory phase: Idea, Question, Post, Comment
+// These initiate activity and invite divergent thinking.
+// =============================================================================
+
+// --- IDEA: A spark of possibility ---
+UPSERT {
+    CONCEPT ?idea_type {
+        {type: "$ConceptType", name: "Idea"}
+        SET ATTRIBUTES {
+            description: "A spark of possibility. Ideas invite exploration and divergent thinking.",
+            tags: ["core", "contribution", "exploratory"],
+            icon: "💡",
+            extends: "Contribution",
+            phase: "exploratory",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": false },
+                "inspiration": { "type": "string", "is_required": false, "description": "What inspired this idea?" },
+                "potential_impact": { "type": "string", "is_required": false },
+                "phase": { "type": "string", "default": "exploratory" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- QUESTION: An inquiry seeking answers ---
+UPSERT {
+    CONCEPT ?question_type {
+        {type: "$ConceptType", name: "Question"}
+        SET ATTRIBUTES {
+            description: "An inquiry seeking answers or exploration. Questions drive discovery.",
+            tags: ["core", "contribution", "exploratory"],
+            icon: "❓",
+            extends: "Contribution",
+            phase: "exploratory",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true, "description": "The question being asked" },
+                "body": { "type": "string", "is_required": false, "description": "Additional context" },
+                "question_type": { 
+                    "type": "string", 
+                    "enum": ["open", "closed", "hypothetical", "clarifying"],
+                    "default": "open"
+                },
+                "is_answered": { "type": "boolean", "default": false },
+                "phase": { "type": "string", "default": "exploratory" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- POST: A published thought or update ---
+UPSERT {
+    CONCEPT ?post_type {
+        {type: "$ConceptType", name: "Post"}
+        SET ATTRIBUTES {
+            description: "A published thought, update, or announcement. Posts are the primary content unit.",
+            tags: ["core", "contribution", "exploratory"],
+            icon: "📰",
+            extends: "Contribution",
+            phase: "exploratory",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": true },
+                "format": { "type": "string", "enum": ["text", "markdown", "rich"], "default": "markdown" },
+                "is_pinned": { "type": "boolean", "default": false },
+                "phase": { "type": "string", "default": "exploratory" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- COMMENT: A response to another contribution ---
+UPSERT {
+    CONCEPT ?comment_type {
+        {type: "$ConceptType", name: "Comment"}
+        SET ATTRIBUTES {
+            description: "A response, reaction, or discussion attached to another contribution.",
+            tags: ["core", "contribution", "exploratory"],
+            icon: "💬",
+            extends: "Contribution",
+            phase: "exploratory",
+            instance_schema: {
+                "body": { "type": "string", "is_required": true },
+                "parent_id": { "type": "string", "is_required": true, "description": "ID of the contribution being commented on" },
+                "is_highlighted": { "type": "boolean", "default": false },
+                "phase": { "type": "string", "default": "exploratory" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

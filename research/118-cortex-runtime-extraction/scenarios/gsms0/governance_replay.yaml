@@ -1,0 +1,30 @@
+scenario:
+  id: "governance-replay-001"
+  name: "Deterministic Governance Replay"
+  seed: 44
+  commons_version: "nostra-core-v0"
+  siqs_version: "1.0.0"
+
+constraints:
+  max_mutations: 96
+  max_rounds: 16
+  max_runtime_ms: 1200
+
+rounds:
+  - round: 1
+    actions:
+      - actor: "author-1"
+        action: "submit_proposal"
+        proposal_type: "schema_change"
+        payload:
+          type_id: "research-note"
+  - round: 2
+    actions:
+      - actor: "reviewer-1"
+        action: "cast_vote"
+        proposal: "proposal:1"
+        choice: "yes"
+      - actor: "reviewer-2"
+        action: "cast_vote"
+        proposal: "proposal:1"
+        choice: "yes"

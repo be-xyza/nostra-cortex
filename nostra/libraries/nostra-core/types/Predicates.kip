@@ -1,0 +1,181 @@
+// =============================================================================
+// Nostra Core Library: Predicate Types (Relationships)
+// =============================================================================
+// Standard $PropositionType definitions for relationships between concepts.
+// =============================================================================
+
+// --- RELATES_TO: Generic semantic relationship ---
+UPSERT {
+    CONCEPT ?relates_to_pred {
+        {type: "$PropositionType", name: "relates_to"}
+        SET ATTRIBUTES {
+            description: "Generic semantic relationship between two concepts.",
+            tags: ["core", "predicate"],
+            subject_types: ["*"],
+            object_types: ["*"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- SPAWNS: One contribution creates another ---
+UPSERT {
+    CONCEPT ?spawns_pred {
+        {type: "$PropositionType", name: "spawns"}
+        SET ATTRIBUTES {
+            description: "Indicates that one contribution led to the creation of another.",
+            tags: ["core", "predicate"],
+            subject_types: ["Contribution"],
+            object_types: ["Contribution"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- IMPLEMENTS: A contribution realizes a decision or idea ---
+UPSERT {
+    CONCEPT ?implements_pred {
+        {type: "$PropositionType", name: "implements"}
+        SET ATTRIBUTES {
+            description: "Indicates that a contribution realizes or executes a decision or idea.",
+            tags: ["core", "predicate"],
+            subject_types: ["Project", "Deliverable"],
+            object_types: ["Decision", "Idea", "Proposal"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- BLOCKS: One item prevents progress on another ---
+UPSERT {
+    CONCEPT ?blocks_pred {
+        {type: "$PropositionType", name: "blocks"}
+        SET ATTRIBUTES {
+            description: "Indicates that one item blocks progress on another.",
+            tags: ["core", "predicate"],
+            subject_types: ["Issue"],
+            object_types: ["Project", "Milestone", "Deliverable"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- RESOLVES: A contribution addresses an issue ---
+UPSERT {
+    CONCEPT ?resolves_pred {
+        {type: "$PropositionType", name: "resolves"}
+        SET ATTRIBUTES {
+            description: "Indicates that a contribution addresses or resolves an issue.",
+            tags: ["core", "predicate"],
+            subject_types: ["Decision", "Deliverable", "Project"],
+            object_types: ["Issue", "Question"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- SUPERSEDES: One decision replaces another ---
+UPSERT {
+    CONCEPT ?supersedes_pred {
+        {type: "$PropositionType", name: "supersedes"}
+        SET ATTRIBUTES {
+            description: "Indicates that one decision or version replaces a prior one.",
+            tags: ["core", "predicate"],
+            subject_types: ["Decision", "Artifact"],
+            object_types: ["Decision", "Artifact"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- BELONGS_TO_SPACE: A contribution exists within a space ---
+UPSERT {
+    CONCEPT ?belongs_to_space_pred {
+        {type: "$PropositionType", name: "belongs_to_space"}
+        SET ATTRIBUTES {
+            description: "Indicates that a contribution exists within a specific space.",
+            tags: ["core", "predicate"],
+            subject_types: ["Contribution"],
+            object_types: ["Space"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- AUTHORED_BY: A contribution was created by a person ---
+UPSERT {
+    CONCEPT ?authored_by_pred {
+        {type: "$PropositionType", name: "authored_by"}
+        SET ATTRIBUTES {
+            description: "Indicates that a contribution was created by a person or agent.",
+            tags: ["core", "predicate"],
+            subject_types: ["Contribution"],
+            object_types: ["Person"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- PART_OF: Hierarchical containment ---
+UPSERT {
+    CONCEPT ?part_of_pred {
+        {type: "$PropositionType", name: "part_of"}
+        SET ATTRIBUTES {
+            description: "Indicates hierarchical containment (milestone part_of project).",
+            tags: ["core", "predicate"],
+            subject_types: ["Milestone", "Deliverable"],
+            object_types: ["Project", "Initiative"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- REVIEWS: A review targets a contribution ---
+UPSERT {
+    CONCEPT ?reviews_pred {
+        {type: "$PropositionType", name: "reviews"}
+        SET ATTRIBUTES {
+            description: "Indicates that a review evaluates a specific contribution.",
+            tags: ["core", "predicate"],
+            subject_types: ["Review"],
+            object_types: ["Contribution"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- REWARDS: A bounty incentivizes work on a contribution ---
+UPSERT {
+    CONCEPT ?rewards_pred {
+        {type: "$PropositionType", name: "rewards"}
+        SET ATTRIBUTES {
+            description: "Indicates that a bounty incentivizes completion of a contribution.",
+            tags: ["core", "predicate"],
+            subject_types: ["Bounty"],
+            object_types: ["Issue", "Deliverable"],
+            is_symmetric: false
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

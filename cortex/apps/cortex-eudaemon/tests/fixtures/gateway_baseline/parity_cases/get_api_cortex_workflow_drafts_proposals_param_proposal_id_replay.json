@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_workflow_drafts_proposals_param_proposal_id_replay",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/replay"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/replay"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/replay"
+  }
+}

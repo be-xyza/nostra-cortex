@@ -72,7 +72,11 @@ pub fn evaluate_heap_steward_gate(
 
 pub fn build_steward_gate_surface(artifact_id: &str, evaluation: &StewardGateEvaluation) -> Value {
     let outcome = &evaluation.outcome;
-    let severity = if outcome.should_block { "error" } else { "warning" };
+    let severity = if outcome.should_block {
+        "error"
+    } else {
+        "warning"
+    };
     let violation_count = outcome.violations.len();
     let suggestion_count = outcome.suggested_enrichments.len();
     let summary = if outcome.should_block {
@@ -385,7 +389,8 @@ mod tests {
             commons_version: "1.0.0".to_string(),
             rules: vec![],
         };
-        let outcome = evaluate_commons_ruleset(&graph, &ruleset, CommonsEnforcementMode::WarnOrBlock);
+        let outcome =
+            evaluate_commons_ruleset(&graph, &ruleset, CommonsEnforcementMode::WarnOrBlock);
         let token = issue_publish_token("artifact-1", "rev-1", "actor-1", &outcome)
             .expect("token should be issued");
 

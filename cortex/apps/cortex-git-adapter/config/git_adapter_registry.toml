@@ -1,0 +1,21 @@
+# Git Adapter Registry (Phase 1)
+#
+# Repos not listed here are ignored.
+#
+# Notes:
+# - `space_id` is stored as an attribute for future scoping; Phase 1 does not enforce space ACLs.
+# - `interval_secs` and `lookback_secs` govern reconciliation polling.
+
+[repos]
+
+  [repos.icp]
+  enabled = true
+  repo_full_name = "xaoj/ICP"
+  branch = "main"
+  space_id = "nostra-governance-v0"
+  ingest_push = true
+  ingest_pull_request = true
+  ingest_issues = true
+  interval_secs = 1800
+  lookback_secs = 604800
+  tags = ["nostra", "core"]

@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { workbenchApi } from "../../api";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Plus, Menu, PanelLeftOpen } from "lucide-react";
+import { useSearchParams, useLocation } from "react-router-dom";
+import { resolveWorkbenchSpaceId, workbenchApi } from "../../api";
 import type {
     ArtifactGovernanceEnvelope,
     EmitHeapBlockRequest,
@@ -10,8 +12,22 @@ import { HeapBlockCard } from "./HeapBlockCard";
 import { HeapActionBar } from "./HeapActionBar";
 import { HeapDetailModal } from "./HeapDetailModal";
 import { StewardGateModal } from "./StewardGateModal";
-import { HeapFilterSidebar, HeapFilterMode, HeapViewMode } from "./HeapFilterSidebar";
-import "./heap.css";
+import { useHeapActionPlan } from "./useHeapActionPlan";
+import { type ActionHandlers } from "./actionExecutor";
+import type { ActionSelectionContext } from "../../contracts";
+import { HeapFilterSidebar, HeapFilterMode } from "./HeapFilterSidebar";
+import { AgentActivityPanel } from "./AgentActivityPanel";
+import { CommentSidebar } from "./CommentSidebar";
+import { useUiStore } from "../../store/uiStore";
+import { useActiveSpaceContext } from "../../store/spacesRegistry";
+import {
+    buildHeapViewCounts,
+    filterHeapBlocksByView,
+    heapPrimaryViewModeParam,
+    normalizeHeapPrimaryViewMode,
+    type HeapPrimaryViewMode,
+} from "./heapViewModel";
+import { AmbientGraphBackground } from "./AmbientGraphBackground";
 
 interface HeapBlockGridProps {
     /** Optional pre-filters to scope this grid (e.g. { blockType: "scorecard" } for /system) */
@@ -25,13 +41,15 @@ interface HeapBlockGridProps {
 }
 
 const SEARCH_INPUT_ID = "heap-command-search";
-const DEFAULT_WORKSPACE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 const HEAP_DELTA_POLLING_ENABLED_KEY = "cortex.heap.deltaPolling";
 const HEAP_DELTA_POLLING_INTERVAL_MS_KEY = "cortex.heap.deltaPollingIntervalMs";
 
-type CreateMode = "create" | "generate" | "upload";
+type CreateMode = "create" | "generate" | "upload" | "solicit";
 
 export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: HeapBlockGridProps) {
+    const activeSpaceId = useActiveSpaceContext();
+    const [searchParams, setSearchParams] = useSearchParams();
+
     const env = (import.meta as unknown as { env?: Record<string, string | boolean | undefined> }).env;
     const isDevMode = env?.DEV === true || String(env?.DEV).toLowerCase() === "true";
     const heapParityEnabled =
@@ -52,7 +70,11 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const [error, setError] = useState<string | null>(null);
     const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
     const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<HeapViewMode>("All");
+    const location = useLocation();
+    const viewMode = useMemo<HeapPrimaryViewMode>(() => {
+        if (location.pathname === "/inbox") return "Inbox";
+        return normalizeHeapPrimaryViewMode(searchParams.get("heap_view"));
+    }, [location.pathname, searchParams]);
     const [filterMode, setFilterMode] = useState<HeapFilterMode>("AND");
     const [filterTerm, setFilterTerm] = useState("");
     const [excludeTerm, setExcludeTerm] = useState("");
@@ -69,11 +91,26 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const [newBlockText, setNewBlockText] = useState("");
     const [agentPrompt, setAgentPrompt] = useState("");
     const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [solicitRole, setSolicitRole] = useState("steward.code");
+    const [solicitBudget, setSolicitBudget] = useState("50000");
+    const [solicitCapabilities, setSolicitCapabilities] = useState("read,write");
     const [isEmitting, setIsEmitting] = useState(false);
     const [stewardGateArtifactId, setStewardGateArtifactId] = useState<string | null>(null);
     const [stewardGateValidation, setStewardGateValidation] = useState<HeapStewardGateValidateResponse | null>(null);
     const [stewardApplyingId, setStewardApplyingId] = useState<string | null>(null);
     const [stewardPublishing, setStewardPublishing] = useState(false);
+    const [commentSidebarBlockId, setCommentSidebarBlockId] = useState<string | null>(null);
+    const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [bgGraphVariant, setBgGraphVariant] = useState<"off" | "2d" | "3d">(() => {
+        try { 
+            const saved = localStorage.getItem("cortex.heap.bgGraph");
+            return (saved as "off" | "2d" | "3d") || "off"; 
+        } catch { return "off"; }
+    });
+    useEffect(() => {
+        try { localStorage.setItem("cortex.heap.bgGraph", bgGraphVariant); } catch {}
+    }, [bgGraphVariant]);
     const [heapChangedBlocksPollingEnabled, setHeapChangedBlocksPollingEnabled] = useState(heapChangedBlocksPollingEnabledDefault);
     const [heapChangedBlocksPollingIntervalMs, setHeapChangedBlocksPollingIntervalMs] = useState(heapChangedBlocksPollingIntervalDefaultMs);
     const [heapChangedBlocksPollingIntervalInput, setHeapChangedBlocksPollingIntervalInput] = useState(
@@ -93,7 +130,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const fetchBlocks = useCallback(() => {
         setLoading(true);
         workbenchApi.getHeapBlocks({
-            spaceId: filterDefaults?.spaceId,
+            spaceId: activeSpaceId,
             blockType: filterDefaults?.blockType,
             tag: filterDefaults?.tag,
             pageLink: activePageLinkFilter,
@@ -112,9 +149,10 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             })
             .catch(err => setError(err.message))
             .finally(() => setLoading(false));
-    }, [filterDefaults?.spaceId, filterDefaults?.blockType, filterDefaults?.tag, activePageLinkFilter]);
+    }, [activeSpaceId, filterDefaults?.blockType, filterDefaults?.tag, activePageLinkFilter]);
 
     useEffect(() => { fetchBlocks(); }, [fetchBlocks]);
+
 
     useEffect(() => {
         const onShortcut = (event: KeyboardEvent) => {
@@ -126,6 +164,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             }
             if (event.key === "Escape") {
                 setExpandedBlockId(null);
+                setCommentSidebarBlockId(null);
             }
         };
         window.addEventListener("keydown", onShortcut);
@@ -133,17 +172,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     }, []);
 
     // Derive view counts
-    const blockCounts = useMemo(() => {
-        const counts: Record<HeapViewMode, number> = { All: 0, Pinned: 0, Urgent: 0, Unlinked: 0 };
-        for (const b of blocks) {
-            counts.All++;
-            const behaviors = extractBehaviors(b);
-            if (behaviors.includes("pinned") || b.pinnedAt) counts.Pinned++;
-            if (behaviors.includes("urgent")) counts.Urgent++;
-            if (!b.projection.mentionsInline?.length) counts.Unlinked++;
-        }
-        return counts;
-    }, [blocks]);
+    const blockCounts = useMemo(() => buildHeapViewCounts(blocks), [blocks]);
 
     // Derive all tags
     const allTags = useMemo(() => {
@@ -170,12 +199,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
 
     // Apply filters
     const filteredBlocks = useMemo(() => {
-        return blocks.filter(b => {
-            const behaviors = extractBehaviors(b);
-            if (viewMode === "Pinned" && !(behaviors.includes("pinned") || !!b.pinnedAt)) return false;
-            if (viewMode === "Urgent" && !behaviors.includes("urgent")) return false;
-            if (viewMode === "Unlinked" && !!b.projection.mentionsInline?.length) return false;
-
+        return filterHeapBlocksByView(blocks, viewMode).filter(b => {
             const searchable = blockSearchCorpus(b);
 
             const includeMatches = includeTerms.length === 0
@@ -223,19 +247,87 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         [blocks, selectedPrimaryId]
     );
 
+    const selectionContext = useMemo<ActionSelectionContext>(() => {
+        return {
+            selectedArtifactIds: selectedBlockIds,
+            activeArtifactId: expandedBlockId || undefined,
+            selectedCount: selectedBlockIds.length,
+            selectedBlockTypes: Array.from(new Set(
+                selectedBlockIds.map(id => blocks.find(b => b.projection.artifactId === id)?.projection.blockType).filter(Boolean) as string[]
+            ))
+        };
+    }, [selectedBlockIds, blocks, expandedBlockId]);
+ 
+    // Use a ref to always have the latest selection context in handlers, bypassing stale closures
+    const selectionRef = useRef(selectionContext);
+    useEffect(() => {
+        selectionRef.current = selectionContext;
+    }, [selectionContext]);
+
+    const activeFilters = useMemo(() => ({
+        viewMode,
+        filterMode,
+        selectedTags,
+        selectedPageLinks,
+    }), [filterMode, selectedPageLinks, selectedTags, viewMode]);
+    const { actionPlan, loading: actionPlanLoading, error: actionPlanError, source: actionPlanSource } = useHeapActionPlan({
+        selection: selectionContext,
+        zones: ["heap_page_bar", "heap_selection_bar"],
+        activeFilters,
+    });
+    const pageZonePlan = useMemo(
+        () => actionPlan?.zones.find((zone) => zone.zone === "heap_page_bar") ?? null,
+        [actionPlan]
+    );
+    const selectionZonePlan = useMemo(
+        () => actionPlan?.zones.find((zone) => zone.zone === "heap_selection_bar") ?? null,
+        [actionPlan]
+    );
+    const cardMenuContext = useMemo<ActionSelectionContext>(() => ({
+        selectedArtifactIds: ["heap-card-context"],
+        activeArtifactId: "heap-card-context",
+        selectedCount: 1,
+        selectedBlockTypes: ["note"],
+    }), []);
+    const { actionPlan: cardActionPlan } = useHeapActionPlan({
+        selection: cardMenuContext,
+        zones: ["heap_card_menu"],
+        activeFilters,
+    });
+    const cardMenuZonePlan = useMemo(
+        () => cardActionPlan?.zones.find((zone) => zone.zone === "heap_card_menu") ?? null,
+        [cardActionPlan]
+    );
+
+    const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
+
     const handleSelection = (blockId: string, event: React.MouseEvent<HTMLDivElement>) => {
         const toggleSelection = heapParityEnabled && (multiSelectEnabled || event.metaKey || event.ctrlKey);
         if (!toggleSelection) {
             setSelectedBlockIds([blockId]);
+            setSelectionMessage("Block Selected");
             return;
         }
         setSelectedBlockIds((current) => {
             if (current.includes(blockId)) {
                 return current.filter((item) => item !== blockId);
             }
+            setSelectionMessage("Block Selected");
             return [...current, blockId];
         });
     };
+
+    useEffect(() => {
+        if (selectionMessage) {
+            const timer = setTimeout(() => setSelectionMessage(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [selectionMessage]);
+
+    const resolveActionSelectionIds = useCallback(
+        (actionSelection?: ActionSelectionContext) => actionSelection?.selectedArtifactIds ?? selectedBlockIds,
+        [selectedBlockIds],
+    );
 
     const handlePinToggled = () => {
         fetchBlocks();
@@ -249,21 +341,23 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         setStatusMessage("Selected blocks deleted.");
     };
 
-    const handleRegenerate = () => {
-        if (!selectedPrimaryId) return;
-        setRegeneratingId(selectedPrimaryId);
+    const handleRegenerate = (actionSelection?: ActionSelectionContext) => {
+        const artifactId = resolveActionSelectionIds(actionSelection)[0];
+        if (!artifactId) return;
+        setRegeneratingId(artifactId);
         setTimeout(() => setRegeneratingId(null), 1500);
         setStatusMessage("Regeneration requested (UI simulation).");
     };
 
-    const handleContextBundle = async () => {
+    const handleContextBundle = async (actionSelection?: ActionSelectionContext) => {
         if (!heapParityEnabled) {
             setStatusMessage("Heap parity features are disabled by VITE_HEAP_PARITY_ENABLED.");
             return;
         }
-        if (selectedBlockIds.length === 0) return;
+        const actionIds = resolveActionSelectionIds(actionSelection);
+        if (actionIds.length === 0) return;
         try {
-            const bundle = await workbenchApi.createHeapContextBundle(selectedBlockIds);
+            const bundle = await workbenchApi.createHeapContextBundle(actionIds);
             setStatusMessage(`Context bundle prepared: ${bundle.context_bundle.block_count} blocks.`);
             console.info("Heap context bundle", bundle);
         } catch (err) {
@@ -271,42 +365,97 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         }
     };
 
-    const handleExport = async () => {
+    const handleExport = async (actionSelection?: ActionSelectionContext) => {
         if (!heapParityEnabled) {
             setStatusMessage("Heap parity features are disabled by VITE_HEAP_PARITY_ENABLED.");
             return;
         }
-        if (selectedBlockIds.length === 0) return;
+        const actionIds = resolveActionSelectionIds(actionSelection);
+        if (actionIds.length === 0) return;
         try {
-            if (selectedBlockIds.length === 1) {
-                const exportPayload = await workbenchApi.getHeapBlockExport(selectedBlockIds[0], "json");
-                downloadJson(`heap-block-${selectedBlockIds[0]}.json`, exportPayload);
+            if (actionIds.length === 1) {
+                const exportPayload = await workbenchApi.getHeapBlockExport(actionIds[0], "json");
+                downloadJson(`heap-block-${actionIds[0]}.json`, exportPayload);
                 setStatusMessage("Single block export downloaded.");
                 return;
             }
-            const bundle = await workbenchApi.createHeapContextBundle(selectedBlockIds);
+            const bundle = await workbenchApi.createHeapContextBundle(actionIds);
             downloadJson(`heap-context-${Date.now()}.json`, bundle);
-            setStatusMessage(`Bundle export downloaded (${selectedBlockIds.length} blocks).`);
+            setStatusMessage(`Bundle export downloaded (${actionIds.length} blocks).`);
         } catch (err) {
             setStatusMessage(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
         }
     };
 
-    const handleHistory = async () => {
+    const handleHistory = async (actionSelection?: ActionSelectionContext) => {
         if (!heapParityEnabled) {
             setStatusMessage("Heap parity features are disabled by VITE_HEAP_PARITY_ENABLED.");
             return;
         }
-        if (selectedBlockIds.length !== 1) {
+        const actionIds = resolveActionSelectionIds(actionSelection);
+        if (actionIds.length !== 1) {
             setStatusMessage("History requires exactly one selected block.");
             return;
         }
         try {
-            const history = await workbenchApi.getHeapBlockHistory(selectedBlockIds[0]);
+            const history = await workbenchApi.getHeapBlockHistory(actionIds[0]);
             setStatusMessage(`History loaded: ${history.versions.length} events.`);
             console.info("Heap history", history);
         } catch (err) {
             setStatusMessage(`History failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    };
+
+    const handleSynthesize = async (actionSelection?: ActionSelectionContext) => {
+        if (!heapParityEnabled) {
+            setStatusMessage("Heap parity features are disabled.");
+            return;
+        }
+        // Prefer state-derived Ref for absolute latest data
+        const actionIds = selectionRef.current.selectedArtifactIds;
+        
+        if (actionIds.length < 3) {
+            setStatusMessage(`Synthesize requires at least 3 blocks (selected: ${actionIds.length})`);
+            return;
+        }
+
+        try {
+            setStatusMessage("Agent 'steward.synth' is processing selection...");
+
+            // Artificial delay for "Agent Processing" feel
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            const spaceId = resolveSpaceId(activeSpaceId);
+            const emitRequest: EmitHeapBlockRequest = {
+                schema_version: "1.0.0",
+                mode: "heap",
+                space_id: spaceId,
+                source: {
+                    agent_id: "steward.synth",
+                    emitted_at: new Date().toISOString(),
+                },
+                block: {
+                    type: "note",
+                    title: `Synthesis: ${actionIds.length} Blocks`,
+                    attributes: {
+                        origin: "bulk_synthesis",
+                        synth_model: "nostra-large-v1"
+                    }
+                },
+                content: {
+                    payload_type: "rich_text",
+                    rich_text: {
+                        plain_text: `### Executive Summary\n\nThis synthesis contains a multi-agent distillation of the following blocks: ${actionIds.join(", ")}.\n\n- [x] Context reconciled\n- [x] Conflict resolution applied\n- [ ] Pending validation by human reviewer\n\n**Generated insights:** The current selection indicates a 15% deviation in expected behavior markers. Recommended action: Deep audit of relational links.`
+                    }
+                }
+            };
+
+            await workbenchApi.emitHeapBlock(emitRequest);
+            setStatusMessage("Synthesis block emitted to space.");
+            fetchBlocks();
+            setSelectedBlockIds([]);
+        } catch (err) {
+            setStatusMessage(`Synthesis failed: ${err instanceof Error ? err.message : String(err)}`);
         }
     };
 
@@ -339,16 +488,17 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         });
     };
 
-    const handlePublish = async () => {
+    const handlePublish = async (actionSelection?: ActionSelectionContext) => {
         if (!heapParityEnabled) {
             setStatusMessage("Heap parity features are disabled by VITE_HEAP_PARITY_ENABLED.");
             return;
         }
-        if (selectedBlockIds.length !== 1) {
+        const actionIds = resolveActionSelectionIds(actionSelection);
+        if (actionIds.length !== 1) {
             setStatusMessage("Publish requires exactly one selected block.");
             return;
         }
-        const artifactId = selectedBlockIds[0];
+        const artifactId = actionIds[0];
         try {
             const validation = await workbenchApi.validateHeapStewardGate(artifactId);
             if (validation.status === "pass") {
@@ -390,6 +540,28 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         }
     };
 
+    const actionHandlers = useMemo<ActionHandlers>(() => ({
+        onDeselect: () => setSelectedBlockIds([]),
+        onPinToggled: handlePinToggled,
+        onDeleted: handleDeleted,
+        onRegenerate: () => handleRegenerate(selectionRef.current),
+        onContextBundle: () => handleContextBundle(selectionRef.current),
+        onExport: () => handleExport(selectionRef.current),
+        onHistory: () => handleHistory(selectionRef.current),
+        onPublish: () => handlePublish(selectionRef.current),
+        onSynthesize: () => handleSynthesize(selectionRef.current),
+        onCreateBlock: () => setCreatePanelOpen(open => !open),
+        onOpenDiscussion: (actionSelection) => {
+            const artifactId = (actionSelection || selectionRef.current).selectedArtifactIds[0];
+            if (!artifactId) return;
+            setCommentSidebarBlockId(artifactId);
+        },
+    }), [
+        handlePinToggled, handleDeleted, handleRegenerate,
+        handleContextBundle, handleExport, handleHistory,
+        handlePublish, handleSynthesize
+    ]);
+
     const handleStewardGatePublish = async () => {
         if (!stewardGateArtifactId || !stewardGateValidation) return;
         try {
@@ -419,10 +591,13 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         setNewBlockText("");
         setAgentPrompt("");
         setUploadFile(null);
+        setSolicitRole("steward.code");
+        setSolicitBudget("50000");
+        setSolicitCapabilities("read,write");
     };
 
     const buildEmitPayload = (): EmitHeapBlockRequest => {
-        const workspaceId = resolveWorkspaceId(filterDefaults?.spaceId);
+        const spaceId = resolveSpaceId(activeSpaceId);
         const emittedAt = new Date().toISOString();
         const titleFallback = createMode === "generate"
             ? "Generated Heap Block"
@@ -436,7 +611,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             return {
                 schema_version: "1.0.0",
                 mode: "heap",
-                workspace_id: workspaceId,
+                space_id: spaceId,
                 source: {
                     agent_id: "cortex-web",
                     emitted_at: emittedAt,
@@ -463,7 +638,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             return {
                 schema_version: "1.0.0",
                 mode: "heap",
-                workspace_id: workspaceId,
+                space_id: spaceId,
                 source: {
                     agent_id: "cortex-web",
                     emitted_at: emittedAt,
@@ -487,10 +662,37 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             };
         }
 
+        if (createMode === "solicit") {
+            return {
+                schema_version: "1.0.0",
+                mode: "heap",
+                space_id: spaceId,
+                source: {
+                    agent_id: "cortex-web",
+                    emitted_at: emittedAt,
+                },
+                block: {
+                    type: "agent_solicitation",
+                    title: resolvedTitle || "Agent Solicitation",
+                },
+                content: {
+                    payload_type: "structured_data",
+                    structured_data: {
+                        space_id: spaceId,
+                        type: "agent_solicitation",
+                        role: solicitRole.trim(),
+                        required_capabilities: solicitCapabilities.split(",").map((s) => s.trim()).filter(Boolean),
+                        budget: { max: parseInt(solicitBudget, 10) || 50000 },
+                        authority_scope: "L1",
+                    },
+                },
+            };
+        }
+
         return {
             schema_version: "1.0.0",
             mode: "heap",
-            workspace_id: workspaceId,
+            space_id: spaceId,
             source: {
                 agent_id: "cortex-web",
                 emitted_at: emittedAt,
@@ -554,7 +756,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         const timer = window.setInterval(async () => {
             try {
                 const response = await workbenchApi.getHeapChangedBlocks({
-                    spaceId: filterDefaults?.spaceId,
+                    spaceId: activeSpaceId,
                     blockType: filterDefaults?.blockType,
                     pageLink: activePageLinkFilter,
                     changedSince: lastDeltaSince || undefined,
@@ -577,7 +779,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     }, [
         effectiveHeapChangedBlocksPollingEnabled,
         heapChangedBlocksPollingIntervalMs,
-        filterDefaults?.spaceId,
+        activeSpaceId,
         filterDefaults?.blockType,
         activePageLinkFilter,
         lastDeltaSince,
@@ -636,297 +838,366 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     }
 
     return (
-        <div className="heap-surface" style={{ display: "flex", height: "100%", backgroundColor: "#0a0f1c" }}>
-            {/* Sidebar */}
+        <div className="heap-surface flex h-full w-full overflow-hidden select-none">
+            {/* Sidebar with collapse transition */}
             {showFilterSidebar && (
-                <HeapFilterSidebar
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                    filterTerm={filterTerm}
-                    onFilterTermChange={setFilterTerm}
-                    excludeTerm={excludeTerm}
-                    onExcludeTermChange={setExcludeTerm}
-                    filterMode={filterMode}
-                    onFilterModeChange={setFilterMode}
-                    allTags={allTags}
-                    selectedTags={selectedTags}
-                    onToggleTag={toggleTag}
-                    allPageLinks={allPageLinks}
-                    selectedPageLinks={selectedPageLinks}
-                    onTogglePageLink={togglePageLink}
-                    pageLinkTerm={pageLinkTerm}
-                    onPageLinkTermChange={setPageLinkTerm}
-                    blockCounts={blockCounts}
-                    multiSelectEnabled={multiSelectEnabled}
-                    onToggleMultiSelect={() => setMultiSelectEnabled((value) => !value)}
-                    searchInputId={SEARCH_INPUT_ID}
-                    heapParityEnabled={heapParityEnabled}
-                />
+                <div className={`transition-all duration-300 ease-in-out flex shrink-0 ${isSidebarCollapsed ? "w-0 overflow-hidden" : "w-64"}`}>
+                    <HeapFilterSidebar
+                        filterTerm={filterTerm}
+                        onFilterTermChange={setFilterTerm}
+                        excludeTerm={excludeTerm}
+                        onExcludeTermChange={setExcludeTerm}
+                        filterMode={filterMode}
+                        onFilterModeChange={setFilterMode}
+                        allTags={allTags}
+                        selectedTags={selectedTags}
+                        onToggleTag={toggleTag}
+                        allPageLinks={allPageLinks}
+                        selectedPageLinks={selectedPageLinks}
+                        onTogglePageLink={togglePageLink}
+                        pageLinkTerm={pageLinkTerm}
+                        onPageLinkTermChange={setPageLinkTerm}
+                        viewCounts={blockCounts}
+                        viewMode={viewMode}
+                        onViewModeChange={(nextMode) => {
+                            const nextParams = new URLSearchParams(searchParams);
+                            nextParams.set("heap_view", heapPrimaryViewModeParam(nextMode));
+                            setSearchParams(nextParams, { replace: true });
+                        }}
+                        multiSelectEnabled={multiSelectEnabled}
+                        onToggleMultiSelect={() => setMultiSelectEnabled((value) => !value)}
+                        searchInputId={SEARCH_INPUT_ID}
+                        heapParityEnabled={heapParityEnabled}
+                        isCollapsed={isSidebarCollapsed}
+                        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    />
+                </div>
             )}
 
             {/* Main Content */}
-            <main style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative" }}>
-                {/* Header */}
-                <header className="heap-surface__glass-panel" style={{ minHeight: "64px", borderBottom: "1px solid var(--cortex-800)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.5rem", position: "sticky", top: 0, zIndex: 10, flexWrap: "wrap", gap: "0.5rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-                        <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#f1f5f9" }}>
-                            {viewMode} Blocks
-                        </h2>
-                        {(includeTerms.length > 0 || selectedTags.length > 0) && (
-                            <span className="heap-badge heap-badge--outline heap-badge--blue">{filterMode} match</span>
-                        )}
-                        {selectedPageLinks.length > 0 && (
-                            <span className="heap-badge heap-badge--outline heap-badge--blue">pageLink {selectedPageLinks.length}</span>
-                        )}
-                        {excludeTerms.length > 0 && (
-                            <span className="heap-badge heap-badge--outline heap-badge--red">NOT {excludeTerms.length}</span>
-                        )}
-                        {filterDefaults?.blockType && (
-                            <span className="heap-badge heap-badge--outline heap-badge--purple">type: {filterDefaults.blockType}</span>
-                        )}
-                        {statusMessage && (
-                            <span className="heap-badge heap-badge--outline heap-badge--slate">{statusMessage}</span>
-                        )}
-                    </div>
-                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                        {isDevMode && (
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.35rem",
-                                    border: "1px solid var(--cortex-800)",
-                                    borderRadius: "0.45rem",
-                                    padding: "0.2rem 0.35rem",
-                                    background: "rgba(15, 23, 42, 0.55)",
-                                }}
-                                title={
-                                    heapDeltaPollingControlsLocked
-                                        ? "Delta polling is locked by VITE_HEAP_CHANGED_BLOCKS_POLLING_ENABLED=true"
-                                        : "Dev-only delta polling control"
-                                }
-                            >
-                                <span style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 600 }}>Delta Poll</span>
-                                <button
-                                    className="heap-filter-sidebar__tag-btn"
-                                    onClick={() => persistHeapDeltaPollingEnabled(!heapChangedBlocksPollingEnabled)}
-                                    disabled={heapDeltaPollingControlsLocked}
-                                    aria-label="Toggle heap delta polling"
-                                    style={heapDeltaPollingControlsLocked ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
-                                >
-                                    {effectiveHeapChangedBlocksPollingEnabled ? "On" : "Off"}
-                                </button>
-                                <input
-                                    type="number"
-                                    min={500}
-                                    step={100}
-                                    value={heapChangedBlocksPollingIntervalInput}
-                                    onChange={(event) => setHeapChangedBlocksPollingIntervalInput(event.target.value)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === "Enter") {
-                                            commitHeapDeltaPollingIntervalInput();
-                                        }
-                                    }}
-                                    disabled={heapDeltaPollingControlsLocked}
-                                    aria-label="Heap delta polling interval in milliseconds"
-                                    style={{
-                                        width: "4.75rem",
-                                        borderRadius: "0.3rem",
-                                        border: "1px solid var(--cortex-800)",
-                                        background: "rgba(15, 23, 42, 0.8)",
-                                        color: "#cbd5e1",
-                                        fontSize: "0.75rem",
-                                        padding: "0.2rem 0.35rem",
-                                        opacity: heapDeltaPollingControlsLocked ? 0.55 : 1,
-                                    }}
-                                />
-                                <button
-                                    className="heap-filter-sidebar__tag-btn"
-                                    onClick={commitHeapDeltaPollingIntervalInput}
-                                    disabled={heapDeltaPollingControlsLocked}
-                                    aria-label="Apply heap delta polling interval"
-                                    style={heapDeltaPollingControlsLocked ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
-                                >
-                                    Apply
-                                </button>
-                            </div>
-                        )}
-                        <button
-                            onClick={() => setSelectedBlockIds([])}
-                            className="heap-filter-sidebar__tag-btn"
-                        >
-                            Clear Select
-                        </button>
-                        {heapCreateFlowEnabled && (
-                            <button
-                                onClick={() => setCreatePanelOpen((open) => !open)}
-                                style={{
-                                    background: "var(--cortex-accent)", color: "#fff", padding: "6px 12px", borderRadius: "0.375rem",
-                                    fontSize: "0.875rem", fontWeight: 600, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.45rem",
-                                    boxShadow: "0 4px 14px rgba(59,130,246,0.25)"
-                                }}
-                                aria-label="Open create block panel"
-                            >
-                                + Create
-                            </button>
-                        )}
-                    </div>
-                </header>
-
-                {heapCreateFlowEnabled && createPanelOpen && (
-                    <section style={{ borderBottom: "1px solid var(--cortex-800)", background: "rgba(7, 11, 20, 0.7)", padding: "0.85rem 1.5rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
-                            <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
-                                <button className={`heap-filter-sidebar__tag-btn ${createMode === "create" ? "heap-filter-sidebar__tag-btn--active" : ""}`} onClick={() => setCreateMode("create")}>Create Block</button>
-                                <button className={`heap-filter-sidebar__tag-btn ${createMode === "generate" ? "heap-filter-sidebar__tag-btn--active" : ""}`} onClick={() => setCreateMode("generate")}>Generate with Agent</button>
-                                <button className={`heap-filter-sidebar__tag-btn ${createMode === "upload" ? "heap-filter-sidebar__tag-btn--active" : ""}`} onClick={() => setCreateMode("upload")}>Upload</button>
-                            </div>
-                            <button className="heap-filter-sidebar__tag-btn" onClick={() => setCreatePanelOpen(false)}>Close</button>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 0.9fr) minmax(0, 1.3fr)", gap: "0.65rem" }}>
-                            <input
-                                type="text"
-                                value={newBlockTitle}
-                                onChange={(event) => setNewBlockTitle(event.target.value)}
-                                className="heap-filter-sidebar__search"
-                                placeholder="Block title"
-                            />
-                            {createMode === "create" && (
-                                <input
-                                    type="text"
-                                    value={newBlockType}
-                                    onChange={(event) => setNewBlockType(event.target.value)}
-                                    className="heap-filter-sidebar__search"
-                                    placeholder="Block type (note/task/chart)"
-                                />
-                            )}
-                            {createMode === "generate" && (
-                                <input
-                                    type="text"
-                                    value={agentPrompt}
-                                    onChange={(event) => setAgentPrompt(event.target.value)}
-                                    className="heap-filter-sidebar__search"
-                                    placeholder="Prompt for Generate with Agent"
-                                />
-                            )}
-                            {createMode === "upload" && (
-                                <input
-                                    type="file"
-                                    className="heap-filter-sidebar__search"
-                                    onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
-                                />
-                            )}
-                        </div>
-                        {createMode === "create" && (
-                            <textarea
-                                value={newBlockText}
-                                onChange={(event) => setNewBlockText(event.target.value)}
-                                className="heap-filter-sidebar__search"
-                                style={{ minHeight: "84px", resize: "vertical" }}
-                                placeholder="Write block content..."
-                            />
-                        )}
-                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                            <button
-                                onClick={emitCreatedBlock}
-                                disabled={isEmitting}
-                                style={{
-                                    background: "var(--cortex-accent)",
-                                    color: "#fff",
-                                    padding: "6px 12px",
-                                    borderRadius: "0.375rem",
-                                    fontSize: "0.82rem",
-                                    border: "none",
-                                    cursor: isEmitting ? "not-allowed" : "pointer",
-                                    opacity: isEmitting ? 0.6 : 1
-                                }}
-                            >
-                                {isEmitting ? "Creating..." : "Create Block"}
-                            </button>
-                        </div>
-                    </section>
-                )}
-
-                {/* Block Grid + Schema Inspector */}
-                <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-                    <div className="heap-scroll" style={{ flex: 1, overflowY: "auto", padding: "1.5rem", position: "relative" }}>
-                        {loading ? (
-                            <div style={{ padding: "2rem", color: "#64748b", textAlign: "center" }}>Loading blocks...</div>
-                        ) : filteredBlocks.length === 0 ? (
-                            <div className="heap-empty-state">
-                                <div className="heap-empty-state__icon-ring">
-                                    <span style={{ fontSize: "2rem", opacity: 0.5 }}>◻</span>
-                                </div>
-                                <p style={{ fontSize: "0.875rem" }}>No blocks found in this view.</p>
-                            </div>
-                        ) : (
-                            <div className="heap-masonry-grid" style={{ paddingBottom: "6rem" }}>
-                                {filteredBlocks.map(b => (
-                                    <HeapBlockCard
-                                        key={b.projection.artifactId}
-                                        block={b}
-                                        isSelected={selectedBlockIds.includes(b.projection.artifactId)}
-                                        isRegenerating={regeneratingId === b.projection.artifactId}
-                                        onClick={(event) => handleSelection(b.projection.artifactId, event)}
-                                        onDoubleClick={() => setExpandedBlockId(b.projection.artifactId)}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    {selectedPrimaryBlock && (
-                        <aside className="heap-inspector-panel">
-                            <div className="heap-inspector-panel__header">
-                                <h3 className="heap-inspector-panel__title">Schema Inspector</h3>
-                                <button className="heap-modal__close-btn" onClick={() => setSelectedBlockIds([])} aria-label="Close schema inspector">✕</button>
-                            </div>
-                            <div className="heap-inspector-panel__body">
-                                <p style={{ fontSize: "12px", color: "#94a3b8", lineHeight: 1.55, marginBottom: "0.75rem" }}>
-                                    EmitHeapBlock projection and surface payload for the selected heap block.
-                                </p>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                                    <div>
-                                        <h4 className="heap-modal__section-label">Projection</h4>
-                                        <pre className="heap-inspector-panel__json">{JSON.stringify(selectedPrimaryBlock.projection, null, 2)}</pre>
-                                    </div>
-                                    <div>
-                                        <h4 className="heap-modal__section-label">Surface Json</h4>
-                                        <pre className="heap-inspector-panel__json">{JSON.stringify(selectedPrimaryBlock.surfaceJson, null, 2)}</pre>
-                                    </div>
-                                    {(selectedPrimaryBlock.warnings?.length ?? 0) > 0 && (
-                                        <div>
-                                            <h4 className="heap-modal__section-label">Warnings</h4>
-                                            <pre className="heap-inspector-panel__json">{JSON.stringify(selectedPrimaryBlock.warnings, null, 2)}</pre>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </aside>
-                    )}
-                </div>
-
-                {/* Floating Action Bar */}
-                {selectedBlockIds.length > 0 && (
-                    <HeapActionBar
-                        selectedBlockIds={selectedBlockIds}
-                        onDeselect={() => setSelectedBlockIds([])}
-                        onPinToggled={handlePinToggled}
-                        onDeleted={handleDeleted}
-                        onRegenerate={handleRegenerate}
-                        onContextBundle={handleContextBundle}
-                        onExport={handleExport}
-                        onHistory={handleHistory}
-                        onPublish={handlePublish}
+            <div className="heap-block-grid flex h-full w-full bg-cortex-surface-base overflow-hidden relative">
+                {/* Ambient Background Graph */}
+                {bgGraphVariant !== "off" && (
+                    <AmbientGraphBackground
+                        visible={true}
+                        variant={bgGraphVariant as "2d" | "3d"}
+                        spaceId={resolveSpaceId(activeSpaceId)}
                     />
                 )}
+
+                {heapParityEnabled && <AgentActivityPanel spaceId={resolveSpaceId(activeSpaceId)} />}
+
+                {/* Scrollable Area */}
+                <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar relative z-10 bg-transparent">
+                    {/* Header - now sticky within the scrollable div */}
+                    <header id="heap-grid-header" className="min-h-[64px] flex items-center justify-between px-6 py-4 sticky top-0 z-30 flex-wrap gap-3 glass-panel backdrop-blur-xl rounded-none shadow-sm border-b border-white/5">
+                        <div className="flex items-center gap-3 flex-wrap">
+                            {isSidebarCollapsed && (
+                                <button
+                                    onClick={() => setIsSidebarCollapsed(false)}
+                                    className="p-1.5 rounded-lg hover:bg-white/5 text-cortex-500 hover:text-white transition-colors mr-1"
+                                    title="Show Sidebar"
+                                >
+                                    <Menu className="w-5 h-5" />
+                                </button>
+                            )}
+                            <h2 className="text-xl font-bold text-cortex-50 tracking-tight">
+                                {viewMode}
+                                <span className="ml-2 text-cortex-500 font-medium text-sm uppercase tracking-widest">Canvas Blocks</span>
+                            </h2>
+                            {(includeTerms.length > 0 || selectedTags.length > 0) && (
+                                <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-sm">{filterMode} MATCH</span>
+                            )}
+                            {selectedPageLinks.length > 0 && (
+                                <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-sm">{selectedPageLinks.length} LINKS</span>
+                            )}
+                            {excludeTerms.length > 0 && (
+                                <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 shadow-sm">NOT {excludeTerms.length}</span>
+                            )}
+                            {statusMessage && (
+                                <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-cortex-900 text-cortex-500 border border-cortex-800 shadow-sm">{statusMessage}</span>
+                            )}
+                        </div>
+                        <div className="flex gap-3 items-center">
+                            {/* Background Graph Toggle */}
+                            <div className="flex items-center gap-0.5 rounded-full bg-cortex-800/60 border border-cortex-700/40 p-0.5">
+                                {(["off", "2d", "3d"] as const).map((v) => (
+                                    <button
+                                        key={v}
+                                        onClick={() => {
+                                            if (v === "off") setBgGraphVariant("off");
+                                            else setBgGraphVariant(prev => prev === v ? "off" : v);
+                                        }}
+                                        className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full transition-all duration-200 ${
+                                            bgGraphVariant === v
+                                                ? "bg-blue-600/80 text-white shadow-sm"
+                                                : "text-cortex-500 hover:text-cortex-300"
+                                        }`}
+                                    >
+                                        {v === "off" ? "BG" : v.toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Floating Action Bar (Selection-driven) */}
+                    <HeapActionBar
+                        selection={selectionContext}
+                        selectionZonePlan={selectionZonePlan}
+                        handlers={actionHandlers}
+                        onCreate={() => {
+                            setCreateMode("create");
+                            setCreatePanelOpen(true);
+                        }}
+                        status={
+                            actionPlanLoading
+                                ? { loading: true, source: "idle", error: null }
+                                : actionPlanError
+                                ? { loading: false, source: "idle", error: actionPlanError }
+                                : { loading: false, source: actionPlanSource, error: null }
+                        }
+                    />
+
+                    {/* Create Tool Panel Overlay */}
+                    {createPanelOpen && (
+                        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300">
+                             <div 
+                                className="absolute inset-0" 
+                                onClick={() => setCreatePanelOpen(false)} 
+                            />
+                            <div className="relative w-full max-w-2xl bg-cortex-900 border border-cortex-700/50 rounded-2xl shadow-3xl overflow-hidden animate-in slide-in-from-bottom-8 zoom-in-95 duration-300">
+                                <div className="p-6 border-b border-cortex-800 flex items-center justify-between bg-cortex-800/20">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                            <Plus className="w-5 h-5 text-blue-400" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-200 tracking-tight">Create New Block</h3>
+                                    </div>
+                                    <button 
+                                        onClick={() => setCreatePanelOpen(false)}
+                                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-cortex-700/50 text-cortex-400 hover:text-white transition-colors"
+                                    >
+                                        <Plus className="w-6 h-6 rotate-45" />
+                                    </button>
+                                </div>
+                                <div className="p-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                                    <div className="flex flex-wrap gap-2 mb-8">
+                                        {(["create", "generate", "upload", "solicit"] as CreateMode[]).map((mode) => (
+                                            <button
+                                                key={mode}
+                                                onClick={() => setCreateMode(mode)}
+                                                className={`px-5 py-2 rounded-full text-xs font-black tracking-widest uppercase transition-all duration-300 border ${
+                                                    createMode === mode
+                                                        ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-600/20 scale-105"
+                                                        : "bg-cortex-800/50 border-cortex-700/50 text-cortex-400 hover:text-white hover:bg-cortex-700/60"
+                                                }`}
+                                            >
+                                                {mode}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {createMode === "create" && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-cortex-500 mb-2">Title</label>
+                                                <input
+                                                    className="w-full bg-cortex-950 border border-cortex-800/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50 transition-all placeholder:text-cortex-700"
+                                                    placeholder="A meaningful title..."
+                                                    value={newBlockTitle}
+                                                    onChange={(e) => setNewBlockTitle(e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-cortex-500 mb-2">Block Type</label>
+                                                <select
+                                                    className="w-full bg-cortex-950 border border-cortex-800/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all cursor-pointer appearance-none"
+                                                    value={newBlockType}
+                                                    onChange={(e) => setNewBlockType(e.target.value)}
+                                                >
+                                                    <option value="note">Note</option>
+                                                    <option value="task">Task</option>
+                                                    <option value="system">System</option>
+                                                    <option value="report">Report</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-cortex-500 mb-2">Content</label>
+                                                <textarea
+                                                    className="w-full bg-cortex-950 border border-cortex-800/80 rounded-xl px-4 py-3 text-sm text-slate-200 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all placeholder:text-cortex-700"
+                                                    placeholder="Rich text content..."
+                                                    value={newBlockText}
+                                                    onChange={(e) => setNewBlockText(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {createMode === "generate" && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-cortex-500 mb-2">Agent Instruction</label>
+                                                <textarea
+                                                    className="w-full bg-cortex-950 border border-cortex-800/80 rounded-xl px-4 py-3 text-sm text-slate-200 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all placeholder:text-cortex-700"
+                                                    placeholder="e.g. 'Synthesize the last 5 security logs into a summary report'"
+                                                    value={agentPrompt}
+                                                    onChange={(e) => setAgentPrompt(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {createMode === "upload" && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="border-2 border-dashed border-cortex-800 rounded-2xl p-8 flex flex-col items-center justify-center hover:border-blue-500/40 transition-colors cursor-pointer group bg-cortex-950/50">
+                                                <Plus className="w-10 h-10 text-cortex-600 mb-4 group-hover:text-blue-400 transition-colors" />
+                                                <p className="text-sm text-cortex-400 group-hover:text-cortex-200 transition-colors">Select a file to import into the heap</p>
+                                                <input
+                                                    type="file"
+                                                    className="opacity-0 absolute p-8 cursor-pointer"
+                                                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                                                />
+                                                {uploadFile && (
+                                                    <p className="mt-4 text-emerald-400 text-xs font-bold bg-emerald-500/10 px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm border border-emerald-500/30">
+                                                        Selected: {uploadFile.name}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {createMode === "solicit" && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-cortex-500 mb-2">Steward Role</label>
+                                                <input
+                                                    className="w-full bg-cortex-950 border border-cortex-800/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                                                    value={solicitRole}
+                                                    onChange={(e) => setSolicitRole(e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-cortex-500 mb-2">Cycle Budget</label>
+                                                <input
+                                                    className="w-full bg-cortex-950 border border-cortex-800/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                                                    value={solicitBudget}
+                                                    onChange={(e) => setSolicitBudget(e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-cortex-500 mb-2">Required Capabilities</label>
+                                                <input
+                                                    className="w-full bg-cortex-950 border border-cortex-800/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                                                    value={solicitCapabilities}
+                                                    onChange={(e) => setSolicitCapabilities(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="mt-10 flex justify-end gap-3 pt-6 border-t border-cortex-800">
+                                        <button
+                                            onClick={() => setCreatePanelOpen(false)}
+                                            className="px-6 py-2.5 rounded-full text-xs font-bold text-cortex-400 hover:text-white hover:bg-cortex-800 transition-all border border-transparent hover:border-cortex-700"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            disabled={isEmitting}
+                                            onClick={emitCreatedBlock}
+                                            className="px-8 py-2.5 bg-blue-600 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-blue-500 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all shadow-xl shadow-blue-600/20"
+                                        >
+                                            {isEmitting ? "Emitting..." : "Create Block"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex-1 min-h-0 flex relative">
+                        <div className="flex-1 overflow-y-auto relative">
+                            {loading ? (
+                                <div style={{ padding: "2rem", color: "#64748b", textAlign: "center" }}>Loading blocks...</div>
+                            ) : filteredBlocks.length === 0 ? (
+                                <div className="heap-empty-state flex flex-col items-center justify-center h-full w-full opacity-60 hover:opacity-100 transition-opacity duration-500">
+                                    <div className="w-24 h-24 mb-6 rounded-full bg-slate-800/50 border border-slate-700/50 flex items-center justify-center shadow-2xl animate-bounce">
+                                        <span className="text-4xl text-slate-500/50">🧊</span>
+                                    </div>
+                                    <h3 className="text-lg font-bold tracking-tight text-slate-300 mb-2">No blocks found</h3>
+                                    <p className="text-sm text-slate-500 max-w-sm text-center">There are no blocks matching the current view constraints. Try adjusting your filters or generating new content.</p>
+                                </div>
+                            ) : (
+                                <div className="pt-12 pb-20 px-6 relative w-full">
+                                    <div className="masonry-grid">
+                                        {filteredBlocks.map(b => (
+                                            <div
+                                                id={`wrapper-${b.projection.artifactId}`}
+                                                key={b.projection.artifactId}
+                                                className="relative group hover:z-10 masonry-item"
+                                                onMouseEnter={() => setHoveredBlockId(b.projection.artifactId)}
+                                                onMouseLeave={() => setHoveredBlockId(null)}
+                                            >
+                                                <HeapBlockCard
+                                                    block={b}
+                                                    isSelected={selectedBlockIds.includes(b.projection.artifactId)}
+                                                    isRegenerating={regeneratingId === b.projection.artifactId}
+                                                    onClick={(event) => handleSelection(b.projection.artifactId, event)}
+                                                    onDoubleClick={() => setExpandedBlockId(b.projection.artifactId)}
+                                                    cardActions={cardMenuZonePlan?.actions ?? []}
+                                                    cardActionSelection={{
+                                                        selectedArtifactIds: [b.projection.artifactId],
+                                                        activeArtifactId: b.projection.artifactId,
+                                                        selectedCount: 1,
+                                                        selectedBlockTypes: [b.projection.blockType],
+                                                    }}
+                                                    actionHandlers={actionHandlers}
+                                                    onOpenComments={() => {
+                                                        setCommentSidebarBlockId(b.projection.artifactId);
+                                                    }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {hoveredBlockId && (
+                                        <RelationalOverlay
+                                            hoveredBlockId={hoveredBlockId}
+                                            blocks={blocks}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {commentSidebarBlockId && (
+                        <CommentSidebar
+                            blockId={commentSidebarBlockId}
+                            onClose={() => setCommentSidebarBlockId(null)}
+                        />
+                    )}
+                </div>
 
                 {/* Detail Modal */}
                 {expandedBlock && (
                     <HeapDetailModal
                         block={expandedBlock}
+                        allBlocks={blocks}
+                        ambientGraphVariant={bgGraphVariant}
                         onClose={() => setExpandedBlockId(null)}
+                        onNavigateToBlock={(id) => setExpandedBlockId(id)}
+                        onRelationSaved={(artifactId) => {
+                            fetchBlocks();
+                            setStatusMessage(`Relation map updated for ${artifactId}.`);
+                        }}
+                        onViewDiscussion={(id) => {
+                            setExpandedBlockId(null);
+                            setCommentSidebarBlockId(id);
+                        }}
                     />
                 )}
+
                 {stewardGateArtifactId && stewardGateValidation && (
                     <StewardGateModal
                         artifactId={stewardGateArtifactId}
@@ -942,12 +1213,107 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                         onRevalidate={handleStewardGateRevalidate}
                     />
                 )}
-            </main>
+
+                {/* Create FAB — hidden if blocks are selected */}
+                {heapCreateFlowEnabled && selectionContext.selectedCount === 0 && (
+                    <button
+                        onClick={() => setCreatePanelOpen((open) => !open)}
+                        className={`fixed bottom-8 right-8 z-50 flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-all active:scale-90 ${
+                            createPanelOpen
+                                ? "bg-red-500/80 border border-red-400/50 text-white hover:bg-red-500 rotate-45"
+                                : "bg-blue-600 border border-blue-500/50 text-white hover:bg-blue-500 hover:scale-110 shadow-blue-500/30"
+                        }`}
+                        title={createPanelOpen ? "Close Create Panel" : "Create New Block"}
+                    >
+                        <Plus className="w-7 h-7 stroke-3" />
+                    </button>
+                )}
+
+                {selectionMessage && (
+                    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-100 bg-slate-800/80 backdrop-blur-xl border border-emerald-500/30 text-emerald-400 px-6 py-2 rounded-full shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 font-medium">
+                        {selectionMessage}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
 
-function resolveHeapDeltaPollingEnabled(envValue: string): boolean {
+function RelationalOverlay({ hoveredBlockId, blocks }: { hoveredBlockId: string; blocks: HeapBlockListItem[] }) {
+    const [lines, setLines] = useState<Array<{ x1: number; y1: number; x2: number; y2: number }>>([]);
+    const hoveredBlock = blocks.find(b => b.projection.artifactId === hoveredBlockId);
+
+    useEffect(() => {
+        if (!hoveredBlock) return;
+
+        const mentions = [
+            ...(hoveredBlock.projection.mentionsInline || []),
+            ...(hoveredBlock.projection.pageLinks || [])
+        ];
+
+        const sourceEl = document.getElementById(`card-${hoveredBlockId}`);
+        if (!sourceEl) return;
+
+        const containerEl = sourceEl.closest(".masonry-grid"); // Get specific grid container
+        if (!containerEl) return;
+
+        const containerRect = containerEl.getBoundingClientRect();
+        const sourceRect = sourceEl.getBoundingClientRect();
+
+        const sourceX = sourceRect.left + sourceRect.width / 2 - containerRect.left;
+        const sourceY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
+
+        const nextLines = mentions.map(mId => {
+            const targetEl = document.getElementById(`card-${mId}`);
+            if (!targetEl) return null;
+
+            const targetRect = targetEl.getBoundingClientRect();
+            return {
+                x1: sourceX,
+                y1: sourceY,
+                x2: targetRect.left + targetRect.width / 2 - containerRect.left,
+                y2: targetRect.top + targetRect.height / 2 - containerRect.top
+            };
+        }).filter(Boolean) as typeof lines;
+
+        setLines(nextLines);
+    }, [hoveredBlockId, blocks, hoveredBlock]);
+
+    if (lines.length === 0) return null;
+
+    return (
+        <svg
+            className="absolute inset-0 pointer-events-none z-0 overflow-visible"
+            style={{ width: '100%', height: '100%' }}
+        >
+            <defs>
+                <linearGradient id="line-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.6" />
+                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.3" />
+                </linearGradient>
+            </defs>
+            {lines.map((l, i) => {
+                const dx = l.x2 - l.x1;
+                const dy = l.y2 - l.y1;
+                const path = `M ${l.x1} ${l.y1} C ${l.x1 + dx / 2} ${l.y1}, ${l.x1 + dx / 2} ${l.y2}, ${l.x2} ${l.y2}`;
+                return (
+                    <path
+                        key={i}
+                        d={path}
+                        stroke="url(#line-gradient)"
+                        strokeWidth="2"
+                        fill="none"
+                        strokeDasharray="4 4"
+                        className="animate-pulse"
+                    />
+                );
+            })}
+        </svg>
+    );
+}
+
+function resolveHeapDeltaPollingEnabled(envValue: string | undefined): boolean {
+    if (!envValue) return false;
     if (envValue.toLowerCase() === "true") {
         return true;
     }
@@ -1070,13 +1436,30 @@ function downloadJson(filename: string, payload: unknown): void {
     URL.revokeObjectURL(href);
 }
 
-function resolveWorkspaceId(candidate?: string): string {
-    if (candidate && isUlid(candidate)) {
-        return candidate;
-    }
-    return DEFAULT_WORKSPACE_ID;
+function resolveSpaceId(candidate?: string): string {
+    const normalized = candidate?.trim();
+    if (normalized) return normalized;
+    return resolveWorkbenchSpaceId();
 }
 
-function isUlid(value: string): boolean {
-    return /^[0-9A-HJKMNP-TV-Z]{26}$/.test(value);
+function formatJsonWithHighlighting(json: any): React.ReactNode {
+    const str = JSON.stringify(json, null, 2);
+    if (!str) return null;
+
+    return str.split("\n").map((line, i) => {
+        const parts = line.split(/(".*?"|:|\d+)/);
+        return (
+            <div key={i} className="whitespace-pre">
+                {parts.map((part, j) => {
+                    if (part.startsWith('"') && part.endsWith('"')) {
+                        const isKey = line.includes(`${part}:`);
+                        return <span key={j} className={isKey ? "text-purple-400 font-semibold" : "text-emerald-400"}>{part}</span>;
+                    }
+                    if (part === ":") return <span key={j} className="text-slate-500 mr-1">:</span>;
+                    if (/^\d+$/.test(part)) return <span key={j} className="text-orange-400">{part}</span>;
+                    return <span key={j} className="text-slate-400">{part}</span>;
+                })}
+            </div>
+        );
+    });
 }

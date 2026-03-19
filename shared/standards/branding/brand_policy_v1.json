@@ -1,0 +1,94 @@
+{
+  "schema_version": "brand-policy/v1",
+  "policy_id": "nostra-cortex-master-brand",
+  "policy_version": 2,
+  "kernel": {
+    "mark_composition": "outer_broken_ring_inner_solid_dot",
+    "technical_canonical_gap_degrees": 45,
+    "ring_radius_px": 35,
+    "dot_radius_px": 14,
+    "base_stroke_width_px": 8,
+    "steward_gated": true
+  },
+  "style": {
+    "allow_labs_customizations": true,
+    "labs_bounds": {
+      "gap_min_degrees": 12,
+      "gap_max_degrees": 160,
+      "stroke_min_px": 4,
+      "stroke_max_px": 20
+    },
+    "official_palette": {
+      "outer_base": "#E63946",
+      "outer_gradient_to": "#F4A261",
+      "inner_base": "#1D3557",
+      "inner_gradient_to": "#00B4D8"
+    },
+    "mode_baselines": {
+      "philosophical": {
+        "gap_degrees": 60,
+        "stroke_width_delta_px": 2,
+        "stroke_cap": "round",
+        "force_gradient": true
+      },
+      "technical": {
+        "stroke_cap": "square",
+        "force_gradient": false
+      }
+    },
+    "host_defaults": {
+      "default_temporal_state": "none",
+      "default_authority": "official",
+      "theme_mode_map": {
+        "nostra": "philosophical",
+        "cortex": "technical"
+      }
+    },
+    "temporal_variants": {
+      "christmas": {
+        "force_gradient": true,
+        "stroke_cap": "round",
+        "palette": {
+          "outer_base": "#D42A38",
+          "outer_gradient_to": "#0F523A",
+          "inner_base": "#FFD700",
+          "inner_gradient_to": "#FFF5E1"
+        }
+      }
+    },
+    "motion": {
+      "philosophical": {
+        "container_transition_sec": 0.4,
+        "ring_transition_sec": 0.5,
+        "stroke_transition_sec": 0.3,
+        "ring_animation_duration_sec": 4.0,
+        "ring_rotation_delta_deg": 5.0,
+        "ring_stroke_delta_px": 2.0,
+        "dot_transition_sec": 0.5,
+        "dot_animation_duration_sec": 2.0,
+        "dot_pulse_radius_delta_px": 1.5,
+        "dot_pulse_opacity_min": 0.85
+      },
+      "technical": {
+        "container_transition_ms": 180,
+        "ring_transition_ms": 200,
+        "stroke_transition_ms": 200,
+        "dot_transition_ms": 200,
+        "step_count": 2,
+        "ring_step_count": 4
+      }
+    }
+  },
+  "temporal_windows": [
+    {
+      "state": "christmas",
+      "recurrence": "annual",
+      "start_month_day": "12-15",
+      "end_month_day": "12-26",
+      "start_time_utc": "00:00:00",
+      "end_time_utc": "23:59:59"
+    }
+  ],
+  "updated_at_ns": 1772908800000000000,
+  "source_ref": "DEC-2026-02-24-018"
+}

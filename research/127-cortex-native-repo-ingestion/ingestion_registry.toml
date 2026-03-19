@@ -1,0 +1,26 @@
+# Ingestion Registry (Draft 1)
+# Governs the Temporal Sandboxes of External Repositories
+#
+# Rule: No manual `git clone` or `git pull` allowed outside this boundary.
+# Rule: Repositories fetched under these definitions are confined strictly
+#       to `cortex-memory-fs/sandboxes/`.
+
+[manifests]
+
+  [manifests.tldraw-core]
+  uri = "https://github.com/tldraw/tldraw"
+  branch = "main"
+  interval = "24h"
+  target_artifact = "research/074-cortex-ui-substrate/RESEARCH.md"
+  evaluator = "agent_semantic_diff_v1"
+  description = "Tldraw core UI logic governing A2UI render experiments."
+
+  [manifests.ironclaw-patterns]
+  uri = "https://github.com/ironclaw/ironclaw"
+  branch = "main"
+  interval = "12h"
+  target_artifact = "research/123-cortex-web-architecture/RESEARCH.md"
+  evaluator = "agent_semantic_diff_v1"
+  description = "Minimal Viable Kernel architectural patterns for Cortex."
+
+# ... further definitions

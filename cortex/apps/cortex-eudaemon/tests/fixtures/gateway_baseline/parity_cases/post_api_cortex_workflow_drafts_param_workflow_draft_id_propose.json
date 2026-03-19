@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_workflow_drafts_param_workflow_draft_id_propose",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/workflow-drafts/:workflow_draft_id/propose"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/workflow-drafts/:workflow_draft_id/propose"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/workflow-drafts/:workflow_draft_id/propose"
+  }
+}

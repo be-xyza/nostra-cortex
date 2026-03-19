@@ -1,0 +1,19 @@
+[Unit]
+Description=Cortex Gateway for Eudaemon Alpha Phase 6
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=__DEPLOY_ROOT__/repo/cortex
+EnvironmentFile=__DEPLOY_ROOT__/config/eudaemon-alpha.env
+ExecStart=__DEPLOY_ROOT__/repo/scripts/run_cortex_gateway_production.sh
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:__DEPLOY_ROOT__/logs/cortex-gateway.log
+StandardError=append:__DEPLOY_ROOT__/logs/cortex-gateway.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = [
+  "apps/cortex-git-adapter",
+  "apps/cortex-eudaemon",
+  "apps/cortex-gateway",
+  "libraries/cortex-workbench-contracts",
+  "libraries/cortex-domain",
+  "libraries/cortex-runtime",
+  "libraries/cortex-ic-adapter", "apps/cortex-worker", "libraries/cortex-agents",
+]

@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/brand_policy.schema.json",
+  "title": "Nostra Cortex Brand Policy v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "policy_id",
+    "policy_version",
+    "kernel",
+    "style",
+    "temporal_windows",
+    "updated_at_ns"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "brand-policy/v1"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kernel": {
+      "type": "object",
+      "required": [
+        "mark_composition",
+        "technical_canonical_gap_degrees",
+        "ring_radius_px",
+        "dot_radius_px",
+        "base_stroke_width_px",
+        "steward_gated"
+      ],
+      "properties": {
+        "mark_composition": {
+          "type": "string",
+          "enum": [
+            "outer_broken_ring_inner_solid_dot"
+          ]
+        },
+        "technical_canonical_gap_degrees": {
+          "type": "integer",
+          "const": 45
+        },
+        "ring_radius_px": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dot_radius_px": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "base_stroke_width_px": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "steward_gated": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "style": {
+      "type": "object",
+      "required": [
+        "allow_labs_customizations",
+        "labs_bounds",
+        "official_palette",
+        "temporal_variants",
+        "motion"
+      ],
+      "properties": {
+        "allow_labs_customizations": {
+          "type": "boolean"
+        },
+        "labs_bounds": {
+          "type": "object",
+          "required": [
+            "gap_min_degrees",
+            "gap_max_degrees",
+            "stroke_min_px",
+            "stroke_max_px"
+          ],
+          "properties": {
+            "gap_min_degrees": {
+              "type": "number"
+            },
+            "gap_max_degrees": {
+              "type": "number"
+            },
+            "stroke_min_px": {
+              "type": "number"
+            },
+            "stroke_max_px": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "official_palette": {
+          "$ref": "#/$defs/palette"
+        },
+        "mode_baselines": {
+          "$ref": "#/$defs/mode_baselines"
+        },
+        "host_defaults": {
+          "$ref": "#/$defs/host_defaults"
+        },
+        "temporal_variants": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-z0-9_]+$": {
+              "type": "object",
+              "required": [
+                "force_gradient",
+                "stroke_cap",
+                "palette"
+              ],
+              "properties": {
+                "force_gradient": {
+                  "type": "boolean"
+                },
+                "stroke_cap": {
+                  "type": "string",
+                  "enum": [
+                    "round",
+                    "butt",
+                    "square"
+                  ]
+                },
+                "palette": {
+                  "$ref": "#/$defs/palette"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "motion": {
+          "type": "object",
+          "required": [
+            "philosophical",
+            "technical"
+          ],
+          "properties": {
+            "philosophical": {
+              "type": "object"
+            },
+            "technical": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "temporal_windows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "state",
+          "recurrence",
+          "start_month_day",
+          "end_month_day",
+          "start_time_utc",
+          "end_time_utc"
+        ],
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "recurrence": {
+            "type": "string",
+            "enum": [
+              "annual"
+            ]
+          },
+          "start_month_day": {
+            "type": "string",
+            "pattern": "^[0-1][0-9]-[0-3][0-9]$"
+          },
+          "end_month_day": {
+            "type": "string",
+            "pattern": "^[0-1][0-9]-[0-3][0-9]$"
+          },
+          "start_time_utc": {
+            "type": "string",
+            "pattern": "^[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$"
+          },
+          "end_time_utc": {
+            "type": "string",
+            "pattern": "^[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "updated_at_ns": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "$defs": {
+    "palette": {
+      "type": "object",
+      "required": [
+        "outer_base",
+        "outer_gradient_to",
+        "inner_base",
+        "inner_gradient_to"
+      ],
+      "properties": {
+        "outer_base": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "outer_gradient_to": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "inner_base": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "inner_gradient_to": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "mode_baseline": {
+      "type": "object",
+      "properties": {
+        "gap_degrees": {
+          "type": "number"
+        },
+        "stroke_width_delta_px": {
+          "type": "number"
+        },
+        "stroke_cap": {
+          "type": "string",
+          "enum": [
+            "round",
+            "butt",
+            "square"
+          ]
+        },
+        "force_gradient": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "mode_baselines": {
+      "type": "object",
+      "required": [
+        "philosophical",
+        "technical"
+      ],
+      "properties": {
+        "philosophical": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/mode_baseline"
+            },
+            {
+              "required": [
+                "gap_degrees",
+                "stroke_width_delta_px",
+                "stroke_cap",
+                "force_gradient"
+              ]
+            }
+          ]
+        },
+        "technical": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/mode_baseline"
+            },
+            {
+              "required": [
+                "stroke_cap",
+                "force_gradient"
+              ]
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "host_defaults": {
+      "type": "object",
+      "required": [
+        "default_temporal_state",
+        "default_authority",
+        "theme_mode_map"
+      ],
+      "properties": {
+        "default_temporal_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default_authority": {
+          "type": "string",
+          "enum": [
+            "official",
+            "labs"
+          ]
+        },
+        "theme_mode_map": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-z0-9_-]+$": {
+              "type": "string",
+              "enum": [
+                "philosophical",
+                "technical",
+                "custom"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

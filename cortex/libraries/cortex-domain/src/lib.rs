@@ -1,0 +1,20 @@
+pub mod actors;
+pub mod agent;
+pub mod brand;
+pub mod capabilities;
+pub mod collaboration;
+pub mod error;
+pub mod events;
+pub mod graph;
+pub mod integrity;
+pub mod memory_fs;
+pub mod policy;
+pub mod simulation;
+pub mod spaces;
+pub mod streaming;
+pub mod theme;
+pub mod ux;
+pub mod viewspec;
+pub mod workflow;
+
+pub use error::DomainError;

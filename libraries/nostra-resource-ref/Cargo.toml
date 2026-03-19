@@ -1,0 +1,8 @@
+[package]
+name = "nostra-resource-ref"
+version = "0.1.0"
+edition = "2021"
+description = "Canonical ResourceRef and governed predicate helpers for Nostra/Cortex"
+
+[dependencies]
+

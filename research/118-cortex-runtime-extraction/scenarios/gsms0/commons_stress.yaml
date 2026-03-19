@@ -1,0 +1,35 @@
+scenario:
+  id: "commons-stress-001"
+  name: "Commons Stress with Adversarial Contradictions"
+  seed: 43
+  commons_version: "nostra-core-v0"
+  siqs_version: "1.0.0"
+
+constraints:
+  max_mutations: 128
+  max_rounds: 20
+  max_runtime_ms: 1500
+
+rounds:
+  - round: 1
+    actions:
+      - actor: "member-a"
+        action: "add_node"
+        node_id: "proposal-a"
+        node_type: "proposal"
+      - actor: "member-b"
+        action: "add_node"
+        node_id: "proposal-b"
+        node_type: "proposal"
+  - round: 2
+    actions:
+      - actor: "adversary-1"
+        action: "add_edge"
+        source: "proposal-a"
+        target: "proposal-b"
+        edge_kind: "contradicts"
+      - actor: "moderator-1"
+        action: "submit_proposal"
+        proposal_type: "governance_change"
+        payload:
+          mode: "strict"

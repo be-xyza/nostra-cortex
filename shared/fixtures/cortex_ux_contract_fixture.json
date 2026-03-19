@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-03-03T00:00:00Z",
+  "approvalMetadata": {
+    "approvedBy": "Systems Steward",
+    "rationale": "Expanded Cortex web navigational planes fixture synchronized to default shell contract.",
+    "approvedAt": "2026-03-03T00:00:00Z"
+  },
+  "layoutSpec": {
+    "schemaVersion": "1.0.0",
+    "layoutId": "cortex.desktop.shell.v2",
+    "generatedAt": "2026-03-03T00:00:00Z",
+    "navigationGraph": {
+      "startRouteId": "/system",
+      "entries": [
+        {"routeId": "/spaces", "label": "Spaces", "icon": "SP", "viewCapabilityId": "view.spaces", "requiredRole": "viewer", "category": "core"},
+        {"routeId": "/heap", "label": "Heap Canvas", "icon": "HP", "viewCapabilityId": "view.heap", "requiredRole": "operator", "category": "core"},
+        {"routeId": "/synthesis", "label": "Agentic Synthesis", "icon": "AI", "viewCapabilityId": "view.synthesis", "requiredRole": "operator", "category": "core"},
+        {"routeId": "/playground", "label": "Chat x Heap Playground", "icon": "PG", "viewCapabilityId": "view.playground", "requiredRole": "operator", "category": "core"},
+        {"routeId": "/studio", "label": "Studio", "icon": "ST", "viewCapabilityId": "view.studio", "requiredRole": "operator", "category": "bridge"},
+        {"routeId": "/workflows", "label": "Flows", "icon": "FL", "viewCapabilityId": "view.workflows", "requiredRole": "operator", "category": "bridge"},
+        {"routeId": "/contributions", "label": "Contributions", "icon": "CG", "viewCapabilityId": "view.contributions", "requiredRole": "operator", "category": "bridge"},
+        {"routeId": "/artifacts", "label": "Artifacts", "icon": "AR", "viewCapabilityId": "view.artifacts", "requiredRole": "operator", "category": "bridge"},
+        {"routeId": "/vfs", "label": "Virtual File System", "icon": "FS", "viewCapabilityId": "view.vfs", "requiredRole": "operator", "category": "bridge"},
+        {"routeId": "/logs", "label": "System Logs", "icon": "LG", "viewCapabilityId": "view.logs", "requiredRole": "operator", "category": "bridge"},
+        {"routeId": "/settings", "label": "Settings & Preferences", "icon": "SE", "viewCapabilityId": "view.settings", "requiredRole": "operator", "category": "secondary"},
+        {"routeId": "/inbox", "label": "Inbox & Approvals", "icon": "IN", "viewCapabilityId": "view.inbox", "requiredRole": "operator", "category": "core"},
+        {"routeId": "/agents", "label": "Agent Fleet", "icon": "AG", "viewCapabilityId": "view.agents", "requiredRole": "operator", "category": "core"},
+        {"routeId": "/discovery", "label": "Global Discovery", "icon": "DS", "viewCapabilityId": "view.discovery", "requiredRole": "viewer", "category": "bridge"},
+        {"routeId": "/metrics", "label": "Telemetry & SLOs", "icon": "MT", "viewCapabilityId": "view.metrics", "requiredRole": "steward", "category": "secondary"},
+        {"routeId": "/memory", "label": "Agent Memory FS", "icon": "MF", "viewCapabilityId": "view.memory", "requiredRole": "operator", "category": "secondary"},
+        {"routeId": "/simulation", "label": "Simulation Adapter", "icon": "SM", "viewCapabilityId": "view.simulation", "requiredRole": "operator", "category": "bridge"},
+        {"routeId": "/labs", "label": "Labs", "icon": "LB", "viewCapabilityId": "view.labs", "requiredRole": "viewer", "category": "secondary"},
+        {"routeId": "/system", "label": "System", "icon": "SY", "viewCapabilityId": "view.system", "requiredRole": "operator", "category": "secondary"}
+      ]
+    },
+    "regions": [
+      {"regionId": "sidebar", "component": "cortex:navigation", "behavior": "fixed"},
+      {"regionId": "inspector", "component": "cortex:context", "behavior": "collapsible"},
+      {"regionId": "main", "component": "cortex:outlet", "behavior": "fluid"}
+    ]
+  },
+  "matrix": [
+    {"routeId": "/spaces", "routeLabel": "Spaces", "viewCapabilityId": "view.spaces", "patternId": "pattern.spaces", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.00},
+    {"routeId": "/heap", "routeLabel": "Heap Canvas", "viewCapabilityId": "view.heap", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 5, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.16},
+    {"routeId": "/synthesis", "routeLabel": "Agentic Synthesis", "viewCapabilityId": "view.synthesis", "patternId": "pattern.studio", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.00},
+    {"routeId": "/playground", "routeLabel": "Chat x Heap Playground", "viewCapabilityId": "view.playground", "patternId": "pattern.studio", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.00},
+    {"routeId": "/studio", "routeLabel": "Studio", "viewCapabilityId": "view.studio", "patternId": "pattern.studio", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.00},
+    {"routeId": "/workflows", "routeLabel": "Flows", "viewCapabilityId": "view.workflows", "patternId": "pattern.workflow", "operatorCritical": true, "taskCriticality": 5, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.16},
+    {"routeId": "/contributions", "routeLabel": "Contributions", "viewCapabilityId": "view.contributions", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
+    {"routeId": "/artifacts", "routeLabel": "Artifacts", "viewCapabilityId": "view.artifacts", "patternId": "pattern.artifacts", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
+    {"routeId": "/vfs", "routeLabel": "Virtual File System", "viewCapabilityId": "view.vfs", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
+    {"routeId": "/logs", "routeLabel": "System Logs", "viewCapabilityId": "view.logs", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
+    {"routeId": "/settings", "routeLabel": "Settings & Preferences", "viewCapabilityId": "view.settings", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
+    {"routeId": "/inbox", "routeLabel": "Inbox & Approvals", "viewCapabilityId": "view.inbox", "patternId": "pattern.workflow", "operatorCritical": true, "taskCriticality": 5, "decisionLatency": 5, "evidenceLegibility": 5, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.50},
+    {"routeId": "/agents", "routeLabel": "Agent Fleet", "viewCapabilityId": "view.agents", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
+    {"routeId": "/discovery", "routeLabel": "Global Discovery", "viewCapabilityId": "view.discovery", "patternId": "pattern.spaces", "operatorCritical": true, "taskCriticality": 3, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.70},
+    {"routeId": "/metrics", "routeLabel": "Telemetry & SLOs", "viewCapabilityId": "view.metrics", "patternId": "pattern.testing", "operatorCritical": true, "taskCriticality": 5, "decisionLatency": 5, "evidenceLegibility": 5, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.50},
+    {"routeId": "/memory", "routeLabel": "Agent Memory FS", "viewCapabilityId": "view.memory", "patternId": "pattern.studio", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
+    {"routeId": "/simulation", "routeLabel": "Simulation Adapter", "viewCapabilityId": "view.simulation", "patternId": "pattern.studio", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
+    {"routeId": "/labs", "routeLabel": "Labs", "viewCapabilityId": "view.labs", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 3, "decisionLatency": 3, "evidenceLegibility": 3, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.54},
+    {"routeId": "/system", "routeLabel": "System", "viewCapabilityId": "view.system", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 3, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.70}
+  ],
+  "collaboration": {
+    "schemaVersion": "1.0.0",
+    "mode": "crdt_multi_writer",
+    "requiredHITLFields": ["approvedBy", "rationale", "approvedAt"],
+    "endpoints": [
+      "/api/cortex/studio/artifacts/:artifact_id/collab/state",
+      "/api/cortex/studio/artifacts/:artifact_id/collab/op/batch",
+      "/api/cortex/studio/artifacts/:artifact_id/collab/ops",
+      "/api/cortex/studio/artifacts/:artifact_id/collab/presence",
+      "/api/cortex/studio/artifacts/:artifact_id/collab/checkpoint",
+      "/api/cortex/studio/artifacts/:artifact_id/collab/force-resolve"
+    ],
+    "realtime": {
+      "schemaVersion": "1.0.0",
+      "transport": "nostra_streaming",
+      "featureFlag": "cortex_collab_realtime",
+      "wsEndpoint": "/ws/cortex/collab",
+      "endpoints": [
+        "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/status",
+        "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/integrity",
+        "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/connect",
+        "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/disconnect",
+        "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/backlog",
+        "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/resync",
+        "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/ack",
+        "/api/cortex/studio/artifacts/:artifact_id/collab/realtime/ack/reset",
+        "/api/cortex/runtime/slo/status",
+        "/api/cortex/runtime/slo/breaches",
+        "/ws/cortex/collab"
+      ],
+      "requiredGovernanceMetadata": [
+        "approvedBy",
+        "rationale",
+        "approvedAt",
+        "nonce",
+        "expiresAt",
+        "decisionProof.decisionId",
+        "decisionProof.signature",
+        "decisionProof.signer"
+      ],
+      "integrityReasonCodes": [
+        "stream_unavailable",
+        "gap_detected",
+        "replay_backlog",
+        "signature_invalid"
+      ]
+    }
+  }
+}

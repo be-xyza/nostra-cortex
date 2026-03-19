@@ -1,0 +1,65 @@
+// =============================================================================
+// Nostra Core Library: Base Contribution Type
+// =============================================================================
+// The Contribution type is the polymorphic base for all meaningful actions
+// within a Nostra Space. All specific contribution types inherit from this.
+// =============================================================================
+
+UPSERT {
+    CONCEPT ?contribution_type {
+        {type: "$ConceptType", name: "Contribution"}
+        SET ATTRIBUTES {
+            description: "Base type for all contributions in Nostra. A Contribution represents any meaningful action or artifact created within a Space.",
+            tags: ["core", "contribution", "abstract"],
+            icon: "📝",
+            is_abstract: true,
+            instance_schema: {
+                "title": {
+                    "type": "string",
+                    "is_required": true,
+                    "description": "Human-readable title for the contribution"
+                },
+                "body": {
+                    "type": "string",
+                    "is_required": false,
+                    "description": "Main content body (markdown supported)"
+                },
+                "phase": {
+                    "type": "string",
+                    "is_required": true,
+                    "enum": ["exploratory", "deliberative", "decisive", "executable", "archival"],
+                    "description": "Lifecycle phase of this contribution"
+                },
+                "status": {
+                    "type": "string",
+                    "is_required": true,
+                    "enum": ["draft", "active", "completed", "archived"],
+                    "default": "active"
+                },
+                "tags": {
+                    "type": "array",
+                    "item_type": "string",
+                    "is_required": false
+                },
+                "space_id": {
+                    "type": "string",
+                    "is_required": true,
+                    "description": "ID of the Space this contribution belongs to"
+                },
+                "schema_status": { 
+                    "type": "string", 
+                    "enum": ["draft", "proposed", "approved", "archived", "standard"],
+                    "default": "standard",
+                    "description": "Graduation status of this entity type (040)"
+                }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA {
+    source: "nostra-core-library",
+    author: "$system",
+    confidence: 1.0,
+    status: "active"
+}
