@@ -1,0 +1,202 @@
+{
+  "schema_version": "brand-visual-state-cases/v1",
+  "policy_ref": "brand-policy/v1",
+  "cases": [
+    {
+      "id": "technical_official_canonical",
+      "input": {
+        "mode": "technical",
+        "authority": "official",
+        "temporal": "none"
+      },
+      "expected": {
+        "effective_mode": "technical",
+        "temporal": "none",
+        "gap_angle": 45,
+        "stroke_width": 8,
+        "is_gradient": false,
+        "stroke_cap": "square",
+        "outer_base": "#E63946",
+        "inner_base": "#1D3557"
+      }
+    },
+    {
+      "id": "philosophical_official",
+      "input": {
+        "mode": "philosophical",
+        "authority": "official",
+        "temporal": "none"
+      },
+      "expected": {
+        "effective_mode": "philosophical",
+        "temporal": "none",
+        "gap_angle": 60,
+        "stroke_width": 10,
+        "is_gradient": true,
+        "stroke_cap": "round",
+        "outer_base": "#E63946",
+        "inner_base": "#1D3557"
+      }
+    },
+    {
+      "id": "official_ignores_custom",
+      "input": {
+        "mode": "custom",
+        "authority": "official",
+        "temporal": "none",
+        "custom_gap_angle": 130,
+        "custom_stroke_width": 18,
+        "custom_outer_color": "#000000",
+        "custom_inner_color": "#111111"
+      },
+      "expected": {
+        "effective_mode": "technical",
+        "temporal": "none",
+        "gap_angle": 45,
+        "stroke_width": 8,
+        "is_gradient": false,
+        "stroke_cap": "square",
+        "outer_base": "#E63946",
+        "inner_base": "#1D3557"
+      }
+    },
+    {
+      "id": "labs_custom_clamped",
+      "input": {
+        "mode": "custom",
+        "authority": "labs",
+        "temporal": "none",
+        "custom_gap_angle": 1,
+        "custom_stroke_width": 99
+      },
+      "expected": {
+        "effective_mode": "technical",
+        "temporal": "none",
+        "gap_angle": 12,
+        "stroke_width": 20,
+        "is_gradient": false,
+        "stroke_cap": "square",
+        "outer_base": "#E63946",
+        "inner_base": "#1D3557"
+      }
+    },
+    {
+      "id": "labs_custom_respects_upper_bound",
+      "input": {
+        "mode": "custom",
+        "authority": "labs",
+        "temporal": "none",
+        "custom_gap_angle": 160,
+        "custom_stroke_width": 20,
+        "custom_outer_color": "#101010",
+        "custom_inner_color": "#222222"
+      },
+      "expected": {
+        "effective_mode": "technical",
+        "temporal": "none",
+        "gap_angle": 160,
+        "stroke_width": 20,
+        "is_gradient": false,
+        "stroke_cap": "square",
+        "outer_base": "#101010",
+        "inner_base": "#222222"
+      }
+    },
+    {
+      "id": "temporal_overrides_labs",
+      "input": {
+        "mode": "custom",
+        "authority": "labs",
+        "temporal": "christmas",
+        "custom_outer_color": "#000000",
+        "custom_inner_color": "#111111"
+      },
+      "expected": {
+        "effective_mode": "technical",
+        "temporal": "christmas",
+        "gap_angle": 45,
+        "stroke_width": 8,
+        "is_gradient": true,
+        "stroke_cap": "round",
+        "outer_base": "#D42A38",
+        "inner_base": "#FFD700"
+      }
+    },
+    {
+      "id": "labs_disabled_policy_fallback",
+      "input": {
+        "mode": "custom",
+        "authority": "labs",
+        "temporal": "none",
+        "custom_gap_angle": 120,
+        "governance_policy": {
+          "allow_labs_customizations": false
+        }
+      },
+      "expected": {
+        "effective_mode": "technical",
+        "temporal": "none",
+        "gap_angle": 45,
+        "stroke_width": 8,
+        "is_gradient": false,
+        "stroke_cap": "square",
+        "outer_base": "#E63946",
+        "inner_base": "#1D3557"
+      }
+    },
+    {
+      "id": "philosophical_baseline_policy_override",
+      "input": {
+        "mode": "philosophical",
+        "authority": "official",
+        "temporal": "none",
+        "governance_policy": {
+          "mode_baselines": {
+            "philosophical": {
+              "gap_degrees": 72,
+              "stroke_width_delta_px": 1,
+              "stroke_cap": "butt",
+              "force_gradient": false
+            }
+          }
+        }
+      },
+      "expected": {
+        "effective_mode": "philosophical",
+        "temporal": "none",
+        "gap_angle": 72,
+        "stroke_width": 9,
+        "is_gradient": false,
+        "stroke_cap": "butt",
+        "outer_base": "#E63946",
+        "inner_base": "#1D3557"
+      }
+    },
+    {
+      "id": "technical_baseline_policy_override",
+      "input": {
+        "mode": "technical",
+        "authority": "official",
+        "temporal": "none",
+        "governance_policy": {
+          "mode_baselines": {
+            "technical": {
+              "stroke_cap": "round",
+              "force_gradient": true
+            }
+          }
+        }
+      },
+      "expected": {
+        "effective_mode": "technical",
+        "temporal": "none",
+        "gap_angle": 45,
+        "stroke_width": 8,
+        "is_gradient": true,
+        "stroke_cap": "round",
+        "outer_base": "#E63946",
+        "inner_base": "#1D3557"
+      }
+    }
+  ]
+}
