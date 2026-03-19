@@ -1,0 +1,10 @@
+Host eudaemon-alpha-hetzner
+  HostName <hetzner-ip-or-dns>
+  User <server-user>
+  IdentityFile ~/.ssh/id_ed25519
+  IdentitiesOnly yes
+
+# Notes:
+# - Replace <hetzner-ip-or-dns> with the actual public IP or DNS name.
+# - Replace <server-user> with the provisioned login user.
+# - Keep the alias stable so the Hetzner runbook and deployment notes stay repeatable.
