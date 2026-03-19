@@ -13,6 +13,12 @@ Repository ownership for this stack is split:
 - root ICP repo: governance docs, gateway assets, and root deployment guidance
 - `eudaemon-alpha` submodule: Python worker, env templates, agent service unit, and agent bootstrap tooling
 
+Supporting operator assets:
+
+- bring-up checklist: [`eudaemon-alpha-phase6-checklist.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-checklist.md)
+- SSH alias example: [`eudaemon-alpha-ssh-config.example`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-ssh-config.example)
+- clean clone verifier: [`verify_phase6_clean_clone.sh`](/Users/xaoj/ICP/scripts/verify_phase6_clean_clone.sh)
+
 ## Server Layout
 
 Use one deployment root on the host:
@@ -93,6 +99,7 @@ git clone --recurse-submodules <root-repo-url> /srv/nostra/eudaemon-alpha/repo
    - solicitation block discoverable
    - `ConfigProposalBlock` emitted
    - local memory persisted
+9. Treat live Temporal as a later validation phase, not as part of the first hosted pass.
 
 ## Governance Bootstrap
 
@@ -122,6 +129,8 @@ After the server is bootstrapped, the remaining operational path is:
 3. seed or create the target solicitation block
 4. confirm the worker emits its `ConfigProposalBlock`
 5. verify steward review and the next-cycle context ingestion path
+
+Use the checklist in [`eudaemon-alpha-phase6-checklist.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-checklist.md) as the source of truth for completion gates.
 
 ## Gaps Still Outside This Bring-Up
 
