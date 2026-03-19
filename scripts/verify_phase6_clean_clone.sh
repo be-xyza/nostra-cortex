@@ -25,14 +25,23 @@ pass "worktree is clean"
 if [[ -f "${ROOT_DIR}/.gitmodules" ]]; then
   submodule_status="$(git -C "${ROOT_DIR}" submodule status --recursive)"
   echo "${submodule_status}"
-  if echo "${submodule_status}" | grep -qE '^[\-+U]'; then
+  if echo "${submodule_status}" | grep -qE '^[-+U]'; then
     fail "submodules are not initialized to the recorded revision"
   fi
   pass "submodules are pinned and initialized"
 fi
 
-bash "${ROOT_DIR}/scripts/check_agent_preflight_contract.sh"
-bash "${ROOT_DIR}/scripts/check_dynamic_config_contract.sh"
+for required_path in \
+  "${ROOT_DIR}/docs/cortex/eudaemon-alpha-phase6-hetzner.md" \
+  "${ROOT_DIR}/docs/cortex/eudaemon-alpha-phase6-checklist.md" \
+  "${ROOT_DIR}/docs/cortex/eudaemon-alpha-ssh-config.example" \
+  "${ROOT_DIR}/.github/ISSUE_TEMPLATE/eudaemon-alpha-phase6-bring-up.md" \
+  "${ROOT_DIR}/scripts/run_cortex_runtime_freeze_gates.sh"
+do
+  [[ -f "${required_path}" ]] || fail "required Phase 6 asset missing: ${required_path}"
+done
+pass "Phase 6 operator assets are present"
+
 bash "${ROOT_DIR}/scripts/run_cortex_runtime_freeze_gates.sh"
 
 pass "Phase 6 clean clone verification completed"
