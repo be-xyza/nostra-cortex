@@ -1,0 +1,129 @@
+// =============================================================================
+// Nostra Core Library: Executable Phase Types
+// =============================================================================
+// Types for the Executable phase: Project, Deliverable, Milestone, Bounty
+// These produce outcomes and are time-, resource-, or incentive-bound.
+// =============================================================================
+
+// --- PROJECT: A structured initiative with goals and deliverables ---
+UPSERT {
+    CONCEPT ?project_type {
+        {type: "$ConceptType", name: "Project"}
+        SET ATTRIBUTES {
+            description: "A structured initiative with defined goals, timeline, and deliverables. Projects are the primary execution unit.",
+            tags: ["core", "contribution", "executable"],
+            icon: "🚀",
+            extends: "Contribution",
+            phase: "executable",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": true, "description": "Project description and scope" },
+                "objectives": { "type": "array", "item_type": "string", "description": "Key objectives" },
+                "start_date": { "type": "string", "is_required": false },
+                "target_date": { "type": "string", "is_required": false },
+                "project_status": {
+                    "type": "string",
+                    "enum": ["planning", "in_progress", "blocked", "completed", "cancelled"],
+                    "default": "planning"
+                },
+                "budget": { "type": "object", "is_required": false },
+                "phase": { "type": "string", "default": "executable" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- DELIVERABLE: A concrete output or artifact ---
+UPSERT {
+    CONCEPT ?deliverable_type {
+        {type: "$ConceptType", name: "Deliverable"}
+        SET ATTRIBUTES {
+            description: "A concrete output, artifact, or result produced by a project or initiative.",
+            tags: ["core", "contribution", "executable"],
+            icon: "📦",
+            extends: "Contribution",
+            phase: "executable",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": false },
+                "deliverable_type": {
+                    "type": "string",
+                    "enum": ["document", "code", "design", "data", "media", "other"],
+                    "default": "other"
+                },
+                "artifact_ref": { "type": "string", "is_required": false, "description": "URI to the actual artifact" },
+                "project_id": { "type": "string", "is_required": false, "description": "Parent project ID" },
+                "acceptance_criteria": { "type": "string", "is_required": false },
+                "is_accepted": { "type": "boolean", "default": false },
+                "phase": { "type": "string", "default": "executable" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- MILESTONE: A significant checkpoint in project execution ---
+UPSERT {
+    CONCEPT ?milestone_type {
+        {type: "$ConceptType", name: "Milestone"}
+        SET ATTRIBUTES {
+            description: "A significant checkpoint or target date in project execution.",
+            tags: ["core", "contribution", "executable", "temporal"],
+            icon: "🏁",
+            extends: "Contribution",
+            phase: "executable",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": false },
+                "target_date": { "type": "string", "is_required": true },
+                "project_id": { "type": "string", "is_required": true },
+                "is_completed": { "type": "boolean", "default": false },
+                "completed_date": { "type": "string", "is_required": false },
+                "phase": { "type": "string", "default": "executable" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- BOUNTY: An incentive attached to work ---
+UPSERT {
+    CONCEPT ?bounty_type {
+        {type: "$ConceptType", name: "Bounty"}
+        SET ATTRIBUTES {
+            description: "A reward or incentive attached to an Issue, Deliverable, or other work item.",
+            tags: ["core", "contribution", "executable", "incentivized"],
+            icon: "💰",
+            extends: "Contribution",
+            phase: "executable",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": false },
+                "target_id": { "type": "string", "is_required": true, "description": "ID of the work item this bounty is attached to" },
+                "reward": {
+                    "type": "object",
+                    "is_required": true,
+                    "description": "Reward details: { amount, currency, type }"
+                },
+                "expires_at": { "type": "string", "is_required": false },
+                "is_claimed": { "type": "boolean", "default": false },
+                "claimed_by": { "type": "string", "is_required": false },
+                "phase": { "type": "string", "default": "executable" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

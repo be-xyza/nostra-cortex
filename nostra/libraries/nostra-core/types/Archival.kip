@@ -1,0 +1,120 @@
+// =============================================================================
+// Nostra Core Library: Archival Phase Types
+// =============================================================================
+// Types for the Archival phase: Artifact, Report, Reflection, Essay
+// These preserve learning and are immutable and referential.
+// =============================================================================
+
+// --- ARTIFACT: A preserved output or record ---
+UPSERT {
+    CONCEPT ?artifact_type {
+        {type: "$ConceptType", name: "Artifact"}
+        SET ATTRIBUTES {
+            description: "A preserved output, record, or document that serves as evidence or reference.",
+            tags: ["core", "contribution", "archival"],
+            icon: "📁",
+            extends: "Contribution",
+            phase: "archival",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": false },
+                "artifact_type": {
+                    "type": "string",
+                    "enum": ["document", "media", "data", "code", "design", "other"],
+                    "default": "document"
+                },
+                "content_ref": { "type": "string", "is_required": true, "description": "URI to stored content" },
+                "format": { "type": "string", "is_required": false },
+                "checksum": { "type": "string", "is_required": false, "description": "Content hash for integrity" },
+                "phase": { "type": "string", "default": "archival" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- REPORT: A structured analysis or summary ---
+UPSERT {
+    CONCEPT ?report_type {
+        {type: "$ConceptType", name: "Report"}
+        SET ATTRIBUTES {
+            description: "A structured analysis, summary, or synthesis of work or research.",
+            tags: ["core", "contribution", "archival"],
+            icon: "📊",
+            extends: "Contribution",
+            phase: "archival",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": true },
+                "report_type": {
+                    "type": "string",
+                    "enum": ["analysis", "summary", "synthesis", "status", "retrospective"],
+                    "default": "summary"
+                },
+                "executive_summary": { "type": "string", "is_required": false },
+                "findings": { "type": "array", "item_type": "object" },
+                "recommendations": { "type": "array", "item_type": "string" },
+                "phase": { "type": "string", "default": "archival" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- REFLECTION: A personal insight or learning ---
+UPSERT {
+    CONCEPT ?reflection_type {
+        {type: "$ConceptType", name: "Reflection"}
+        SET ATTRIBUTES {
+            description: "A personal insight, learning, or retrospective thought. Reflections capture wisdom.",
+            tags: ["core", "contribution", "archival"],
+            icon: "🪞",
+            extends: "Contribution",
+            phase: "archival",
+            instance_schema: {
+                "title": { "type": "string", "is_required": false },
+                "body": { "type": "string", "is_required": true },
+                "trigger_id": { "type": "string", "is_required": false, "description": "ID of contribution that prompted this reflection" },
+                "key_insight": { "type": "string", "is_required": false },
+                "phase": { "type": "string", "default": "archival" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- ESSAY: A long-form written piece ---
+UPSERT {
+    CONCEPT ?essay_type {
+        {type: "$ConceptType", name: "Essay"}
+        SET ATTRIBUTES {
+            description: "A long-form written piece exploring ideas, arguments, or narratives.",
+            tags: ["core", "contribution", "archival"],
+            icon: "📝",
+            extends: "Contribution",
+            phase: "archival",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "body": { "type": "string", "is_required": true },
+                "abstract": { "type": "string", "is_required": false },
+                "sections": { "type": "array", "item_type": "object" },
+                "word_count": { "type": "number", "is_required": false },
+                "reading_time_minutes": { "type": "number", "is_required": false },
+                "phase": { "type": "string", "default": "archival" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

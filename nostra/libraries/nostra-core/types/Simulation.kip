@@ -1,0 +1,53 @@
+// =============================================================================
+// Nostra Core Library: Simulation
+// =============================================================================
+// Defines the Simulation type as a Contribution that executes behavioral
+// verification logic over time.
+// =============================================================================
+
+UPSERT {
+    CONCEPT ?simulation {
+        {type: "$ConceptType", name: "Simulation"}
+        SET ATTRIBUTES {
+            description: "A specialized Contribution that executes behavioral verification logic over time.",
+            tags: ["core", "quality", "automation", "simulation"],
+            icon: "🧪",
+            extends: "Contribution",
+            phase: "system",
+            instance_schema: {
+                "target_layer": { 
+                    "type": "string", 
+                    "enum": ["canister", "cortex", "hybrid"], 
+                    "is_required": true 
+                },
+                "environment_params": {
+                    "type": "object",
+                    "properties": {
+                        "renderer": { "type": "string" },
+                        "theme": { "type": "string" },
+                        "agent_persona": { "type": "string" }
+                    }
+                },
+                "entry_point": { 
+                    "type": "string", 
+                    "description": "Path to the executable spec file (e.g. tests/simulations/...)",
+                    "is_required": true 
+                },
+                "execution_policy": {
+                    "type": "object",
+                    "properties": {
+                        "frequency": { "type": "string", "enum": ["always", "nightly", "on-change"] },
+                        "timeout_ms": { "type": "number", "default": 30000 },
+                        "flakiness_threshold": { "type": "number", "default": 0.0 }
+                    },
+                    "is_required": true
+                }
+            }
+        }
+        SET PROPOSITIONS { 
+            ("belongs_to_domain", {type: "Domain", name: "NostraCore"}),
+            ("validates_epic", {type: "Epic", name: "$ANY"}) 
+        }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

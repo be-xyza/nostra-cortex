@@ -1,0 +1,46 @@
+// =============================================================================
+// Nostra Core Library: Decisive Phase Type
+// =============================================================================
+// The Decision type captures explicit choices made among alternatives.
+// Decisions are authority-bound and represent commitment points.
+// =============================================================================
+
+// --- DECISION: An explicit record of a choice ---
+UPSERT {
+    CONCEPT ?decision_type {
+        {type: "$ConceptType", name: "Decision"}
+        SET ATTRIBUTES {
+            description: "An explicit record of a choice made among alternatives. Decisions commit the system and are authority-bound.",
+            tags: ["core", "contribution", "decisive", "governance"],
+            icon: "⚖️",
+            extends: "Contribution",
+            phase: "decisive",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true, "description": "Summary of the decision" },
+                "context": { "type": "string", "is_required": true, "description": "Background and why this decision was needed" },
+                "options_considered": { 
+                    "type": "array", 
+                    "item_type": "object",
+                    "is_required": true,
+                    "description": "List of alternatives considered, each with name and description"
+                },
+                "selected_option": { "type": "string", "is_required": true, "description": "The chosen option" },
+                "rationale": { "type": "string", "is_required": true, "description": "Why this option was chosen" },
+                "decider": { "type": "string", "is_required": true, "description": "Principal or role that made the decision" },
+                "decision_type": {
+                    "type": "string",
+                    "enum": ["architectural", "governance", "strategic", "operational", "technical"],
+                    "default": "operational"
+                },
+                "is_reversible": { "type": "boolean", "default": true },
+                "effective_date": { "type": "string", "is_required": false, "description": "When decision takes effect (ISO 8601)" },
+                "supersedes": { "type": "string", "is_required": false, "description": "ID of prior decision this replaces" },
+                "phase": { "type": "string", "default": "decisive" },
+                "status": { "type": "string", "default": "active" },
+                "space_id": { "type": "string", "is_required": true }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

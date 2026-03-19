@@ -1,0 +1,37 @@
+{
+    "id": "nostra.core",
+    "name": "Nostra Core Library",
+    "version": "0.1.0",
+    "description": "Foundational types for the Nostra ecosystem.",
+    "author": "Nostra DAO",
+    "license": "MIT",
+    "archetype": "curated",
+    "dependencies": {},
+    "fork_policy": {
+        "can_fork": true,
+        "copy_history": false,
+        "attribution_required": true
+    },
+    "standards_compliance": {
+        "implements": [
+            "nostra.core:v1"
+        ],
+        "is_standard": true
+    },
+    "capsules": [
+        "seed/core-domain.kip",
+        "seed/relationships.kip",
+        "types/Predicates.kip",
+        "types/Contribution.kip",
+        "types/Exploratory.kip",
+        "types/Deliberative.kip",
+        "types/Decisive.kip",
+        "types/Executable.kip",
+        "types/Archival.kip",
+        "types/Organizational.kip",
+        "types/ChronicleEvent.kip",
+        "types/SleepTask.kip",
+        "types/SchemaLicense.kip",
+        "types/Implementation.kip"
+    ]
+}

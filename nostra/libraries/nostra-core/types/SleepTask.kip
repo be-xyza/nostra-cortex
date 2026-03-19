@@ -1,0 +1,29 @@
+// =============================================================================
+// Nostra Core Library: SleepTask (Scheduling)
+// =============================================================================
+// Defines the SleepTask type used by the Gardener agent for scheduling 
+// future actions (e.g., confidence decay, view aggregation).
+// =============================================================================
+
+UPSERT {
+    CONCEPT ?sleep_task {
+        {type: "$ConceptType", name: "SleepTask"}
+        SET ATTRIBUTES {
+            description: "A scheduled task for the Gardener agent to execute at a future time.",
+            tags: ["core", "system", "agent", "temporal"],
+            icon: "💤",
+            extends: "Contribution", // Inherits ID, author, etc.
+            phase: "system",
+            instance_schema: {
+                "wake_at": { "type": "string", "format": "date-time", "is_required": true, "description": "ISO 8601 timestamp when this task becomes active" },
+                "task_type": { "type": "string", "enum": ["decay_confidence", "aggregate_views", "prune_orphans", "custom"], "is_required": true },
+                "target_id": { "type": "string", "is_required": false, "description": "ID of the entity this task affects" },
+                "payload": { "type": "string", "is_required": false, "description": "JSON payload for the task" },
+                "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed"], "default": "pending" },
+                "recurring_interval": { "type": "integer", "is_required": false, "description": "Seconds between runs. If null, one-time task." }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

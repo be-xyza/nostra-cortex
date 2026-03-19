@@ -1,0 +1,63 @@
+// =============================================================================
+// Nostra Core Library: Organizational Types
+// =============================================================================
+// Types for organizational structure: Space, ViewSummary
+// =============================================================================
+
+// --- SPACE: An organizational container for collaboration ---
+UPSERT {
+    CONCEPT ?space_type {
+        {type: "$ConceptType", name: "Space"}
+        SET ATTRIBUTES {
+            description: "An organizational container for collaboration. Spaces scope contributions, workflows, and governance.",
+            tags: ["core", "meta", "governance"],
+            icon: "🌐",
+            instance_schema: {
+                "name": { "type": "string", "is_required": true },
+                "description": { "type": "string", "is_required": false },
+                "space_type": {
+                    "type": "string",
+                    "enum": ["personal", "team", "community", "public"],
+                    "default": "team"
+                },
+                "visibility": {
+                    "type": "string",
+                    "enum": ["private", "members", "public"],
+                    "default": "members"
+                },
+                "governance_model": {
+                    "type": "string",
+                    "enum": ["single_owner", "multisig", "token_weighted", "reputation_weighted"],
+                    "default": "single_owner"
+                },
+                "icon": { "type": "string", "is_required": false },
+                "banner_url": { "type": "string", "is_required": false },
+                "parent_space_id": { "type": "string", "is_required": false, "description": "For nested spaces" }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
+
+// --- VIEW SUMMARY: Aggregated view statistics (for efficiency) ---
+UPSERT {
+    CONCEPT ?view_summary_type {
+        {type: "$ConceptType", name: "ViewSummary"}
+        SET ATTRIBUTES {
+            description: "Aggregated view statistics for an entity. Used for efficient storage of high-frequency view events.",
+            tags: ["core", "system"],
+            icon: "👁️",
+            instance_schema: {
+                "entity_id": { "type": "string", "is_required": true },
+                "period": { "type": "string", "is_required": true, "description": "ISO week format: 2026-W03" },
+                "view_count": { "type": "number", "is_required": true },
+                "unique_viewers": { "type": "number", "is_required": false },
+                "peak_day": { "type": "string", "is_required": false },
+                "peak_hour": { "type": "number", "is_required": false }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

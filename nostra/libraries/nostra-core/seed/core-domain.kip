@@ -1,0 +1,47 @@
+// =============================================================================
+// Nostra Core Library: Domain Registration
+// =============================================================================
+// This capsule establishes the NostraCore domain and registers it as the
+// foundational schema for the Nostra ecosystem.
+// =============================================================================
+
+// --- Register the NostraCore Domain ---
+UPSERT {
+    CONCEPT ?nostra_core_domain {
+        {type: "Domain", name: "NostraCore"}
+        SET ATTRIBUTES {
+            description: "Core schema for the Nostra collaborative knowledge and execution platform. Defines contribution types, organizational primitives, and standard predicates.",
+            archetype: "curated",
+            icon: "📚",
+            version: "1.0.0",
+            categories: ["contributions", "workflow", "governance", "knowledge-graph"]
+        }
+    }
+}
+WITH METADATA {
+    source: "nostra-core-library",
+    author: "$system",
+    confidence: 1.0,
+    status: "active",
+    created_at: "2026-01-16T00:00:00Z"
+}
+
+// --- Register the ContributionPhase enumeration concept ---
+UPSERT {
+    CONCEPT ?phase_enum {
+        {type: "$ConceptType", name: "ContributionPhase"}
+        SET ATTRIBUTES {
+            description: "Enumeration of contribution lifecycle phases in Nostra",
+            instance_schema: {
+                "phase": {
+                    "type": "string",
+                    "is_required": true,
+                    "enum": ["exploratory", "deliberative", "decisive", "executable", "archival"],
+                    "description": "The phase of the contribution lifecycle"
+                }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

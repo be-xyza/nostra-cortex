@@ -1,0 +1,37 @@
+// =============================================================================
+// Nostra Core Library: SchemaLicense (KnowledgeFi)
+// =============================================================================
+// Defines the SchemaLicense type used to manage access rights and pricing
+// for libraries and schemas within the KnowledgeFi marketplace.
+// =============================================================================
+
+UPSERT {
+    CONCEPT ?schema_license {
+        {type: "$ConceptType", name: "SchemaLicense"}
+        SET ATTRIBUTES {
+            description: "A license defining access rights and pricing for a library or schema.",
+            tags: ["core", "licensing", "governance"],
+            icon: "📜",
+            extends: "Component", 
+            phase: "system",
+            instance_schema: {
+                "license_type": { "type": "string", "enum": ["open", "commercial", "private"], "is_required": true },
+                "access_model": { "type": "string", "enum": ["public", "members_only", "paid_subscription", "one_time_purchase"], "is_required": true },
+                "price_amount": { "type": "number", "is_required": false },
+                "price_currency": { "type": "string", "default": "ICP" },
+                "revenue_split": { 
+                    "type": "array", 
+                    "items": { 
+                        "type": "object", 
+                        "properties": { 
+                            "principal": { "type": "string" }, 
+                            "percentage": { "type": "number" } 
+                        } 
+                    } 
+                }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }

@@ -1,0 +1,24 @@
+// =============================================================================
+// Nostra Core Library: Implementation Type
+// =============================================================================
+
+UPSERT {
+    CONCEPT ?implementation_type {
+        {type: "$ConceptType", name: "Implementation"}
+        SET ATTRIBUTES {
+            description: "A concrete realization of a proposal or idea in code.",
+            icon: "💻",
+            tags: ["core", "contribution", "code"],
+            extends: "Contribution",
+            phase: "executable",
+            instance_schema: {
+                "title": { "type": "string", "is_required": true },
+                "repo_url": { "type": "string", "is_required": true },
+                "commit_hash": { "type": "string", "is_required": false },
+                "status": { "type": "string", "default": "active" }
+            }
+        }
+        SET PROPOSITIONS { ("belongs_to_domain", {type: "Domain", name: "NostraCore"}) }
+    }
+}
+WITH METADATA { source: "nostra-core-library", author: "$system", confidence: 1.0, status: "active" }
