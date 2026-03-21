@@ -26,6 +26,7 @@ import {
   MOCK_UX_WORKBENCH_HEAP,
   MOCK_UX_WORKBENCH_STUDIO,
   MOCK_CAPABILITY_GRAPH,
+  MOCK_SPACE_CAPABILITY_GRAPH,
   MOCK_CONTRIBUTION_GRAPH,
   buildMockActionPlan
 } from './store/seedData';
@@ -203,6 +204,14 @@ async function routeCortexRequest(request: Request): Promise<Response> {
   try {
     if (url.pathname === '/api/system/capability-graph') {
       return new Response(JSON.stringify(MOCK_CAPABILITY_GRAPH), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Space-level capability graph with overrides
+    const capGraphMatch = url.pathname.match(/^\/api\/spaces\/([^/]+)\/capability-graph$/);
+    if (capGraphMatch) {
+      return new Response(JSON.stringify(MOCK_SPACE_CAPABILITY_GRAPH), {
         headers: { 'Content-Type': 'application/json' }
       });
     }

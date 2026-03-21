@@ -93,6 +93,7 @@ export interface ContributionNode {
   status: string;
   layer: string;
   portfolio_role?: string;
+  space_id?: string;
 }
 
 export interface ContributionEdge {
@@ -137,6 +138,8 @@ export interface CapabilityNode {
   health?: string;
   priority?: string;
   variance?: string;
+  surfacing_heuristic?: SurfacingHeuristic;
+  operational_frequency?: OperationalFrequency;
   inspector?: {
     route_id?: string;
     category?: string;
@@ -146,6 +149,9 @@ export interface CapabilityNode {
     operator_critical?: boolean;
     approval_required?: boolean;
     promotion_status?: string;
+    surfacing_heuristic?: SurfacingHeuristic;
+    operational_frequency?: OperationalFrequency;
+    placement_constraint?: PlacementConstraint;
   };
 }
 

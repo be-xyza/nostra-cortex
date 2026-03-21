@@ -58,27 +58,58 @@ export function AmbientGraphBackground({ visible: propVisible, variant: propVari
     // 3. Physics Primitives (Principally aligned: Nostra defines, Cortex runs)
     const physics = spaceOverride?.graphPhysics || DEFAULT_GRAPH_PHYSICS;
 
-    // --- UI Execution & Standard Forces ---
-    
     // Apply Standardized Graph Physics (Nostra Primitives)
     useEffect(() => {
-        if (!graphRef.current || !graphData || !isVisible) return;
-
         const fg = graphRef.current;
-        
+        if (!fg || !graphData || !isVisible) return;
+
         // Universal branching pattern configuration
-        fg.d3Force("charge").strength(physics.repulsionStrength);
-        fg.d3Force("link").distance(physics.linkDistance);
-        
-        // Gentle center gravity to keep the cluster centered but expanded
-        if (fg.d3Force("center")) {
-            fg.d3Force("center").strength(physics.centerGravity);
+        if (fg.d3Force) {
+            fg.d3Force("charge")?.strength?.(physics.repulsionStrength);
+            fg.d3Force("link")?.distance?.(physics.linkDistance);
+            fg.d3Force("center")?.strength?.(physics.centerGravity);
+        }
+
+        // --- Meta Workbench Clustering (Phase 4) ---
+        if (spaceId === "meta" && fg.d3Force) {
+            // Group nodes by space and assign centers
+            const nodeSpaces = Array.from(new Set(graphData.nodes.map(n => n.space_id).filter(Boolean)));
+            const centers: Record<string, { x: number, y: number }> = {};
+            
+            // Distribute centers in a circle
+            const radius = Math.min(dimensions.width, dimensions.height) * 0.3;
+            nodeSpaces.forEach((s, i) => {
+                const angle = (i / nodeSpaces.length) * 2 * Math.PI;
+                centers[s!] = {
+                    x: dimensions.width / 2 + radius * Math.cos(angle),
+                    y: dimensions.height / 2 + radius * Math.sin(angle)
+                };
+            });
+
+            // Add attraction forces to centers
+            fg.d3Force("x", (d: any) => {
+                const center = centers[d.space_id];
+                return center ? center.x : dimensions.width / 2;
+            })?.strength?.(0.15);
+
+            fg.d3Force("y", (d: any) => {
+                const center = centers[d.space_id];
+                return center ? center.y : dimensions.height / 2;
+            })?.strength?.(0.15);
+            
+            // Moderate collision to keep clusters distinct
+            fg.d3Force("collide", () => 40);
+        } else if (fg.d3Force) {
+            // Cleanup clustering forces if not in meta
+            fg.d3Force("x", null);
+            fg.d3Force("y", null);
+            fg.d3Force("collide", null);
         }
 
         // Apply bloom effect to 3D graph if needed
-        if (resolvedVariant === "3d") {
+        if (resolvedVariant === "3d" && fg.postProcessingComposer) {
             const composer = fg.postProcessingComposer();
-            if (composer.passes.length <= 1) {
+            if (composer && composer.passes && composer.passes.length <= 1) {
                 const bloomPass = new UnrealBloomPass();
                 bloomPass.strength = 1.2;
                 bloomPass.radius = 0.3;
@@ -86,7 +117,7 @@ export function AmbientGraphBackground({ visible: propVisible, variant: propVari
                 composer.addPass(bloomPass);
             }
         }
-    }, [resolvedVariant, graphData, isVisible, physics]);
+    }, [resolvedVariant, graphData, isVisible, physics, spaceId, dimensions.width, dimensions.height]);
 
     // Observe container size
     useEffect(() => {
@@ -115,6 +146,7 @@ export function AmbientGraphBackground({ visible: propVisible, variant: propVari
                     name: n.title,
                     status: n.status,
                     layer: n.layer,
+                    space_id: n.space_id,
                     val: 1,
                 })),
                 links: graph.edges.map((e) => ({
@@ -148,11 +180,10 @@ export function AmbientGraphBackground({ visible: propVisible, variant: propVari
                  // while gently nudging the center to avoid a static appearance.
                  const fg = graphRef.current;
                  
-                 // Fix: Access simulation instance via d3ForceSimulation()
-                 const simulation = fg?.d3ForceSimulation?.();
-                 if (simulation) {
-                    simulation.alphaTarget(0.02);
-                 }
+                  // Fix: Access simulation instance via d3AlphaTarget directly
+                  if (fg.d3AlphaTarget) {
+                     fg.d3AlphaTarget(0.02);
+                  }
                  
                  const driftX = Math.sin(Date.now() / 4000) * 0.4;
                  const driftY = Math.cos(Date.now() / 5000) * 0.4;
@@ -181,18 +212,51 @@ export function AmbientGraphBackground({ visible: propVisible, variant: propVari
         return () => cancelAnimationFrame(animationFrame);
     }, [resolvedVariant, resolvedMotion, dimensions]);
 
-    // Custom node painting for 2D — ultra-faint dots
+    // Custom node painting for 2D — ultra-faint dots + Space Hulls
     const paintNode2D = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+        // Draw Hull if it's the first node of the space (simple circle hull for now)
+        if (spaceId === "meta" && node.space_id) {
+            const firstOfSpace = graphData?.nodes.find(n => n.space_id === node.space_id);
+            if (firstOfSpace && firstOfSpace.id === node.id) {
+                const spaceNodes = graphData?.nodes.filter(n => n.space_id === node.space_id && n.x !== undefined);
+                if (spaceNodes && spaceNodes.length > 2) {
+                    // Compute centroid and max radius
+                    let cx = 0, cy = 0;
+                    spaceNodes.forEach(n => { cx += n.x; cy += n.y; });
+                    cx /= spaceNodes.length;
+                    cy /= spaceNodes.length;
+                    
+                    let maxR = 0;
+                    spaceNodes.forEach(n => {
+                        const dist = Math.sqrt((n.x - cx)**2 + (n.y - cy)**2);
+                        if (dist > maxR) maxR = dist;
+                    });
+
+                    // Draw Faint Blob
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, maxR + 40, 0, 2 * Math.PI);
+                    const hullColor = spaceColor(node.space_id, 0.05);
+                    ctx.fillStyle = hullColor;
+                    ctx.fill();
+                    ctx.strokeStyle = spaceColor(node.space_id, 0.1);
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        }
+
         const r = 8 / globalScale; 
         ctx.beginPath();
         ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-        const color = nodeColor(node.layer, 0.9);
+        const color = nodeColor(node.layer, 1.0);
         ctx.shadowBlur = 15;
         ctx.shadowColor = color;
         ctx.fillStyle = color;
         ctx.fill();
         ctx.shadowBlur = 0;
-    }, []);
+    }, [graphData, spaceId]);
 
     // Custom link painting for 2D — ultra-faint lines
     const paintLink2D = useCallback((link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -312,4 +376,14 @@ function nodeColor(layer: string, alpha: number): string {
         case "adapter": return `rgba(234, 179, 8, ${alpha})`;  // Yellow/Gold
         default: return `rgba(59, 130, 246, ${alpha})`;        // Blue
     }
+}
+
+function spaceColor(spaceId: string, alpha: number): string {
+    const spaceColors: Record<string, string> = {
+        "space-alpha": `rgba(59, 130, 246, ${alpha})`,    // Blue
+        "space-beta": `rgba(168, 85, 247, ${alpha})`,     // Purple
+        "space-gamma": `rgba(34, 197, 94, ${alpha})`,     // Green
+        "eudaemon-alpha": `rgba(236, 72, 153, ${alpha})`, // Pink
+    };
+    return spaceColors[spaceId] || `rgba(148, 163, 184, ${alpha})`; // Default slate
 }

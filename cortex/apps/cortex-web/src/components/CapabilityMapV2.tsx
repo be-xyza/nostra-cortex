@@ -130,6 +130,18 @@ const CapabilityNodeCard = ({ data, selected }: { data: CapabilityNodeData; sele
             {node.intent_type} {node.promotion_status ? `• ${node.promotion_status}` : ""}
           </div>
           <div style={{ fontSize: "15px", fontWeight: 800, lineHeight: 1.2, color: "#f1f5f9" }}>{node.title}</div>
+          {node.surfacing_heuristic ? (
+            <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+              <span style={{ fontSize: "8px", padding: "1px 6px", borderRadius: 4, background: node.surfacing_heuristic === "PrimaryCore" ? "rgba(59,130,246,0.15)" : "rgba(148,163,184,0.1)", color: node.surfacing_heuristic === "PrimaryCore" ? "#93c5fd" : "#94a3b8", border: `1px solid ${node.surfacing_heuristic === "PrimaryCore" ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.08)"}`, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {node.surfacing_heuristic}
+              </span>
+              {node.operational_frequency ? (
+                <span style={{ fontSize: "8px", padding: "1px 6px", borderRadius: 4, background: "rgba(148,163,184,0.08)", color: "#64748b", border: "1px solid rgba(255,255,255,0.06)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {node.operational_frequency}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         
         {/* Health Indicator Pips */}
