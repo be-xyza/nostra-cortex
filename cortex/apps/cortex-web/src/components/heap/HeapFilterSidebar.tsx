@@ -15,6 +15,8 @@ import {
     Edit3,
     Archive,
     ShieldCheck,
+    CheckSquare2,
+    ClipboardCheck,
 } from "lucide-react";
 import type { HeapPrimaryViewMode, HeapReviewLane, HeapViewCounts } from "./heapViewModel";
 export type HeapFilterMode = "AND" | "OR";
@@ -101,6 +103,8 @@ export function HeapFilterSidebar({
                             { id: 'Explore' as HeapPrimaryViewMode, label: 'Explore', icon: <Compass className="w-4 h-4" /> },
                             { id: 'Inbox' as HeapPrimaryViewMode, label: 'Inbox', icon: <Inbox className="w-4 h-4" /> },
                             { id: 'Drafts' as HeapPrimaryViewMode, label: 'Drafts', icon: <Edit3 className="w-4 h-4" /> },
+                            { id: 'Tasks' as HeapPrimaryViewMode, label: 'Tasks', icon: <CheckSquare2 className="w-4 h-4" /> },
+                            { id: 'Proposals' as HeapPrimaryViewMode, label: 'Proposals', icon: <ClipboardCheck className="w-4 h-4" /> },
                             { id: 'Activity' as HeapPrimaryViewMode, label: 'Activity', icon: <History className="w-4 h-4" /> },
                             { id: 'Pinned' as HeapPrimaryViewMode, label: 'Pinned', icon: <Pin className="w-4 h-4" /> },
                             { id: 'Archive' as HeapPrimaryViewMode, label: 'Archive', icon: <Archive className="w-4 h-4" /> },
