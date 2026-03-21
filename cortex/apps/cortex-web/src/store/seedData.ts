@@ -270,7 +270,7 @@ export const MOCK_LAYOUT_SPEC = {
         icon: "compass",
         category: "execution",
         requiredRole: "operator",
-        navSlot: "primary_workspace"
+        navSlot: "primary_platform"
       },
       {
         routeId: "/workflows",
@@ -350,10 +350,10 @@ export const PLATFORM_CAPABILITY_CATALOG: PlatformCapabilityCatalog = {
   schemaVersion: "1.0.0",
   catalogVersion: "1.0.0",
   nodes: [
+    { id: "heap-explore", name: "Explore", description: "Navigable graph exploration", intentType: "domain_read", routeId: "/explore", category: "core", requiredRole: "operator", icon: "compass", surfacingHeuristic: "PrimaryCore", operationalFrequency: "Continuous" },
     { id: "platform-spaces", name: "Spaces Management", description: "Manage spaces", intentType: "system", routeId: "/spaces", category: "core", requiredRole: "operator", icon: "grid", surfacingHeuristic: "PrimaryCore", operationalFrequency: "Continuous" },
     { id: "workbench-labs", name: "Labs", description: "Draft and try ideas before they go live", intentType: "system", routeId: "/labs", category: "core", requiredRole: "operator", icon: "flask-conical", surfacingHeuristic: "PrimaryCore", operationalFrequency: "Continuous" },
     { id: "workbench-system", name: "System Control", description: "Global configuration", intentType: "system", routeId: "/system", category: "core", requiredRole: "operator", icon: "settings", surfacingHeuristic: "PrimaryCore", operationalFrequency: "Continuous" },
-    { id: "heap-explore", name: "Explore", description: "Navigable graph exploration", intentType: "domain_read", routeId: "/explore", category: "core", requiredRole: "operator", icon: "compass", surfacingHeuristic: "PrimaryCore", operationalFrequency: "Continuous" },
     { id: "studio-canvas", name: "Flow Studio", description: "Design flows", intentType: "domain_write", routeId: "/studio", category: "core", requiredRole: "operator", icon: "code", surfacingHeuristic: "PrimaryCore", operationalFrequency: "Continuous" },
     { id: "core-notifications", name: "Notifications", description: "System alerts", intentType: "system", routeId: "/notifications", category: "core", requiredRole: "operator", icon: "bell", surfacingHeuristic: "Secondary", operationalFrequency: "AdHoc" },
     { id: "core-metrics", name: "Metrics", description: "System telemetry", intentType: "system", routeId: "/metrics", category: "core", requiredRole: "operator", icon: "bar-chart-3", surfacingHeuristic: "Secondary", operationalFrequency: "AdHoc" },

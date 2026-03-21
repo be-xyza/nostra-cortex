@@ -45,7 +45,7 @@ export function App() {
       <ShellLayout>
         <ErrorBoundary>
           <Routes>
-            <Route path="/" element={<Navigate to="/system" replace />} />
+            <Route path="/" element={<Navigate to="/explore" replace />} />
             <Route path="/workflows/*" element={<WorkflowWorkbenchHost />} />
             <Route path="/contributions/*" element={<ContributionsWorkbenchHost />} />
             <Route path={SPACE_STUDIO_ROUTE} element={

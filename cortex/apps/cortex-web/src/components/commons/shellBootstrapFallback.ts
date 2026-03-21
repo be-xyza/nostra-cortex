@@ -10,7 +10,7 @@ const FALLBACK_LAYOUT_SPEC: ShellLayoutSpec = {
         icon: "compass",
         category: "execution",
         requiredRole: "operator",
-        navSlot: "primary_workspace",
+        navSlot: "primary_platform",
       },
       {
         routeId: "/workflows",
