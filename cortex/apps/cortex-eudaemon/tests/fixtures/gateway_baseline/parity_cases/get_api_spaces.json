@@ -1,0 +1,15 @@
+{
+  "case_id": "get_api_spaces",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/spaces"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": []
+  },
+  "legacy_response": {},
+  "runtime_response": {}
+}

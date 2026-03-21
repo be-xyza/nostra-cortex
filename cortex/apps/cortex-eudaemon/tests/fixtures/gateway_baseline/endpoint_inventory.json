@@ -298,6 +298,10 @@
     },
     {
       "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "method": "GET",
       "path": "/api/spaces/:space_id/capability-graph"
     },
     {
@@ -367,6 +371,10 @@
     {
       "method": "GET",
       "path": "/api/system/local-gateway/queue/export"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/logs/stream"
     },
     {
       "method": "GET",

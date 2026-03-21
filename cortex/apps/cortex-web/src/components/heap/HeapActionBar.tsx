@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, MessagesSquare } from "lucide-react";
 import type { ActionZonePlan, ActionSelectionContext } from "../../contracts";
 import { ActionZoneRenderer } from "../commons/ActionZoneRenderer";
 import { executeHeapAction, type ActionHandlers } from "./actionExecutor";
@@ -9,6 +9,7 @@ interface HeapActionBarProps {
     selection: ActionSelectionContext;
     handlers: ActionHandlers;
     onCreate: () => void;
+    onChat?: () => void;
     status?: {
         loading: boolean;
         source: "remote" | "fallback" | "idle";
@@ -26,6 +27,7 @@ export function HeapActionBar({
     selection,
     handlers,
     onCreate,
+    onChat,
     status,
 }: HeapActionBarProps) {
     const selectedCount = selection.selectedCount;
@@ -69,6 +71,17 @@ export function HeapActionBar({
             >
                 <Plus className="w-5 h-5" />
             </button>
+
+            {/* Chat with context */}
+            {onChat && (
+                <button
+                    onClick={onChat}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition-all active:scale-90 shadow-lg shadow-indigo-500/10"
+                    title="Chat about selection"
+                >
+                    <MessagesSquare className="w-4.5 h-4.5" />
+                </button>
+            )}
 
             {/* Divider - removed for borderless look */}
             <div className="w-px h-5 bg-transparent" />

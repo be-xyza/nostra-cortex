@@ -21,9 +21,15 @@ impl StartupMode {
     }
 }
 
+use tracing_subscriber::fmt::writer::MakeWriterExt;
+
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    cortex_eudaemon::services::telemetry_stream::init_broadcast();
+    let broadcast_writer = cortex_eudaemon::services::telemetry_stream::BroadcastWriter;
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stdout.and(broadcast_writer))
+        .init();
 
     let startup_mode = StartupMode::from_env();
     let build_id = option_env!("GIT_SHA")

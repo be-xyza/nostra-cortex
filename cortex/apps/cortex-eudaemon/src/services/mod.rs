@@ -54,6 +54,7 @@ pub mod steward_gate;
 pub mod storage_adapter;
 pub mod streaming_transport;
 pub mod system_logs;
+pub mod telemetry_stream;
 pub mod terminal_service;
 pub mod testing_service;
 pub mod theme_policy;

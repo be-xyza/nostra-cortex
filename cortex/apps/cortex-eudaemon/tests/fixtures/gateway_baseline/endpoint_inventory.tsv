@@ -72,6 +72,7 @@ GET	/api/kg/spaces/:space_id/contribution-graph/violations/by-node
 GET	/api/metrics/acp
 GET	/api/metrics/authz
 GET	/api/metrics/resilience
+GET	/api/spaces
 GET	/api/spaces/:space_id/capability-graph
 GET	/api/spaces/:space_id/navigation-plan
 GET	/api/system/agents/runs
@@ -90,6 +91,7 @@ GET	/api/system/governance-scope/:space_id
 GET	/api/system/llm-adapter/status
 GET	/api/system/local-gateway/queue
 GET	/api/system/local-gateway/queue/export
+GET	/api/system/logs/stream
 GET	/api/system/logs/streams
 GET	/api/system/logs/streams/:stream_id/tail
 GET	/api/system/mutation-gates/:space_id/:mutation_id

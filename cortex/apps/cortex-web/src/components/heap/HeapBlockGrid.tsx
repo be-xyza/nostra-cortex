@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Plus, Menu, PanelLeftOpen } from "lucide-react";
+import { Plus, Menu, PanelLeftOpen, MessagesSquare } from "lucide-react";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { resolveWorkbenchSpaceId, workbenchApi } from "../../api";
 import type {
@@ -34,6 +34,7 @@ import { buildHeapLanes, resolveHeapLaneCount } from "./heapLaneLayout";
 import { resolveExploreSurfacePolicy } from "./exploreSurfacePolicy";
 import { AmbientGraphBackground } from "./AmbientGraphBackground";
 import { readHeapArtifactIdFromSearchParams } from "./heapArtifactRouting";
+import { ChatPanel } from "./ChatPanel";
 
 interface HeapBlockGridProps {
     /** Optional pre-filters to scope this grid (e.g. { blockType: "scorecard" } for /system) */
@@ -50,7 +51,7 @@ const SEARCH_INPUT_ID = "heap-command-search";
 const HEAP_DELTA_POLLING_ENABLED_KEY = "cortex.heap.deltaPolling";
 const HEAP_DELTA_POLLING_INTERVAL_MS_KEY = "cortex.heap.deltaPollingIntervalMs";
 
-type CreateMode = "create" | "generate" | "upload" | "solicit";
+type CreateMode = "create" | "generate" | "upload" | "chat";
 
 export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: HeapBlockGridProps) {
     const activeSpaceId = useActiveSpaceContext();
@@ -103,6 +104,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const [solicitBudget, setSolicitBudget] = useState("50000");
     const [solicitCapabilities, setSolicitCapabilities] = useState("read,write");
     const [isEmitting, setIsEmitting] = useState(false);
+    const [chatPanelOpen, setChatPanelOpen] = useState(false);
     const [stewardGateArtifactId, setStewardGateArtifactId] = useState<string | null>(null);
     const [stewardGateValidation, setStewardGateValidation] = useState<HeapStewardGateValidateResponse | null>(null);
     const [stewardApplyingId, setStewardApplyingId] = useState<string | null>(null);
@@ -738,7 +740,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             };
         }
 
-        if (createMode === "solicit") {
+        if (createMode === "chat") {
             return {
                 schema_version: "1.0.0",
                 mode: "heap",
@@ -1023,6 +1025,19 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Chat Toggle */}
+                            <button
+                                onClick={() => setChatPanelOpen(prev => !prev)}
+                                className={`p-2 rounded-full transition-all duration-200 ${
+                                    chatPanelOpen
+                                        ? "bg-indigo-600/80 text-white shadow-sm shadow-indigo-500/20"
+                                        : "bg-cortex-800/60 border border-cortex-700/40 text-cortex-500 hover:text-cortex-300"
+                                }`}
+                                title="Chat with Eudaemon"
+                            >
+                                <MessagesSquare className="w-3.5 h-3.5" />
+                            </button>
                         </div>
                     </header>
 
@@ -1035,6 +1050,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                             setCreateMode("create");
                             setCreatePanelOpen(true);
                         }}
+                        onChat={() => setChatPanelOpen(true)}
                         status={
                             actionPlanLoading
                                 ? { loading: true, source: "idle", error: null }
@@ -1068,7 +1084,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                 </div>
                                 <div className="p-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
                                     <div className="flex flex-wrap gap-2 mb-8">
-                                        {(["create", "generate", "upload", "solicit"] as CreateMode[]).map((mode) => (
+                                        {(["create", "generate", "upload", "chat"] as CreateMode[]).map((mode) => (
                                             <button
                                                 key={mode}
                                                 onClick={() => setCreateMode(mode)}
@@ -1152,7 +1168,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                         </div>
                                     )}
 
-                                    {createMode === "solicit" && (
+                                    {createMode === "chat" && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                                             <div>
                                                 <label className="block text-[10px] font-black uppercase tracking-widest text-cortex-500 mb-2">Steward Role</label>
@@ -1327,6 +1343,14 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                         {selectionMessage}
                     </div>
                 )}
+                {/* Chat Panel */}
+                <ChatPanel
+                    isOpen={chatPanelOpen}
+                    onClose={() => setChatPanelOpen(false)}
+                    contextBlockIds={selectionContext.selectedArtifactIds}
+                    viewMode={viewMode}
+                    gatewayUrl={env?.VITE_GATEWAY_URL as string | undefined}
+                />
             </div>
         </div>
     );

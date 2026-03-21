@@ -17,6 +17,9 @@ import {
     Clock,
     Cpu,
     Network,
+    ListChecks,
+    ClipboardCheck,
+    MessagesSquare,
 } from "lucide-react";
 import type { HeapBlockListItem } from "../../contracts";
 import type { ActionSelectionContext, ToolbarActionDescriptor } from "../../contracts";
@@ -54,6 +57,10 @@ const TYPE_COLOR: Record<string, string> = {
     note: "blue",
     media: "purple",
     task: "green",
+    checklist: "green",
+    action_plan: "amber",
+    compiled_plan: "amber",
+    chat_thread: "indigo",
     chart: "cyan",
     a2ui: "cyan",
     gate_summary: "red",
@@ -67,6 +74,10 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
     note: <FileText className="w-3.5 h-3.5" />,
     media: <Image className="w-3.5 h-3.5" />,
     task: <CheckSquare className="w-3.5 h-3.5" />,
+    checklist: <ListChecks className="w-3.5 h-3.5" />,
+    action_plan: <ClipboardCheck className="w-3.5 h-3.5" />,
+    compiled_plan: <ClipboardCheck className="w-3.5 h-3.5" />,
+    chat_thread: <MessagesSquare className="w-3.5 h-3.5" />,
     chart: <BarChart className="w-3.5 h-3.5" />,
     a2ui: <Settings className="w-3.5 h-3.5" />,
     gate_summary: <Shield className="w-3.5 h-3.5" />,
@@ -163,10 +174,23 @@ export function HeapBlockCard({
                             TYPE_COLOR[blockType] === 'cyan' ? 'text-cyan-400' :
                             TYPE_COLOR[blockType] === 'purple' ? 'text-purple-400' :
                             TYPE_COLOR[blockType] === 'yellow' ? 'text-yellow-400' :
+                            TYPE_COLOR[blockType] === 'amber' ? 'text-amber-400' :
+                            TYPE_COLOR[blockType] === 'indigo' ? 'text-indigo-400' :
                             'text-slate-400'
                         }`}>
                             {blockIcon} {blockType}
                         </span>
+                        {(blockType === "task" || blockType === "checklist") && (() => {
+                            const items = ((surface as Record<string, unknown>).checklist_items as Array<{ done?: boolean }>) || [];
+                            if (items.length === 0) return null;
+                            const done = items.filter(i => i.done).length;
+                            const pct = Math.round((done / items.length) * 100);
+                            return (
+                                <span className={`ml-1.5 text-[9px] font-mono px-1.5 py-0.5 rounded-full ${
+                                    pct === 100 ? "bg-green-500/20 text-green-300" : "bg-slate-800/60 text-slate-400"
+                                }`}>{done}/{items.length}</span>
+                            );
+                        })()}
                         {(block.warnings?.length ?? 0) > 0 && (
                             <AlertTriangle className="w-3 h-3 text-amber-500 animate-pulse ml-1" />
                         )}
