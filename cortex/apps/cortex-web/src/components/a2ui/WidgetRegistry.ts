@@ -3,16 +3,30 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { TldrawCanvas } from "./TldrawCanvas";
 import { SpatialPlanePayload } from "./spatialReplay";
 import { emitA2uiEvent } from "./spatialEventContract";
-import { SPACE_ID, workbenchApi, gatewayBaseUrl } from "../../api";
+import {
+  gatewayBaseUrl,
+  openGatewayApiArtifact,
+  resolveWorkbenchSpaceId,
+  workbenchApi,
+} from "../../api";
 import { CapabilityMatrixMap } from "../CapabilityMatrixMap";
 import { CapabilityMapV2 } from "../CapabilityMapV2";
 import type { HeapBlockListItem, PlatformCapabilityGraph } from "../../contracts";
-import { A2UISynthesisSpace } from "./A2UISynthesisSpace";
-import { PlaygroundSurface } from "./PlaygroundSurface";
 import { HeapBlockGrid } from "../heap/HeapBlockGrid";
 import { HeapBlockCard as CanonicalHeapBlockCard } from "../heap/HeapBlockCard";
 import { useUiStore } from "../../store/uiStore";
 import { ForceGraph } from "../ForceGraph";
+import { projectDataTable } from "./dataTable";
+import { classifyWorkbenchHref } from "../workflows/artifactRouting.ts";
+import { useWorkflowArtifactInspector } from "../workflows/WorkflowArtifactInspectorContext.tsx";
+import {
+  WorkflowInstanceTimeline,
+  WorkflowProjectionPreview,
+  WorkflowStatusBadge,
+  WorkflowSummaryStrip,
+} from "../workflows/workflowWidgets.tsx";
+import { CapabilityInspectorBlock } from "../CapabilityInspectorBlock";
+import { RulesMatrixWidget } from "../RulesMatrixWidget";
 
 export type A2UIComponentProps = {
   id: string;
@@ -164,6 +178,23 @@ async function executeWidgetAction(action: unknown, props: Record<string, unknow
 
   const { name, params } = parseActionDescriptor(action.trim());
   type ActionHandler = (params: URLSearchParams, props: Record<string, unknown>) => Promise<ActionExecutionResult>;
+  const state = useUiStore.getState();
+  const activeSpaceIds = state.activeSpaceIds;
+  const activeSpaceId = activeSpaceIds[0] || "";
+  const wasWorkbenchNamedManually = state.wasWorkbenchNamedManually;
+
+  // Deferred Naming Gate for multi-space sessions
+  const gatedActions = ["emitGateSummaryToHeap", "startAgentContribution"];
+  if (activeSpaceIds.length > 1 && !wasWorkbenchNamedManually && gatedActions.includes(name)) {
+    state.setPendingWorkbenchAction(() => executeWidgetAction(action, props));
+    state.setNamingModalOpen(true);
+    return {
+      ok: true, // Returning true to avoid error UI while modal is open
+      message: "Workbench naming required...",
+      code: "workbench_naming_gate_active"
+    };
+  }
+
   const actionHandlers: Record<string, ActionHandler> = {
     provisionSpace: async (_queryParams, actionProps) => {
       const initialSpaceId = typeof actionProps.space_id === "string" ? actionProps.space_id : "";
@@ -193,13 +224,47 @@ async function executeWidgetAction(action: unknown, props: Record<string, unknow
       };
     },
     startAgentContribution: async (queryParams) => {
-      const spaceId = queryParams.get("spaceId") || SPACE_ID;
+      const spaceId = resolveWorkbenchSpaceId(queryParams.get("spaceId") ?? undefined);
       const contributionId = queryParams.get("contributionId") || `workbench-${Date.now()}`;
       const response = await workbenchApi.startAgentContribution(spaceId, contributionId);
       return {
         ok: true,
         message: `Contribution run started: ${response.runId}`,
         code: "agent_contribution_started"
+      };
+    },
+    emitGateSummaryToHeap: async (queryParams, actionProps) => {
+      const kindCandidate = (queryParams.get("kind") || "").trim().toLowerCase();
+      if (kindCandidate !== "siq" && kindCandidate !== "testing") {
+        return {
+          ok: false,
+          message: `Invalid gate summary kind: ${kindCandidate || "missing"}.`,
+          code: "invalid_gate_summary_kind"
+        };
+      }
+      const spaceId =
+        (queryParams.get("spaceId") || queryParams.get("workspaceId") || "").trim() ||
+        (typeof actionProps.spaceId === "string" ? actionProps.spaceId.trim() : "") ||
+        (typeof actionProps.space_id === "string" ? actionProps.space_id.trim() : "") ||
+        activeSpaceId ||
+        "";
+      if (!spaceId) {
+        return {
+          ok: false,
+          message: "spaceId is required for gate summary emission.",
+          code: "missing_space_id"
+        };
+      }
+
+      const response = await workbenchApi.emitGateSummaryHeapBlock({
+        schemaVersion: "1.0.0",
+        spaceId,
+        kind: kindCandidate as "siq" | "testing"
+      });
+      return {
+        ok: true,
+        message: `Saved to Heap as ${response.artifactId}.`,
+        code: "gate_summary_saved"
       };
     }
   };
@@ -255,29 +320,35 @@ function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React
   const selectedNode = graphData.nodes.find((node) => node.id === selectedId) || null;
   const canNavigate = Boolean(selectedNode?.route_id);
 
-  const handleSelectNode = (nodeId: string) => {
+  const handleSelectNode = (nodeId: string | null) => {
     setSelectedId(nodeId);
     const params = new URLSearchParams(location.search);
-    params.set("node_id", nodeId);
-    if (!params.get("intent")) params.set("intent", "navigate");
-    if (!params.get("density")) params.set("density", "comfortable");
+    if (nodeId) {
+      params.set("node_id", nodeId);
+      if (!params.get("intent")) params.set("intent", "navigate");
+      if (!params.get("density")) params.set("density", "comfortable");
+    } else {
+      params.delete("node_id");
+      params.delete("intent");
+      params.delete("density");
+    }
     navigate(`${location.pathname}?${params.toString()}`, { replace: true });
   };
 
   return React.createElement(
     "div",
-    { className: "flex flex-col lg:flex-row gap-4 min-h-[540px]" },
+    { className: "relative w-full h-[85vh] min-h-[700px] animate-in fade-in zoom-in-95 duration-700" },
     [
-      React.createElement("div", { key: "graph", className: "flex-1 min-h-[520px] border border-cortex-line rounded-cortex bg-cortex-bg-panel relative" },
+      React.createElement("div", { key: "graph", className: "absolute inset-0 border border-white/5 rounded-3xl bg-slate-950/20 shadow-2xl overflow-hidden" },
         [
           React.createElement(
             "div",
             {
               key: "graph-version-badge",
-              className: "absolute top-2 left-2 z-20 px-2 py-1 text-[10px] rounded border border-cortex-line bg-cortex-bg-elev text-cortex-ink-muted"
+              className: "absolute top-6 left-6 z-20 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg border border-white/5 bg-slate-900/60 backdrop-blur-md text-slate-400"
             },
             graphV2Enabled
-              ? `Graph V2 · ${graphData.capabilities_version ?? "runtime"}`
+              ? `Graph V2 • ${graphData.capabilities_version ?? "runtime"}`
               : "Graph V1 (fallback)"
           ),
           graphV2Enabled
@@ -305,40 +376,21 @@ function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React
       ),
       React.createElement(
         "aside",
-        { key: "inspector", className: "w-full lg:w-[320px] p-4 border border-cortex-line rounded-cortex bg-cortex-bg-elev flex flex-col gap-2" },
+        { 
+          key: "inspector", 
+          className: `absolute right-6 top-6 bottom-6 w-[400px] z-30 p-6 border border-white/10 rounded-3xl bg-slate-900/40 backdrop-blur-2xl flex flex-col gap-5 overflow-y-auto shadow-2xl transition-all duration-500 ease-out custom-scrollbar ${selectedNode ? "translate-x-0 opacity-100" : "translate-x-12 opacity-0 pointer-events-none"}` 
+        },
         [
-          React.createElement("h4", { key: "title", className: "text-base font-semibold text-cortex-ink" }, "Capability Inspector"),
-          selectedNode
-            ? React.createElement(
-              React.Fragment,
-              { key: "content" },
-              [
-                React.createElement("div", { key: "name", className: "text-sm text-cortex-ink font-medium" }, selectedNode.title),
-                React.createElement("div", { key: "desc", className: "text-xs text-cortex-ink-muted" }, selectedNode.description),
-                React.createElement("div", { key: "intent", className: "text-xs text-cortex-ink-muted" }, `intent=${selectedNode.intent_type}`),
-                selectedNode.required_role
-                  ? React.createElement("div", { key: "role", className: "text-xs text-cortex-ink-muted" }, `required_role=${selectedNode.required_role}`)
-                  : null,
-                selectedNode.pattern_id
-                  ? React.createElement("div", { key: "pattern", className: "text-xs text-cortex-ink-muted" }, `pattern=${selectedNode.pattern_id}`)
-                  : null,
-                selectedNode.promotion_status
-                  ? React.createElement("div", { key: "status", className: "text-xs text-cortex-ink-muted" }, `promotion_status=${selectedNode.promotion_status}`)
-                  : null,
-                canNavigate
-                  ? React.createElement(
-                    "button",
-                    {
-                      key: "navigate",
-                      className: "mt-2 px-3 py-2 rounded-cortex border border-cortex-line bg-cortex-bg text-cortex-ink hover:bg-cortex-bg-panel text-sm",
-                      onClick: () => navigate(String(selectedNode.route_id))
-                    },
-                    `Open ${selectedNode.route_id}`
-                  )
-                  : React.createElement("div", { key: "hint", className: "text-xs text-cortex-ink-faint" }, "No route binding for this capability.")
-              ]
-            )
-            : React.createElement("div", { key: "empty", className: "text-xs text-cortex-ink-faint" }, "Select a node to inspect metadata."),
+          React.createElement("div", { key: "header", className: "flex items-center justify-between mb-2 shrink-0" }, [
+            React.createElement("div", { key: "title-group", className: "flex flex-col gap-1" }, [
+              React.createElement("h4", { key: "title", className: "text-[10px] font-black uppercase tracking-[0.24em] text-slate-500" }, "Capability Inspector"),
+              selectedNode && React.createElement("div", { key: "node-title", className: "text-sm font-bold text-slate-100" }, selectedNode.title)
+            ]),
+            selectedNode && React.createElement("span", { key: "badge", className: "px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 text-[10px] font-black border border-blue-500/20" }, "LIVE")
+          ]),
+          selectedNode 
+            ? React.createElement(CapabilityInspectorBlock, { key: "block", node: selectedNode })
+            : null
         ]
       )
     ]
@@ -357,6 +409,8 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
   },
 
   Button: ({ componentProperties }) => {
+    const navigate = useNavigate();
+    const workflowInspector = useWorkflowArtifactInspector();
     const props = readProps(componentProperties, "Button");
     const [pending, setPending] = React.useState(false);
     const [result, setResult] = React.useState<ActionExecutionResult | null>(null);
@@ -372,9 +426,36 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
             setPending(true);
             setResult(null);
             const action = props.action;
+            const href = typeof props.href === "string" ? props.href.trim() : "";
             let executionResult: ActionExecutionResult | null = null;
             try {
-              executionResult = await executeWidgetAction(action, props);
+              if (typeof action === "string" && action.trim().length > 0) {
+                executionResult = await executeWidgetAction(action, props);
+              } else if (href) {
+                const hrefKind = classifyWorkbenchHref(href);
+                if (hrefKind === "gateway_api") {
+                  if (workflowInspector) {
+                    await workflowInspector.openArtifact(href);
+                  } else {
+                    await openGatewayApiArtifact(href, "new_tab");
+                  }
+                } else if (hrefKind === "internal_workbench") {
+                  navigate(href);
+                } else {
+                  window.location.assign(href);
+                }
+                executionResult = {
+                  ok: true,
+                  message: `Opened ${href}`,
+                  code: "navigation_opened"
+                };
+              } else {
+                executionResult = {
+                  ok: false,
+                  message: "Button requires either action or href.",
+                  code: "button_missing_action_or_href"
+                };
+              }
               setResult(executionResult);
             } catch (error) {
               executionResult = {
@@ -388,6 +469,7 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
             }
             emitA2uiEvent("button_click", {
               action: props.action,
+              href: props.href,
               label: props.label,
               executionCode: executionResult?.code,
               executionStatus: executionResult?.ok ? "success" : "error",
@@ -424,7 +506,9 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
   ApprovalControls: ({ componentProperties }) => {
     const props = readProps(componentProperties, "ApprovalControls");
     const runId = String(props.runId ?? "");
-    const spaceId = String(props.spaceId ?? SPACE_ID);
+    const spaceId = resolveWorkbenchSpaceId(
+      typeof props.spaceId === "string" ? props.spaceId : undefined
+    );
     const decisionRef = String(props.decisionRef ?? `DEC-${Date.now()}`);
 
     async function submitApproval(decision: "approved" | "rejected") {
@@ -459,12 +543,18 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
       }
     }
 
-    return React.createElement("div", { className: "flex gap-4 mt-4 border-t border-cortex-line pt-4" }, [
+    return React.createElement("div", {
+      className: "flex gap-4 mt-4 border-t border-cortex-line pt-4",
+      role: "region",
+      "aria-label": "Approval Gate Controls",
+      "data-testid": "approval-controls"
+    }, [
       React.createElement(
         "button",
         {
           key: "approve",
           className: "chip ok px-6 py-2 rounded-cortex font-bold uppercase",
+          "aria-label": "Approve contribution changes",
           onClick: async () => {
             await submitApproval("approved");
           }
@@ -476,6 +566,7 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
         {
           key: "reject",
           className: "chip bad px-6 py-2 rounded-cortex font-bold uppercase",
+          "aria-label": "Reject contribution changes",
           onClick: async () => {
             await submitApproval("rejected");
           }
@@ -547,31 +638,30 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
 
   DataTable: ({ componentProperties }) => {
     const props = readProps(componentProperties, "DataTable");
-    const explicitColumns = Array.isArray(props.columns) ? props.columns.map((column) => String(column)) : [];
-    const rawRows = props.rows ?? props.data;
-    const rows = Array.isArray(rawRows)
-      ? rawRows
-        .map((row) => {
-          if (row && typeof row === "object" && !Array.isArray(row)) {
-            return row as Record<string, unknown>;
-          }
-          if (Array.isArray(row)) {
-            const mapped: Record<string, unknown> = {};
-            row.forEach((cell, index) => {
-              const columnName = explicitColumns[index] ?? `Column ${index + 1}`;
-              mapped[columnName] = cell;
-            });
-            return mapped;
-          }
-          return null;
-        })
-        .filter((row): row is Record<string, unknown> => row !== null)
-      : [];
-    const columns = explicitColumns.length > 0 ? explicitColumns : (rows[0] ? Object.keys(rows[0]) : []);
+    const navigate = useNavigate();
+    const workflowInspector = useWorkflowArtifactInspector();
+    const { columns, rows, rowHrefField, rowKeyField } = projectDataTable(props);
 
     if (columns.length === 0 || rows.length === 0) {
       return React.createElement("div", { className: "text-sm text-cortex-ink-faint italic p-4" }, "No data to display");
     }
+
+    const handleRowNavigation = async (href: string) => {
+      const hrefKind = classifyWorkbenchHref(href);
+      if (hrefKind === "gateway_api") {
+        if (workflowInspector) {
+          await workflowInspector.openArtifact(href);
+          return;
+        }
+        await openGatewayApiArtifact(href, "new_tab");
+        return;
+      }
+      if (hrefKind === "internal_workbench") {
+        navigate(href);
+        return;
+      }
+      window.location.assign(href);
+    };
 
     return React.createElement("div", { className: "overflow-x-auto my-4 border border-cortex-line rounded-cortex" },
       React.createElement("table", { className: "min-w-full text-sm text-left text-cortex-ink" }, [
@@ -581,9 +671,32 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
           )
         ),
         React.createElement("tbody", { key: "tbody", className: "divide-y divide-cortex-line" },
-          rows.map((row, idx): React.ReactNode => React.createElement("tr", { key: idx, className: "bg-cortex-bg-panel hover:bg-cortex-bg-elev" },
-            columns.map((col): React.ReactNode => React.createElement("td", { key: `${idx}-${col}`, className: "px-4 py-3" }, String(row[col] || "")))
-          ))
+          rows.map((row, idx): React.ReactNode => {
+            const href =
+              typeof row[rowHrefField] === "string" ? String(row[rowHrefField]) : "";
+            const key =
+              typeof row[rowKeyField] === "string" && String(row[rowKeyField]).trim()
+                ? String(row[rowKeyField])
+                : `row-${idx}`;
+            const clickable = href.trim().length > 0;
+            return React.createElement("tr", {
+              key,
+              className: `bg-cortex-bg-panel hover:bg-cortex-bg-elev ${clickable ? "cursor-pointer" : ""}`,
+              onClick: clickable ? () => void handleRowNavigation(href) : undefined,
+              role: clickable ? "link" : undefined,
+              tabIndex: clickable ? 0 : undefined,
+              onKeyDown: clickable
+                ? (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void handleRowNavigation(href);
+                    }
+                  }
+                : undefined,
+            },
+              columns.map((col): React.ReactNode => React.createElement("td", { key: `${key}-${col}`, className: "px-4 py-3" }, String(row[col] || "")))
+            );
+          })
         )
       ])
     );
@@ -607,9 +720,8 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
       showFilterSidebar: false,
     });
   },
+  Canvas: () => React.createElement(HeapBlockGrid, { showFilterSidebar: true }),
   HeapCanvas: () => React.createElement(HeapBlockGrid, { showFilterSidebar: true }),
-  PlaygroundSurface: () => React.createElement(PlaygroundSurface),
-  A2UISynthesisSpace: ({ componentProperties }) => React.createElement(A2UISynthesisSpace, { id: "synthesis_space", componentProperties }),
 
   ContributionGraph: ({ componentProperties }) => {
     const props = componentProperties["ContributionGraph"] as Record<string, unknown> || {};
@@ -622,13 +734,60 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
   },
 
   CapabilityMap: CapabilityMapWidget,
+  RulesMatrixWidget: RulesMatrixWidget,
+  WorkbenchSummary: () => {
+    const activeWorkbenchSession = useUiStore((state) => state.activeWorkbenchSession);
+    const activeSpaceIds = useUiStore((state) => state.activeSpaceIds);
+    const wasWorkbenchNamedManually = useUiStore((state) => state.wasWorkbenchNamedManually);
+
+    return React.createElement(
+      "div",
+      { className: "p-6 border border-blue-500/20 rounded-cortex bg-cortex-bg-panel/40 backdrop-blur-xl flex flex-col gap-4 shadow-lg animate-in fade-in zoom-in-95 duration-500" },
+      [
+        React.createElement("div", { key: "header", className: "flex justify-between items-start" }, [
+          React.createElement("div", { key: "title-group" }, [
+            React.createElement("h2", { key: "title", className: "text-xl font-black text-cortex-ink uppercase tracking-tight" }, activeWorkbenchSession?.name || "Untitled Workbench"),
+            React.createElement("div", { key: "badge", className: "flex items-center gap-2 mt-1" }, [
+              React.createElement("div", { key: "dot", className: "w-2 h-2 rounded-full bg-blue-500 animate-pulse" }),
+              React.createElement("span", { key: "status", className: "text-[10px] font-bold text-blue-400 uppercase tracking-widest" }, wasWorkbenchNamedManually ? "Live Session" : "Drafting"),
+            ])
+          ]),
+          React.createElement("div", { key: "count", className: "px-3 py-1 rounded-full border border-cortex-line bg-cortex-bg-elev text-xs font-mono text-cortex-ink-muted" }, `${activeSpaceIds.length} Spaces`)
+        ]),
+        React.createElement("div", { key: "content", className: "grid grid-cols-1 md:grid-cols-2 gap-4" }, [
+          React.createElement("div", { key: "spaces-list", className: "flex flex-col gap-2" }, [
+            React.createElement("span", { key: "label", className: "text-[10px] font-bold text-cortex-ink-faint uppercase tracking-widest" }, "Aggregated Contexts"),
+            React.createElement("div", { key: "list", className: "flex flex-wrap gap-1.5" }, 
+              activeSpaceIds.map(id => React.createElement("span", { key: id, className: "px-2 py-0.5 rounded border border-white/5 bg-white/5 text-[9px] font-medium text-cortex-ink-muted" }, id))
+            )
+          ]),
+          React.createElement("div", { key: "summary", className: "flex flex-col gap-2" }, [
+            React.createElement("span", { key: "label", className: "text-[10px] font-bold text-cortex-ink-faint uppercase tracking-widest" }, "Intelligence state"),
+            React.createElement("p", { key: "text", className: "text-xs text-cortex-ink-muted leading-relaxed" }, 
+              activeSpaceIds.length > 1 
+                ? "Multiple spaces are bound into this synthetic workbench. Intelligence kernels are currently cross-referencing capabilities across the union."
+                : "Standard sovereign space context. Local intelligence kernels are active."
+            )
+          ])
+        ])
+      ]
+    );
+  },
+  WorkflowSummaryStrip: ({ componentProperties }) =>
+    React.createElement(WorkflowSummaryStrip, { componentProperties }),
+  WorkflowStatusBadge: ({ componentProperties }) =>
+    React.createElement(WorkflowStatusBadge, { componentProperties }),
+  WorkflowProjectionPreview: ({ componentProperties }) =>
+    React.createElement(WorkflowProjectionPreview, { componentProperties }),
+  WorkflowInstanceTimeline: ({ componentProperties }) =>
+    React.createElement(WorkflowInstanceTimeline, { componentProperties }),
   BrandingLabsWidget: () =>
     React.createElement("div", { className: "p-4 border border-cortex-line rounded-cortex bg-cortex-bg-panel" }, [
-      React.createElement("h4", { key: "title", className: "text-base font-semibold text-cortex-ink" }, "Branding Labs"),
+      React.createElement("h4", { key: "title", className: "text-base font-semibold text-cortex-ink" }, "Labs"),
       React.createElement(
         "p",
         { key: "text", className: "text-sm text-cortex-ink-muted mt-1" },
-        "Brand policy experiments, identity styling, and UX lab governance checkpoints are available in this surface."
+        "Draft new ideas here before they become live spaces, templates, or other governed surfaces."
       )
     ]),
 

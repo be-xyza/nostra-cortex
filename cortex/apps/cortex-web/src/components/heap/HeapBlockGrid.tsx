@@ -19,15 +19,21 @@ import { HeapFilterSidebar, HeapFilterMode } from "./HeapFilterSidebar";
 import { AgentActivityPanel } from "./AgentActivityPanel";
 import { CommentSidebar } from "./CommentSidebar";
 import { useUiStore } from "../../store/uiStore";
-import { useActiveSpaceContext } from "../../store/spacesRegistry";
+import { useActiveSpaceContext, useActiveSpaceRecord } from "../../store/spacesRegistry";
 import {
     buildHeapViewCounts,
+    filterHeapBlocksByReviewLane,
     filterHeapBlocksByView,
     heapPrimaryViewModeParam,
     normalizeHeapPrimaryViewMode,
     type HeapPrimaryViewMode,
+    type HeapReviewLane,
+    readHeapBlockReviewLane,
 } from "./heapViewModel";
+import { buildHeapLanes, resolveHeapLaneCount } from "./heapLaneLayout";
+import { resolveExploreSurfacePolicy } from "./exploreSurfacePolicy";
 import { AmbientGraphBackground } from "./AmbientGraphBackground";
+import { readHeapArtifactIdFromSearchParams } from "./heapArtifactRouting";
 
 interface HeapBlockGridProps {
     /** Optional pre-filters to scope this grid (e.g. { blockType: "scorecard" } for /system) */
@@ -48,6 +54,7 @@ type CreateMode = "create" | "generate" | "upload" | "solicit";
 
 export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: HeapBlockGridProps) {
     const activeSpaceId = useActiveSpaceContext();
+    const activeSpace = useActiveSpaceRecord();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const env = (import.meta as unknown as { env?: Record<string, string | boolean | undefined> }).env;
@@ -81,6 +88,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [selectedPageLinks, setSelectedPageLinks] = useState<string[]>([]);
     const [pageLinkTerm, setPageLinkTerm] = useState("");
+    const [selectedReviewLane, setSelectedReviewLane] = useState<HeapReviewLane | null>(null);
     const [multiSelectEnabled, setMultiSelectEnabled] = useState(false);
     const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -193,13 +201,33 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     }, [blocks]);
 
     const [lastDeltaSince, setLastDeltaSince] = useState<string | null>(null);
+    const laneBoardHostRef = useRef<HTMLDivElement | null>(null);
+    const [laneBoardWidth, setLaneBoardWidth] = useState(0);
 
     const includeTerms = useMemo(() => tokenizeQuery(filterTerm), [filterTerm]);
     const excludeTerms = useMemo(() => tokenizeQuery(excludeTerm), [excludeTerm]);
+    const blocksInActiveView = useMemo(() => filterHeapBlocksByView(blocks, viewMode), [blocks, viewMode]);
+    const reviewLaneCounts = useMemo<Record<HeapReviewLane, number>>(
+        () => ({
+            private_review: blocksInActiveView.filter((block) => readHeapBlockReviewLane(block) === "private_review").length,
+            public_review: blocksInActiveView.filter((block) => readHeapBlockReviewLane(block) === "public_review").length,
+        }),
+        [blocksInActiveView]
+    );
+    const availableReviewLanes = useMemo<HeapReviewLane[]>(
+        () => (["private_review", "public_review"] as const).filter((lane) => reviewLaneCounts[lane] > 0),
+        [reviewLaneCounts]
+    );
+
+    useEffect(() => {
+        if (selectedReviewLane && reviewLaneCounts[selectedReviewLane] === 0) {
+            setSelectedReviewLane(null);
+        }
+    }, [reviewLaneCounts, selectedReviewLane]);
 
     // Apply filters
     const filteredBlocks = useMemo(() => {
-        return filterHeapBlocksByView(blocks, viewMode).filter(b => {
+        return filterHeapBlocksByReviewLane(blocksInActiveView, selectedReviewLane).filter(b => {
             const searchable = blockSearchCorpus(b);
 
             const includeMatches = includeTerms.length === 0
@@ -232,13 +260,60 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             const excludeMatches = excludeTerms.every(term => !searchable.includes(term));
             return excludeMatches;
         });
-    }, [blocks, viewMode, includeTerms, excludeTerms, selectedTags, selectedPageLinks, pageLinkTerm, filterMode]);
+    }, [blocksInActiveView, selectedReviewLane, includeTerms, excludeTerms, selectedTags, selectedPageLinks, pageLinkTerm, filterMode]);
+    const exploreSurfacePolicy = useMemo(
+        () => resolveExploreSurfacePolicy({
+            spaceId: resolveSpaceId(activeSpaceId),
+            surfaceId: "explore.list",
+            spaceArchetype: activeSpace?.archetype,
+        }),
+        [activeSpace?.archetype, activeSpaceId]
+    );
+    const laneCount = useMemo(
+        () => resolveHeapLaneCount(laneBoardWidth, exploreSurfacePolicy),
+        [laneBoardWidth, exploreSurfacePolicy]
+    );
+    const blockLanes = useMemo(
+        () => buildHeapLanes(filteredBlocks, laneCount, exploreSurfacePolicy),
+        [filteredBlocks, laneCount, exploreSurfacePolicy]
+    );
+
+    useEffect(() => {
+        const el = laneBoardHostRef.current;
+        if (!el) return;
+
+        const updateWidth = (width: number) => {
+            const rounded = Math.round(width);
+            setLaneBoardWidth((current) => (current === rounded ? current : rounded));
+        };
+
+        updateWidth(el.getBoundingClientRect().width);
+
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                updateWidth(entry.contentRect.width);
+            }
+        });
+        observer.observe(el);
+
+        return () => observer.disconnect();
+    }, [loading, filteredBlocks.length]);
 
     useEffect(() => {
         if (selectedBlockIds.length === 0) return;
         const visible = new Set(blocks.map((b) => b.projection.artifactId));
         setSelectedBlockIds((current) => current.filter((id) => visible.has(id)));
     }, [blocks, selectedBlockIds.length]);
+
+    useEffect(() => {
+        const deepLinkedArtifactId = readHeapArtifactIdFromSearchParams(searchParams);
+        if (!deepLinkedArtifactId) return;
+        if (!blocks.some((block) => block.projection.artifactId === deepLinkedArtifactId)) return;
+        setSelectedBlockIds((current) =>
+            current.length === 1 && current[0] === deepLinkedArtifactId ? current : [deepLinkedArtifactId]
+        );
+        setExpandedBlockId((current) => current === deepLinkedArtifactId ? current : deepLinkedArtifactId);
+    }, [blocks, searchParams]);
 
     const selectedPrimaryId = selectedBlockIds[0] ?? null;
     const expandedBlock = useMemo(() => blocks.find(b => b.projection.artifactId === expandedBlockId), [blocks, expandedBlockId]);
@@ -267,9 +342,10 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const activeFilters = useMemo(() => ({
         viewMode,
         filterMode,
+        selectedReviewLane,
         selectedTags,
         selectedPageLinks,
-    }), [filterMode, selectedPageLinks, selectedTags, viewMode]);
+    }), [filterMode, selectedPageLinks, selectedReviewLane, selectedTags, viewMode]);
     const { actionPlan, loading: actionPlanLoading, error: actionPlanError, source: actionPlanSource } = useHeapActionPlan({
         selection: selectionContext,
         zones: ["heap_page_bar", "heap_selection_bar"],
@@ -857,6 +933,10 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                         onTogglePageLink={togglePageLink}
                         pageLinkTerm={pageLinkTerm}
                         onPageLinkTermChange={setPageLinkTerm}
+                        availableReviewLanes={availableReviewLanes}
+                        reviewLaneCounts={reviewLaneCounts}
+                        selectedReviewLane={selectedReviewLane}
+                        onReviewLaneChange={setSelectedReviewLane}
                         viewCounts={blockCounts}
                         viewMode={viewMode}
                         onViewModeChange={(nextMode) => {
@@ -910,6 +990,11 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                             )}
                             {selectedPageLinks.length > 0 && (
                                 <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-sm">{selectedPageLinks.length} LINKS</span>
+                            )}
+                            {selectedReviewLane && (
+                                <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shadow-sm">
+                                    {selectedReviewLane === "private_review" ? "PRIVATE REVIEW" : "PUBLIC REVIEW"}
+                                </span>
                             )}
                             {excludeTerms.length > 0 && (
                                 <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 shadow-sm">NOT {excludeTerms.length}</span>
@@ -1130,33 +1215,41 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                 </div>
                             ) : (
                                 <div className="pt-12 pb-20 px-6 relative w-full">
-                                    <div className="masonry-grid">
-                                        {filteredBlocks.map(b => (
-                                            <div
-                                                id={`wrapper-${b.projection.artifactId}`}
-                                                key={b.projection.artifactId}
-                                                className="relative group hover:z-10 masonry-item"
-                                                onMouseEnter={() => setHoveredBlockId(b.projection.artifactId)}
-                                                onMouseLeave={() => setHoveredBlockId(null)}
-                                            >
-                                                <HeapBlockCard
-                                                    block={b}
-                                                    isSelected={selectedBlockIds.includes(b.projection.artifactId)}
-                                                    isRegenerating={regeneratingId === b.projection.artifactId}
-                                                    onClick={(event) => handleSelection(b.projection.artifactId, event)}
-                                                    onDoubleClick={() => setExpandedBlockId(b.projection.artifactId)}
-                                                    cardActions={cardMenuZonePlan?.actions ?? []}
-                                                    cardActionSelection={{
-                                                        selectedArtifactIds: [b.projection.artifactId],
-                                                        activeArtifactId: b.projection.artifactId,
-                                                        selectedCount: 1,
-                                                        selectedBlockTypes: [b.projection.blockType],
-                                                    }}
-                                                    actionHandlers={actionHandlers}
-                                                    onOpenComments={() => {
-                                                        setCommentSidebarBlockId(b.projection.artifactId);
-                                                    }}
-                                                />
+                                    <div
+                                        ref={laneBoardHostRef}
+                                        className="heap-lane-board grid items-start gap-5 isolate"
+                                        style={{ gridTemplateColumns: `repeat(${laneCount}, minmax(0, 1fr))` }}
+                                    >
+                                        {blockLanes.map((lane, laneIndex) => (
+                                            <div key={`lane-${laneIndex}`} className="heap-lane-board__lane flex min-w-0 flex-col gap-5">
+                                                {lane.map((b) => (
+                                                    <div
+                                                        id={`wrapper-${b.projection.artifactId}`}
+                                                        key={b.projection.artifactId}
+                                                        className="relative min-w-0 group hover:z-10 heap-lane-board__item"
+                                                        onMouseEnter={() => setHoveredBlockId(b.projection.artifactId)}
+                                                        onMouseLeave={() => setHoveredBlockId(null)}
+                                                    >
+                                                        <HeapBlockCard
+                                                            block={b}
+                                                            isSelected={selectedBlockIds.includes(b.projection.artifactId)}
+                                                            isRegenerating={regeneratingId === b.projection.artifactId}
+                                                            onClick={(event) => handleSelection(b.projection.artifactId, event)}
+                                                            onDoubleClick={() => setExpandedBlockId(b.projection.artifactId)}
+                                                            cardActions={cardMenuZonePlan?.actions ?? []}
+                                                            cardActionSelection={{
+                                                                selectedArtifactIds: [b.projection.artifactId],
+                                                                activeArtifactId: b.projection.artifactId,
+                                                                selectedCount: 1,
+                                                                selectedBlockTypes: [b.projection.blockType],
+                                                            }}
+                                                            actionHandlers={actionHandlers}
+                                                            onOpenComments={() => {
+                                                                setCommentSidebarBlockId(b.projection.artifactId);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                ))}
                                             </div>
                                         ))}
                                     </div>
@@ -1254,7 +1347,7 @@ function RelationalOverlay({ hoveredBlockId, blocks }: { hoveredBlockId: string;
         const sourceEl = document.getElementById(`card-${hoveredBlockId}`);
         if (!sourceEl) return;
 
-        const containerEl = sourceEl.closest(".masonry-grid"); // Get specific grid container
+        const containerEl = sourceEl.closest(".heap-lane-board"); // Get specific grid container
         if (!containerEl) return;
 
         const containerRect = containerEl.getBoundingClientRect();
