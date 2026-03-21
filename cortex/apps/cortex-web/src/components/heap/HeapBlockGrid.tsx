@@ -1345,6 +1345,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                 )}
                 {/* Chat Panel */}
                 <ChatPanel
+                    key={activeSpaceId}
                     isOpen={chatPanelOpen}
                     onClose={() => setChatPanelOpen(false)}
                     contextBlockIds={selectionContext.selectedArtifactIds}
