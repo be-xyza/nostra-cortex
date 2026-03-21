@@ -11,6 +11,7 @@ import { SpaceDetailPage } from "./components/spaces/SpaceDetailPage";
 import { SpaceStudioPage } from "./components/spaces/SpaceStudioPage";
 import { SPACE_STUDIO_ROUTE } from "./components/spaces/spaceStudioRoutes";
 import { ContributionsWorkbenchHost } from "./components/contributions/ContributionsWorkbenchHost";
+import { LogsPage } from "./components/live/LogsPage";
 
 export function App() {
   const navigate = useNavigate();
@@ -61,6 +62,7 @@ export function App() {
             <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/spaces/:id" element={<SpaceDetailPage />} />
             <Route path="/explore" element={<HeapBlockGrid showFilterSidebar={true} />} />
+            <Route path="/logs" element={<LogsPage />} />
             <Route path="/heap" element={<Navigate to="/explore" replace />} />
             <Route path="*" element={<WorkbenchSurfaceView />} />
           </Routes>

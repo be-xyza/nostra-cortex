@@ -239,6 +239,7 @@ impl Default for RuntimeDispatchTelemetryState {
 
 #[derive(Serialize)]
 struct SystemStatus {
+    icp_cli_running: bool,
     dfx_running: bool,
     version: String,
     replica_port: u16,
@@ -248,6 +249,7 @@ struct SystemStatus {
 struct SystemReady {
     ready: bool,
     gateway_port: u16,
+    icp_network_healthy: bool,
     dfx_port_healthy: bool,
     notes: Vec<String>,
 }
@@ -3076,6 +3078,7 @@ impl GatewayService {
                 "/api/system/llm-adapter/status",
                 get(get_system_llm_adapter_status),
             )
+            .route("/api/system/logs/stream", get(stream_telemetry_ws))
             .route("/api/system/brand-policy", get(get_system_brand_policy))
             .route(
                 "/api/system/capability-graph",
@@ -3089,6 +3092,7 @@ impl GatewayService {
                 "/api/system/ux/workbench",
                 get(crate::services::workbench_ux::get_workbench_ux_viewspec),
             )
+            .route("/api/spaces", get(get_spaces))
             .route("/api/spaces/create", post(post_create_space))
             .route(
                 "/api/spaces/:space_id/capability-graph",
@@ -3934,6 +3938,7 @@ fn is_api_request(path: &str) -> bool {
 fn is_local_legacy_bypass_api_route(path: &str) -> bool {
     path == "/api/system"
         || path.starts_with("/api/system/")
+        || path == "/api/spaces"
         || path == "/api/spaces/create"
         || path.starts_with("/api/spaces/")
         || path == "/api/cortex/studio/heap"
@@ -3957,6 +3962,7 @@ mod runtime_dispatch_route_classification_tests {
     fn local_legacy_bypass_routes_are_not_runtime_dispatched() {
         assert!(is_local_legacy_bypass_api_route("/api/system"));
         assert!(is_local_legacy_bypass_api_route("/api/system/ux/workbench"));
+        assert!(is_local_legacy_bypass_api_route("/api/spaces"));
         assert!(is_local_legacy_bypass_api_route("/api/spaces/create"));
         assert!(is_local_legacy_bypass_api_route(
             "/api/spaces/nostra-governance-v0/capability-graph"
@@ -3971,6 +3977,7 @@ mod runtime_dispatch_route_classification_tests {
             "/api/spaces/nostra-governance-v0/navigation-plan"
         ));
         assert!(!is_api_request("/api/system/ux/workbench"));
+        assert!(!is_api_request("/api/spaces"));
         assert!(!is_api_request("/api/spaces/create"));
         assert!(!is_api_request(
             "/api/spaces/nostra-governance-v0/capability-graph"
@@ -21689,8 +21696,15 @@ async fn health_check() -> impl IntoResponse {
     Json(json!({ "status": "ok" })).into_response()
 }
 
-fn dfx_command() -> Command {
-    let mut command = Command::new("dfx");
+fn preferred_ic_cli_bin() -> &'static str {
+    match std::env::var("CORTEX_IC_CLI").as_deref() {
+        Ok("dfx") => "dfx",
+        _ => "icp",
+    }
+}
+
+fn ic_cli_command(bin: &str) -> Command {
+    let mut command = Command::new(bin);
     let term = std::env::var("TERM").unwrap_or_default();
     if term.trim().is_empty() || term.eq_ignore_ascii_case("dumb") {
         command.env("TERM", "xterm-256color");
@@ -21700,9 +21714,30 @@ fn dfx_command() -> Command {
     command
 }
 
-fn dfx_port_healthy() -> bool {
+fn icp_network_healthy() -> bool {
     let addr = SocketAddr::from(([127, 0, 0, 1], 4943));
     std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(350)).is_ok()
+}
+
+fn ic_cli_version_output() -> String {
+    let preferred = preferred_ic_cli_bin();
+    let fallback = if preferred == "icp" { Some("dfx") } else { None };
+
+    let mut candidates = vec![preferred];
+    if let Some(fallback_bin) = fallback {
+        candidates.push(fallback_bin);
+    }
+
+    for bin in candidates {
+        if let Ok(output) = ic_cli_command(bin).arg("--version").output() {
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !text.is_empty() {
+                return text;
+            }
+        }
+    }
+
+    "Unknown".to_string()
 }
 
 async fn get_system_ready() -> Json<SystemReady> {
@@ -21713,15 +21748,16 @@ async fn get_system_ready() -> Json<SystemReady> {
         notes.push(note);
     }
 
-    let dfx_port_healthy = dfx_port_healthy();
-    if !dfx_port_healthy {
+    let icp_network_healthy = icp_network_healthy();
+    if !icp_network_healthy {
         notes.push("Local replica TCP probe failed on port 4943".to_string());
     }
 
     Json(SystemReady {
-        ready: dfx_port_healthy,
+        ready: icp_network_healthy,
         gateway_port,
-        dfx_port_healthy,
+        icp_network_healthy,
+        dfx_port_healthy: icp_network_healthy,
         notes,
     })
 }
@@ -23178,7 +23214,38 @@ async fn get_system_brand_policy() -> axum::response::Response {
     Json(response).into_response()
 }
 
-async fn post_create_space(Json(payload): Json<serde_json::Value>) -> impl IntoResponse {
+fn normalize_space_governance_scope(value: Option<&str>) -> &'static str {
+    match value.map(|entry| entry.trim().to_ascii_lowercase()) {
+        Some(scope) if scope == "personal" => "personal",
+        Some(scope) if scope == "public" => "public",
+        _ => "private",
+    }
+}
+
+fn visibility_state_for_space_governance_scope(scope: &str) -> &'static str {
+    match scope {
+        "personal" => "owner_only",
+        "public" => "discoverable",
+        _ => "members_only",
+    }
+}
+
+fn can_create_space_for_scope(actor_role: &str, actor_id: &str, owner: &str, scope: &str) -> bool {
+    let normalized_role = actor_role.trim().to_ascii_lowercase();
+    if normalized_role == "steward" || normalized_role == "admin" {
+        return true;
+    }
+
+    scope == "personal"
+        && !actor_id.trim().is_empty()
+        && owner.trim() == actor_id.trim()
+        && normalized_role != "viewer"
+}
+
+async fn post_create_space(
+    headers: HeaderMap,
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
     let space_id = payload
         .get("space_id")
         .and_then(|v| v.as_str())
@@ -23188,20 +23255,83 @@ async fn post_create_space(Json(payload): Json<serde_json::Value>) -> impl IntoR
         .get("creation_mode")
         .and_then(|v| v.as_str())
         .unwrap_or("blank");
+    let actor_role = headers
+        .get("x-cortex-role")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("viewer")
+        .trim()
+        .to_string();
+    let actor_id = headers
+        .get("x-cortex-actor")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let governance_scope = normalize_space_governance_scope(
+        payload.get("governance_scope").and_then(|v| v.as_str()),
+    );
     let owner = payload
         .get("owner")
         .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
+        .unwrap_or("")
+        .trim()
         .to_string();
+    let owner = if governance_scope == "personal" && owner.is_empty() && !actor_id.is_empty() {
+        actor_id.clone()
+    } else if owner.is_empty() {
+        "unknown".to_string()
+    } else {
+        owner
+    };
     let reference_uri = payload
         .get("reference_uri")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
+    let archetype = payload
+        .get("archetype")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let draft_id = payload
+        .get("draft_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let draft_source_mode = payload
+        .get("draft_source_mode")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let lineage_note = payload
+        .get("lineage_note")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
 
     if space_id.is_empty() {
         return (
             axum::http::StatusCode::BAD_REQUEST,
             Json(serde_json::json!({ "error": "space_id is required" })),
+        )
+            .into_response();
+    }
+
+    if governance_scope == "personal" && owner == "unknown" {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "personal spaces require an owner" })),
+        )
+            .into_response();
+    }
+
+    if !can_create_space_for_scope(&actor_role, &actor_id, &owner, governance_scope) {
+        return (
+            axum::http::StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "error": "current role cannot create this kind of space directly",
+                "governance_scope": governance_scope,
+                "actor_role": actor_role,
+            })),
         )
             .into_response();
     }
@@ -23234,6 +23364,11 @@ async fn post_create_space(Json(payload): Json<serde_json::Value>) -> impl IntoR
         status: initial_status,
         reference_uri,
         template_id,
+        draft_id,
+        draft_source_mode,
+        lineage_note,
+        governance_scope: Some(governance_scope.to_string()),
+        visibility_state: Some(visibility_state_for_space_governance_scope(governance_scope).to_string()),
         capability_graph_uri: Some(graph_uri.clone()),
         capability_graph_version: Some(initial_graph.base_catalog_version.clone()),
         capability_graph_hash: Some(graph_hash.clone()),
@@ -23243,7 +23378,7 @@ async fn post_create_space(Json(payload): Json<serde_json::Value>) -> impl IntoR
             .map(|d| format!("{}", d.as_secs()))
             .unwrap_or_else(|_| "0".to_string()),
         members: vec![owner.clone()],
-        archetype: None,
+        archetype,
     };
 
     let registry_path = workspace_root().join("_spaces").join("registry.json");
@@ -23288,18 +23423,49 @@ async fn post_create_space(Json(payload): Json<serde_json::Value>) -> impl IntoR
         .into_response()
 }
 
-async fn get_system_status() -> Json<SystemStatus> {
-    let dfx_running = dfx_port_healthy();
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SpacesListResponse {
+    schema_version: String,
+    generated_at: String,
+    count: usize,
+    items: Vec<cortex_domain::spaces::SpaceRecord>,
+}
 
-    let version_output = dfx_command()
-        .arg("--version")
-        .output()
-        .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-        .unwrap_or_else(|| "Unknown".to_string());
+async fn get_spaces() -> impl IntoResponse {
+    let registry_path = workspace_root().join("_spaces").join("registry.json");
+    let mut items = cortex_domain::spaces::SpaceRegistry::load_from_path(&registry_path)
+        .unwrap_or_default()
+        .spaces
+        .into_values()
+        .collect::<Vec<_>>();
+
+    items.sort_by(|left, right| {
+        right
+            .created_at
+            .cmp(&left.created_at)
+            .then_with(|| left.space_id.cmp(&right.space_id))
+    });
+
+    (
+        StatusCode::OK,
+        Json(SpacesListResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: now_iso(),
+            count: items.len(),
+            items,
+        }),
+    )
+        .into_response()
+}
+
+async fn get_system_status() -> Json<SystemStatus> {
+    let icp_cli_running = icp_network_healthy();
+    let version_output = ic_cli_version_output();
 
     Json(SystemStatus {
-        dfx_running,
+        icp_cli_running,
+        dfx_running: icp_cli_running,
         version: version_output.trim().to_string(),
         replica_port: 4943, // Default local port
     })
@@ -24656,7 +24822,7 @@ async fn get_system_decision_telemetry_by_space(Path(space_id): Path<String>) ->
 }
 
 async fn list_canisters() -> Json<Vec<CanisterInfo>> {
-    let output = dfx_command()
+    let output = ic_cli_command(preferred_ic_cli_bin())
         .arg("canister")
         .arg("id")
         .arg("--all")
@@ -24669,7 +24835,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         for line in stdout.lines() {
             if let Some((name, id)) = line.split_once(":") {
                 // Check status for each (could be slow, maybe optimize later)
-                let status_output = dfx_command()
+                let status_output = ic_cli_command(preferred_ic_cli_bin())
                     .arg("canister")
                     .arg("status")
                     .arg(id.trim())
@@ -24696,7 +24862,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         }
     }
 
-    // Mock data if dfx is offline for UI testing
+    // Mock data if the local IC CLI network is offline for UI testing
     if canisters.is_empty() {
         canisters.push(CanisterInfo {
             name: "internet_identity (mock)".into(),
@@ -24738,6 +24904,32 @@ async fn handle_socket(socket: WebSocket, state: GatewayState) {
                 // Echo for now, Logic Layer will process this
             }
         }
+    });
+
+    tokio::select! {
+        _ = (&mut send_task) => recv_task.abort(),
+        _ = (&mut recv_task) => send_task.abort(),
+    };
+}
+
+async fn stream_telemetry_ws(ws: WebSocketUpgrade) -> impl IntoResponse {
+    ws.on_upgrade(|socket| handle_stream_telemetry_socket(socket))
+}
+
+async fn handle_stream_telemetry_socket(socket: WebSocket) {
+    let (mut sender, mut receiver) = socket.split();
+    let mut rx = crate::services::telemetry_stream::subscribe();
+
+    let mut send_task = tokio::spawn(async move {
+        while let Ok(msg) = rx.recv().await {
+            if sender.send(Message::Text(msg)).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(_) = receiver.next().await {}
     });
 
     tokio::select! {
@@ -29553,11 +29745,15 @@ mod tests {
     }
 
     async fn baseline_space_capability_graph_for_tests(space_id: &str) -> SpaceCapabilityGraph {
-        let create = post_create_space(Json(json!({
-            "space_id": space_id,
-            "creation_mode": "blank",
-            "owner": "systems-steward"
-        })))
+        let create = post_create_space(
+            role_headers("steward", "systems-steward"),
+            Json(json!({
+                "space_id": space_id,
+                "creation_mode": "blank",
+                "owner": "systems-steward",
+                "governance_scope": "private"
+            })),
+        )
         .await
         .into_response();
         assert_eq!(create.status(), StatusCode::CREATED);
@@ -32329,11 +32525,15 @@ mod tests {
             temp.path().display().to_string().as_str(),
         );
 
-        let create = post_create_space(Json(json!({
-            "space_id": "space-nav-plan",
-            "creation_mode": "blank",
-            "owner": "systems-steward"
-        })))
+        let create = post_create_space(
+            role_headers("steward", "systems-steward"),
+            Json(json!({
+                "space_id": "space-nav-plan",
+                "creation_mode": "blank",
+                "owner": "systems-steward",
+                "governance_scope": "private"
+            })),
+        )
         .await
         .into_response();
         assert_eq!(create.status(), StatusCode::CREATED);
@@ -32421,6 +32621,66 @@ mod tests {
                 .any(|entry| entry["routeId"].as_str() == Some("/logs")),
             "viewer fallback plan should not include operator-only /logs"
         );
+    }
+
+    #[tokio::test]
+    async fn get_spaces_lists_registry_records_in_descending_created_order() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let workspace_root = temp.path().display().to_string();
+        let _workspace_guard = EnvVarGuard::set("NOSTRA_WORKSPACE_ROOT", &workspace_root);
+
+        let registry_path = temp.path().join("_spaces").join("registry.json");
+        let mut registry = cortex_domain::spaces::SpaceRegistry::default();
+        registry.upsert(cortex_domain::spaces::SpaceRecord {
+            space_id: "space-old".to_string(),
+            creation_mode: cortex_domain::spaces::CreationMode::Blank,
+            reference_uri: None,
+            template_id: None,
+            draft_id: None,
+            draft_source_mode: None,
+            lineage_note: None,
+            governance_scope: None,
+            visibility_state: None,
+            capability_graph_uri: None,
+            capability_graph_version: None,
+            capability_graph_hash: None,
+            status: cortex_domain::spaces::SpaceStatus::Active,
+            created_at: "1700000000".to_string(),
+            owner: "systems-steward".to_string(),
+            members: vec!["systems-steward".to_string()],
+            archetype: Some("Research".to_string()),
+        });
+        registry.upsert(cortex_domain::spaces::SpaceRecord {
+            space_id: "space-new".to_string(),
+            creation_mode: cortex_domain::spaces::CreationMode::Blank,
+            reference_uri: None,
+            template_id: None,
+            draft_id: None,
+            draft_source_mode: None,
+            lineage_note: None,
+            governance_scope: None,
+            visibility_state: None,
+            capability_graph_uri: None,
+            capability_graph_version: None,
+            capability_graph_hash: None,
+            status: cortex_domain::spaces::SpaceStatus::Active,
+            created_at: "1700000005".to_string(),
+            owner: "agent:eudaemon-alpha-01".to_string(),
+            members: vec!["systems-steward".to_string(), "agent:eudaemon-alpha-01".to_string()],
+            archetype: Some("Research".to_string()),
+        });
+        registry.save_to_path(&registry_path).expect("save registry");
+
+        let response = get_spaces().await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["schemaVersion"], "1.0.0");
+        assert_eq!(body["count"], 2);
+        assert_eq!(body["items"][0]["spaceId"], "space-new");
+        assert_eq!(body["items"][1]["spaceId"], "space-old");
+        assert_eq!(body["items"][0]["archetype"], "Research");
+        assert_eq!(body["items"][0]["members"][1], "agent:eudaemon-alpha-01");
     }
 
     #[tokio::test]
