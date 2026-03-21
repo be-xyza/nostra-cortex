@@ -284,7 +284,10 @@ function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React
   const location = useLocation();
   const actorRole = useUiStore((state) => state.sessionUser?.role || "operator");
   const props = readProps(componentProperties, "CapabilityMap");
-  const dataSourceUrl = String(props.dataSourceUrl ?? "/api/system/capability-graph");
+  const spaceId = props.spaceId ? String(props.spaceId) : undefined;
+  const dataSourceUrl = spaceId && spaceId !== "meta"
+    ? `/api/spaces/${encodeURIComponent(spaceId)}/capability-graph`
+    : String(props.dataSourceUrl ?? "/api/system/capability-graph");
   const envV2Flag =
     ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_CAPABILITY_GRAPH_V2_ENABLED as
       | string

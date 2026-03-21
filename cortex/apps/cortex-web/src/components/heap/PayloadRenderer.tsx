@@ -410,14 +410,115 @@ function renderMedia(content: PayloadContent) {
 
 function renderStructuredData(content: PayloadContent) {
     const data = content.data || content.structured_data || {};
-    if (
-        data &&
-        typeof data === "object" &&
-        !Array.isArray(data) &&
-        (data as Record<string, unknown>).schema_id === "nostra.heap.block.gate_summary.v1"
-    ) {
-        return renderGateSummaryStructuredData(data as Record<string, unknown>);
+    
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+        const typedData = data as Record<string, any>;
+        
+        if (typedData.schema_id === "nostra.heap.block.gate_summary.v1") {
+            return renderGateSummaryStructuredData(typedData);
+        }
+
+        if (typedData.type === "self_optimization_proposal") {
+            return (
+                <div className="mt-2 p-3 rounded-lg flex flex-col gap-3 bg-purple-950/20 border border-purple-900/50">
+                    <div className="flex justify-between items-start">
+                        <div className="flex flex-col gap-1">
+                            <span className="font-bold text-sm text-purple-400 font-mono">Self-Optimization Proposal</span>
+                            <span className="text-xs font-semibold text-slate-400">{typedData.agent_id} • {typedData.domain}</span>
+                        </div>
+                        <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-1 rounded shadow-sm opacity-80 font-mono uppercase">
+                            {typedData.proposed_changes?.action || "PROPOSAL"}
+                        </span>
+                    </div>
+                    {typedData.rationale && (
+                        <div className="text-sm text-slate-300 italic px-2 border-l-2 border-purple-500/30">
+                            {typedData.rationale}
+                        </div>
+                    )}
+                    {typedData.proposed_changes?.reason && (
+                        <div className="text-xs text-rose-300/80 mt-1">
+                            <strong>Trigger: </strong>{typedData.proposed_changes.reason}
+                        </div>
+                    )}
+                    <details className="mt-2 text-xs">
+                        <summary className="cursor-pointer text-slate-500 hover:text-slate-400">View Raw Data</summary>
+                        <JsonSchemaExplorer data={data} typeLabel="self_optimization_proposal" />
+                    </details>
+                </div>
+            );
+        }
+        
+        if (typedData.type === "agent_execution_record") {
+            return (
+                <div className="mt-2 p-3 rounded-lg flex flex-col gap-2 bg-indigo-950/20 border border-indigo-900/50">
+                    <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] uppercase tracking-widest text-indigo-400">Execution Record</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                            typedData.status === "completed" ? "bg-emerald-500/10 text-emerald-400" :
+                            typedData.status === "failed" ? "bg-rose-500/10 text-rose-400" : 
+                            "bg-slate-500/10 text-slate-400"
+                        }`}>{typedData.status || "UNKNOWN"}</span>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-baseline justify-between text-xs">
+                            <span className="text-slate-500 font-mono">Agent:</span>
+                            <span className="text-slate-300 font-mono font-bold mr-auto ml-2">{typedData.agent_id}</span>
+                            <span className="text-slate-500">Phase: <span className="text-slate-300 uppercase font-mono">{typedData.phase}</span></span>
+                        </div>
+                    </div>
+
+                    {typedData.benchmark && (
+                        <div className="mt-1 bg-black/20 p-2 rounded-md grid grid-cols-3 gap-2 text-center items-center">
+                            <div className="flex flex-col">
+                                <span className="text-[9px] text-slate-500 uppercase">Grade</span>
+                                <span className={`text-sm font-bold ${typedData.benchmark.overall_grade === "PASS" ? "text-emerald-400" : typedData.benchmark.overall_grade === "FAIL" ? "text-rose-400" : "text-amber-400"}`}>{typedData.benchmark.overall_grade}</span>
+                            </div>
+                            <div className="flex flex-col border-x border-white/5">
+                                <span className="text-[9px] text-slate-500 uppercase">Latency</span>
+                                <span className="text-xs font-mono text-slate-300">{Math.round(typedData.benchmark.latency_ms || 0)}ms</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[9px] text-slate-500 uppercase">Cost</span>
+                                <span className="text-xs font-mono text-slate-300">${(typedData.benchmark.token_cost || 0).toFixed(4)}</span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <details className="mt-1 text-xs">
+                        <summary className="cursor-pointer text-slate-500 hover:text-slate-400">View Details</summary>
+                        <JsonSchemaExplorer data={data} typeLabel="agent_execution_record" />
+                    </details>
+                </div>
+            );
+        }
+
+        if (typedData.type === "usage_report") {
+            return (
+                <div className="mt-2 p-3 rounded-lg flex flex-col gap-2 bg-emerald-950/10 border border-emerald-900/30">
+                    <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-emerald-400/80 uppercase tracking-widest text-[10px]">Usage Report</span>
+                        <span className="font-mono text-slate-500">{new Date(typedData.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div className="bg-black/20 rounded p-2 flex flex-col justify-center items-center">
+                            <span className="text-[10px] text-slate-500 uppercase">Tokens (Cycle)</span>
+                            <span className="font-mono text-slate-200 text-sm">{typedData.tokens_consumed_this_cycle?.toLocaleString() || 0}</span>
+                        </div>
+                        <div className="bg-black/20 rounded p-2 flex flex-col justify-center items-center">
+                            <span className="text-[10px] text-slate-500 uppercase">Cost (Cycle)</span>
+                            <span className="font-mono text-slate-200 text-sm">${(typedData.cycle_cost_usd || 0).toFixed(4)}</span>
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1 px-1">
+                        <span>Agent: <span className="text-slate-400 font-mono">{typedData.agent_id}</span></span>
+                        <span>Total: {typedData.total_tokens_consumed?.toLocaleString() || 0}</span>
+                    </div>
+                </div>
+            );
+        }
     }
+    
     return <JsonSchemaExplorer data={data} typeLabel="structured_data" />;
 }
 

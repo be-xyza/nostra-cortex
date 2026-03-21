@@ -2,6 +2,7 @@ import { GlobalEvent } from './eventStore';
 import { buildSpaceStudioRoute, SPACE_STUDIO_ROUTE } from "../components/spaces/spaceStudioRoutes.ts";
 import { 
   PlatformCapabilityGraph, 
+  SpaceCapabilityGraph,
   CompiledNavigationPlan, 
   PlatformCapabilityCatalog,
   PlatformCapabilityCatalogNode,
@@ -392,7 +393,14 @@ export const MOCK_CAPABILITY_GRAPH: PlatformCapabilityGraph = {
     route_id: n.routeId,
     required_role: n.requiredRole,
     domain: (n as any).domain || n.category,
-    pattern_id: (n as any).pattern_id || n.category === "admin" ? "Governance" : n.category === "agents" ? "AgentIntelligence" : "Workbench"
+    pattern_id: (n as any).pattern_id || n.category === "admin" ? "Governance" : n.category === "agents" ? "AgentIntelligence" : "Workbench",
+    surfacing_heuristic: n.surfacingHeuristic,
+    operational_frequency: n.operationalFrequency,
+    inspector: {
+      surfacing_heuristic: n.surfacingHeuristic,
+      operational_frequency: n.operationalFrequency,
+      placement_constraint: n.placementConstraint,
+    }
   })),
   edges: PLATFORM_CAPABILITY_CATALOG.edges.map((e: any) => ({
     from: typeof e.source === 'string' ? e.source : e.source[0],
@@ -426,6 +434,25 @@ export const MOCK_CAPABILITY_GRAPH: PlatformCapabilityGraph = {
     },
     lock_semantics: "Pessimistic"
   }
+};
+
+/**
+ * Space-level capability override mock.
+ * Demonstrates hiding "Simulation" and overriding surfacing for "Logs" in a production space.
+ */
+export const MOCK_SPACE_CAPABILITY_GRAPH: SpaceCapabilityGraph = {
+  schemaVersion: "1.0.0",
+  spaceId: INTRO_SPACE_ID,
+  baseCatalogVersion: "1.0.0",
+  baseCatalogHash: "mock-hash",
+  nodes: [
+    { capabilityId: "agents-simulation", isActive: false, surfacingHeuristic: "Hidden" },
+    { capabilityId: "bridge-logs", isActive: true, surfacingHeuristic: "Secondary", operationalFrequency: "AdHoc" },
+    { capabilityId: "bridge-vfs", isActive: true, localAlias: "Files", surfacingHeuristic: "ContextualDeep" },
+  ],
+  edges: [],
+  updatedAt: new Date().toISOString(),
+  updatedBy: "steward:local",
 };
 
 export function compilePreviewNavigationPlan(spaceId: string): CompiledNavigationPlan {
@@ -475,8 +502,8 @@ export function compilePreviewNavigationPlan(spaceId: string): CompiledNavigatio
 // Mirrors the real ContributionGraphV1 schema from nostra-extraction.
 // Nodes represent research initiatives; edges represent references/dependencies.
 
-function cgNode(id: string, title: string, layer: string, status: string, portfolioRole: string = "reference") {
-  return { id, title, kind: "initiative", status, layer, portfolio_role: portfolioRole };
+function cgNode(id: string, title: string, layer: string, status: string, portfolioRole: string = "reference", spaceId?: string) {
+  return { id, title, kind: "initiative" as const, status, layer, portfolio_role: portfolioRole, space_id: spaceId };
 }
 
 function cgEdge(from: string, to: string, kind: string = "references", confidence: number = 0.7) {
@@ -486,72 +513,56 @@ function cgEdge(from: string, to: string, kind: string = "references", confidenc
 export const MOCK_CONTRIBUTION_GRAPH = {
   graph_root_hash: "mock-ambient-graph-v1",
   nodes: [
-    // ── Systems Layer (anchors) ──
-    cgNode("000", "DPub Contribution Graph", "Systems", "active", "anchor"),
-    cgNode("046", "System Standards", "Systems", "active", "anchor"),
-    cgNode("125", "System Integrity Quality", "Systems", "active", "anchor"),
-    cgNode("105", "Test Catalog", "Systems", "active", "anchor"),
-    cgNode("118", "Runtime Extraction", "Systems", "active", "anchor"),
-    cgNode("089", "Code Standards", "Systems", "draft"),
-    cgNode("055", "Compliance Validation", "Systems", "draft"),
-    cgNode("063", "Testing Methodology", "Systems", "completed"),
+    // ── Systems Layer (Space: Alpha) ──
+    cgNode("000", "DPub Contribution Graph", "Systems", "active", "anchor", "space-alpha"),
+    cgNode("046", "System Standards", "Systems", "active", "anchor", "space-alpha"),
+    cgNode("125", "System Integrity Quality", "Systems", "active", "anchor", "space-alpha"),
+    cgNode("105", "Test Catalog", "Systems", "active", "anchor", "space-alpha"),
+    cgNode("118", "Runtime Extraction", "Systems", "active", "anchor", "space-alpha"),
+    cgNode("089", "Code Standards", "Systems", "draft", "reference", "space-alpha"),
+    cgNode("055", "Compliance Validation", "Systems", "draft", "reference", "space-alpha"),
+    cgNode("063", "Testing Methodology", "Systems", "completed", "reference", "space-alpha"),
 
-    // ── Infrastructure Layer ──
-    cgNode("004", "Architecture Gaps", "infrastructure", "superseded"),
-    cgNode("006", "Sentiment Capture", "infrastructure", "draft"),
-    cgNode("011", "Video Streaming", "infrastructure", "draft"),
-    cgNode("014", "AI Agents on ICP", "infrastructure", "draft"),
-    cgNode("017", "Agent Role Patterns", "infrastructure", "draft"),
-    cgNode("020", "D3 Graph Performance", "infrastructure", "draft"),
-    cgNode("027", "Workflow Builder", "infrastructure", "draft"),
-    cgNode("031", "Production Foundation", "infrastructure", "draft"),
-    cgNode("035", "Auto Analysis", "infrastructure", "draft"),
-    cgNode("042", "Vector Embedding", "infrastructure", "draft"),
-    cgNode("044", "HRM Integration", "infrastructure", "draft"),
-    cgNode("051", "RAG Ingestion", "infrastructure", "draft"),
-    cgNode("085", "File Infrastructure", "infrastructure", "active", "anchor"),
+    // ── Infrastructure Layer (Space: Beta) ──
+    cgNode("004", "Architecture Gaps", "infrastructure", "superseded", "reference", "space-beta"),
+    cgNode("006", "Sentiment Capture", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("011", "Video Streaming", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("014", "AI Agents on ICP", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("017", "Agent Role Patterns", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("020", "D3 Graph Performance", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("027", "Workflow Builder", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("031", "Production Foundation", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("035", "Auto Analysis", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("042", "Vector Embedding", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("044", "HRM Integration", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("051", "RAG Ingestion", "infrastructure", "draft", "reference", "space-beta"),
+    cgNode("085", "File Infrastructure", "infrastructure", "active", "anchor", "space-beta"),
 
-    // ── Protocol Layer ──
-    cgNode("007", "Spaces Concept", "protocol", "active", "anchor"),
-    cgNode("008", "Contribution Types", "protocol", "draft"),
-    cgNode("012", "Bootstrap Protocol", "protocol", "draft"),
-    cgNode("013", "Workflow Engine", "protocol", "active", "anchor"),
-    cgNode("018", "Library Registry", "protocol", "draft"),
-    cgNode("019", "Log Registry", "protocol", "active", "anchor"),
-    cgNode("037", "Knowledge Engine", "protocol", "draft"),
-    cgNode("040", "Schema Standards", "protocol", "draft"),
-    cgNode("067", "Unified Protocol", "protocol", "draft"),
-    cgNode("119", "Nostra Commons", "protocol", "active", "anchor"),
+    // ── Protocol Layer (Space: Gamma) ──
+    cgNode("007", "Spaces Concept", "protocol", "active", "anchor", "space-gamma"),
+    cgNode("008", "Contribution Types", "protocol", "draft", "reference", "space-gamma"),
+    cgNode("012", "Bootstrap Protocol", "protocol", "draft", "reference", "space-gamma"),
+    cgNode("013", "Workflow Engine", "protocol", "active", "anchor", "space-gamma"),
+    cgNode("018", "Library Registry", "protocol", "draft", "reference", "space-gamma"),
+    cgNode("019", "Log Registry", "protocol", "active", "anchor", "space-gamma"),
+    cgNode("037", "Knowledge Engine", "protocol", "draft", "reference", "space-gamma"),
+    cgNode("040", "Schema Standards", "protocol", "draft", "reference", "space-gamma"),
+    cgNode("067", "Unified Protocol", "protocol", "draft", "reference", "space-gamma"),
+    cgNode("119", "Nostra Commons", "protocol", "active", "anchor", "space-gamma"),
 
-    // ── Runtime Layer ──
-    cgNode("023", "Flashcards Use Case", "runtime", "draft"),
-    cgNode("033", "System Monitor", "runtime", "draft"),
-    cgNode("047", "Temporal Architecture", "runtime", "active", "anchor"),
-    cgNode("122", "Agent Runtime Kernel", "runtime", "active", "anchor"),
-    cgNode("129", "Simulation Adapter", "runtime", "draft"),
+    // ── Runtime Layer (Space: Eudaemon) ──
+    cgNode("023", "Flashcards Use Case", "runtime", "draft", "reference", "eudaemon-alpha"),
+    cgNode("033", "System Monitor", "runtime", "draft", "reference", "eudaemon-alpha"),
+    cgNode("047", "Temporal Architecture", "runtime", "active", "anchor", "eudaemon-alpha"),
+    cgNode("122", "Agent Runtime Kernel", "runtime", "active", "anchor", "eudaemon-alpha"),
+    cgNode("129", "Simulation Adapter", "runtime", "draft", "reference", "eudaemon-alpha"),
 
-    // ── Product/UX Layer ──
-    cgNode("005", "Nostra Design", "Product/UX", "archived"),
-    cgNode("109", "Desktop UX System", "Product/UX", "active", "anchor"),
-
-    // ── Architectural Layer ──
-    cgNode("015", "Open Source Library", "Architectural", "draft"),
-    cgNode("026", "Schema Manager", "Architectural", "active", "anchor"),
-    cgNode("056", "Logic Layer", "Architectural", "draft"),
-    cgNode("080", "DPub Standard", "Architectural", "active", "anchor"),
-    cgNode("097", "Cortex Alignment", "Architectural", "active"),
-
-    // ── Experimental Layer ──
-    cgNode("028", "A2UI Feasibility", "Experimental", "superseded"),
-    cgNode("045", "Component Library Labs", "Experimental", "draft"),
-    cgNode("075", "D3 Graph Lab", "Experimental", "draft"),
-
-    // ── Cortex Layer ──
-    cgNode("074", "UI Substrate", "Cortex", "active", "anchor"),
-    cgNode("117", "UI Standardization", "Cortex", "active", "anchor"),
-    cgNode("123", "Web Architecture", "Cortex", "active", "anchor"),
-    cgNode("124", "AGUI Heap Mode", "Cortex", "active", "anchor"),
-    cgNode("132", "Eudaemon Alpha", "Cortex", "active", "anchor"),
+    // ── Cortex Layer (Space: Eudaemon) ──
+    cgNode("074", "UI Substrate", "Cortex", "active", "anchor", "eudaemon-alpha"),
+    cgNode("117", "UI Standardization", "Cortex", "active", "anchor", "eudaemon-alpha"),
+    cgNode("123", "Web Architecture", "Cortex", "active", "anchor", "eudaemon-alpha"),
+    cgNode("124", "AGUI Heap Mode", "Cortex", "active", "anchor", "eudaemon-alpha"),
+    cgNode("132", "Eudaemon Alpha", "Cortex", "active", "anchor", "eudaemon-alpha"),
   ],
   edges: [
     // Systems cross-references

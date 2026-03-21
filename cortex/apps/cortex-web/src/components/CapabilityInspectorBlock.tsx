@@ -29,8 +29,11 @@ export const CapabilityInspectorBlock: React.FC<CapabilityInspectorBlockProps> =
         status: node.promotion_status || "development",
         health: node.health || "healthy",
         visibility: node.visibility_state || "visible",
-        variance: node.variance || "stable", // Add variance marker
-        governance: node.promotion_status || "stewardship", // Reinforce governance
+        variance: node.variance || "stable",
+        governance: node.promotion_status || "stewardship",
+        surfacing: node.surfacing_heuristic || node.inspector?.surfacing_heuristic || "unspecified",
+        frequency: node.operational_frequency || node.inspector?.operational_frequency || "unspecified",
+        ...(node.inspector?.placement_constraint?.preferredNavBand ? { navBand: node.inspector.placement_constraint.preferredNavBand } : {}),
       },
     },
     surfaceJson: {
