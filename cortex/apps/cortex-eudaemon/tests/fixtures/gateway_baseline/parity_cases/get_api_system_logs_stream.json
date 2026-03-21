@@ -1,0 +1,15 @@
+{
+  "case_id": "get_api_system_logs_stream",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/logs/stream"
+  },
+  "normalization": {
+    "mode": "subset",
+    "ignored_fields": [],
+    "required_keys": []
+  },
+  "legacy_response": {},
+  "runtime_response": {}
+}

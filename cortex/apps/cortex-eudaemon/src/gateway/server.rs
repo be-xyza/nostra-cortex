@@ -143,7 +143,7 @@ use cortex_domain::simulation::session::{
     SimulationAction as DomainSimulationAction, run_deterministic_session as run_domain_session,
 };
 use cortex_domain::ux::{
-    CompilationContext, CompiledActionPlan, CompiledActionPlanRequest, CompiledSurfacingPlan,
+    CompilationContext, CompiledActionPlanRequest, CompiledSurfacingPlan,
     compile_action_plan, compile_navigation_plan,
 };
 use cortex_domain::workflow::{
