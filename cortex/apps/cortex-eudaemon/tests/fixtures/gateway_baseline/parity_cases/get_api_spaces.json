@@ -6,7 +6,7 @@
     "path": "/api/spaces"
   },
   "normalization": {
-    "mode": "subset",
+    "mode": "strict",
     "ignored_fields": [],
     "required_keys": []
   },

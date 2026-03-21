@@ -6,7 +6,7 @@
     "path": "/api/system/logs/stream"
   },
   "normalization": {
-    "mode": "subset",
+    "mode": "strict",
     "ignored_fields": [],
     "required_keys": []
   },
