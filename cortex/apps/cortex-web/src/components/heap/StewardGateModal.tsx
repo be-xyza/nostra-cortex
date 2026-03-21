@@ -1,7 +1,6 @@
 import React from "react";
 import type { HeapStewardGateValidateResponse, Json, SuggestedEnrichment } from "../../contracts";
 import { A2UIInterpreter, type A2UINode } from "../a2ui/A2UIInterpreter";
-import "./heap.css";
 
 interface StewardGateModalProps {
   artifactId: string;

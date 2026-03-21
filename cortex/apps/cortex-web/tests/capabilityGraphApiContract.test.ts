@@ -201,3 +201,58 @@ test("space capability graph PUT sends steward headers and serialized graph body
     globalThis.fetch = originalFetch;
   }
 });
+
+test("space action plan POST sends operator headers and serialized request body", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedMethod = "";
+  let capturedRole = "";
+  let capturedActor = "";
+  let capturedBody = "";
+
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    capturedUrl = String(input);
+    capturedMethod = init?.method ?? "GET";
+    capturedRole = String((init?.headers as Record<string, string> | undefined)?.["x-cortex-role"] ?? "");
+    capturedActor = String((init?.headers as Record<string, string> | undefined)?.["x-cortex-actor"] ?? "");
+    capturedBody = String(init?.body ?? "");
+    return new Response(
+      JSON.stringify({
+        schemaVersion: "1.0.0",
+        generatedAt: "2026-03-12T00:00:00Z",
+        planHash: "hash",
+        spaceId: "nostra-governance-v0",
+        routeId: "/heap",
+        pageType: "heap_board",
+        actorRole: "operator",
+        zones: [],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  const payload = {
+    schemaVersion: "1.0.0",
+    spaceId: "nostra-governance-v0",
+    actorRole: "operator",
+    routeId: "/heap",
+    pageType: "heap_board",
+    zones: ["heap_page_bar"],
+    selection: {
+      selectedArtifactIds: [],
+      selectedCount: 0,
+      selectedBlockTypes: []
+    }
+  };
+
+  try {
+    await workbenchApi.getSpaceActionPlan("nostra-governance-v0", payload, "operator", "web-test");
+    assert.ok(capturedUrl.endsWith("/api/spaces/nostra-governance-v0/action-plan"));
+    assert.equal(capturedMethod, "POST");
+    assert.equal(capturedRole, "operator");
+    assert.equal(capturedActor, "web-test");
+    assert.equal(capturedBody, JSON.stringify(payload));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

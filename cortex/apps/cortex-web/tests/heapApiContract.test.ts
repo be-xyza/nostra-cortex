@@ -211,6 +211,36 @@ test("heap context bundle and history endpoints match canonical desktop paths", 
   assert.ok(calls[1]?.url.endsWith("/api/cortex/studio/heap/blocks/artifact-123/history"));
 });
 
+test("submitA2UIFeedback uses canonical heap feedback endpoint and operator headers", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedInit: RequestInit | undefined;
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    capturedUrl = String(input);
+    capturedInit = init;
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    await workbenchApi.submitA2UIFeedback("artifact-123", {
+      decision: "approved",
+      feedback: "Proceed with bounded live run."
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.ok(capturedUrl.endsWith("/api/cortex/studio/heap/blocks/artifact-123/a2ui/feedback"));
+  assert.equal(capturedInit?.method, "POST");
+  const headers = capturedInit?.headers as Record<string, string>;
+  assert.equal(headers["x-cortex-role"], "operator");
+  assert.equal(headers["x-cortex-actor"], "cortex-web");
+  assert.match(String(capturedInit?.body), /bounded live run/i);
+});
+
 test("heap export endpoint supports json and markdown payloads", async () => {
   const originalFetch = globalThis.fetch;
   const calls: Array<{ url: string; init?: RequestInit }> = [];
@@ -243,6 +273,30 @@ test("heap export endpoint supports json and markdown payloads", async () => {
   assert.ok(calls[1]?.url.endsWith("/api/cortex/studio/heap/blocks/artifact-123/export?format=markdown"));
 });
 
+test("space-scoped graph helpers respect the provided active space", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = (async (input: URL | RequestInfo) => {
+    calls.push(String(input));
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    await workbenchApi.getOverview("space-ops");
+    await workbenchApi.getPath("space-ops");
+    await workbenchApi.getRuns("space-ops");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.ok(calls[0]?.includes("/api/kg/spaces/space-ops/contribution-graph/overview"));
+  assert.ok(calls[1]?.includes("/api/kg/spaces/space-ops/contribution-graph/path-assessment"));
+  assert.ok(calls[2]?.includes("/api/kg/spaces/space-ops/contribution-graph/runs?limit=10"));
+});
+
 test("heap emit endpoint uses canonical path, operator headers, and schema payload", async () => {
   const originalFetch = globalThis.fetch;
   const calls: Array<{ url: string; init?: RequestInit }> = [];
@@ -261,7 +315,7 @@ test("heap emit endpoint uses canonical path, operator headers, and schema paylo
     await workbenchApi.emitHeapBlock({
       schema_version: "1.0.0",
       mode: "heap",
-      workspace_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      space_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
       source: {
         agent_id: "cortex-web",
         emitted_at: "2026-03-02T00:00:00Z"
@@ -292,6 +346,53 @@ test("heap emit endpoint uses canonical path, operator headers, and schema paylo
   assert.equal(body["mode"], "heap");
 });
 
+test("heap emit allows explicit steward identity headers when required by the caller", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedInit: RequestInit | undefined;
+  globalThis.fetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+    capturedInit = init;
+    return new Response(
+      JSON.stringify({
+        accepted: true,
+        artifactId: "artifact-emit-2"
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    await workbenchApi.emitHeapBlock(
+      {
+        schema_version: "1.0.0",
+        mode: "heap",
+        space_id: "01LIVE123",
+        source: {
+          agent_id: "systems-steward",
+          emitted_at: "2026-03-20T12:00:00Z"
+        },
+        block: {
+          type: "space_promotion_receipt",
+          title: "Space created from draft"
+        },
+        content: {
+          payload_type: "rich_text",
+          rich_text: {
+            plain_text: "receipt"
+          }
+        }
+      },
+      "steward",
+      "systems-steward",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const headers = capturedInit?.headers as Record<string, string>;
+  assert.equal(headers["x-cortex-role"], "steward");
+  assert.equal(headers["x-cortex-actor"], "systems-steward");
+});
+
 test("heap emit validation rejects malformed payload before network call", async () => {
   const originalFetch = globalThis.fetch;
   let fetchCalled = false;
@@ -305,7 +406,7 @@ test("heap emit validation rejects malformed payload before network call", async
       await workbenchApi.emitHeapBlock({
         schema_version: "1.0.0",
         mode: "heap",
-        workspace_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        space_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
         source: {
           agent_id: "cortex-web",
           emitted_at: "2026-03-02T00:00:00Z"

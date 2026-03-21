@@ -29,23 +29,65 @@ export interface DpubPipelineRunReport {
 
 export interface DpubSystemReadyResponse {
   ready: boolean;
+  icpNetworkHealthy: boolean;
   dfxPortHealthy: boolean;
   gatewayPort: number;
   notes: string[];
+}
+
+export interface DpubBlastRadiusResponse {
+  contributionId: string;
+  dependsOn: string[];
+  dependedBy: string[];
+  invalidates: string[];
+  invalidatedBy: string[];
+  supersedes: string[];
+  supersededBy: string[];
+  references: string[];
+  referencedBy: string[];
+}
+
+export interface DpubStewardPacketExportRequest {
+  goal?: string;
+  fromVersion?: string;
+  toVersion?: string;
+  approval?: DpubApprovalEnvelope;
+}
+
+export interface DpubStewardPacketExportResponse {
+  packetPath: string;
+  goal: string;
+  fromVersion: string;
+  toVersion: string;
 }
 
 export interface DpubSystemBuildResponse {
   buildId: string;
   buildTimeUtc: string;
   gatewayDispatchMode: string;
-  gatewayPort: number;
-  workspaceRoot: string;
+  spaceRoot: string;
+  spaceId: string;
+}
+
+export interface WhoAmIResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  principal?: string;
+  requestedRole: string;
+  effectiveRole: string;
+  claims: string[];
+  identityVerified: boolean;
+  identitySource: string;
+  authzDevMode: boolean;
+  allowUnverifiedRoleHeader: boolean;
+  authzDecisionVersion: string;
 }
 
 export type ContributionKind = "initiative" | "pr" | "bounty" | "decision" | "task";
 
 export interface ContributionNode {
   id: string;
+  resource_ref?: string;
   title: string;
   kind?: ContributionKind;
   status: string;
@@ -65,6 +107,12 @@ export interface ContributionGraph {
   graph_root_hash: string;
   nodes: ContributionNode[];
   edges: ContributionEdge[];
+}
+
+export interface GraphPhysicsConfig {
+  repulsionStrength: number;
+  linkDistance: number;
+  centerGravity: number;
 }
 
 export interface CapabilityNode {
@@ -88,6 +136,7 @@ export interface CapabilityNode {
   visibility_state?: string;
   health?: string;
   priority?: string;
+  variance?: string;
   inspector?: {
     route_id?: string;
     category?: string;
@@ -165,6 +214,7 @@ export interface PlacementConstraint {
 
 export interface PlatformCapabilityCatalogNode {
   id: { 0: string } | string;
+  resourceRef?: string;
   name: string;
   description: string;
   intentType: string;
@@ -215,6 +265,33 @@ export interface SpaceCapabilityGraph {
   lineageRef?: string;
 }
 
+export interface SpaceRegistryRecord {
+  spaceId: string;
+  creationMode: string;
+  referenceUri?: string | null;
+  templateId?: string | null;
+  draftId?: string | null;
+  draftSourceMode?: string | null;
+  lineageNote?: string | null;
+  governanceScope?: "personal" | "private" | "public" | null;
+  visibilityState?: "owner_only" | "members_only" | "discoverable" | null;
+  capabilityGraphUri?: string | null;
+  capabilityGraphVersion?: string | null;
+  capabilityGraphHash?: string | null;
+  status: string;
+  createdAt: string;
+  owner: string;
+  members: string[];
+  archetype?: string | null;
+}
+
+export interface SpacesListResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  count: number;
+  items: SpaceRegistryRecord[];
+}
+
 export interface CompilationContext {
   spaceId: string;
   actorRole: string;
@@ -255,6 +332,175 @@ export interface CompiledNavigationPlan {
   surfacing: CompiledSurfacingPlan;
 }
 
+export type SurfaceZone =
+  | "heap_page_bar"
+  | "heap_selection_bar"
+  | "heap_detail_footer"
+  | "heap_detail_header"
+  | "heap_card_menu";
+
+export type PageType =
+  | "heap_board"
+  | "heap_detail";
+
+export interface ActionSelectionContext {
+  selectedArtifactIds: string[];
+  activeArtifactId?: string;
+  selectedCount: number;
+  selectedBlockTypes?: string[];
+}
+
+export interface CompiledActionPlanRequest {
+  schemaVersion: "1.0.0" | string;
+  spaceId: string;
+  actorRole: string;
+  routeId: string;
+  pageType: PageType;
+  intent?: string;
+  density?: string;
+  zones: SurfaceZone[];
+  selection: ActionSelectionContext;
+  activeFilters?: {
+    viewMode?: string;
+    filterMode?: string;
+    selectedTags?: string[];
+    selectedPageLinks?: string[];
+  };
+  featureFlags?: {
+    heapCreateFlowEnabled?: boolean;
+    heapParityEnabled?: boolean;
+  };
+}
+
+export type ToolbarActionKind =
+  | "command"
+  | "mutation"
+  | "navigation"
+  | "panel_toggle"
+  | "download"
+  | "destructive";
+
+export interface ToolbarActionDescriptor {
+  id: string;
+  capabilityId: string;
+  zone: SurfaceZone;
+  label: string;
+  shortLabel?: string;
+  icon?: string;
+  kind: ToolbarActionKind;
+  action: string;
+  priority: number;
+  group: "primary" | "secondary" | "danger" | "selection";
+  emphasis?: "default" | "primary" | "accent" | "danger";
+  visible: boolean;
+  enabled: boolean;
+  disabledReason?: string;
+  selectionConstraints?: {
+    minSelected?: number;
+    maxSelected?: number;
+    requireSingleSelection?: boolean;
+  };
+  confirmation?: {
+    required: boolean;
+    style?: "danger" | "default";
+    title?: string;
+    message?: string;
+  };
+  stewardGate?: {
+    required: boolean;
+  };
+}
+
+export interface ActionZonePlan {
+  zone: SurfaceZone;
+  layoutHint: "row" | "pillbar";
+  actions: ToolbarActionDescriptor[];
+}
+
+export interface CompiledActionPlan {
+  schemaVersion: "1.0.0" | string;
+  generatedAt: string;
+  planHash: string;
+  spaceId: string;
+  routeId: string;
+  pageType: PageType;
+  actorRole: string;
+  zones: ActionZonePlan[];
+}
+
+export type WorkflowProjectionKind =
+  | "flow_graph_v1"
+  | "a2ui_surface_v1"
+  | "serverless_workflow_v0_8"
+  | "normalized_graph_v1";
+
+export interface WorkflowDraftEnvelope {
+  [key: string]: unknown;
+}
+
+export interface WorkflowProposalEnvelope {
+  [key: string]: unknown;
+}
+
+export interface WorkflowDefinitionResponse {
+  schema_version: string;
+  generated_at: string;
+  definition: Json;
+}
+
+export interface WorkflowProjectionResponse {
+  schema_version: string;
+  generated_at: string;
+  projection_kind: WorkflowProjectionKind;
+  projection: Json | unknown[];
+  available_projections?: Array<{
+    kind: WorkflowProjectionKind;
+    label: string;
+  }>;
+}
+
+export interface WorkflowInstanceResponse {
+  schema_version: string;
+  generated_at: string;
+  instance: Json;
+}
+
+export interface WorkflowTraceResponse {
+  schema_version: string;
+  generated_at: string;
+  trace: Json | Json[] | unknown[];
+}
+
+export interface WorkflowCheckpointResponse {
+  schema_version: string;
+  generated_at: string;
+  checkpoints: unknown[];
+}
+
+export interface WorkflowOutcomeResponse {
+  schema_version: string;
+  generated_at: string;
+  outcome: Json | null;
+}
+
+export interface WorkflowReplayResponse {
+  schema_version: string;
+  generated_at: string;
+  replay: Json;
+}
+
+export interface WorkflowDigestResponse {
+  schema_version: string;
+  generated_at: string;
+  digest: Json;
+}
+
+export interface WorkflowActiveScopeResponse {
+  schema_version: string;
+  generated_at: string;
+  active: Json;
+}
+
 export interface PathAssessment {
   goal?: string;
   recommended_path?: {
@@ -281,8 +527,13 @@ export interface SpaceCreateRequest {
   space_id: string;
   creation_mode?: "blank" | "import" | "template";
   owner?: string;
+  archetype?: string;
+  governance_scope?: "personal" | "private" | "public";
   reference_uri?: string;
   template_id?: string;
+  draft_id?: string;
+  draft_source_mode?: "blank" | "template" | "reference";
+  lineage_note?: string;
 }
 
 export interface SpaceCreateResponse {
@@ -346,6 +597,19 @@ export interface AgentRunRecord {
   events: AgentRunEventEnvelope[];
 }
 
+export interface AgentRunSummary {
+  runId: string;
+  workflowId: string;
+  spaceId: string;
+  contributionId: string;
+  agentId?: string;
+  status: string;
+  startedAt: string;
+  updatedAt: string;
+  authorityLevel?: string;
+  requiresReview: boolean;
+}
+
 export type SpatialSurfaceVariant = "linear" | "spatial" | "compare";
 
 export interface SpatialExperimentEventRequest {
@@ -401,7 +665,7 @@ export interface SpatialExperimentRunSummary {
 
 export interface HeapBlockProjection {
   artifactId: string;
-  workspaceId?: string;
+  spaceId?: string;
   blockId?: string;
   title: string;
   blockType: string;
@@ -413,6 +677,7 @@ export interface HeapBlockProjection {
   pageLinks?: string[];
   fileKeys?: string[];
   hasFiles?: boolean;
+  status?: string;
   attributes?: Record<string, string>;
 }
 
@@ -600,7 +865,7 @@ export interface EmitHeapBlockContent {
 export interface EmitHeapBlockRequest {
   schema_version: "1.0.0";
   mode: "heap";
-  workspace_id: string;
+  space_id: string;
   source: EmitHeapBlockSource;
   block: {
     id?: string;
@@ -650,6 +915,31 @@ export interface EmitHeapBlockRequest {
   };
   projection_hints?: Json;
   crdt_projection?: Json;
+}
+
+export type GateSummaryKind = "siq" | "testing";
+
+export interface EmitGateSummaryHeapBlockRequest {
+  schemaVersion: "1.0.0";
+  spaceId: string;
+  kind: GateSummaryKind;
+  artifactId?: string;
+}
+
+export interface A2UISubmitFeedbackRequest {
+  artifactId: string;
+  feedbackData: Record<string, unknown>;
+}
+
+export interface EmitGateSummaryHeapBlockResponse {
+  schemaVersion: string;
+  accepted: boolean;
+  kind: GateSummaryKind;
+  workspaceId: string;
+  heapWorkspaceId: string;
+  artifactId: string;
+  blockId: string;
+  emittedAt: string;
 }
 
 export interface BrandPalette {

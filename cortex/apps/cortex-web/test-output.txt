@@ -1,0 +1,60 @@
+
+Running 3 tests using 1 worker
+
+  ✘  1 tests/playwright/heap-parity.spec.ts:161:1 › heap parity renders structural controls and interactions (194ms)
+  ✘  2 tests/playwright/heap-parity.spec.ts:217:1 › heap parity delta polling reconciles changed blocks when local flag is enabled (50ms)
+  ✘  3 tests/playwright/heap-parity.spec.ts:280:1 › heap workbench enrichment features function correctly (49ms)
+
+
+  1) tests/playwright/heap-parity.spec.ts:161:1 › heap parity renders structural controls and interactions 
+
+    Error: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL
+    Call log:
+    [2m  - navigating to "/heap", waiting until "load"[22m
+
+
+      167 |     });
+      168 |   });
+    > 169 |   await page.goto("/heap");
+          |              ^
+      170 |
+      171 |   await expect(page.locator(".shell-layout")).toBeVisible();
+      172 |   await expect(page.locator(".heap-surface")).toBeVisible();
+        at /Users/xaoj/ICP/cortex/apps/cortex-web/tests/playwright/heap-parity.spec.ts:169:14
+
+  2) tests/playwright/heap-parity.spec.ts:217:1 › heap parity delta polling reconciles changed blocks when local flag is enabled 
+
+    Error: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL
+    Call log:
+    [2m  - navigating to "/heap", waiting until "load"[22m
+
+
+      272 |   });
+      273 |
+    > 274 |   await page.goto("/heap");
+          |              ^
+      275 |   await expect(page.locator(".heap-block-card").filter({ hasText: "Heap Parity Card" }).first()).toBeVisible();
+      276 |   await expect(page.locator(".heap-block-card").filter({ hasText: "Heap Parity Card (Delta)" }).first()).toBeVisible({ timeout: 10000 });
+      277 |   await expect.poll(() => changedBlocksCalls, { timeout: 10000 }).toBeGreaterThan(0);
+        at /Users/xaoj/ICP/cortex/apps/cortex-web/tests/playwright/heap-parity.spec.ts:274:14
+
+  3) tests/playwright/heap-parity.spec.ts:280:1 › heap workbench enrichment features function correctly 
+
+    Error: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL
+    Call log:
+    [2m  - navigating to "/heap", waiting until "load"[22m
+
+
+      282 |     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(noDeltaResponse()) });
+      283 |   });
+    > 284 |   await page.goto("/heap");
+          |              ^
+      285 |
+      286 |   // 1. Discussions / Comments Verification
+      287 |   const firstCard = page.locator(".heap-block-card").filter({ hasText: "Heap Parity Card" }).first();
+        at /Users/xaoj/ICP/cortex/apps/cortex-web/tests/playwright/heap-parity.spec.ts:284:14
+
+  3 failed
+    tests/playwright/heap-parity.spec.ts:161:1 › heap parity renders structural controls and interactions 
+    tests/playwright/heap-parity.spec.ts:217:1 › heap parity delta polling reconciles changed blocks when local flag is enabled 
+    tests/playwright/heap-parity.spec.ts:280:1 › heap workbench enrichment features function correctly 
