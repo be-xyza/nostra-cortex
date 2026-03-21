@@ -31,6 +31,16 @@ pub struct SpaceRecord {
     pub reference_uri: Option<String>,
     pub template_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub draft_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub draft_source_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lineage_note: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub governance_scope: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility_state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_graph_uri: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_graph_version: Option<String>,
@@ -132,6 +142,11 @@ mod tests {
         assert_eq!(record.capability_graph_uri, None);
         assert_eq!(record.capability_graph_version, None);
         assert_eq!(record.capability_graph_hash, None);
+        assert_eq!(record.draft_id, None);
+        assert_eq!(record.draft_source_mode, None);
+        assert_eq!(record.lineage_note, None);
+        assert_eq!(record.governance_scope, None);
+        assert_eq!(record.visibility_state, None);
         assert!(record.members.is_empty());
         assert_eq!(record.archetype, None);
     }
@@ -144,6 +159,11 @@ mod tests {
             creation_mode: CreationMode::Template,
             reference_uri: Some("nostra://ref/space-beta".to_string()),
             template_id: Some("template.foundation".to_string()),
+            draft_id: Some("draft-space-1".to_string()),
+            draft_source_mode: Some("template".to_string()),
+            lineage_note: Some("Started from the foundation template.".to_string()),
+            governance_scope: Some("private".to_string()),
+            visibility_state: Some("members_only".to_string()),
             capability_graph_uri: Some("_spaces/space-beta/capability_graph.json".to_string()),
             capability_graph_version: Some("catalog-v1".to_string()),
             capability_graph_hash: Some("hash-123".to_string()),
@@ -166,6 +186,14 @@ mod tests {
             Some("catalog-v1")
         );
         assert_eq!(record.capability_graph_hash.as_deref(), Some("hash-123"));
+        assert_eq!(record.draft_id.as_deref(), Some("draft-space-1"));
+        assert_eq!(record.draft_source_mode.as_deref(), Some("template"));
+        assert_eq!(
+            record.lineage_note.as_deref(),
+            Some("Started from the foundation template.")
+        );
+        assert_eq!(record.governance_scope.as_deref(), Some("private"));
+        assert_eq!(record.visibility_state.as_deref(), Some("members_only"));
         assert_eq!(record.members.len(), 2);
         assert_eq!(record.archetype.as_deref(), Some("Research"));
     }
@@ -184,6 +212,11 @@ mod tests {
             creation_mode: CreationMode::Blank,
             reference_uri: None,
             template_id: None,
+            draft_id: None,
+            draft_source_mode: None,
+            lineage_note: None,
+            governance_scope: None,
+            visibility_state: None,
             capability_graph_uri: None,
             capability_graph_version: None,
             capability_graph_hash: None,

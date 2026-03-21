@@ -33,6 +33,8 @@ pub struct WorkbenchQuery {
     pub intent: Option<String>,
     pub density: Option<String>,
     pub node_id: Option<String>,
+    pub run_id: Option<String>,
+    pub contribution_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +45,7 @@ enum WorkbenchSurfaceKind {
     Testing,
     Logs,
     Agents,
+    Contributions,
     Artifacts,
     Spaces,
     Flows,
@@ -92,6 +95,11 @@ const WORKBENCH_SURFACE_REGISTRY: &[WorkbenchSurfaceRegistration] = &[
         allow_generic_surface: false,
     },
     WorkbenchSurfaceRegistration {
+        route_id: "/contributions",
+        kind: WorkbenchSurfaceKind::Contributions,
+        allow_generic_surface: false,
+    },
+    WorkbenchSurfaceRegistration {
         route_id: "/artifacts",
         kind: WorkbenchSurfaceKind::Artifacts,
         allow_generic_surface: false,
@@ -135,11 +143,6 @@ const WORKBENCH_SURFACE_REGISTRY: &[WorkbenchSurfaceRegistration] = &[
         route_id: "/synthesis",
         kind: WorkbenchSurfaceKind::Synthesis,
         allow_generic_surface: false,
-    },
-    WorkbenchSurfaceRegistration {
-        route_id: "/contributions",
-        kind: WorkbenchSurfaceKind::Generic,
-        allow_generic_surface: true,
     },
     WorkbenchSurfaceRegistration {
         route_id: "/vfs",
@@ -495,6 +498,9 @@ async fn render_registered_workbench_surface(
         WorkbenchSurfaceKind::Agents => {
             generate_agents_viewspec(space_id, node_id, intent, density).await
         }
+        WorkbenchSurfaceKind::Contributions => {
+            generate_contributions_viewspec(space_id, node_id, intent, density).await
+        }
         WorkbenchSurfaceKind::Artifacts => {
             generate_artifacts_viewspec(node_id, intent, density).await
         }
@@ -514,13 +520,32 @@ pub async fn get_workbench_ux_viewspec(
     headers: HeaderMap,
     Query(query): Query<WorkbenchQuery>,
 ) -> impl IntoResponse {
-    let route = query.route.unwrap_or_else(|| "/".to_string());
+    let route = query.route.clone().unwrap_or_else(|| "/".to_string());
     let space_id = query
         .space_id
         .unwrap_or_else(|| "nostra-governance-v0".to_string());
     let intent = query.intent.unwrap_or_else(|| "navigate".to_string());
     let density = query.density.unwrap_or_else(|| "comfortable".to_string());
-    let node_id = query.node_id.clone();
+    let node_id = query.node_id.clone().or_else(|| {
+        let route = query.route.as_deref().unwrap_or("/");
+        if route != "/contributions" {
+            return None;
+        }
+        query
+            .run_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|run_id| format!("graph_run:{run_id}"))
+            .or_else(|| {
+                query
+                    .contribution_id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(|contribution_id| format!("contribution:{contribution_id}"))
+            })
+    });
 
     let actor_id = headers
         .get("x-cortex-actor")
@@ -1143,8 +1168,8 @@ async fn generate_spaces_viewspec(space_id: &str, actor_id: &str, role: &str) ->
             };
             let sev = if ready.ready { "success" } else { "error" };
             let msg = format!(
-                "DFX Port: {} (CRDT Stream Connected)",
-                if ready.dfx_port_healthy {
+                "ICP Local Network: {} (CRDT Stream Connected)",
+                if ready.icp_network_healthy {
                     "Healthy"
                 } else {
                     "Unhealthy"
@@ -2640,13 +2665,13 @@ async fn generate_agents_viewspec(
             "agents_selected_table",
             vec!["Field", "Value"],
             vec![
-                json!({"Field":"Run ID","Value": record.get("run").and_then(|v| v.get("runId")).and_then(|v| v.as_str()).unwrap_or("-")}),
-                json!({"Field":"Workflow ID","Value": record.get("run").and_then(|v| v.get("workflowId")).and_then(|v| v.as_str()).unwrap_or("-")}),
-                json!({"Field":"Status","Value": record.get("run").and_then(|v| v.get("status")).and_then(|v| v.as_str()).unwrap_or("-")}),
+                json!({"Field":"Run ID","Value": record.get("runId").and_then(|v| v.as_str()).unwrap_or("-")}),
+                json!({"Field":"Workflow ID","Value": record.get("workflowId").and_then(|v| v.as_str()).unwrap_or("-")}),
+                json!({"Field":"Status","Value": record.get("status").and_then(|v| v.as_str()).unwrap_or("-")}),
                 json!({"Field":"Requires Review","Value": record.get("approval").map(|_| "true").unwrap_or("false")}),
-                json!({"Field":"Started At","Value": record.get("run").and_then(|v| v.get("startedAt")).and_then(|v| v.as_str()).unwrap_or("-")}),
-                json!({"Field":"Updated At","Value": record.get("run").and_then(|v| v.get("updatedAt")).and_then(|v| v.as_str()).unwrap_or("-")}),
-                json!({"Field":"Finished At","Value": record.get("run").and_then(|v| v.get("finishedAt")).and_then(|v| v.as_str()).unwrap_or("-")}),
+                json!({"Field":"Started At","Value": record.get("startedAt").and_then(|v| v.as_str()).unwrap_or("-")}),
+                json!({"Field":"Updated At","Value": record.get("updatedAt").and_then(|v| v.as_str()).unwrap_or("-")}),
+                json!({"Field":"Finished At","Value": record.get("finishedAt").and_then(|v| v.as_str()).unwrap_or("-")}),
             ],
         ));
         component_refs.push(heading_component(
@@ -2670,6 +2695,249 @@ async fn generate_agents_viewspec(
         "/agents",
         "operator",
         "Live agent runs with deterministic detail drill-ins.".to_string(),
+        style_tokens,
+        component_refs,
+    )
+}
+
+fn contribution_graph_runs_dir(space_id: &str) -> PathBuf {
+    crate::gateway::server::workspace_root()
+        .join("_spaces")
+        .join(space_id)
+        .join(".cortex")
+        .join("logs")
+        .join("contribution_graph")
+        .join("runs")
+}
+
+fn load_contribution_graph_runs(space_id: &str, limit: usize) -> Result<Vec<Value>, String> {
+    let mut runs = Vec::new();
+    let dir = contribution_graph_runs_dir(space_id);
+    let entries = fs::read_dir(&dir)
+        .map_err(|err| format!("failed_to_read_contribution_runs:{}:{err}", dir.display()))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+        let raw = match fs::read_to_string(&path) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let value = match serde_json::from_str::<Value>(&raw) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        runs.push(value);
+    }
+    runs.sort_by(|left, right| {
+        let right_started = right
+            .get("startedAt")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        let left_started = left
+            .get("startedAt")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        right_started.cmp(left_started)
+    });
+    runs.truncate(limit.min(200));
+    Ok(runs)
+}
+
+fn load_contribution_graph_run(space_id: &str, run_id: &str) -> Option<Value> {
+    let path = contribution_graph_runs_dir(space_id).join(format!("{run_id}.json"));
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+}
+
+async fn generate_contributions_viewspec(
+    space_id: &str,
+    selected_node_id: Option<&str>,
+    intent: &str,
+    density: &str,
+) -> ViewSpecV1 {
+    let mut style_tokens = BTreeMap::new();
+    style_tokens.insert("theme".to_string(), "cortex".to_string());
+    style_tokens.insert("context".to_string(), "workbench".to_string());
+    style_tokens.insert("intent".to_string(), intent.to_string());
+    style_tokens.insert("density".to_string(), density.to_string());
+
+    let (graph_runs, graph_degraded) = match load_contribution_graph_runs(space_id, 25) {
+        Ok(value) => (value, None),
+        Err(err) => (Vec::new(), Some(err)),
+    };
+    let (agent_runs, agent_degraded) = match crate::services::ops_agents::list_agent_runs(space_id, 25)
+    {
+        Ok(value) => (
+            value
+                .into_iter()
+                .filter_map(|row| serde_json::to_value(row).ok())
+                .collect::<Vec<_>>(),
+            None,
+        ),
+        Err(err) => (Vec::new(), Some(err)),
+    };
+
+    let selected_graph_run_id = parse_prefixed_node_id(selected_node_id, "graph_run:");
+    let selected_agent_run_id = parse_prefixed_node_id(selected_node_id, "agent_run:");
+    let selected_contribution_id = parse_prefixed_node_id(selected_node_id, "contribution:");
+
+    let selected_graph_run = selected_graph_run_id
+        .as_deref()
+        .and_then(|run_id| load_contribution_graph_run(space_id, run_id));
+    let selected_agent_run = selected_agent_run_id
+        .as_deref()
+        .and_then(|run_id| crate::services::ops_agents::load_agent_run(space_id, run_id).ok())
+        .and_then(|record| serde_json::to_value(record).ok());
+
+    let graph_rows = graph_runs
+        .iter()
+        .map(|row| {
+            let run_id = row.get("runId").and_then(|value| value.as_str()).unwrap_or("unknown");
+            json!({
+                "_row_id": run_id,
+                "_href": format!("/contributions?run_id={run_id}"),
+                "Run ID": run_id,
+                "Mode": row.get("mode").and_then(|value| value.as_str()).unwrap_or("unknown"),
+                "Status": row.get("status").and_then(|value| value.as_str()).unwrap_or("unknown"),
+                "Started At": row.get("startedAt").and_then(|value| value.as_str()).unwrap_or("-"),
+            })
+        })
+        .collect::<Vec<_>>();
+    let agent_rows = agent_runs
+        .iter()
+        .map(|row| {
+            let run_id = row.get("runId").and_then(|value| value.as_str()).unwrap_or("unknown");
+            json!({
+                "_row_id": run_id,
+                "_href": format!("/contributions?node_id=agent_run:{run_id}"),
+                "Run ID": run_id,
+                "Contribution ID": row.get("contributionId").and_then(|value| value.as_str()).unwrap_or("-"),
+                "Status": row.get("status").and_then(|value| value.as_str()).unwrap_or("unknown"),
+                "Requires Review": row.get("requiresReview").and_then(|value| value.as_bool()).unwrap_or(false).to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let degraded_messages = [graph_degraded, agent_degraded]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    let mut component_refs = vec![
+        heading_component("contributions_title", "Contributions Cockpit".to_string()),
+        alert_banner_component(
+            "contributions_status",
+            if degraded_messages.is_empty() {
+                "Contribution lifecycle ready"
+            } else {
+                "Contribution lifecycle degraded"
+            },
+            if degraded_messages.is_empty() { "success" } else { "warning" },
+            if degraded_messages.is_empty() {
+                format!(
+                    "space_id={} graph_runs={} agent_runs={}",
+                    space_id,
+                    graph_runs.len(),
+                    agent_runs.len()
+                )
+            } else {
+                degraded_messages.join(" | ")
+            },
+        ),
+        grid_component(
+            "contributions_metrics_grid",
+            vec![
+                "contributions_metric_graph_runs",
+                "contributions_metric_agent_runs",
+                "contributions_metric_focus",
+            ],
+        ),
+        metric_card_component(
+            "contributions_metric_graph_runs",
+            "Graph Runs",
+            graph_runs.len().to_string(),
+            None,
+        ),
+        metric_card_component(
+            "contributions_metric_agent_runs",
+            "Agent Runs",
+            agent_runs.len().to_string(),
+            None,
+        ),
+        metric_card_component(
+            "contributions_metric_focus",
+            "Focus",
+            selected_agent_run_id
+                .clone()
+                .or(selected_contribution_id.clone())
+                .or(selected_graph_run_id.clone())
+                .unwrap_or_else(|| "none".to_string()),
+            None,
+        ),
+        data_table_component_with_options(
+            "contributions_graph_runs_table",
+            vec!["Run ID", "Mode", "Status", "Started At"],
+            graph_rows,
+            Some(vec!["_row_id", "_href"]),
+        ),
+        data_table_component_with_options(
+            "contributions_agent_runs_table",
+            vec!["Run ID", "Contribution ID", "Status", "Requires Review"],
+            agent_rows,
+            Some(vec!["_row_id", "_href"]),
+        ),
+    ];
+
+    if let Some(run) = selected_graph_run.as_ref() {
+        component_refs.push(data_table_component(
+            "contributions_selected_graph_run_table",
+            vec!["Field", "Value"],
+            vec![
+                json!({"Field":"Run ID","Value": run.get("runId").and_then(|value| value.as_str()).unwrap_or("-")}),
+                json!({"Field":"Mode","Value": run.get("mode").and_then(|value| value.as_str()).unwrap_or("-")}),
+                json!({"Field":"Status","Value": run.get("status").and_then(|value| value.as_str()).unwrap_or("-")}),
+                json!({"Field":"Started At","Value": run.get("startedAt").and_then(|value| value.as_str()).unwrap_or("-")}),
+            ],
+        ));
+    }
+
+    if let Some(record) = selected_agent_run.as_ref() {
+        component_refs.push(data_table_component(
+            "contributions_selected_run_table",
+            vec!["Field", "Value"],
+            vec![
+                json!({"Field":"Run ID","Value": record.get("runId").and_then(|value| value.as_str()).unwrap_or("-")}),
+                json!({"Field":"Workflow ID","Value": record.get("workflowId").and_then(|value| value.as_str()).unwrap_or("-")}),
+                json!({"Field":"Contribution ID","Value": record.get("contributionId").and_then(|value| value.as_str()).unwrap_or("-")}),
+                json!({"Field":"Status","Value": record.get("status").and_then(|value| value.as_str()).unwrap_or("-")}),
+                json!({"Field":"Updated At","Value": record.get("updatedAt").and_then(|value| value.as_str()).unwrap_or("-")}),
+            ],
+        ));
+    }
+
+    if let Some(contribution_id) = selected_contribution_id.as_ref() {
+        component_refs.push(data_table_component(
+            "contributions_selected_contribution_table",
+            vec!["Field", "Value"],
+            vec![
+                json!({"Field":"Contribution ID","Value": contribution_id}),
+                json!({"Field":"Route Contract","Value": format!("/contributions?node_id=contribution:{contribution_id}")}),
+            ],
+        ));
+    } else if selected_graph_run.is_none() && selected_agent_run.is_none() {
+        component_refs.push(text_component(
+            "contributions_selection_hint",
+            "Select a graph run with run_id=<runId>, an agent run with node_id=agent_run:<runId>, or a contribution with node_id=contribution:<id>.".to_string(),
+        ));
+    }
+
+    make_workbench_viewspec(
+        "workbench-contributions",
+        "/contributions",
+        "operator",
+        "Steward-facing contribution lifecycle cockpit with graph history and live agent drill-ins.".to_string(),
         style_tokens,
         component_refs,
     )
@@ -3843,6 +4111,37 @@ mod tests {
             .expect("write fixture");
     }
 
+    fn write_contribution_run_fixture(root: &Path, space_id: &str, run_id: &str) {
+        let runs_dir = root
+            .join("_spaces")
+            .join(space_id)
+            .join(".cortex")
+            .join("logs")
+            .join("contribution_graph")
+            .join("runs");
+        std::fs::create_dir_all(&runs_dir).expect("contribution runs dir");
+        write_json_fixture(
+            &runs_dir.join(format!("{run_id}.json")),
+            &json!({
+                "schemaVersion": "nostra.dpub.pipeline_run.v1",
+                "runId": run_id,
+                "mode": "simulate",
+                "actorRole": "steward",
+                "actorId": "steward:test",
+                "startedAt": "2026-03-20T00:00:00Z",
+                "finishedAt": "2026-03-20T00:02:00Z",
+                "status": "success",
+                "durationMs": 120000,
+                "graphRootHashAfter": "hash-alpha",
+                "artifacts": {
+                    "simulate": {
+                        "sessionId": "sim-123"
+                    }
+                }
+            }),
+        );
+    }
+
     fn write_workflow_fixture(ux_root: &Path, decision_root: &Path, space_id: &str) {
         let scope = cortex_domain::workflow::WorkflowScope {
             space_id: Some(space_id.to_string()),
@@ -4205,6 +4504,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn contributions_viewspec_projects_graph_and_agent_deep_links() {
+        let workspace = TestTempDir::new();
+        let decision = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            workspace.path().display().to_string().as_str(),
+        );
+        let _decision_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_SURFACE_LOG_DIR",
+            decision.path().display().to_string().as_str(),
+        );
+
+        write_contribution_run_fixture(workspace.path(), "space-alpha", "graph-run-001");
+        write_agent_fixture(decision.path(), "space-alpha", "run-001");
+
+        let view_spec = generate_contributions_viewspec(
+            "space-alpha",
+            Some("agent_run:run-001"),
+            "navigate",
+            "comfortable",
+        )
+        .await;
+
+        let graph_rows = table_rows(&view_spec, "contributions_graph_runs_table");
+        let graph_first = graph_rows
+            .first()
+            .and_then(|row| row.as_object())
+            .expect("graph row");
+        assert_eq!(
+            graph_first.get("_href").and_then(|value| value.as_str()),
+            Some("/contributions?run_id=graph-run-001")
+        );
+
+        let agent_rows = table_rows(&view_spec, "contributions_agent_runs_table");
+        let agent_first = agent_rows
+            .first()
+            .and_then(|row| row.as_object())
+            .expect("agent row");
+        assert_eq!(
+            agent_first.get("_href").and_then(|value| value.as_str()),
+            Some("/contributions?node_id=agent_run:run-001")
+        );
+
+        let selected = component(&view_spec, "contributions_selected_run_table");
+        let selected_rows = selected
+            .props
+            .get("rows")
+            .and_then(|value| value.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(selected_rows.iter().any(|row| {
+            row.get("Field").and_then(|value| value.as_str()) == Some("Run ID")
+                && row.get("Value").and_then(|value| value.as_str()) == Some("run-001")
+        }));
+    }
+
+    #[tokio::test]
     async fn artifacts_viewspec_rows_include_href_metadata() {
         let temp = TestTempDir::new();
         let _guard = EnvVarGuard::set(
@@ -4437,6 +4793,7 @@ mod tests {
             "/testing",
             "/logs",
             "/agents",
+            "/contributions",
             "/artifacts",
             "/spaces",
             "/flows",
