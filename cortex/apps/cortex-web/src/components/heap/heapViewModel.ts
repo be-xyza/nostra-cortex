@@ -4,7 +4,8 @@ export type HeapPrimaryViewMode = "Explore" | "Inbox" | "Drafts" | "Tasks" | "Pr
 export type HeapViewCounts = Record<HeapPrimaryViewMode, number> & { Urgent: number };
 
 const TASK_BLOCK_TYPES = new Set(["task", "checklist"]);
-const PROPOSAL_BLOCK_TYPES = new Set(["action_plan", "compiled_plan"]);
+const PROPOSAL_BLOCK_TYPES = new Set(["action_plan", "compiled_plan", "self_optimization_proposal"]);
+const TELEMETRY_BLOCK_TYPES = new Set(["usage_report", "agent_execution_record"]);
 export type HeapReviewLane = "private_review" | "public_review";
 
 type HeapViewBlock = Pick<HeapBlockListItem, "projection" | "pinnedAt" | "surfaceJson" | "deletedAt">;
@@ -89,7 +90,7 @@ export function isHeapBlockInView(block: HeapViewBlock, viewMode: HeapPrimaryVie
       return true;
     case "Inbox":
       // Inbox = Needs Attention (Mentions, Urgent, pending approvals)
-      return mentions.length > 0 || behaviors.includes("urgent") || isHeapBlockReviewWork(block) || !hasHeapBlockRelations(block);
+      return mentions.length > 0 || behaviors.includes("urgent") || isHeapBlockReviewWork(block) || (!hasHeapBlockRelations(block) && !TELEMETRY_BLOCK_TYPES.has(blockType));
     case "Drafts":
       // Drafts = No formal governance or specific seed status
       return behaviors.includes("draft") || block.projection.status === "seed";
