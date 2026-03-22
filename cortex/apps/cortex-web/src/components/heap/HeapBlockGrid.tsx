@@ -934,7 +934,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             {/* Sidebar Backdrop (Mobile Only) */}
             {isMobile && !isSidebarCollapsed && (
                 <div 
-                    className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[90] animate-in fade-in duration-300"
+                    className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-90 animate-in fade-in duration-300"
                     onClick={() => setIsSidebarCollapsed(true)}
                 />
             )}
@@ -942,7 +942,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             {/* Sidebar with collapse transition */}
             {showFilterSidebar && (
                 <div className={`
-                    ${isMobile ? "fixed left-0 top-0 bottom-0 z-[100] shadow-2xl" : "relative flex shrink-0"}
+                    ${isMobile ? "fixed left-0 top-0 bottom-0 z-100 shadow-2xl" : "relative flex shrink-0"}
                     transition-all duration-300 ease-in-out
                     ${isSidebarCollapsed ? (isMobile ? "-translate-x-full" : "w-0 overflow-hidden") : "w-64 translate-x-0"}
                 `}>

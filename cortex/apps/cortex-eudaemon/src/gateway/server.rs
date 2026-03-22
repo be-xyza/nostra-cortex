@@ -95,8 +95,6 @@ use crate::services::viewspec_synthesis::{
 use crate::services::workflow_engine_client::{
     AttributionDomain, EpistemicAssessment, ExecutionProfile, ReplayContract, WorkflowEngineClient,
 };
-use crate::services::agent_service::AgentService;
-use crate::services::console_service::ConsoleService;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -24888,40 +24886,9 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<GatewayState>) -> 
 
 async fn ws_chat_handler(
     ws: WebSocketUpgrade,
-    State(state): State<GatewayState>,
+    State(_state): State<GatewayState>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(|socket| handle_chat_socket(socket, state))
-}
-
-async fn handle_chat_socket(socket: WebSocket, _state: GatewayState) {
-    let (mut sender, mut _receiver) = socket.split();
-
-    // Use AgentService to send a chat message and stream the response
-    // streaming=true by default for live research focus
-    let mut stream = match AgentService::send_chat_message(
-        "User",
-        "Hello from Explore View",
-        None, // space_id
-        true, // streaming
-    ).await {
-        Ok(s) => s,
-        Err(e) => {
-            let _ = sender.send(Message::Text(format!("Error: {}", e))).await;
-            return;
-        }
-    };
-
-    while let Some(event) = stream.next().await {
-        match event {
-            Ok(evt) => {
-                let json = serde_json::to_string(&evt).unwrap_or_default();
-                if sender.send(Message::Text(json)).await.is_err() {
-                    break;
-                }
-            }
-            Err(_) => break,
-        }
-    }
+    ws.on_upgrade(crate::gateway::chat_transport::handle_chat_socket)
 }
 
 async fn handle_socket(socket: WebSocket, state: GatewayState) {
@@ -32352,6 +32319,44 @@ mod tests {
         let accepted_body = response_json(accepted).await;
         assert_eq!(accepted_body["accepted"], true);
         assert!(accepted_body["capabilityGraphHash"].is_string());
+    }
+
+    #[test]
+    fn chat_socket_request_parser_accepts_message_envelope() {
+        let parsed = crate::gateway::chat_transport::decode_chat_client_message(
+            r#"{"type":"message","text":"Summarize this","contextRefs":["artifact-1"],"threadId":"thread-1"}"#,
+        )
+        .expect("message envelope");
+
+        assert_eq!(parsed.text, "Summarize this");
+        assert_eq!(parsed.context_refs, vec!["artifact-1".to_string()]);
+        assert_eq!(parsed.thread_id.as_deref(), Some("thread-1"));
+    }
+
+    #[test]
+    fn chat_socket_translator_emits_processing_streaming_and_terminal_message() {
+        let events = vec![
+            crate::services::agent_service::ChatEvent {
+                author: "System".to_string(),
+                message: "Hello ".to_string(),
+                timestamp: 1,
+            },
+            crate::services::agent_service::ChatEvent {
+                author: "System".to_string(),
+                message: "world".to_string(),
+                timestamp: 2,
+            },
+        ];
+
+        let frames = crate::gateway::chat_transport::translate_chat_events("chat-1", &events);
+
+        assert_eq!(frames.len(), 3);
+        assert_eq!(frames[0]["type"], "processing");
+        assert_eq!(frames[1]["type"], "streaming");
+        assert_eq!(frames[1]["delta"], "Hello ");
+        assert_eq!(frames[2]["type"], "message");
+        assert_eq!(frames[2]["id"], "chat-1");
+        assert_eq!(frames[2]["text"], "Hello world");
     }
 
     #[tokio::test]

@@ -26,6 +26,7 @@ import {
   MOCK_UX_WORKBENCH_HEAP,
   MOCK_UX_WORKBENCH_STUDIO,
   MOCK_CAPABILITY_GRAPH,
+  PLATFORM_CAPABILITY_CATALOG,
   MOCK_SPACE_CAPABILITY_GRAPH,
   MOCK_CONTRIBUTION_GRAPH,
   MOCK_WORKFLOW_TOPOLOGY,
@@ -35,6 +36,21 @@ import { getEventsBySpace, appendEvent, getEventsByArtifactId, getEventsBySpaceS
 import { reduceHeapBlocks } from './store/eventProcessor';
 
 const DEFAULT_SPACE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+
+async function respondNetworkFirst(
+  request: Request,
+  fallbackFactory: () => Promise<Response>,
+): Promise<Response> {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      return networkResponse;
+    }
+  } catch {
+    // Fall back below.
+  }
+  return fallbackFactory();
+}
 
 /**
  * Route Cortex Requests (The Execution Boundary)
@@ -202,12 +218,6 @@ async function routeCortexRequest(request: Request): Promise<Response> {
     if (whoami) return new Response(JSON.stringify(whoami), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
-  // 8. GET /api/spaces/*/navigation-plan
-  if (path.match(/^\/api\/spaces\/[^/]+\/navigation-plan$/) && request.method === 'GET') {
-    const navPlan = await getSnapshot("system:navigation:mock");
-    if (navPlan) return new Response(JSON.stringify(navPlan), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }
-
   // 9. GET /api/system/ux/workbench
   if (path === '/api/system/ux/workbench' && request.method === 'GET') {
     const route = url.searchParams.get('route') || '';
@@ -230,32 +240,57 @@ async function routeCortexRequest(request: Request): Promise<Response> {
     });
   }
 
-  // Fallback to Network
-  try {
-    if (url.pathname === '/api/system/capability-graph') {
-      return new Response(JSON.stringify(MOCK_CAPABILITY_GRAPH), {
+  if (url.pathname === '/api/system/capability-graph' && request.method === 'GET') {
+    return respondNetworkFirst(request, async () =>
+      new Response(JSON.stringify(MOCK_CAPABILITY_GRAPH), {
         headers: { 'Content-Type': 'application/json' }
-      });
-    }
+      }),
+    );
+  }
 
-    // Space-level capability graph with overrides
-    const capGraphMatch = url.pathname.match(/^\/api\/spaces\/([^/]+)\/capability-graph$/);
-    if (capGraphMatch) {
-      return new Response(JSON.stringify(MOCK_SPACE_CAPABILITY_GRAPH), {
+  if (url.pathname === '/api/system/capability-catalog' && request.method === 'GET') {
+    return respondNetworkFirst(request, async () =>
+      new Response(JSON.stringify(PLATFORM_CAPABILITY_CATALOG), {
         headers: { 'Content-Type': 'application/json' }
-      });
-    }
+      }),
+    );
+  }
 
-    if (url.pathname.startsWith('/api/spaces/') && url.pathname.endsWith('/action-plan')) {
-      const spaceId = url.pathname.split('/')[3];
+  const capGraphMatch = url.pathname.match(/^\/api\/spaces\/([^/]+)\/capability-graph$/);
+  if (capGraphMatch && request.method === 'GET') {
+    return respondNetworkFirst(request, async () =>
+      new Response(JSON.stringify(MOCK_SPACE_CAPABILITY_GRAPH), {
+        headers: { 'Content-Type': 'application/json' }
+      }),
+    );
+  }
+
+  if (path.match(/^\/api\/spaces\/[^/]+\/navigation-plan$/) && request.method === 'GET') {
+    return respondNetworkFirst(request, async () => {
+      const navPlan = await getSnapshot("system:navigation:mock");
+      if (navPlan) {
+        return new Response(JSON.stringify(navPlan), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response(JSON.stringify({
+        status: "offline-error",
+        message: "Navigation plan unavailable while offline."
+      }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+    });
+  }
+
+  if (url.pathname.startsWith('/api/spaces/') && url.pathname.endsWith('/action-plan')) {
+    return respondNetworkFirst(request, async () => {
+      const fallbackSpaceId = url.pathname.split('/')[3];
       const routeId = url.searchParams.get('route') || '/heap';
-      return new Response(JSON.stringify(buildMockActionPlan(spaceId, routeId)), {
+      return new Response(JSON.stringify(buildMockActionPlan(fallbackSpaceId, routeId)), {
         headers: { 'Content-Type': 'application/json' }
       });
-    }
+    });
+  }
 
+  try {
     return await fetch(request);
-  } catch (error) {
+  } catch {
     return new Response(JSON.stringify({ 
       status: "offline-error",
       message: "Gateway unreachable and route not implemented locally."

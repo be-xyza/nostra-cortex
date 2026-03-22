@@ -1,142 +1,277 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlowProvider,
   Node,
   Edge,
   OnNodesChange,
-  OnEdgesChange,
-  OnConnect,
   applyNodeChanges,
-  applyEdgeChanges,
-  addEdge,
   ReactFlowInstance,
-  Connection,
 } from '@xyflow/react';
 
+import { workbenchApi } from '../../api';
+import type {
+  OperationalFrequency,
+  PlatformCapabilityCatalog,
+  SpaceCapabilityGraph,
+  SpaceCapabilityGraphUpsertResponse,
+  SurfacingHeuristic,
+} from '../../contracts';
+import { useActiveSpaceContext, useAvailableSpaces } from '../../store/spacesRegistry';
+import { useUiStore } from '../../store/uiStore';
 import { SchemaSidebar } from './SchemaSidebar';
 import { SchemaCanvas } from './SchemaCanvas';
 import { SchemaNodeProps } from './SchemaNodeProps';
-import { CapabilityNodeData } from './SchemaCustomNodes';
-import { PLATFORM_CAPABILITY_CATALOG } from '../../store/seedData';
+import {
+  applyEditorOverride,
+  buildCapabilityEditorGraph,
+  buildPersistedCapabilityGraph,
+  collectNodePositions,
+  type CapabilityEditorNodeData,
+} from './schemaEditorModel';
 
-const initialNodes: Node<CapabilityNodeData>[] = PLATFORM_CAPABILITY_CATALOG.nodes.map((n, i) => ({
-  id: typeof n.id === 'string' ? n.id : n.id[0],
-  type: 'capability',
-  position: { x: 100 + (i % 3) * 250, y: 100 + Math.floor(i / 3) * 150 },
-  data: {
-    title: n.name,
-    description: n.description,
-    surfacing_heuristic: n.surfacingHeuristic,
-    intent_type: n.intentType,
-  },
-}));
+type SchemaNodeEditorProps = {
+  spaceId?: string;
+};
 
-const initialEdges: Edge[] = PLATFORM_CAPABILITY_CATALOG.edges.map((e, i) => ({
-  id: `e-${i}`,
-  source: typeof e.source === 'string' ? e.source : e.source[0],
-  target: typeof e.target === 'string' ? e.target : e.target[0],
-  label: e.relationship,
-  animated: true,
-}));
+function defaultLineageRef(actorId?: string) {
+  const normalized = actorId?.trim() || 'cortex-web';
+  return `steward:${normalized}:capability-overlay-update`;
+}
 
-export const SchemaNodeEditor = () => {
-  const [nodes, setNodes] = useState<Node<CapabilityNodeData>[]>(initialNodes);
-  const [edges, setEdges] = useState<Edge[]>(initialEdges);
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+function resolveEditorSpaceId(
+  explicitSpaceId: string | undefined,
+  activeSpaceId: string,
+  availableSpaceIds: string[],
+) {
+  if (explicitSpaceId?.trim()) return explicitSpaceId.trim();
+  if (activeSpaceId && activeSpaceId !== 'meta') return activeSpaceId;
+  return availableSpaceIds.find((spaceId) => spaceId !== 'meta') || '';
+}
+
+export const SchemaNodeEditor = ({ spaceId }: SchemaNodeEditorProps) => {
+  const activeSpaceId = useActiveSpaceContext();
+  const availableSpaces = useAvailableSpaces();
+  const sessionUser = useUiStore((state) => state.sessionUser);
+  const actorId = sessionUser?.actorId || 'cortex-web';
+  const actorRole = sessionUser?.role || 'operator';
+
+  const resolvedSpaceId = useMemo(
+    () =>
+      resolveEditorSpaceId(
+        spaceId,
+        activeSpaceId,
+        availableSpaces.map((space) => space.id),
+      ),
+    [activeSpaceId, availableSpaces, spaceId],
+  );
+
+  const [catalog, setCatalog] = useState<PlatformCapabilityCatalog | null>(null);
+  const [baselineGraph, setBaselineGraph] = useState<SpaceCapabilityGraph | null>(null);
+  const [draftGraph, setDraftGraph] = useState<SpaceCapabilityGraph | null>(null);
+  const [nodes, setNodes] = useState<Node<CapabilityEditorNodeData>[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const [, setReactFlowInstance] =
+    useState<ReactFlowInstance<Node<CapabilityEditorNodeData>, Edge> | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [lineageRef, setLineageRef] = useState(() => defaultLineageRef(actorId));
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [graphHash, setGraphHash] = useState<string | null>(null);
+  const [planHash, setPlanHash] = useState<string | null>(null);
+  const positionsRef = useRef<Record<string, { x: number; y: number }>>({});
 
-  const onNodesChange: OnNodesChange<Node<CapabilityNodeData>> = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    []
+  const selectedNode = useMemo(
+    () => nodes.find((node) => node.id === selectedNodeId) || null,
+    [nodes, selectedNodeId],
   );
 
-  const onEdgesChange: OnEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    []
+  const loadEditorState = useCallback(async () => {
+    if (!resolvedSpaceId) return;
+
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const [nextCatalog, nextGraph, nextPlan, spaces] = await Promise.all([
+        workbenchApi.getCapabilityCatalog(),
+        workbenchApi.getSpaceCapabilityGraph(resolvedSpaceId),
+        workbenchApi.getSpaceNavigationPlan(resolvedSpaceId, {
+          actorRole,
+          intent: 'navigate',
+          density: 'comfortable',
+        }),
+        workbenchApi.getSpaces(),
+      ]);
+
+      const layout = buildCapabilityEditorGraph(nextCatalog, nextGraph, positionsRef.current);
+      const registryRecord =
+        spaces.items.find((record) => record.spaceId === resolvedSpaceId) || null;
+
+      setCatalog(nextCatalog);
+      setBaselineGraph(nextGraph);
+      setDraftGraph(nextGraph);
+      setNodes(layout.nodes);
+      setEdges(layout.edges);
+      setSelectedNodeId((current) =>
+        current && layout.nodes.some((node) => node.id === current)
+          ? current
+          : layout.nodes[0]?.id || null,
+      );
+      setLineageRef(nextGraph.lineageRef?.trim() || defaultLineageRef(actorId));
+      setGraphHash(registryRecord?.capabilityGraphHash || null);
+      setPlanHash(nextPlan.planHash);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoading(false);
+    }
+  }, [actorId, actorRole, resolvedSpaceId]);
+
+  useEffect(() => {
+    void loadEditorState();
+  }, [loadEditorState]);
+
+  const dirty = useMemo(() => {
+    if (!baselineGraph || !draftGraph) return false;
+    return JSON.stringify(baselineGraph.nodes) !== JSON.stringify(draftGraph.nodes)
+      || (baselineGraph.lineageRef || '') !== lineageRef.trim();
+  }, [baselineGraph, draftGraph, lineageRef]);
+
+  const onNodesChange: OnNodesChange<Node<CapabilityEditorNodeData>> = useCallback(
+    (changes) =>
+      setNodes((currentNodes) => {
+        const nextNodes = applyNodeChanges<Node<CapabilityEditorNodeData>>(changes, currentNodes);
+        const positions = collectNodePositions(nextNodes);
+        positionsRef.current = positions;
+        return nextNodes;
+      }),
+    [],
   );
 
-  const onConnect: OnConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, label: 'depends_on' }, eds)),
-    []
-  );
-
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-
-      if (!reactFlowInstance) return;
-
-      const nodeType = event.dataTransfer.getData('application/reactflow');
-      if (!nodeType) return;
-
-      const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-
-      const newNodeId = `new-cap-${Date.now()}`;
-      const newNode: Node<CapabilityNodeData> = {
-        id: newNodeId,
-        type: 'capability',
-        position,
-        data: {
-          title: 'New Capability',
-          description: 'Define the purpose of this capability...',
-          intent_type: nodeType,
-          surfacing_heuristic: 'Secondary',
-        },
-      };
-
-      setNodes((nds) => nds.concat(newNode));
-      setSelectedNodeId(newNodeId);
-    },
-    [reactFlowInstance]
-  );
-
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node<CapabilityEditorNodeData>) => {
     setSelectedNodeId(node.id);
   }, []);
 
-  const onUpdateNode = useCallback((nodeId: string, newData: Partial<CapabilityNodeData>) => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === nodeId) {
-          return { ...node, data: { ...node.data, ...newData } };
-        }
-        return node;
-      })
-    );
-  }, []);
-
-  const onDeleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
-    setSelectedNodeId(null);
-  }, []);
-
-  const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId) || null,
-    [nodes, selectedNodeId]
+  const onUpdateNode = useCallback(
+    (
+      capabilityId: string,
+      patch: {
+        isActive?: boolean;
+        localAlias?: string;
+        localRequiredRole?: string;
+        surfacingHeuristic?: SurfacingHeuristic;
+        operationalFrequency?: OperationalFrequency;
+      },
+    ) => {
+      setDraftGraph((currentGraph) => {
+        if (!currentGraph) return currentGraph;
+        return {
+          ...currentGraph,
+          nodes: applyEditorOverride(currentGraph.nodes, capabilityId, patch),
+        };
+      });
+      setNodes((currentNodes) =>
+        currentNodes.map((node) =>
+          node.id === capabilityId
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  ...patch,
+                  effectiveRequiredRole:
+                    'localRequiredRole' in patch
+                      ? patch.localRequiredRole || node.data.canonicalRequiredRole
+                      : node.data.localRequiredRole || node.data.canonicalRequiredRole,
+                  effectiveSurfacingHeuristic:
+                    'surfacingHeuristic' in patch
+                      ? patch.surfacingHeuristic || node.data.canonicalSurfacingHeuristic
+                      : node.data.surfacingHeuristic || node.data.canonicalSurfacingHeuristic,
+                  effectiveOperationalFrequency:
+                    'operationalFrequency' in patch
+                      ? patch.operationalFrequency || node.data.canonicalOperationalFrequency
+                      : node.data.operationalFrequency || node.data.canonicalOperationalFrequency,
+                },
+              }
+            : node,
+        ),
+      );
+      setStatusMessage(null);
+      setErrorMessage(null);
+    },
+    [],
   );
+
+  const onSave = useCallback(async () => {
+    if (!draftGraph || !resolvedSpaceId) return;
+
+    setSaving(true);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const payload = buildPersistedCapabilityGraph(draftGraph, draftGraph.nodes, {
+        updatedAt: new Date().toISOString(),
+        updatedBy: actorId,
+        lineageRef: lineageRef.trim(),
+      });
+
+      const receipt: SpaceCapabilityGraphUpsertResponse =
+        await workbenchApi.putSpaceCapabilityGraph(
+          resolvedSpaceId,
+          payload,
+          actorRole,
+          actorId,
+        );
+
+      setGraphHash(receipt.capabilityGraphHash);
+      setStatusMessage(`Saved steward overlay for ${receipt.spaceId}.`);
+      await loadEditorState();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSaving(false);
+    }
+  }, [actorId, actorRole, draftGraph, lineageRef, loadEditorState, resolvedSpaceId]);
+
+  if (!resolvedSpaceId) {
+    return (
+      <div className="flex h-[600px] w-full items-center justify-center rounded-xl border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+        Select a real Space to edit its capability overlay. The meta workbench does not own persisted capability graphs.
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[600px] w-full bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
       <ReactFlowProvider>
-        <SchemaSidebar />
+        <SchemaSidebar
+          spaceId={resolvedSpaceId}
+          actorRole={actorRole}
+          catalogHash={catalog?.catalogHash || null}
+          graphHash={graphHash}
+          planHash={planHash}
+          dirty={dirty}
+          loading={loading}
+          saving={saving}
+          lineageRef={lineageRef}
+          statusMessage={statusMessage}
+          errorMessage={errorMessage}
+          onLineageRefChange={setLineageRef}
+          onRefresh={() => void loadEditorState()}
+          onSave={() => void onSave()}
+        />
         <SchemaCanvas
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onDrop={onDrop}
           onNodeClick={onNodeClick}
           setReactFlowInstance={setReactFlowInstance}
         />
         <SchemaNodeProps
           selectedNode={selectedNode}
           onUpdateNode={onUpdateNode}
-          onDeleteNode={onDeleteNode}
         />
       </ReactFlowProvider>
     </div>

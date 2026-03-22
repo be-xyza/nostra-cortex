@@ -657,7 +657,7 @@ export const MOCK_UX_WORKBENCH_LABS = {
     {
       id: "schema-designer-card",
       type: "Card",
-      props: { text: "Capability Designer (Drafting)" },
+      props: { text: "Space Capability Overlay" },
       children: ["schema-editor"]
     },
     {
