@@ -2,7 +2,7 @@
 
 **Status**: Active  
 **Created**: 2026-03-07  
-**Updated**: 2026-03-18  
+**Updated**: 2026-03-19  
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -15,6 +15,8 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 - **Runtime posture**: Linux `systemd` services, production auth enabled, no Docker assumption
 
 This initiative no longer treats Hostinger or Docker as the active deployment path, and it no longer treats the Rust-native `cortex-eudaemon` runtime as the Phase 6 primary implementation. The Rust-native path remains the migration target for Phase 7+.
+
+The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
 ## Objectives
 
@@ -57,10 +59,12 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **126 (Agent Harness)**: Operates at **Authority L1**. Emits `AgentExecutionLifecycle` records each cycle and treats identity enforcement as a production requirement.
 - **127 (Cortex Repo Ingestion)**: Code search remains constrained to sandbox roots rather than raw repo mutation.
 - **121 (Cortex Memory FS)**: Internal episodic memory remains Git-backed and local to the host.
+- **125 (SIQ)**: Deterministic SIQ gates remain authoritative. Any batch-audit layer is evidence enrichment, not release authority.
 - **122 (Agent Runtime Kernel)**: The Rust-native runtime remains the long-term target; Phase 6 uses the Python worker as the transitional loop.
 - **047 (Temporal Architecture)**: Durable workflow semantics remain the execution model, even while hosted externally on Hetzner.
 - **080 (DPub Standard)**: Chronicle drafting stays local in Phase 6; governed promotion remains the next integration step.
-- **130 / 133 / 134**: Space capability governance, evaluation, and workflow artifacts remain the controlling portfolio surfaces.
+- **130 / 133 / 134**: Space capability governance, evaluation, and workflow artifacts remain the controlling portfolio surfaces for any future cognitive audit pipeline.
+- **ZeroClaw (latest upstream)**: Relevant only as a possible sidecar/auth pattern source for Codex subscription access. It is not the runtime authority, gateway replacement, or workflow substrate.
 
 ## Evolutionary Lifecycle
 
@@ -80,10 +84,14 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Submission model**: heap-to-governed-artifact promotion with steward review
 - **Operational access**: loopback-local gateway plus SSH access from a local private key
 - **Migration posture**: `cortex-eudaemon` is the future parity target, not the current deployment default
+- **Cognitive audit posture**: external batch cognition is advisory only; Eudaemon is the architect and synthesizer for audit loops, not the direct high-volume analyzer
+- **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
+- **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
 
 ## Deployment Surfaces
 
 - Canonical env template: [`.env.hetzner.example`](/Users/xaoj/ICP/eudaemon-alpha/agent/.env.hetzner.example)
+- Local env template: [`.env.example`](/Users/xaoj/ICP/eudaemon-alpha/agent/.env.example)
 - Hetzner runbook: [`eudaemon-alpha-phase6-hetzner.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-hetzner.md)
 - Companion repo bootstrap script: [`bootstrap_eudaemon_alpha_hetzner.sh`](/Users/xaoj/ICP/eudaemon-alpha/scripts/bootstrap_eudaemon_alpha_hetzner.sh)
 - Production gateway launcher: [`run_cortex_gateway_production.sh`](/Users/xaoj/ICP/scripts/run_cortex_gateway_production.sh)

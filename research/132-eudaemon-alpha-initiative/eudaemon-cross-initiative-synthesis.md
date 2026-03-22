@@ -15,6 +15,8 @@ Eudaemon Alpha is not a standalone VPS experiment anymore. It is now treated as 
 
 The important synthesis is that Initiative 132 no longer treats the old `ZeroClaw + Hostinger + Docker` framing as current authority.
 
+The newer Doubleword transcript also does not change that authority. Its value is narrower: it offers a useful pattern for recommendation-only cognitive audit loops if those loops are routed through the current heap, lifecycle, workflow, and publication surfaces.
+
 ## 1. Workspace and Context: Initiative 124
 
 Eudaemon continues to use the standard Heap runtime rather than a bespoke agent workspace:
@@ -76,6 +78,14 @@ The Hetzner layout preserves the same separation:
 
 The move from Hostinger to Hetzner changes the host, not the isolation contract.
 
+## 6.5 Advisory Audit Evidence: Initiative 125
+
+Initiative 125 is the guardrail that keeps transcript-inspired audit work from outranking hard evidence:
+
+- deterministic SIQ checks remain the release and alignment authority
+- batch cognition may enrich drift discovery, contradiction spotting, and prioritization
+- audit outputs stay advisory until steward-reviewed and linked back into governed artifacts
+
 ## 7. Runtime Target: Initiative 122
 
 Initiative 122 still defines the end-state: a Rust-native Cortex runtime. The new resolution is narrower:
@@ -85,7 +95,35 @@ Initiative 122 still defines the end-state: a Rust-native Cortex runtime. The ne
 
 That keeps current delivery practical without confusing the prototype host with the long-term platform runtime.
 
-## 8. Model Constitution: Initiative 062
+## 8. Cognitive Audit Pipeline: Initiatives 133 and 134
+
+The transcript's strongest reusable pattern is a split pipeline:
+
+- Cortex executes extraction, batch submission, polling, and artifact routing
+- external batch cognition performs large-scale parallel analysis
+- Eudaemon re-enters for synthesis, contradiction review, and recommendation drafting
+- Nostra retains publication and governance authority
+
+Grounded to current repo state, this means:
+
+- no direct graph mutation from batch output
+- no replacement of workflow authority with provider-specific batch jobs
+- no bypass of heap-first publication, proposal gating, or chronicle lineage
+- meta-evaluation and scoring belong with Initiative 133
+- durable orchestration and adapter boundaries belong with Initiative 134
+
+## 8.5 Live Provider Boundary
+
+Phase 6 still needs a primary live cognition path separate from any later batch audit overlay:
+
+- the main steward-facing loop uses low-latency direct model invocation
+- provider selection belongs to the Eudaemon-side adapter boundary, not to Nostra authority
+- `api_key` and `codex_subscription` are acceptable live-lane categories
+- latest ZeroClaw is relevant only as a possible sidecar/profile broker for Codex subscription auth
+- ChatGPT Pro does not become generic worker billing; it matters only if the Codex subscription path is explicitly adopted
+- Doubleword remains the stronger fit for the secondary batch audit lane because it is API-key based and batch-oriented
+
+## 9. Model Constitution: Initiative 062
 
 Prompting and disclosure remain governed locally:
 
@@ -112,3 +150,5 @@ Prompting and disclosure remain governed locally:
 2. Bootstrap actor and space registry state for `agent:eudaemon-alpha-01`.
 3. Complete one end-to-end solicitation-to-proposal cycle with production auth settings.
 4. Use that parity slice as the baseline for future Rust-native migration work.
+5. Treat any future cognitive audit pipeline as a governed execution slice, not as a new authority plane.
+6. Keep the live provider lane deployment-ready before investing in batch audit throughput or subscription-sidecar expansions.

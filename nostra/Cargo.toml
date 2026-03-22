@@ -6,4 +6,5 @@ members = [
   "libraries/cortex-runtime",
   "libraries/cortex-ic-adapter",
   "libraries/nostra-cloudevents",
+  "libraries/nostra-workflow-core",
 ]

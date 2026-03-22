@@ -21223,7 +21223,7 @@ mod tests {
           "run_id": "monitor_fixture_001",
           "started_at": "2026-02-08T10:30:00Z",
           "finished_at": "2026-02-08T10:30:10Z",
-          "gateway_base": "http://127.0.0.1:3000",
+          "gateway_base": "gateway://local",
           "overall_status": "warn",
           "required_failures": 0,
           "warnings": 1,

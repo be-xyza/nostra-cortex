@@ -1,0 +1,12 @@
+[package]
+name = "nostra_workflow_engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+candid = "0.9"
+serde = "1.0"
+serde_json = "1.0"
+uuid = { version = "1.6", features = ["v4"] }
+nostra_core = { path = "../nostra_core" }
+nostra_vfs = { path = "../nostra_vfs" }

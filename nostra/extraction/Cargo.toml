@@ -14,8 +14,8 @@ nostra-resource-ref = { path = "../../libraries/nostra-resource-ref" }
 sha2 = "0.10"
 hex = "0.4"
 
+[workspace]
+
 [[bin]]
 name = "nostra-contribution-cli"
 path = "src/bin/nostra_contribution_cli.rs"
-
-[workspace]

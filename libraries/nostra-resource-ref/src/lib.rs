@@ -21,7 +21,9 @@ impl fmt::Display for ResourceRefError {
             Self::MissingScheme => write!(f, "resource ref is missing scheme"),
             Self::InvalidScheme => write!(f, "resource ref has invalid scheme"),
             Self::InvalidComponent(name) => write!(f, "resource ref has invalid {name}"),
-            Self::UnknownGovernedPredicate(name) => write!(f, "unknown governed predicate '{name}'"),
+            Self::UnknownGovernedPredicate(name) => {
+                write!(f, "unknown governed predicate '{name}'")
+            }
         }
     }
 }
@@ -146,20 +148,17 @@ fn is_valid_scheme(scheme: &str) -> bool {
 }
 
 fn is_snake_case_identifier(raw: &str) -> bool {
-    !raw.is_empty() && raw.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    !raw.is_empty()
+        && raw
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
 }
 
 fn encode_query_component(raw: &str) -> String {
     let mut out = String::with_capacity(raw.len());
     for b in raw.as_bytes() {
         let c = *b as char;
-        if c.is_ascii_alphanumeric()
-            || c == '-'
-            || c == '.'
-            || c == '_'
-            || c == '~'
-            || c == ':'
-        {
+        if c.is_ascii_alphanumeric() || c == '-' || c == '.' || c == '_' || c == '~' || c == ':' {
             out.push(c);
         } else {
             out.push('%');

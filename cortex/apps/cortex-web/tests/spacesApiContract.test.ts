@@ -85,7 +85,7 @@ test("space registry mapping produces deterministic live-space labels and action
     status: "active",
     createdAt: "1742430000",
     owner: "systems-steward",
-    members: ["systems-steward", "agent:eudaemon-alpha-01"],
+    members: ["systems-steward", "agent:cortex-worker-01"] as string[],
     archetype: "Research",
     draftId: "draft-space-12",
     draftSourceMode: "template",

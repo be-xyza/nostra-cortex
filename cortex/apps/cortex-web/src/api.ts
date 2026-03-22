@@ -49,6 +49,7 @@ import type {
   WorkflowProjectionResponse,
   WorkflowReplayResponse,
   WorkflowTraceResponse,
+  SystemProvidersResponse,
 } from "./contracts.ts";
 import {
   isGatewayApiPath as isWorkflowGatewayApiPath,
@@ -476,7 +477,8 @@ export const workbenchApi = {
     request<WorkflowOutcomeResponse>(
       `/api/cortex/workflow-instances/${encodeURIComponent(instanceId)}/outcome`
     ),
-  getBrandPolicy: () => request<BrandPolicyResponse>("/api/system/brand-policy")
+  getBrandPolicy: () => request<BrandPolicyResponse>("/api/system/brand-policy"),
+  getSystemProviders: () => request<SystemProvidersResponse>("/api/system/providers")
 };
 
 export async function openGatewayApiArtifact(

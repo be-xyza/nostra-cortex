@@ -800,6 +800,25 @@ export interface CommonsIntegrityViolation {
   explanation: string;
 }
 
+export type ProviderType = "Llm" | "Embedding" | "Vector" | "Batch";
+export type LlmProviderType = "OpenAI" | "Anthropic" | "Ollama" | "Ignition" | "OpenRouter" | "DoubleWord" | "Mock";
+
+export interface ProviderRecord {
+  id: string;
+  name: string;
+  providerType: ProviderType;
+  llmType?: LlmProviderType;
+  endpoint: string;
+  isActive: boolean;
+  priority: number;
+  configJson?: string;
+  metadata?: Record<string, string>;
+}
+
+export interface SystemProvidersResponse {
+  providers: ProviderRecord[];
+}
+
 export interface SuggestedEnrichment {
   enrichmentId: string;
   kind: "mention" | "tag" | "duration" | "pull_request";

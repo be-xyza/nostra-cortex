@@ -108,7 +108,7 @@ test.beforeEach(async ({ page }) => {
           workflowId: "wf-123",
           spaceId: "space-alpha",
           contributionId: "proposal-alpha",
-          agentId: "agent:eudaemon-alpha-01",
+          agentId: "agent:cortex-worker-01",
           status: "waiting_approval",
           startedAt: "2026-03-20T00:00:00Z",
           updatedAt: "2026-03-20T00:01:00Z",

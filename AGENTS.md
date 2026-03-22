@@ -23,14 +23,20 @@ The **ICP Ecosystem Project** (comprising Nostra, Motoko Maps KG, and Research) 
 - **Cortex** defines *how* work runs: workflows execute, agents process, apps interact
 - The **Workflow Engine** is where Nostra's declarative definitions meet Cortex's runtime execution
 
+### Semantic Definitions
+- **Space** (Nostra): The sovereign, user-facing container for platforms, providing domains for communities, data isolation, and governance rules. Under no circumstances should this be called a "workspace" in the UI.
+- **Workspace** (Developer Layer): A strictly structural developer-side term defining canonical code boundaries (e.g. `nostra/` workspace, `cortex/` workspace). Never surface this term to users!
+- **Workbench** (Cortex): The execution environment and application shell (e.g., React/Vite/A2UI) where tools operate on data within a specific Space.
+
 ### Naming Conventions
 | Component Type | Namespace | Examples |
 |---------------|-----------|----------|
 | Platform libraries | `nostra-*` | `nostra-core`, `nostra-media`, `nostra-schema` |
 | Execution libraries | `cortex-*` | `cortex-worker`, `cortex-agents` |
-| Desktop Shell | `cortex-desktop` | The Intelligent Execution Environment (Dioxus) |
+| Local Daemon | `cortex-desktop` | Headless Temporal worker and local gateway |
 | Apps & Labs | `cortex-*` | `cortex-flashcards`, `cortex-monitor` |
 | Frontend shell | `nostra-frontend` | Platform UI container (Web) |
+| Web execution host | `cortex-web` | Execution-layer web host (React/Vite/A2UI) |
 | Combined product | `Nostra Cortex` | External/marketing only |
 
 
@@ -41,15 +47,15 @@ The **ICP Ecosystem Project** (comprising Nostra, Motoko Maps KG, and Research) 
 | Component | Technology |
 |-----------|------------|
 | Language | **Motoko** (Canisters), **Rust** (Agents/Workers) |
-| Workflows | **Nostra Engine** (Serverless Workflow DSL, Rust / Durable) |
+| Workflows | **Hybrid Workflow Authority** (Artifact Pipeline + `nostra-workflow-core` / Execution Adapters) |
 | Package Manager | `mops` (Motoko), `cargo` (Rust) |
-| Deployment | `dfx` (Internet Computer), `temporal` (Workflows) |
+| Deployment | `icp-cli` (Internet Computer), `temporal` (Workflows) |
 | **Config** | `ConfigService` (OnceLock, JSON-matrix) |
 
 ### Frontend (Polyglot)
 | Component | Technology |
 |-----------|------------|
-| Host Environment | **Dioxus 0.7** (`cortex-desktop` - Rust -> WASM Secure Shell) |
+| Host Environment | **React / Vite** (`cortex-web` - Unified Frontend Strategy) |
 | UI Protocol | **A2UI** (Abstract Agent UI - JSON) |
 | Renderer | **Lit + Shoelace** (Web Components Reference) |
 | Visualization | **D3.js v7** (Cosmic Graph via Bridge) |
@@ -63,7 +69,7 @@ The **ICP Ecosystem Project** (comprising Nostra, Motoko Maps KG, and Research) 
 | Gaming Bridge | **Godot 4.3** + **Nakama** (via JSON-RPC) |
 | Vector DB | **Time-Sliced Indexing** (Micro-batched) |
 | **Active Experiments** | `godot_bridge`, `hrm_scheduler`, `nostra-media` |
-| **Legacy** | *Python scripts (deprecated)* |
+| **Legacy** | *Python scripts (deprecated: `eudaemon-alpha`, `gardener_agent.py`, `knowledge_graph_agent.py`)* |
 
 ---
 
@@ -108,13 +114,13 @@ See skill: `nostra-constitutional-framework` for complete guidance on:
 - **Manage Cycles**: Implement `freezing_threshold` and conservative cycle limits per call (See `docs/best-practices/general.md`).
 - **Use Standard Specs**: Adhere to `ResourceRef` and `Event` standards in `shared/`.
 - **Log Errors**: Use the centralized [Log Registry](research/019-nostra-log-registry/PLAN.md) for agent error reporting.
-- **Canister Logging**: Enable `log_visibility: controllers` in `dfx.json` and use structured logging for all production output.
+- **Canister Logging**: Enable controller-only canister log visibility in the active ICP project manifest, and keep any legacy `dfx`-era config aligned during migration.
 
 ### Don'ts
-- **No Python Agents**: Do not propose or implement new Python-based agents; use Rust/WASM.
+- **No Python Agents**: Do not propose or implement new Python-based agents; use Rust/WASM. Off-chain ML inference kernels (e.g., HRM via PyTorch MPS) and one-off utility scripts are exempt when execution is sandboxed outside canisters.
 - **No Hardcoded IDs**: Do not hardcode canister IDs in source; use environment variables or dynamic lookup.
 - **No Unbounded Loops**: Avoid iterating over potentially infinite data structures in Canisters (DoS risk).
-- **No Direct DOM**: Avoid direct JS DOM manipulation outside of specific `dioxus::eval` bridges.
+- **No Direct DOM**: Avoid direct JS DOM manipulation outside of standard React paradigms or legacy `dioxus::eval` bridges.
 - **Reserved Keywords**: Do not use `actor` or `query` as variable names in Motoko.
 
 ---
@@ -221,25 +227,22 @@ cargo test
 ### Backend (Motoko/Rust)
 ```bash
 # Build all canisters (check for errors)
-dfx build
+icp build
 
 # Deploy all canisters (Locally) - WARNING: Modifies state
-dfx deploy
+icp deploy
 
 # Add a Motoko dependency
 mops add <package_name>
 ```
 
-### Frontend (Dioxus)
+### Frontend (React/Web)
 ```bash
-# Check Rust syntax
-cd frontend && cargo check
-
-# Build for Web (WASM)
-cd frontend && dx build --platform web
+# Install dependencies
+npm -C cortex/apps/cortex-web install
 
 # Run Development Server
-cd frontend && dx serve
+npm -C cortex/apps/cortex-web run dev
 ```
 
 ---
@@ -248,11 +251,11 @@ cd frontend && dx serve
 
 | Action | Safe to Auto-Run? | Description |
 |--------|-------------------|-------------|
-| `cargo check`, `dfx build` | ✅ **YES** | Read-only build checks. |
+| `cargo check`, `icp build` | ✅ **YES** | Read-only build checks. |
 | `dx build` | ✅ **YES** | Compiles frontend assets. |
 | `cat research/.../*.md` | ✅ **YES** | Reading research context is encouraged. |
-| `dfx deploy` | ❌ **NO** | Modifies local canister state/cycles. Ask user. |
-| `dfx canister call ...` | ❌ **NO** | Executes canister logic. Ask user. |
+| `icp deploy` | ❌ **NO** | Modifies local canister state/cycles. Ask user. |
+| `icp canister call ...` | ❌ **NO** | Executes canister logic. Ask user. |
 | `git commit/push` | ❌ **NO** | Agents should not push code without review. |
 
 ---
@@ -317,5 +320,5 @@ ICP/
 
 ### External Documentation
 - [Internet Computer Docs](https://internetcomputer.org/docs/)
-- [Dioxus 0.7 Guide](https://dioxuslabs.com/learn/0.7/)
+- [React Documentation](https://react.dev/)
 - [Motoko Library (Mops)](https://mops.one/)

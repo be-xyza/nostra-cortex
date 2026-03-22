@@ -61,9 +61,9 @@ const FALLBACK_LAYOUT_SPEC: ShellLayoutSpec = {
         navSlot: "labs",
       },
       {
-        routeId: "/system",
-        label: "System",
-        icon: "settings",
+        routeId: "/system/providers",
+        label: "API Providers",
+        icon: "shield-alert",
         category: "system",
         requiredRole: "operator",
         navSlot: "secondary_admin",

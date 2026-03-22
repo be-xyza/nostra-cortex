@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = [
+    "src/nostra_core",
+    "src/nostra_vfs",
+    "src/nostra_workflow_engine",
+    "src/nostra_backend",
+    "libraries/nostra-resource-ref"
+]

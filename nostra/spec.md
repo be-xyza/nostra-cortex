@@ -26,7 +26,7 @@ Built on ICP, Nostra leverages decentralized identity, deterministic backends, a
 4. **Simulation Is Valid Input**
    - Game states, simulations, and interactive labs feed data back into the knowledge graph just like human comments do.
 5. **Polyglot Interface**
-   - We use the right tool for the job: Rust (Dioxus) for the secure host, A2UI for the protocol, Lit for standard components, and D3 for visualization.
+   - We use the right tool for the job: React/Vite/cortex-web for the secure host, A2UI for the protocol, Lit for standard components, and D3 for visualization.
 6. **History Is Sacred**
    - Versioning, lineage, forks, merges, and decisions are preserved and queryable.
 7. **Spaces Are Sovereign**
@@ -45,24 +45,12 @@ Nostra Cortex operates on a **polyglot stack** with two conceptual layers:
 
 1.  **Backend (The "Brain")**:
     *   **Canisters (Motoko/Rust)**: Core logic, storage, and indexers.
-    *   **Temporal Workers (Rust)**: Handles long-running workflows, schedules, and reliable execution.
+    *   **Execution Adapters (Rust)**: Handles durable execution through a Hybrid Workflow Authority (Initiative 134), executing `nostra-workflow-core` state machines natively off-chain for WASM compatibility rather than relying strictly on the official Temporal SDK. Serverless Workflow DSL is a deterministic projection, not the canonical loop.
+    *   **Grader Matrix & Evaluation**: Subagent execution incorporates formal Eval-Driven Orchestration (Initiative 133) utilizing predefined Grader workflows to evaluate capabilities and route A2UI Feedback Projections natively.
     *   **Vector Database**: Specialized canisters for embedding storage and semantic search.
 
-2.  **Frontend (The "Shell")**:
-    *   **Host**: Dioxus (Rust/WASM) provides the secure, performant application shell.
-    *   **Protocol**: **A2UI** (Abstract Agent UI) defines how Agents render their interfaces.
-    *   **Renderer**: **Lit + Shoelace** serves as the reference renderer for A2UI, ensuring web-standard compliance and premium aesthetics.
-    *   **Visualization**: **Cosmic D3** handles the high-performance knowledge graph rendering.
-
 3.  **Cortex (The "Execution Layer")**:
-    *   **Workers**: Rust-based execution workers for durable workflows and agent processing.
-    *   **Agents**: AI-powered actors that consume Nostra data and produce intelligent outputs.
-    *   **Apps**: Interactive experiences (flashcards, monitors) powered by Cortex runtime.
-    *   **Workflows**: Serverless Workflow DSL executed by the Workflow Engine.
-
-4.  **Labs & Gaming**:
-    *   **Godot Bridge**: Allows native game engines to interact with Nostra state via JSON-RPC.
-    *   **Labs**: Experimental sandbox environments for testing new UI/UX paradigms.
+    *   **Delegated**: See `cortex/spec.md` for runtime details.
 
 ---
 
@@ -131,7 +119,7 @@ This abstraction simplifies backend APIs, activity streams, permissions, and gra
 Distinct from contributions, these are reference nodes in the graph:
 - **Person**: Non-user identity (e.g., historical figure, deceased relative)
 - **Organization**: External entity reference
-- **Library**: External data source (e.g., GitHub Repo)
+- **Library**: External data source (e.g., Git Repository)
 
 ---
 
@@ -199,7 +187,7 @@ The contribution graph stores typed relationships:
 - `comment → contribution` (discusses)
 
 ### Capabilities Enabled
-- Graph visualization (D3.js via Dioxus bridge)
+- **Explore Graph Visualization** (`react-force-graph-2d`): Semantic zooming (macro to micro detail) with Intent-Driven Projections (Story Mode, Density, Lineage, Geographic) dictating spatial representation.
 - AI reasoning over knowledge structure
 - Recommendation systems
 - Governance analytics
@@ -288,48 +276,7 @@ AI agents consume Nostra data — they do not replace human judgment. Initial in
 - Backend implements permission checks ensuring only space members can create or edit projects
 
 
----
 
-## Temporal Architecture (Time as a Primitive)
-
-Nostra does not just log "created_at" timestamps; it uses Time as an active execution dimension.
-
-### Core Concepts
-1.  **Durable Execution**: Workflows (Agents) are guaranteed to complete. If a server crashes, the workflow resumes exactly where it left off, retaining all variable state.
-2.  **Micro-batching**: Operations like vector embedding or large-scale re-indexing are processed in time-sliced batches to respect ICP instruction limits (DTS).
-3.  **Schedules**: Recurring tasks (e.g., "Summarize this space every Friday") are handled natively.
-
-### Worker Split
-- **Canisters**: Handle synchronous user requests (reads/writes).
-- **Temporal Workers**: Handle asynchronous, long-running, or fallible operations (AI processing, cross-canister syncing, reminders).
-
----
-
-## Gaming & Simulation Protocols
-
-Nostra extends beyond documents into interactive states.
-
-### Godot Bridge (JSON-RPC)
-- Allows a Godot game client (running in WASM) to communicate with the Nostra host.
-- **Methods**: `identify_player`, `get_state`, `submit_score`, `unlock_achievement`.
-- **Identity**: Reuses the user's Internet Identity from the host shell.
-
-### Entity Component System (ECS)
-- Game states are mapped to the Nostra Knowledge Graph.
-- A "Player" is an Entity. "Inventory" is a set of relationships. "Health" is a property.
-- This allows game data to be queried and visualized alongside documents.
-
----
-
-## Vector Infrastructure
-
-Semantic intelligence is built-in.
-
-- **Embeddings**: All ideas and projects are automatically embedded (vectorized) upon creation.
-- **Search**: "Similar Ideas" lookups happen in real-time using cosine similarity.
-- **Indexing**: handled via a `VectorService` that uses micro-batching to prevent cycle exhaustion.
-
----
 
 ### Initiatives
 - Created within a specific space
@@ -356,10 +303,7 @@ Semantic intelligence is built-in.
 - Backend enforces proper access control - only space members can create and update issues
 - Backend createIssue function accepts parameters: spaceId, title, description, priority, status, tags, assignee
 - Backend ensures each issue tracks creator, timestamps, and related comments and milestones
-- Frontend issue creation form properly connects to backend createIssue API with all required parameters including spaceId
-- Frontend displays success and error messages for issue creation and updates
-- Frontend refreshes issue queries immediately after successful issue creation
-- Newly created issues appear immediately in Space activity stream and SpaceDetailPage issue list without page reload
+- Backend ensures each issue tracks creator, timestamps, and related comments and milestones
 
 ### Outputs
 - Attachments to ideas with structured metadata
@@ -477,12 +421,7 @@ Semantic intelligence is built-in.
 - Ideas support full CRUD operations with proper version tracking
 - Backend createIdea function ensures proper spaceId assignment and storage
 - Backend getIdeasBySpace function correctly filters and returns ideas for specified space
-- Frontend idea creation form properly integrates with backend createIdea API
-- Frontend uses Dioxus Resources/Signals for idea creation with proper error handling and success feedback
-- Frontend invalidates and refetches idea resources immediately after successful creation
-- Idea creation form validates and sends all required parameters including spaceId to backend
-- Success and error messages display appropriately in the UI for idea operations
-- Created ideas immediately appear in space activity stream and idea lists without page reload
+- Backend getIdeasBySpace function correctly filters and returns ideas for specified space
 - Backend linkage verification ensures ideas created via createIdea are retrievable through getIdeasBySpace for the same space
 
 ### Projects Management
@@ -490,12 +429,7 @@ Semantic intelligence is built-in.
 - Projects support full CRUD operations with proper version tracking
 - Backend createProject function ensures proper spaceId assignment and storage
 - Backend getProjectsBySpace function correctly filters and returns projects for specified space
-- Frontend project creation form properly integrates with backend createProject API
-- Frontend uses Dioxus Resources/Signals for project creation with proper error handling and success feedback
-- Frontend invalidates and refetches project resources immediately after successful creation
-- Project creation form validates and sends all required parameters including spaceId to backend
-- Success and error messages display appropriately in the UI for project operations
-- Created projects immediately appear in space activity stream and project lists without page reload
+- Backend getProjectsBySpace function correctly filters and returns projects for specified space
 - Backend linkage verification ensures projects created via createProject are retrievable through getProjectsBySpace for the same space
 
 ### Initiatives Management
@@ -503,12 +437,7 @@ Semantic intelligence is built-in.
 - Initiatives support full CRUD operations with proper version tracking
 - Backend createInitiative function ensures proper spaceId assignment and storage
 - Backend getInitiativesBySpace function correctly filters and returns initiatives for specified space
-- Frontend initiative creation form properly integrates with backend createInitiative API
-- Frontend uses Dioxus Resources/Signals for initiative creation with proper error handling and success feedback
-- Frontend invalidates and refetches initiative resources immediately after successful creation
-- Initiative creation form validates and sends all required parameters including spaceId to backend
-- Success and error messages display appropriately in the UI for initiative operations
-- Created initiatives immediately appear in space activity stream and initiative lists without page reload
+- Backend getInitiativesBySpace function correctly filters and returns initiatives for specified space
 - Backend linkage verification ensures initiatives created via createInitiative are retrievable through getInitiativesBySpace for the same space
 
 ### Deliverables Management
@@ -516,24 +445,14 @@ Semantic intelligence is built-in.
 - Deliverables support full CRUD operations with status and assignment tracking
 - Backend createDeliverable function ensures proper projectId assignment and storage
 - Backend getDeliverablesByProject function correctly filters and returns deliverables for specified project
-- Frontend deliverable creation form properly integrates with backend createDeliverable API
-- Frontend uses Dioxus Resources/Signals for deliverable creation with proper error handling and success feedback
-- Frontend invalidates and refetches deliverable resources immediately after successful creation
-- Deliverable creation form validates and sends all required parameters including projectId to backend
-- Success and error messages display appropriately in the UI for deliverable operations
-- Created deliverables immediately appear in space activity stream and project detail views without page reload
+- Backend getDeliverablesByProject function correctly filters and returns deliverables for specified project
 
 ### Milestones Management
 - Users with member or owner roles can create milestones within projects
 - Milestones support full CRUD operations with progress and completion tracking
 - Backend createMilestone function ensures proper projectId assignment and storage
 - Backend getMilestonesByProject function correctly filters and returns milestones for specified project
-- Frontend milestone creation form properly integrates with backend createMilestone API
-- Frontend uses Dioxus Resources/Signals for milestone creation with proper error handling and success feedback
-- Frontend invalidates and refetches milestone resources immediately after successful creation
-- Milestone creation form validates and sends all required parameters including projectId to backend
-- Success and error messages display appropriately in the UI for milestone operations
-- Created milestones immediately appear in space activity stream and project detail views without page reload
+- Backend getMilestonesByProject function correctly filters and returns milestones for specified project
 
 ### Universal Forking (Research 066)
 - **Concept**: Forking is a constitutional right. Any Entity (Idea, Project, Space) can be forked to diverge reality.
@@ -558,12 +477,7 @@ Semantic intelligence is built-in.
 - Backend stores and manages all issue data with proper space linkage
 - Backend createIssue function ensures proper spaceId assignment and storage
 - Backend getIssuesBySpace function correctly filters and returns issues for specified space
-- Frontend issue creation form properly integrates with backend createIssue API
-- Frontend uses Dioxus Resources/Signals for issue creation with proper error handling and success feedback
-- Frontend invalidates and refetches issue resources immediately after successful creation
-- Issue creation form validates and sends all required parameters including spaceId to backend
-- Success and error messages display appropriately in the UI for issue operations
-- Created issues immediately appear in space activity stream and issue lists without page reload
+- Backend getIssuesBySpace function correctly filters and returns issues for specified space
 - Backend linkage verification ensures issues created via createIssue are retrievable through getIssuesBySpace for the same space
 
 ### Project Detail View
@@ -740,11 +654,7 @@ Semantic intelligence is built-in.
 - Project deliverables management interface with status tracking and assignment
 - Project milestones management interface with progress tracking and due dates
 - Issue detail page routing at `/issues/:id` with links from space activity stream
-- All creation forms properly validate required fields and connect to respective backend APIs with correct parameters
-- Success and error messages display for all contribution creation and update operations
-- Dioxus Resources properly handle all contribution creation with error handling, UI feedback, and immediate invalidation
-- Frontend resources properly map to backend results using correct space ID or project ID parameters
-- Frontend refreshes all relevant lists and activity streams immediately after successful contribution creation without page reload
+- Issue detail page routing at `/issues/:id` with links from space activity stream
 - All UI maintains theme compatibility and accessibility standards (see `research/034-nostra-labs/NOSTRA_ACCESSIBILITY_PRINCIPLES.md` and A2UI a11y catalogs)
 
 ## Backend Operations

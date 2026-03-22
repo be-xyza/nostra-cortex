@@ -47,6 +47,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
     "/playground": <Activity className="w-5 h-5" />,
     "/spaces": <Search className="w-5 h-5" />,
     "/system": <ShieldAlert className="w-5 h-5" />,
+    "/system/providers": <BrainCircuit className="w-5 h-5" />,
     "/inbox": <Inbox className="w-5 h-5" />,
     "/workflows": <GitBranch className="w-5 h-5" />,
     "/contributions": <GitMerge className="w-5 h-5" />,

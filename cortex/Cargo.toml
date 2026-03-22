@@ -7,5 +7,6 @@ members = [
   "libraries/cortex-workbench-contracts",
   "libraries/cortex-domain",
   "libraries/cortex-runtime",
-  "libraries/cortex-ic-adapter", "apps/cortex-worker", "libraries/cortex-agents",
+  "libraries/cortex-ic-adapter", "libraries/cortex-agents",
+  "cvos_prototype"
 ]

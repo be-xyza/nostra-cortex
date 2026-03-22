@@ -79,6 +79,7 @@ use axum::{
 };
 use candid::Principal;
 use chrono::{DateTime, Utc};
+use cortex_ic_adapter::ic_cli::IcCliKind;
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
@@ -98,8 +99,12 @@ pub struct GatewayService;
 
 #[derive(Serialize)]
 struct SystemStatus {
-    dfx_running: bool,
+    local_ic_running: bool,
     version: String,
+    local_ic_host: String,
+    #[serde(rename = "dfx_running")]
+    dfx_running: bool,
+    #[serde(rename = "replica_port")]
     replica_port: u16,
 }
 
@@ -107,8 +112,18 @@ struct SystemStatus {
 struct SystemReady {
     ready: bool,
     gateway_port: u16,
+    local_ic_healthy: bool,
+    #[serde(rename = "dfx_port_healthy")]
     dfx_port_healthy: bool,
     notes: Vec<String>,
+}
+
+fn get_cortex_project_root_str() -> String {
+    std::env::var("CORTEX_IC_PROJECT_ROOT").unwrap_or_else(|_| "/Users/xaoj/ICP".to_string())
+}
+
+fn get_cortex_project_root() -> PathBuf {
+    PathBuf::from(get_cortex_project_root_str())
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -2220,7 +2235,7 @@ fn build_acp_native_entry(status: Option<WorkerAcpAutomationStatus>) -> Workflow
 fn cortex_ux_log_dir() -> PathBuf {
     std::env::var("NOSTRA_CORTEX_UX_LOG_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/Users/xaoj/ICP/logs/cortex/ux"))
+        .unwrap_or_else(|_| get_cortex_project_root().join("logs/cortex/ux"))
 }
 
 fn cortex_ux_feedback_log_path() -> PathBuf {
@@ -2793,7 +2808,8 @@ fn closeout_tasks_path_for_initiative(initiative_id: &str) -> PathBuf {
             return PathBuf::from(path);
         }
     }
-    PathBuf::from("/Users/xaoj/ICP/research")
+    get_cortex_project_root()
+        .join("research")
         .join(initiative_id)
         .join("TASKS.json")
 }
@@ -8844,7 +8860,7 @@ async fn handle_collab_socket(socket: WebSocket) {
 fn motoko_graph_log_dir() -> PathBuf {
     std::env::var("NOSTRA_MOTOKO_GRAPH_LOG_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/Users/xaoj/ICP/logs/knowledge_graphs/motoko_graph"))
+        .unwrap_or_else(|_| get_cortex_project_root().join("logs/knowledge_graphs/motoko_graph"))
 }
 
 fn motoko_graph_history_dir() -> PathBuf {
@@ -9058,7 +9074,7 @@ fn read_monitoring_runs_from_dir(dir: &FsPath) -> Vec<MotokoGraphMonitoringRun> 
 fn testing_log_dir() -> PathBuf {
     std::env::var("NOSTRA_TESTING_LOG_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/Users/xaoj/ICP/logs/testing"))
+        .unwrap_or_else(|_| get_cortex_project_root().join("logs/testing"))
 }
 
 fn testing_runs_dir() -> PathBuf {
@@ -9146,7 +9162,7 @@ fn should_emit_testing_surface() -> bool {
 fn decision_surface_log_dir() -> PathBuf {
     std::env::var("NOSTRA_DECISION_SURFACE_LOG_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/Users/xaoj/ICP/logs/system/decision_surfaces"))
+        .unwrap_or_else(|_| get_cortex_project_root().join("logs/system/decision_surfaces"))
 }
 
 fn decision_canonical_only_enabled() -> bool {
@@ -11532,49 +11548,74 @@ async fn health_check() -> impl IntoResponse {
     Json(serde_json::json!({ "status": "ok" }))
 }
 
-fn dfx_port_healthy() -> bool {
-    let output = Command::new("dfx").arg("ping").output();
-    match output {
-        Ok(o) => o.status.success(),
-        Err(_) => false,
-    }
+fn local_ic_healthy() -> bool {
+    let kind = match std::env::var("CORTEX_IC_CLI").as_deref() {
+        Ok("icp") => IcCliKind::Icp,
+        _ => IcCliKind::Dfx,
+    };
+    let mut cmd = match kind {
+        IcCliKind::Icp => {
+            let mut c = Command::new("icp");
+            c.args(["network", "status"]);
+            c
+        }
+        IcCliKind::Dfx => {
+            let mut c = Command::new("dfx");
+            c.arg("ping");
+            c
+        }
+    };
+    cmd.output().map(|o| o.status.success()).unwrap_or(false)
 }
 
 async fn get_system_ready() -> Json<SystemReady> {
     let mut notes = Vec::new();
+
     let (gateway_port, gateway_port_note) =
         crate::services::gateway_config::gateway_port_with_note();
     if let Some(note) = gateway_port_note {
         notes.push(note);
     }
 
-    let dfx_port_healthy = dfx_port_healthy();
-    if !dfx_port_healthy {
-        notes.push("DFX ping failed on local replica port 4943".to_string());
+    let healthy = local_ic_healthy();
+    if !healthy {
+        notes.push("Local IC host health check failed".to_string());
     }
 
     Json(SystemReady {
-        ready: dfx_port_healthy,
+        ready: healthy,
         gateway_port,
-        dfx_port_healthy,
+        local_ic_healthy: healthy,
+        dfx_port_healthy: healthy,
         notes,
     })
 }
 
 async fn get_system_status() -> Json<SystemStatus> {
-    let dfx_running = dfx_port_healthy();
+    let running = local_ic_healthy();
 
-    let version_output = Command::new("dfx")
+    let kind = match std::env::var("CORTEX_IC_CLI").as_deref() {
+        Ok("icp") => IcCliKind::Icp,
+        _ => IcCliKind::Dfx,
+    };
+    let bin = match kind {
+        IcCliKind::Icp => "icp",
+        IcCliKind::Dfx => "dfx",
+    };
+
+    let version_output = Command::new(bin)
         .arg("--version")
         .output()
         .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .and_then(|o| String::from_utf8(o.stdout).ok())
         .unwrap_or_else(|| "Unknown".to_string());
 
     Json(SystemStatus {
-        dfx_running,
+        local_ic_running: running,
         version: version_output.trim().to_string(),
-        replica_port: 4943, // Default local port
+        local_ic_host: "127.0.0.1:4943".to_string(),
+        dfx_running: running,
+        replica_port: 4943,
     })
 }
 
@@ -13054,7 +13095,7 @@ mod tests {
               "owner": "Systems Steward",
               "path": "fixture.rs",
               "command": "cargo test",
-              "artifacts": ["/Users/xaoj/ICP/logs/testing"],
+              "artifacts": [format!("{}/logs/testing", get_cortex_project_root_str())],
               "gate_level": "release_blocker",
               "destructive": false,
               "tags": ["fixture"],
@@ -13069,7 +13110,7 @@ mod tests {
               "owner": "Systems Steward",
               "path": "fixture_info.rs",
               "command": "cargo test",
-              "artifacts": ["/Users/xaoj/ICP/logs/testing"],
+              "artifacts": [format!("{}/logs/testing", get_cortex_project_root_str())],
               "gate_level": "informational",
               "destructive": false,
               "tags": ["fixture"],
@@ -13091,7 +13132,7 @@ mod tests {
             { "test_id": "rust:fixture:blocker", "status": "pass", "duration_ms": 123, "error_summary": "" },
             { "test_id": "rust:fixture:info", "status": "warn", "duration_ms": 87, "error_summary": "" }
           ],
-          "artifacts": ["/Users/xaoj/ICP/logs/testing"],
+          "artifacts": [format!("{}/logs/testing", get_cortex_project_root_str())],
           "warnings": []
         });
 
@@ -13176,7 +13217,7 @@ mod tests {
             "m4_metrics_file": "/tmp/m16_dual_path/m4_metrics.tsv",
             "m8_metrics_file": "/tmp/m16_dual_path/m8_metrics.tsv",
             "stability_file": "/tmp/m16_dual_path/path_stability.tsv",
-            "analysis_file": "/Users/xaoj/ICP/research/reference/analysis/motoko-graph.md",
+            "analysis_file": format!("{}/research/reference/analysis/motoko-graph.md", get_cortex_project_root_str()),
             "m8_pass_count": 2
           },
           "history_event_id": "kg_snapshot_20260208T100000Z_abcdef123456"

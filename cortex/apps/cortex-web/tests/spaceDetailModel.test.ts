@@ -45,13 +45,13 @@ test("buildSpaceDetailModel keeps the owner visible even when registry members o
     owner: "systems-steward",
     status: "active",
     createdAt: "2026-03-20T00:58:40.728964+00:00",
-    members: ["agent:eudaemon-alpha-01"],
+    members: ["agent:cortex-worker-01"],
     archetype: "Research",
   } satisfies Space);
 
   assert.equal(model.people[0]?.name, "Systems Steward");
   assert.equal(model.people[0]?.roleLabel, "Owner");
-  assert.equal(model.people[1]?.name, "Eudaemon Alpha 01");
+  assert.equal(model.people[1]?.name, "Cortex Worker 01");
   assert.equal(model.aboutRows[3]?.value, "2 people or agents can work here");
 });
 
@@ -96,7 +96,7 @@ test("buildAgentExecutionRecentWorkItem turns the latest agent execution into a 
       mentionsInline: [],
     },
     surfaceJson: {
-      agent_id: "agent:eudaemon-alpha-01",
+      agent_id: "agent:cortex-worker-01",
       benchmark: {
         overall_grade: "FAIL",
       },
