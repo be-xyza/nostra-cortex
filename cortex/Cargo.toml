@@ -8,4 +8,5 @@ members = [
   "libraries/cortex-domain",
   "libraries/cortex-runtime",
   "libraries/cortex-ic-adapter", "libraries/cortex-agents",
+  "cvos_prototype"
 ]

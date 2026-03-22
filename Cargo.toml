@@ -5,6 +5,6 @@ members = [
     "src/nostra_vfs",
     "src/nostra_workflow_engine",
     "src/nostra_backend"
-    , "cortex/cvos_prototype", "renderers/dioxus"
+    , "renderers/dioxus"
     , "libraries/nostra-resource-ref"
 ]
