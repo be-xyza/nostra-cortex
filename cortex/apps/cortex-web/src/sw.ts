@@ -28,6 +28,7 @@ import {
   MOCK_CAPABILITY_GRAPH,
   MOCK_SPACE_CAPABILITY_GRAPH,
   MOCK_CONTRIBUTION_GRAPH,
+  MOCK_WORKFLOW_TOPOLOGY,
   buildMockActionPlan
 } from './store/seedData';
 import { getEventsBySpace, appendEvent, getEventsByArtifactId, getEventsBySpaceSince, seedIfEmpty, getSnapshot } from './store/eventStore';
@@ -158,6 +159,35 @@ async function routeCortexRequest(request: Request): Promise<Response> {
         payload: e.payload
       }))
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // 5b. GET /api/cortex/workflow-definitions/:id/projections/:kind
+  const topoMatch = path.match(/^\/api\/cortex\/workflow-definitions\/([^/]+)\/projections\/execution_topology_v1$/);
+  if (topoMatch && request.method === "GET") {
+    return new Response(JSON.stringify(MOCK_WORKFLOW_TOPOLOGY), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  const defProjMatch = path.match(/^\/api\/cortex\/workflow-definitions\/([^/]+)\/projections\/([^/]+)$/);
+  if (defProjMatch && request.method === "GET") {
+    return new Response(JSON.stringify({
+      kind: defProjMatch[2],
+      projection: { note: "Mock generic projection for " + defProjMatch[2] }
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }
+
+  const defMatch = path.match(/^\/api\/cortex\/workflow-definitions\/([^/]+)$/);
+  if (defMatch && request.method === "GET") {
+    return new Response(JSON.stringify({
+      definitionId: defMatch[1],
+      definition: {
+        id: defMatch[1],
+        digest: "sha256:mock-digest-" + defMatch[1].substring(0, 8),
+        motif_kind: "sequential_agent_loop"
+      }
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
   }
 
   // 6. GET /api/cortex/layout/spec

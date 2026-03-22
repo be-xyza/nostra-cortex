@@ -6,7 +6,8 @@ import {
   CompiledNavigationPlan, 
   PlatformCapabilityCatalog,
   PlatformCapabilityCatalogNode,
-  CompiledNavigationEntry
+  CompiledNavigationEntry,
+  WorkflowTopologyResponse
 } from "../contracts";
 
 export const INTRO_SPACE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
@@ -563,6 +564,17 @@ export const MOCK_CONTRIBUTION_GRAPH = {
     cgNode("123", "Web Architecture", "Cortex", "active", "anchor", "eudaemon-alpha"),
     cgNode("124", "AGUI Heap Mode", "Cortex", "active", "anchor", "eudaemon-alpha"),
     cgNode("132", "Eudaemon Alpha", "Cortex", "active", "anchor", "eudaemon-alpha"),
+    // -- Fixed Missing References --
+    cgNode("075", "Graph Layout Engines", "infrastructure", "active", "reference", "space-beta"),
+    cgNode("015", "Library Standards", "protocol", "completed", "reference", "space-gamma"),
+    cgNode("026", "Schema Registry", "protocol", "active", "anchor", "space-gamma"),
+    cgNode("109", "Lineage Extraction", "Systems", "active", "anchor", "space-alpha"),
+    cgNode("005", "Architecture Roadmap", "infrastructure", "superseded", "reference", "space-beta"),
+    cgNode("028", "Workflow DSL", "protocol", "draft", "reference", "space-gamma"),
+    cgNode("080", "File Registry", "infrastructure", "active", "anchor", "space-beta"),
+    cgNode("056", "Validation Hooks", "Systems", "draft", "reference", "space-alpha"),
+    cgNode("097", "Commons Model", "protocol", "active", "anchor", "space-gamma"),
+    cgNode("045", "HRM Scheduler", "runtime", "draft", "reference", "eudaemon-alpha"),
   ],
   edges: [
     // Systems cross-references
@@ -648,6 +660,11 @@ export const MOCK_CONTRIBUTION_GRAPH = {
     cgEdge("129", "047", "depends_on", 0.7),
     cgEdge("045", "005", "references", 0.4),
     cgEdge("117", "109", "references", 0.6),
+    // -- Lineage Test Edges --
+    cgEdge("118", "004", "supersedes", 1.0),
+    cgEdge("074", "075", "supersedes", 0.9),
+    cgEdge("000", "013", "supersedes", 0.8),
+    cgEdge("109", "118", "supersedes", 0.95),
   ]
 };
 export const MOCK_NAVIGATION_PLAN = compilePreviewNavigationPlan(INTRO_SPACE_ID);
@@ -697,7 +714,7 @@ export const MOCK_UX_WORKBENCH_LABS = {
       id: "root",
       type: "Column",
       props: { gap: "6", padding: "6" },
-      children: ["title", "desc", "space-studio-card", "promotion-card", "action-grid"]
+      children: ["title", "desc", "schema-designer-card", "lineage-card", "space-studio-card", "promotion-card", "action-grid"]
     },
     {
       id: "title",
@@ -708,6 +725,28 @@ export const MOCK_UX_WORKBENCH_LABS = {
       id: "desc",
       type: "Text",
       props: { text: "Try ideas here before they become live spaces or templates." }
+    },
+    {
+      id: "schema-designer-card",
+      type: "Card",
+      props: { text: "Capability Designer (Drafting)" },
+      children: ["schema-editor"]
+    },
+    {
+      id: "schema-editor",
+      type: "CapabilitySchemaEditor",
+      props: {}
+    },
+    {
+      id: "lineage-card",
+      type: "Card",
+      props: { text: "Lineage Research" },
+      children: ["lineage-graph"]
+    },
+    {
+      id: "lineage-graph",
+      type: "ContributionGraph",
+      props: { width: 800, height: 400 }
     },
     {
       id: "space-studio-card",
@@ -848,6 +887,33 @@ export const MOCK_UX_WORKBENCH_HEAP = {
       props: {}
     }
   ]
+};
+
+export const MOCK_WORKFLOW_TOPOLOGY: WorkflowTopologyResponse = {
+  schema_version: "1.0.0",
+  generated_at: new Date().toISOString(),
+  topology: {
+    nodes: [
+      { id: "start", type: "start", label: "Workflow Start", status: "completed" },
+      { id: "eval-1", type: "gate", label: "L1 Syntax Check", status: "completed" },
+      { id: "split", type: "decision", label: "A/B Strategy Split", status: "completed" },
+      { id: "agent-a", type: "state", label: "Agent Alpha (Creative)", status: "active", metadata: { model: "nostra-large-v1" } },
+      { id: "agent-b", type: "state", label: "Agent Beta (Instruction-following)", status: "active", metadata: { model: "nostra-flash-v2" } },
+      { id: "merge", type: "gate", label: "L2 Consensus Gate", status: "pending" },
+      { id: "finalize", type: "action", label: "Emit Heap Block", status: "pending" },
+      { id: "end", type: "end", label: "Workflow End", status: "pending" }
+    ],
+    edges: [
+      { id: "e1", from: "start", to: "eval-1", status: "traversed" },
+      { id: "e2", from: "eval-1", to: "split", status: "traversed" },
+      { id: "e3", from: "split", to: "agent-a", label: "Path A", status: "traversed" },
+      { id: "e4", from: "split", to: "agent-b", label: "Path B", status: "traversed" },
+      { id: "e5", from: "agent-a", to: "merge", status: "idle" },
+      { id: "e6", from: "agent-b", to: "merge", status: "idle" },
+      { id: "e7", from: "merge", to: "finalize", status: "idle" },
+      { id: "e8", from: "finalize", to: "end", status: "idle" }
+    ]
+  }
 };
 
 export const MOCK_UX_WORKBENCH_STUDIO = {

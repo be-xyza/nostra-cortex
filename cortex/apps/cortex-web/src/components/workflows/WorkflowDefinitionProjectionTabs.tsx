@@ -7,6 +7,8 @@ import type {
   WorkflowProjectionResponse,
 } from "../../contracts.ts";
 import { resolveWorkflowProjectionTabs } from "./workflowProjectionTabs.ts";
+import { EvaluationDAGViewer } from "../evaluation/EvaluationDAGViewer.tsx";
+import { WorkflowTopology } from "../../contracts.ts";
 
 function readDefinitionField(
   response: WorkflowDefinitionResponse | null,
@@ -115,9 +117,16 @@ export function WorkflowDefinitionProjectionTabs({
         </div>
       ) : null}
       {activeProjection ? (
-        <pre className="rounded-cortex border border-cortex-line bg-[#051325] p-4 text-xs text-cortex-ink-muted overflow-auto">
-          {JSON.stringify(activeProjection.projection, null, 2)}
-        </pre>
+        activeTab === "execution_topology_v1" ? (
+          <EvaluationDAGViewer 
+            topology={activeProjection.projection as unknown as WorkflowTopology} 
+            className="min-h-[600px] border border-cortex-line rounded-cortex"
+          />
+        ) : (
+          <pre className="rounded-cortex border border-cortex-line bg-[#051325] p-4 text-xs text-cortex-ink-muted overflow-auto">
+            {JSON.stringify(activeProjection.projection, null, 2)}
+          </pre>
+        )
       ) : null}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 import { ContributionEdge, ContributionNode } from "../contracts";
+import { statusColor, layerColor } from "./ContributionGraphUtils";
 
 type Props = {
   nodes: ContributionNode[];
@@ -123,35 +124,5 @@ export function ForceGraph({ nodes, edges, selectedId, onSelect }: Props) {
     };
   }, [graph, onSelect, selectedId]);
 
-  return <div className="graph-host" ref={containerRef} />;
-}
-
-function statusColor(status: string): string {
-  switch (status) {
-    case "active":
-      return "#42c0ff";
-    case "completed":
-      return "#49d18f";
-    case "superseded":
-      return "#ff7a70";
-    case "deferred":
-      return "#f0ad42";
-    default:
-      return "#94a3b8";
-  }
-}
-
-function layerColor(layer: string): string {
-  switch (layer) {
-    case "protocol":
-      return "#9b8bf7";
-    case "runtime":
-      return "#58d4b5";
-    case "host":
-      return "#f792bf";
-    case "adapter":
-      return "#ffd166";
-    default:
-      return "#8aa2c2";
-  }
+  return <div className="graph-host w-full h-full min-h-[500px]" ref={containerRef} />;
 }

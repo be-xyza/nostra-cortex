@@ -15,10 +15,12 @@ import type { HeapBlockListItem, PlatformCapabilityGraph } from "../../contracts
 import { HeapBlockGrid } from "../heap/HeapBlockGrid";
 import { HeapBlockCard as CanonicalHeapBlockCard } from "../heap/HeapBlockCard";
 import { useUiStore } from "../../store/uiStore";
-import { ForceGraph } from "../ForceGraph";
+import { MOCK_CONTRIBUTION_GRAPH } from "../../store/seedData";
+import { ContributionGraphViewer } from "../ContributionGraphViewer";
 import { projectDataTable } from "./dataTable";
 import { classifyWorkbenchHref } from "../workflows/artifactRouting.ts";
 import { useWorkflowArtifactInspector } from "../workflows/WorkflowArtifactInspectorContext.tsx";
+import { SchemaNodeEditor } from "../schema-editor/SchemaNodeEditor";
 import {
   WorkflowInstanceTimeline,
   WorkflowProjectionPreview,
@@ -27,6 +29,7 @@ import {
 } from "../workflows/workflowWidgets.tsx";
 import { CapabilityInspectorBlock } from "../CapabilityInspectorBlock";
 import { RulesMatrixWidget } from "../RulesMatrixWidget";
+import { EvaluationDAGViewer } from "../evaluation/EvaluationDAGViewer";
 
 export type A2UIComponentProps = {
   id: string;
@@ -728,12 +731,15 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
 
   ContributionGraph: ({ componentProperties }) => {
     const props = componentProperties["ContributionGraph"] as Record<string, unknown> || {};
-    return React.createElement(ForceGraph, {
-      nodes: Array.isArray(props.nodes) ? props.nodes as any[] : [],
-      edges: Array.isArray(props.edges) ? props.edges as any[] : [],
-      selectedId: typeof props.selectedId === "string" ? props.selectedId : null,
-      onSelect: () => undefined,
+    return React.createElement(ContributionGraphViewer, {
+      data: (props.data as any) || MOCK_CONTRIBUTION_GRAPH,
+      width: typeof props.width === "number" ? props.width : undefined,
+      height: typeof props.height === "number" ? props.height : undefined,
     });
+  },
+
+  CapabilitySchemaEditor: () => {
+    return React.createElement(SchemaNodeEditor);
   },
 
   CapabilityMap: CapabilityMapWidget,
@@ -827,5 +833,12 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
     const props = readProps(componentProperties, "Markdown");
     const content = String(props.content || "");
     return React.createElement("pre", { className: "p-4 bg-cortex-bg text-cortex-ink text-sm overflow-auto rounded-cortex font-mono whitespace-pre-wrap border border-cortex-line" }, content);
+  },
+  ExecutionTopologyViewer: ({ componentProperties }) => {
+    const props = readProps(componentProperties, "ExecutionTopologyViewer");
+    return React.createElement(EvaluationDAGViewer, {
+      topology: props.topology as any,
+      className: "h-[600px] w-full"
+    });
   }
 };
