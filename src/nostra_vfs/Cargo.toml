@@ -1,0 +1,9 @@
+[package]
+name = "nostra_vfs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+candid = "0.9"
+serde = "1.0"
+nostra_core = { path = "../nostra_core" }
