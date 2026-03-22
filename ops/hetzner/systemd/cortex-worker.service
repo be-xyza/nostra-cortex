@@ -1,0 +1,20 @@
+[Unit]
+Description=Nostra Cortex Native Worker
+After=network.target cortex-icp-network.service
+Wants=cortex-icp-network.service
+
+[Service]
+Type=simple
+User=nostra
+Group=nostra
+WorkingDirectory=/srv/nostra/eudaemon-alpha/repo/nostra/worker
+EnvironmentFile=/srv/nostra/eudaemon-alpha/config/eudaemon-alpha.env
+# Assumes the binary built by cargo is symlinked or in PATH
+ExecStart=/usr/local/bin/cortex_worker
+Restart=always
+RestartSec=5
+StandardOutput=append:/srv/nostra/eudaemon-alpha/logs/cortex-worker.log
+StandardError=append:/srv/nostra/eudaemon-alpha/logs/cortex-worker.log
+
+[Install]
+WantedBy=multi-user.target

@@ -6,6 +6,30 @@ export interface AgentActivityPanelProps {
     spaceId: string;
 }
 
+const AgentEventRow = React.memo(({ evt }: { evt: AgentEvent }) => (
+    <div className="flex flex-col gap-1 px-3 py-2 bg-slate-950/50 hover:bg-slate-800/50 rounded transition-colors group">
+        <div className="flex justify-between items-start gap-4">
+            <span className="text-xs font-mono text-purple-400 font-semibold">{evt.agent}</span>
+            <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                {new Date(evt.timestamp).toLocaleTimeString()}
+            </span>
+        </div>
+        <div className="flex items-center gap-2">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${evt.status === "started" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
+                    evt.status === "running" ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" :
+                        evt.status === "completed" ? "bg-green-500/20 text-green-400 border border-green-500/30" :
+                            evt.status === "failed" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                                "bg-slate-800 text-slate-400 border border-slate-700"
+                }`}>
+                {evt.action}
+            </span>
+            <span className="text-xs text-slate-300 truncate opacity-80 group-hover:opacity-100">
+                {evt.details && evt.details !== "{}" ? evt.details : "Working..."}
+            </span>
+        </div>
+    </div>
+));
+
 export function AgentActivityPanel({ spaceId }: AgentActivityPanelProps) {
     const [events, setEvents] = useState<AgentEvent[]>([]);
     const [activeAgentCount, setActiveAgentCount] = useState(0);
@@ -67,27 +91,7 @@ export function AgentActivityPanel({ spaceId }: AgentActivityPanelProps) {
 
             <div className="flex flex-col p-2 gap-1">
                 {events.map((evt) => (
-                    <div key={evt.id} className="flex flex-col gap-1 px-3 py-2 bg-slate-950/50 hover:bg-slate-800/50 rounded transition-colors group">
-                        <div className="flex justify-between items-start gap-4">
-                            <span className="text-xs font-mono text-purple-400 font-semibold">{evt.agent}</span>
-                            <span className="text-[10px] font-mono text-slate-500 shrink-0">
-                                {new Date(evt.timestamp).toLocaleTimeString()}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${evt.status === "started" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
-                                    evt.status === "running" ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" :
-                                        evt.status === "completed" ? "bg-green-500/20 text-green-400 border border-green-500/30" :
-                                            evt.status === "failed" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
-                                                "bg-slate-800 text-slate-400 border border-slate-700"
-                                }`}>
-                                {evt.action}
-                            </span>
-                            <span className="text-xs text-slate-300 truncate opacity-80 group-hover:opacity-100">
-                                {evt.details && evt.details !== "{}" ? evt.details : "Working..."}
-                            </span>
-                        </div>
-                    </div>
+                    <AgentEventRow key={evt.id} evt={evt} />
                 ))}
             </div>
         </div>

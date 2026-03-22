@@ -13,6 +13,13 @@ env:
   CORTEX_DESKTOP_MANIFEST: cortex/apps/cortex-eudaemon/Cargo.toml
 
 jobs:
+  check-hardcoded-canister-ids:
+    name: Check Hardcoded Canister IDs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run CI Gate
+        run: chmod +x scripts/check_no_hardcoded_canister_ids.sh && ./scripts/check_no_hardcoded_canister_ids.sh
   test-rust:
     name: Rust Unit & Integration Tests
     runs-on: ubuntu-latest
@@ -705,11 +712,16 @@ jobs:
         run: cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" --test acp_staging_operationalization -- --ignored
 
   deploy:
-    name: Protected Deployment
+    name: Deploy to VPS
     needs: [test-rust, test-motoko, lint, siq-observe, siq-softgate, test-catalog-consistency, cortex-runtime-freeze-gates, initiative-118-evidence-gate, offline-simulations-playwright, acp-gateway-integration]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     environment: production
     steps:
-      - name: Verify Steward Approval
-        run: echo "🚀 Production Deploy triggered. Steward approval verified via environment protection rules."
+      - name: Deploy to Eudaemon Alpha VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: /srv/nostra/eudaemon-alpha/repo/ops/hetzner/deploy.sh
