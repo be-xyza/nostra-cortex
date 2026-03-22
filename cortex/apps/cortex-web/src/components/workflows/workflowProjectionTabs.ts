@@ -10,6 +10,7 @@ export type WorkflowProjectionTab = {
 
 const FALLBACK_PROJECTION_TABS: WorkflowProjectionTab[] = [
   { key: "flow_graph_v1", label: "Graph" },
+  { key: "execution_topology_v1", label: "Topology" },
   { key: "a2ui_surface_v1", label: "A2UI" },
   { key: "serverless_workflow_v0_8", label: "SW" },
   { key: "normalized_graph_v1", label: "Normalized" },

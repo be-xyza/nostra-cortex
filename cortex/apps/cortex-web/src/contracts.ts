@@ -438,7 +438,8 @@ export type WorkflowProjectionKind =
   | "flow_graph_v1"
   | "a2ui_surface_v1"
   | "serverless_workflow_v0_8"
-  | "normalized_graph_v1";
+  | "normalized_graph_v1"
+  | "execution_topology_v1";
 
 export interface WorkflowDraftEnvelope {
   [key: string]: unknown;
@@ -505,6 +506,33 @@ export interface WorkflowActiveScopeResponse {
   schema_version: string;
   generated_at: string;
   active: Json;
+}
+
+export interface WorkflowTopologyNode {
+  id: string;
+  type: "state" | "decision" | "action" | "gate" | "start" | "end";
+  label: string;
+  status: "pending" | "active" | "completed" | "failed" | "skipped";
+  metadata?: Json;
+}
+
+export interface WorkflowTopologyEdge {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+  status: "idle" | "traversed" | "blocked";
+}
+
+export interface WorkflowTopology {
+  nodes: WorkflowTopologyNode[];
+  edges: WorkflowTopologyEdge[];
+}
+
+export interface WorkflowTopologyResponse {
+  schema_version: string;
+  generated_at: string;
+  topology: WorkflowTopology;
 }
 
 export interface PathAssessment {
