@@ -30,6 +30,7 @@ pub mod engine;
 pub mod primitives;
 pub mod saga;
 pub mod system_ops;
+pub mod state_machine;
 pub mod traits;
 pub mod types;
 

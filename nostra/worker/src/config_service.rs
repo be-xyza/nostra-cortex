@@ -95,7 +95,11 @@ impl ConfigService {
         let config_path = "nostra_config.json";
         let mut config = if Path::new(config_path).exists() {
             println!("Configuration: Loading from {}", config_path);
-            let content = fs::read_to_string(config_path).expect("Failed to read config file");
+            let content = fs::read_to_string(config_path).unwrap_or_else(|e| {
+                eprintln!("Configuration: Failed to read {}: {}", config_path, e);
+                // Return a dummy content that will fail parsing and trigger default
+                "{}".to_string()
+            });
             serde_json::from_str(&content).unwrap_or_else(|e| {
                 eprintln!(
                     "Configuration: Failed to parse file, falling back to default. Error: {}",

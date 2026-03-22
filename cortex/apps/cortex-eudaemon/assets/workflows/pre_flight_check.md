@@ -7,7 +7,7 @@
 > check_disk_space 1024
 
 - [ ] Check Replica Connection
-> dfx ping
+> icp network status
 
 - [ ] Create Safety Snapshot
 > snapshot create nostra_backend local

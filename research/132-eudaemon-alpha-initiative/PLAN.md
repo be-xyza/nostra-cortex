@@ -15,6 +15,7 @@ reference_topics:
 reference_assets:
   - "research/reference/knowledge/agent-systems/2026_Chang_KARL"
   - "research/reference/knowledge/workflow-orchestration/2026_Liu_MASFactory"
+  - "research/reference/knowledge/agent-systems/2026_OpenAI_Doubleword_Batch_Strategy_Transcript"
 authors:
   - "User"
   - "Codex"
@@ -25,6 +26,7 @@ tags:
   - "workflow"
   - "governance"
 depends_on:
+  - "125"
   - "080"
   - "121"
   - "122"
@@ -40,7 +42,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-03-18"
+updated: "2026-03-19"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -99,6 +101,25 @@ The current work progression model for 132 is:
    - Treat KARL and MASFactory as pattern sources registered under `research/reference/knowledge/`.
    - Do not treat external references as authority over local workflow, heap, or governance contracts.
 
+## Cognitive Audit Resolution
+
+The Doubleword transcript is adopted in 132 only as a recommendation-only pattern source for a future Cognitive Audit Pipeline.
+
+1. Phase 6 steward communication and main-cycle analysis must use a native live cognition path first.
+2. Eudaemon Alpha should define audit units, pass structure, cadence, and synthesis rules for a later advisory batch lane.
+3. External batch cognition may perform large parallel analysis, but it is not an authority source and not the canonical workflow substrate.
+4. ZeroClaw is relevant here only as a possible auth/provider sidecar pattern source for Codex subscription access. It does not replace the gateway, lifecycle, heap, or workflow contracts.
+5. ChatGPT Pro does not act as a generic API-credit source for Eudaemon. If adopted, it must enter through an explicit Codex subscription adapter path.
+6. Durable orchestration belongs to Cortex workflow artifacts and adapters under Initiative 134.
+7. Current Phase 6 runs must enter and exit through the real stack already present in the repo:
+   - Python Eudaemon worker
+   - Rust gateway
+   - low-latency live cognition provider invocation
+   - heap/context endpoints
+   - lifecycle and benchmark artifacts
+8. Findings publish first as heap blocks, proposals, closeout follow-through, workflow drafts, or chronicle drafts. They do not directly mutate Nostra graph authority.
+9. Core-graph bootstrap ideas from the transcript are limited to semantic discovery and normalization. They do not authorize direct graph creation from external batch outputs.
+
 See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 
 ## Scope
@@ -109,6 +130,8 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 4. Use Initiative 130 capability overlays and compiled plans as the space activation model.
 5. Use Initiative 134 as the governing workflow substrate for executable plans and future durable execution migration.
 6. Preserve DPub lineage and promotion paths for chronicle outputs under Initiative 080.
+7. Integrate a recommendation-only cognitive audit path that uses typed audit units, batch reasoning, and governed synthesis without bypassing SIQ, workflow, or steward review.
+8. Formalize a live-provider boundary that supports `api_key` and `codex_subscription` lanes without making browser-subscription auth the runtime authority.
 
 ## Out of Scope
 
@@ -116,6 +139,7 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 2. Treating research initiative plans as executable workflow plans.
 3. Giving external references or upstream model behavior authority over local governance contracts.
 4. Autonomous promotion beyond recommendation-only boundaries.
+5. Direct creation or mutation of the Nostra core graph from external batch analysis output.
 
 ## Delivery Phases
 
@@ -139,10 +163,24 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Use compiled navigation/action plans only as UI/runtime guidance surfaces.
 - Promote mature outputs from heap notes into proposals, DPub updates, workflow drafts, or other governed contributions.
 
-### Phase E: Runtime Migration Readiness
+### Phase E: Live Provider and Auth Boundary
+- Define the `LiveCognitionProvider` boundary for the Phase 6 primary lane.
+- Keep `api_key` provider support deployment-ready for Hetzner.
+- Treat Codex subscription access as an explicit sidecar/profile path rather than a generic API-credit shortcut.
+- Do not require the advisory batch lane for boot-critical steward communication.
+
+### Phase F: Runtime Migration Readiness
 - Keep external runtime adapters provisional.
 - Evaluate migration from external agent host to native Cortex execution only through parity-backed slices.
 - Refuse architecture claims that bypass the governed workflow/runtime stack already defined in 124, 126, 130, 133, and 134.
+
+### Phase G: Cognitive Audit Pipeline
+- Define an `AuditUnit` manifest over governed sources such as architecture standards, active initiative plans, heap context bundles, lifecycle events, and workflow artifacts.
+- Define a `SourceManifest` contract that records exact sources and authority tier for every audit unit.
+- Run structural, constitutional, risk, and optimization passes through an external batch backend only as advisory cognition.
+- Re-enter Eudaemon Alpha for synthesis, prioritization, contradiction review, and recommendation drafting.
+- Publish outputs through heap blocks, proposals, closeout work, workflow drafts, or chronicle drafts instead of direct authority mutation.
+- Keep deterministic SIQ checks and steward review as the release-gating authority.
 
 ## Exit Criteria
 
@@ -151,9 +189,14 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 3. The agent workspace model clearly uses heap notes for working material and governed promotion paths for durable outputs.
 4. The task and planning model clearly distinguishes closeout/workflow tasks from initiatives and notes.
 5. Initiative 132 is ready to continue implementation against current Cortex contracts rather than stale architecture assumptions.
+6. The cognitive audit path is explicitly routed through current heap, lifecycle, SIQ, and workflow surfaces rather than treated as a direct mutation engine.
+7. The live cognition lane is explicitly primary for Phase 6 communication, while the batch audit lane remains secondary and advisory.
 
 ### 6.2 LLM API Connection
 Promote the live LLM path from an activity-side workaround into the canonical pattern-detection contract:
+- Treat direct live request/response analysis as the primary Phase 6 cognition path.
+- Support explicit provider boundaries for `api_key` and `codex_subscription` lanes.
+- Do not assume ChatGPT Pro provides transferable generic API billing.
 - Load the system prompt from `config/system_prompt.md`.
 - Prefer `prompt_override` from Heap when present, with local file fallback.
 - Format the payload as `{"model": route.model, "system": active_prompt, "messages": [{"role": "user", "content": bundle_context + code_context}]}`.
@@ -250,8 +293,8 @@ Blocking preflight work before live deployment:
 To ensure the Eudaemon Alpha loop can be tested end-to-end without mocks before VPS deployment, the following UI enrichments must be completed against the local `cortex-gateway`:
 - [x] Inline Agent Solicitation block creation UI in cortex-web
 - [x] Reduce hardcoded default-space assumptions that block steward testing across non-preview spaces
-- [ ] Agent activity notification panel (GlobalEvent streaming)
-- [ ] A2UI Feedback Projection form binding for Human-in-the-Loop loops
+- [x] Agent activity notification panel (GlobalEvent streaming)
+- [x] A2UI Feedback Projection form binding for Human-in-the-Loop loops
 - [x] `ChronicleWriter` local file persistence for Phase 6 drafting
 - [ ] Heap-backed chronicle promotion path once DPub wiring is scheduled
 
@@ -264,19 +307,20 @@ To ensure the Eudaemon Alpha loop can be tested end-to-end without mocks before 
 2. `AgentExecutionRecord` successfully emitted and visible in `GlobalEvent` log.
 3. Heap Mode emission test: `POST /heap/emit` successfully generates a polymorphic block.
 4. Token budget stops agent execution if limit exceeded (both local and graph layers).
-5. Execution strategy routes governance alerts to real-time and chronicle drafts to batch.
-6. Security boundary test rejects path traversal outside sandbox.
-7. `pytest agent/tests/` passes in the managed virtual environment.
-8. Grader assertions correctly PASS/FAIL/PARTIAL grade analysis outputs.
-9. `AgentBenchmarkRecord` serializes/deserializes correctly via Pydantic.
-10. SelfOptimizer proposes PROMPT edits after 3 consecutive FAIL benchmarks.
-11. Trigger optimization rejects descriptions with <90% precision.
-12. End-to-end Temporal integration: bootstrap → steward approval → bound.
-13. Memory persistence: trajectory log contains valid ExecutionRecordBlock committed to Git.
-14. HeapClient sends correct `EmitHeapBlockRequest` envelope with `x-cortex-agent-id` header.
-15. Git-backed memory: commits survive working directory resets; linear history maintained.
-16. Context bundle assembly uses `POST /api/cortex/studio/heap/blocks/context`.
-17. Governance bootstrap writes or validates `agent:eudaemon-alpha-01` in actor and space registries.
+5. Live provider preflight fails when the selected Phase 6 cognition lane is under-configured.
+6. Main-cycle analysis uses the native live cognition lane; any batch audit lane remains optional and advisory.
+7. Security boundary test rejects path traversal outside sandbox.
+8. `pytest agent/tests/` passes in the managed virtual environment.
+9. Grader assertions correctly PASS/FAIL/PARTIAL grade analysis outputs.
+10. `AgentBenchmarkRecord` serializes/deserializes correctly via Pydantic.
+11. SelfOptimizer proposes PROMPT edits after 3 consecutive FAIL benchmarks.
+12. Trigger optimization rejects descriptions with <90% precision.
+13. End-to-end Temporal integration: bootstrap → steward approval → bound.
+14. Memory persistence: trajectory log contains valid ExecutionRecordBlock committed to Git.
+15. HeapClient sends correct `EmitHeapBlockRequest` envelope with `x-cortex-agent-id` header.
+16. Git-backed memory: commits survive working directory resets; linear history maintained.
+17. Context bundle assembly uses `POST /api/cortex/studio/heap/blocks/context`.
+18. Governance bootstrap writes or validates `agent:eudaemon-alpha-01` in actor and space registries.
 
 ### Manual (Phases 6-7)
 1. SSH login works to the Hetzner host using the documented alias or explicit host and local private key.
@@ -288,3 +332,4 @@ To ensure the Eudaemon Alpha loop can be tested end-to-end without mocks before 
 7. The agent discovers a solicitation block and emits a `ConfigProposalBlock`.
 8. Users comment/interact with blocks, and Eudaemon ingests these signals in the next context bundle.
 9. One end-to-end bootstrap cycle completes on Hetzner without dev auth flags.
+10. If a Codex subscription lane is adopted, the sidecar/profile path is validated without bypassing the heap/gateway/workflow authority model.

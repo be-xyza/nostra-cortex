@@ -8,7 +8,7 @@ test("parseAgentActivityEvent extracts execution record details", () => {
     type: "agent_execution_record",
     timestamp: "2026-03-18T00:00:00Z",
     payload: {
-      agent_id: "agent:eudaemon-alpha-01",
+      agent_id: "agent:cortex-worker-01",
       phase: "analysis",
       status: "completed",
       provider_kind: "codex_subscription",
@@ -20,7 +20,7 @@ test("parseAgentActivityEvent extracts execution record details", () => {
   });
 
   assert.ok(event);
-  assert.equal(event?.agent, "agent:eudaemon-alpha-01");
+  assert.equal(event?.agent, "agent:cortex-worker-01");
   assert.equal(event?.status, "completed");
   assert.match(event?.details ?? "", /analysis/i);
   assert.match(event?.details ?? "", /PASS/i);

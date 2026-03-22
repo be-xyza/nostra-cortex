@@ -170,7 +170,7 @@ mod tests {
             status: SpaceStatus::Active,
             created_at: "1700000001".to_string(),
             owner: "systems-steward".to_string(),
-            members: vec!["systems-steward".to_string(), "agent:eudaemon-alpha-01".to_string()],
+            members: vec!["systems-steward".to_string(), "agent:cortex-worker-01".to_string()],
             archetype: Some("Research".to_string()),
         });
 
@@ -233,7 +233,7 @@ mod tests {
             .get_mut("space-gamma")
             .expect("space-gamma")
             .members
-            .push("agent:eudaemon-alpha-01".to_string());
+            .push("agent:cortex-worker-01".to_string());
         registry.save_to_path(&path).expect("second save");
 
         assert!(SpaceRegistry::backup_path_for(&path).exists());

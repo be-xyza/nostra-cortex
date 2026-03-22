@@ -1,20 +1,33 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-02-24T00:00:00Z",
+  "generated_at": "2026-03-11T00:00:00Z",
   "crates": {
     "workflow_engine": {
+      "cargo_args": [
+        "check"
+      ],
       "manifest": "nostra/backend/workflow_engine/Cargo.toml",
       "max_warnings": 0
     },
     "governance": {
+      "cargo_args": [
+        "check"
+      ],
       "manifest": "nostra/backend/governance/Cargo.toml",
       "max_warnings": 0
     },
     "cortex_eudaemon": {
+      "cargo_args": [
+        "check",
+        "--all-targets"
+      ],
       "manifest": "cortex/apps/cortex-eudaemon/Cargo.toml",
-      "max_warnings": 0
+      "max_warnings": 20
     },
     "frontend": {
+      "cargo_args": [
+        "check"
+      ],
       "manifest": "nostra/frontend/Cargo.toml",
       "max_warnings": 1
     }

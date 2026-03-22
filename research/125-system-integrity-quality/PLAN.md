@@ -21,7 +21,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Portfolio Integrity"
 created: "2026-02-23"
-updated: "2026-03-10"
+updated: "2026-03-19"
 ---
 
 # Initiative 125: SIQ Program Operationalization
@@ -35,6 +35,7 @@ Operationalize SIQ from local contract checks into portfolio governance, CI enfo
 3. Read-only SIQ gateway/service APIs in Cortex Desktop.
 4. Optional contribution-graph SIQ intake with deterministic ordering and backward-compatible fields.
 5. Residue/drift prevention: template residue, gate-surface script-reference integrity, and weekly drift checks.
+6. Allow advisory LLM audit overlays only as supplemental evidence; deterministic SIQ contracts remain the authority source for gating decisions.
 
 ## Out of Scope
 1. SIQ governance mutation APIs.
@@ -114,6 +115,11 @@ Operationalize SIQ from local contract checks into portfolio governance, CI enfo
 - Register alignment contract rule `ci_warning_bypass_contract` as P0 softgate.
 - Keep exceptions canonical in `shared/standards/alignment_contract_exceptions.json` with owner + reason + expiry.
 
+### I. Advisory Cognitive Audit Overlay
+- Permit recommendation-only batch-audit evidence for contradiction discovery, drift surfacing, and prioritization.
+- Require every such finding to cite its source manifest and remain subordinate to deterministic contract checks.
+- Do not allow provider-specific batch outputs to flip SIQ verdicts without corroborating governed evidence.
+
 ## Exit Criteria
 1. 125 artifacts exist and are index-registered.
 2. AGENTS includes SIQ command + artifact contract.
@@ -124,8 +130,10 @@ Operationalize SIQ from local contract checks into portfolio governance, CI enfo
 7. Contribution-graph consumers can consume SIQ metadata without contract regression.
 8. No SIQ governance mutation endpoint introduced.
 9. CI warning-bypass scanner is enforced in active workflows and registered as alignment contract P0 control.
+10. Any cognitive audit overlay is explicitly non-authoritative and source-linked.
 
 ## Alignment Addendum
 1. Boundary: SIQ remains evidence/gate orchestration for Nostra-Cortex contracts, not a new governance authority plane.
 2. Parity: host-facing SIQ intake stays read-only and schema-first to prevent mutation drift.
 3. Determinism: SIQ artifacts and projection fingerprints remain reproducible and lineage-linked.
+4. Cognitive audit overlays may enrich discovery but cannot replace deterministic SIQ controls.

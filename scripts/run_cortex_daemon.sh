@@ -41,6 +41,10 @@ case "$MODE" in
   dev)
     echo "[run_cortex_daemon] starting dev mode"
     cd "$CORTEX_ROOT"
+    # Local dev convenience: enable authz dev mode so browser clients can request roles via query/header.
+    # Production/CI should explicitly disable these env vars.
+    export NOSTRA_AUTHZ_DEV_MODE="${NOSTRA_AUTHZ_DEV_MODE:-true}"
+    export NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER="${NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER:-true}"
     export CORTEX_GATEWAY_LEGACY_DISPATCH_MODE="${CORTEX_GATEWAY_LEGACY_DISPATCH_MODE:-http_loopback}"
     export NOSTRA_AGENT_EXECUTION_EVENT_SINK_URL="${NOSTRA_AGENT_EXECUTION_EVENT_SINK_URL:-}"
     export NOSTRA_AGENT_EXECUTION_EVENT_SINK_FAIL_CLOSED="${NOSTRA_AGENT_EXECUTION_EVENT_SINK_FAIL_CLOSED:-false}"

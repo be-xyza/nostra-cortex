@@ -84,7 +84,7 @@ mod tests {
         let path = temp_path("actor-registry");
         let mut registry = ActorRegistry::default();
         registry.upsert(ActorRecord {
-            actor_id: "agent:eudaemon-alpha-01".to_string(),
+            actor_id: "agent:cortex-worker-01".to_string(),
             actor_type: "agent".to_string(),
             roles: vec!["operator".to_string()],
             status: "active".to_string(),
@@ -92,7 +92,7 @@ mod tests {
         registry.save_to_path(&path).expect("save actor registry");
 
         let loaded = ActorRegistry::load_from_path(&path).expect("load actor registry");
-        assert!(loaded.contains("agent:eudaemon-alpha-01"));
+        assert!(loaded.contains("agent:cortex-worker-01"));
 
         let _ = fs::remove_file(path);
     }
