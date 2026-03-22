@@ -158,7 +158,7 @@ jobs:
         uses: arduino/setup-protoc@v3
       - name: Rustfmt Check
         if: steps.preflight.outputs.run == 'true'
-        run: cargo fmt -- --check
+        run: cargo fmt --check
       - name: Clippy Lint
         if: steps.preflight.outputs.run == 'true'
         run: cargo clippy -- -D warnings
