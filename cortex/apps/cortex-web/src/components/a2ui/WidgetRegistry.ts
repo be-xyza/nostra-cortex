@@ -738,8 +738,11 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
     });
   },
 
-  CapabilitySchemaEditor: () => {
-    return React.createElement(SchemaNodeEditor);
+  CapabilitySchemaEditor: ({ componentProperties }) => {
+    const props = componentProperties["CapabilitySchemaEditor"] as Record<string, unknown> || {};
+    return React.createElement(SchemaNodeEditor, {
+      spaceId: typeof props.spaceId === "string" ? props.spaceId : undefined,
+    });
   },
 
   CapabilityMap: CapabilityMapWidget,

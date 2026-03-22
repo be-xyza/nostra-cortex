@@ -5,9 +5,9 @@
   "title": "Gateway Protocol Contract",
   "generated_at": "2026-02-24T07:43:53Z",
   "inventory_source": "cortex/apps/cortex-eudaemon/tests/fixtures/gateway_baseline/endpoint_inventory.tsv",
-  "endpoint_count": 208,
+  "endpoint_count": 211,
   "method_counts": {
-    "GET": 116,
+    "GET": 119,
     "POST": 90,
     "PUT": 2
   },
@@ -20,7 +20,7 @@
     "system": 42,
     "testing": 5,
     "workflow": 3,
-    "ws": 1
+    "ws": 3
   },
   "required_fields": [
     "method",
@@ -9432,6 +9432,50 @@
         "header": "X-Idempotency-Key",
         "dedupe_key": "method:path:header",
         "replay_behavior": "last_success_response_replay"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/ws/chat",
+      "endpoint_class": "ws",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
       }
     }
   ]

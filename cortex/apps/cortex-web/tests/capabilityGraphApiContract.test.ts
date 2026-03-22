@@ -166,7 +166,13 @@ test("space capability graph PUT sends steward headers and serialized graph body
     capturedRole = String((init?.headers as Record<string, string> | undefined)?.["x-cortex-role"] ?? "");
     capturedActor = String((init?.headers as Record<string, string> | undefined)?.["x-cortex-actor"] ?? "");
     capturedBody = String(init?.body ?? "");
-    return new Response(capturedBody, {
+    return new Response(JSON.stringify({
+      accepted: true,
+      spaceId: "nostra-governance-v0",
+      capabilityGraphHash: "graph-hash-1",
+      capabilityGraphVersion: "v1",
+      storedAt: "2026-03-03T00:00:00Z",
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
@@ -196,7 +202,8 @@ test("space capability graph PUT sends steward headers and serialized graph body
     assert.equal(capturedRole, "steward");
     assert.equal(capturedActor, "web-test");
     assert.equal(capturedBody, JSON.stringify(payload));
-    assert.equal(response.lineageRef, "decision:130");
+    assert.equal(response.capabilityGraphHash, "graph-hash-1");
+    assert.equal(response.spaceId, "nostra-governance-v0");
   } finally {
     globalThis.fetch = originalFetch;
   }

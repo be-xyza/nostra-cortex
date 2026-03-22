@@ -839,6 +839,10 @@
     {
       "method": "PUT",
       "path": "/api/spaces/:space_id/capability-graph"
+    },
+    {
+      "method": "GET",
+      "path": "/ws/chat"
     }
   ]
 }

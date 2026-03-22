@@ -11,6 +11,11 @@ use tokio::sync::broadcast;
 use cortex_runtime::{RuntimeError, ports::AgentProcessAdapter};
 
 #[cfg(feature = "service-scaffolds")]
+use futures_util::Stream;
+#[cfg(feature = "service-scaffolds")]
+use std::pin::Pin;
+
+#[cfg(feature = "service-scaffolds")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentNode {
     pub id: String,
@@ -22,6 +27,15 @@ pub struct AgentNode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentSystemState {
     pub nodes: Vec<AgentNode>,
+}
+
+#[cfg(feature = "service-scaffolds")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatEvent {
+    pub author: String,
+    pub message: String,
+    pub timestamp: i64,
 }
 
 pub struct AgentService;
@@ -115,9 +129,11 @@ impl AgentService {
 
     #[cfg(feature = "service-scaffolds")]
     pub async fn send_chat_message(
+        author: String,
         mut message: String,
         space_id: Option<String>,
-    ) -> Result<(), String> {
+        streaming: bool,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<ChatEvent, String>> + Send>>, String> {
         let client = crate::services::dfx_client::DfxClient::new(None);
 
         if let Some(space) = space_id {
@@ -129,30 +145,30 @@ impl AgentService {
 
         let arg = format!("(\"{}\")", message.replace("\"", "\\\""));
 
-        tracing::info!("[Console] Sending: {}", message);
+        tracing::info!("[Console] Sending (author={}): {}", author, message);
 
-        match client
+        let response = client
             .call_canister("workflow-engine", "process_message", Some(&arg))
             .await
-        {
-            Ok(response) => {
-                tracing::info!("[Console] Received: {}", response);
+            .map_err(|err| err.to_string())?;
+        let decoded =
+            crate::services::dfx_client::DfxClient::unwrap_candid_string(&response)
+                .unwrap_or(response);
 
-                let decoded =
-                    crate::services::dfx_client::DfxClient::unwrap_candid_string(&response)
-                        .unwrap_or(response);
-
-                if !decoded.trim().is_empty() {
-                    // Send to the console backend instead of local UI
-                    crate::services::console_service::send_text("System", decoded);
-                }
-                Ok(())
-            }
-            Err(e) => {
-                tracing::error!("[Console] Error: {}", e);
-                Err(e.to_string())
-            }
-        }
+        let chunks = if streaming {
+            chunk_chat_response(decoded)
+        } else {
+            vec![decoded]
+        };
+        let timestamp = chrono::Utc::now().timestamp();
+        let events = chunks.into_iter().map(move |chunk| {
+            Ok(ChatEvent {
+                author: "System".to_string(),
+                message: chunk,
+                timestamp,
+            })
+        });
+        Ok(Box::pin(futures_util::stream::iter(events)))
     }
 
     pub async fn index(id: String, content: String, modality: Modality) {
@@ -274,6 +290,45 @@ impl AgentService {
                 )]
             }
         }
+    }
+}
+
+#[cfg(feature = "service-scaffolds")]
+fn chunk_chat_response(message: String) -> Vec<String> {
+    const CHUNK_TARGET: usize = 120;
+
+    if message.len() <= CHUNK_TARGET {
+        return vec![message];
+    }
+
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+
+    for word in message.split_whitespace() {
+        let next_len = if current.is_empty() {
+            word.len()
+        } else {
+            current.len() + 1 + word.len()
+        };
+        if next_len > CHUNK_TARGET && !current.is_empty() {
+            chunks.push(current);
+            current = word.to_string();
+        } else if current.is_empty() {
+            current = word.to_string();
+        } else {
+            current.push(' ');
+            current.push_str(word);
+        }
+    }
+
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+
+    if chunks.is_empty() {
+        vec![message]
+    } else {
+        chunks
     }
 }
 

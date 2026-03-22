@@ -30,6 +30,7 @@ import type {
   PlatformCapabilityCatalog,
   PlatformCapabilityGraph,
   SpaceCapabilityGraph,
+  SpaceCapabilityGraphUpsertResponse,
   SpaceCreateRequest,
   SpaceCreateResponse,
   SpacesListResponse,
@@ -197,7 +198,7 @@ export const workbenchApi = {
     actorRole = "steward",
     actorId = "cortex-web"
   ) =>
-    request<SpaceCapabilityGraph>(`/api/spaces/${encodeURIComponent(spaceId)}/capability-graph`, {
+    request<SpaceCapabilityGraphUpsertResponse>(`/api/spaces/${encodeURIComponent(spaceId)}/capability-graph`, {
       method: "PUT",
       headers: {
         "x-cortex-role": actorRole,

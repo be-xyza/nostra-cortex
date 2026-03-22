@@ -10,19 +10,18 @@ import {
     ImageIcon,
 } from "lucide-react";
 import { resolveChatHints, type ChatHint } from "./chatHintRegistry";
+import {
+    applyChatServerEnvelope,
+    buildChatClientMessageEnvelope,
+    isChatServerEnvelope,
+    type ChatClientAttachmentDescriptor,
+    type ChatPanelMessage,
+    type ChatState,
+} from "./chatSocketProtocol";
 
 interface ChatAttachment {
     file: File;
     previewUrl?: string;
-}
-
-interface ChatMessage {
-    id: string;
-    role: "user" | "agent";
-    text: string;
-    timestamp: string;
-    contextRefs?: string[];
-    attachments?: Array<{ name: string; type: string; size: number }>;
 }
 
 interface ChatPanelProps {
@@ -38,8 +37,6 @@ interface ChatPanelProps {
     gatewayUrl?: string;
 }
 
-type ChatState = "idle" | "streaming" | "processing";
-
 export function ChatPanel({
     isOpen,
     onClose,
@@ -48,15 +45,18 @@ export function ChatPanel({
     threadId,
     gatewayUrl,
 }: ChatPanelProps) {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<ChatPanelMessage[]>([]);
     const [input, setInput] = useState("");
     const [chatState, setChatState] = useState<ChatState>("idle");
+    const [chatError, setChatError] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
+    const chatStateRef = useRef<ChatState>("idle");
+    const chatErrorRef = useRef<string | null>(null);
 
     // Resolve hints from registry based on context
     const hints = useMemo(
@@ -78,6 +78,14 @@ export function ChatPanel({
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        chatStateRef.current = chatState;
+    }, [chatState]);
+
+    useEffect(() => {
+        chatErrorRef.current = chatError;
+    }, [chatError]);
+
     // WebSocket connection for streaming mode
     useEffect(() => {
         if (!isOpen || !gatewayUrl) return;
@@ -89,51 +97,35 @@ export function ChatPanel({
 
         ws.onopen = () => {
             setChatState("idle");
+            setChatError(null);
         };
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                if (data.type === "message") {
-                    setMessages(prev => [
-                        ...prev,
+                if (!isChatServerEnvelope(data)) return;
+                setMessages(prev => {
+                    const snapshot = applyChatServerEnvelope(
                         {
-                            id: data.id ?? `agent-${Date.now()}`,
-                            role: "agent",
-                            text: data.text,
-                            timestamp: data.timestamp ?? new Date().toISOString(),
+                            messages: prev,
+                            chatState: chatStateRef.current,
+                            error: chatErrorRef.current,
                         },
-                    ]);
-                    setChatState("idle");
-                } else if (data.type === "processing") {
-                    setChatState("processing");
-                } else if (data.type === "streaming") {
-                    setChatState("streaming");
-                    setMessages(prev => {
-                        const last = prev[prev.length - 1];
-                        if (last?.role === "agent" && last.id.startsWith("stream-")) {
-                            return [
-                                ...prev.slice(0, -1),
-                                { ...last, text: last.text + (data.delta ?? "") },
-                            ];
-                        }
-                        return [
-                            ...prev,
-                            {
-                                id: `stream-${Date.now()}`,
-                                role: "agent",
-                                text: data.delta ?? "",
-                                timestamp: new Date().toISOString(),
-                            },
-                        ];
-                    });
-                }
+                        data,
+                    );
+                    chatStateRef.current = snapshot.chatState;
+                    chatErrorRef.current = snapshot.error;
+                    setChatState(snapshot.chatState);
+                    setChatError(snapshot.error);
+                    return snapshot.messages;
+                });
             } catch {
                 // Non-JSON messages ignored
             }
         };
 
         ws.onclose = () => {
+            chatStateRef.current = "idle";
             setChatState("idle");
         };
 
@@ -142,7 +134,7 @@ export function ChatPanel({
             ws.close();
             wsRef.current = null;
         };
-    }, [isOpen, gatewayUrl, threadId]);
+    }, [gatewayUrl, isOpen, threadId]);
 
     // File attachment handler
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,35 +177,42 @@ export function ChatPanel({
         const trimmed = (overrideText ?? input).trim();
         if (!trimmed && attachments.length === 0) return;
 
-        const userMsg: ChatMessage = {
+        const attachmentDescriptors: ChatClientAttachmentDescriptor[] = attachments.map(a => ({
+            name: a.file.name,
+            type: a.file.type,
+            size: a.file.size,
+        }));
+
+        const userMsg: ChatPanelMessage = {
             id: `user-${Date.now()}`,
             role: "user",
             text: trimmed || (attachments.length > 0 ? `[${attachments.length} file${attachments.length > 1 ? "s" : ""} attached]` : ""),
             timestamp: new Date().toISOString(),
             contextRefs: contextBlockIds.length > 0 ? contextBlockIds : undefined,
-            attachments: attachments.map(a => ({
-                name: a.file.name,
-                type: a.file.type,
-                size: a.file.size,
-            })),
+            attachments: attachmentDescriptors,
         };
 
         setMessages(prev => [...prev, userMsg]);
         setInput("");
         setAttachments([]);
+        setChatError(null);
 
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(
-                JSON.stringify({
-                    type: "message",
-                    text: trimmed,
-                    contextRefs: userMsg.contextRefs,
-                    attachments: userMsg.attachments,
-                })
+                JSON.stringify(
+                    buildChatClientMessageEnvelope({
+                        text: trimmed,
+                        contextRefs: userMsg.contextRefs,
+                        attachments: userMsg.attachments,
+                        threadId,
+                    }),
+                )
             );
+            chatStateRef.current = "processing";
             setChatState("processing");
         } else {
             // Async fallback
+            chatStateRef.current = "processing";
             setChatState("processing");
             setTimeout(() => {
                 setMessages(prev => [
@@ -225,10 +224,11 @@ export function ChatPanel({
                         timestamp: new Date().toISOString(),
                     },
                 ]);
+                chatStateRef.current = "idle";
                 setChatState("idle");
             }, 1500);
         }
-    }, [input, contextBlockIds, attachments]);
+    }, [attachments, contextBlockIds, input, threadId]);
 
     const handleHintClick = useCallback((hint: ChatHint) => {
         if (hint.prompt) {
@@ -283,6 +283,11 @@ export function ChatPanel({
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                {chatError && (
+                    <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-200">
+                        {chatError}
+                    </div>
+                )}
                 {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                         <MessagesSquare className="w-8 h-8 text-cortex-700" />

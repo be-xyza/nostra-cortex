@@ -271,6 +271,14 @@ export interface SpaceCapabilityGraph {
   lineageRef?: string;
 }
 
+export interface SpaceCapabilityGraphUpsertResponse {
+  accepted: boolean;
+  spaceId: string;
+  capabilityGraphHash: string;
+  capabilityGraphVersion: string;
+  storedAt: string;
+}
+
 export interface SpaceRegistryRecord {
   spaceId: string;
   creationMode: string;

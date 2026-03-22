@@ -1,4 +1,9 @@
 use std::time::Duration;
+use std::path::PathBuf;
+use tracing::{info, debug, error};
+use crate::services::heap_mapper::EmitHeapBlockRequest;
+use crate::services::cortex_ux::UX_STATUS_CANDIDATE;
+use chrono::Utc;
 
 pub struct SpaceAuditor;
 
@@ -22,17 +27,53 @@ impl SpaceAuditor {
                 }
             });
 
-            // 2. Event-Driven Sync Layer to watch Reference_URI folders
-            let sync_task = tokio::spawn(async move {
-                tracing::info!(
-                    "Space Auditor: Event-Driven Sync Layer started (mocked, without notify watcher)."
-                );
+            // 2. Live Projection for Research initiatives (Initiative 132 alignment)
+            let research_projection = tokio::spawn(async move {
                 loop {
+                    if let Err(e) = Self::project_research_initiatives().await {
+                        error!("SpaceAuditor: failed to project research initiatives: {:?}", e);
+                    }
                     tokio::time::sleep(Duration::from_secs(60)).await;
                 }
             });
 
-            let _ = tokio::try_join!(audit_task, sync_task);
+            let _ = tokio::try_join!(audit_task, research_projection);
         });
+    }
+
+    async fn project_research_initiatives() -> anyhow::Result<()> {
+        let root = PathBuf::from("/Users/xaoj/ICP");
+        let research_dir = root.join("research");
+        let status_file = research_dir.join("RESEARCH_INITIATIVES_STATUS.md");
+
+        if !status_file.exists() {
+            debug!("SpaceAuditor: research status file not found at {:?}", status_file);
+            return Ok(());
+        }
+
+        let content = tokio::fs::read_to_string(&status_file).await?;
+        
+        // Simple line parser for [ ] / [x] status
+        for line in content.lines() {
+            if line.contains("[ ]") || line.contains("[/]") || line.contains("[x]") {
+                let parts: Vec<&str> = line.split('|').collect();
+                if parts.len() >= 3 {
+                    let id = parts[0].trim_matches(|c| c == ' ' || c == '-' || c == '*' || c == '|').trim();
+                    let name = parts[1].trim();
+                    let status = parts[2].trim();
+
+                    if !id.is_empty() && id.chars().all(|c| c.is_digit(10)) {
+                        // Project this initiative as a HeapBlock
+                        info!("SpaceAuditor: projecting research initiative {} as HeapBlock", id);
+                        
+                        // In a real scenario, we'd emit via a channel to the gateway
+                        // For now, we log the intent as a projection hit
+                        // EmitHeapBlockRequest { ... }
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
