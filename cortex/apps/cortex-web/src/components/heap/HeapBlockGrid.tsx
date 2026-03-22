@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Plus, Menu, PanelLeftOpen, MessagesSquare } from "lucide-react";
+import { Plus, Menu, PanelLeftOpen, MessagesSquare, Settings, Sliders, Filter, X } from "lucide-react";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { resolveWorkbenchSpaceId, workbenchApi } from "../../api";
 import type {
@@ -112,6 +112,20 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const [commentSidebarBlockId, setCommentSidebarBlockId] = useState<string | null>(null);
     const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+        return () => window.removeEventListener("resize", checkMobile);
+    }, []);
+
+    useEffect(() => {
+        if (isMobile) setIsSidebarCollapsed(true);
+    }, [isMobile]);
+
     const [bgGraphVariant, setBgGraphVariant] = useState<"off" | "2d" | "3d">(() => {
         try { 
             const saved = localStorage.getItem("cortex.heap.bgGraph");
@@ -916,10 +930,22 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     }
 
     return (
-        <div className="heap-surface flex h-full w-full overflow-hidden select-none">
+        <div className="heap-surface flex h-full w-full overflow-hidden select-none relative">
+            {/* Sidebar Backdrop (Mobile Only) */}
+            {isMobile && !isSidebarCollapsed && (
+                <div 
+                    className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[90] animate-in fade-in duration-300"
+                    onClick={() => setIsSidebarCollapsed(true)}
+                />
+            )}
+
             {/* Sidebar with collapse transition */}
             {showFilterSidebar && (
-                <div className={`transition-all duration-300 ease-in-out flex shrink-0 ${isSidebarCollapsed ? "w-0 overflow-hidden" : "w-64"}`}>
+                <div className={`
+                    ${isMobile ? "fixed left-0 top-0 bottom-0 z-[100] shadow-2xl" : "relative flex shrink-0"}
+                    transition-all duration-300 ease-in-out
+                    ${isSidebarCollapsed ? (isMobile ? "-translate-x-full" : "w-0 overflow-hidden") : "w-64 translate-x-0"}
+                `}>
                     <HeapFilterSidebar
                         filterTerm={filterTerm}
                         onFilterTermChange={setFilterTerm}
@@ -974,7 +1000,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                     {/* Header - now sticky within the scrollable div */}
                     <header id="heap-grid-header" className="min-h-[64px] flex items-center justify-between px-6 py-4 sticky top-0 z-30 flex-wrap gap-3 glass-panel backdrop-blur-xl rounded-none shadow-sm border-b border-white/5">
                         <div className="flex items-center gap-3 flex-wrap">
-                            {isSidebarCollapsed && (
+                            {!isMobile && isSidebarCollapsed && (
                                 <button
                                     onClick={() => setIsSidebarCollapsed(false)}
                                     className="p-1.5 rounded-lg hover:bg-white/5 text-cortex-500 hover:text-white transition-colors mr-1"
@@ -985,7 +1011,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                             )}
                             <h2 className="text-xl font-bold text-cortex-50 tracking-tight">
                                 {viewMode}
-                                <span className="ml-2 text-cortex-500 font-medium text-sm uppercase tracking-widest">Canvas Blocks</span>
+                                <span className="ml-2 text-cortex-500 font-medium text-sm uppercase tracking-widest hidden sm:inline">Canvas Blocks</span>
                             </h2>
                             {(includeTerms.length > 0 || selectedTags.length > 0) && (
                                 <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-sm">{filterMode} MATCH</span>
@@ -995,35 +1021,71 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                             )}
                             {selectedReviewLane && (
                                 <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shadow-sm">
-                                    {selectedReviewLane === "private_review" ? "PRIVATE REVIEW" : "PUBLIC REVIEW"}
+                                    {selectedReviewLane === "private_review" ? "PRIVATE" : "PUBLIC"}
                                 </span>
                             )}
                             {excludeTerms.length > 0 && (
-                                <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 shadow-sm">NOT {excludeTerms.length}</span>
-                            )}
-                            {statusMessage && (
-                                <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-cortex-900 text-cortex-500 border border-cortex-800 shadow-sm">{statusMessage}</span>
+                                <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 shadow-sm">NOT {excludeTerms.length}</span>
                             )}
                         </div>
-                        <div className="flex gap-3 items-center">
-                            {/* Background Graph Toggle */}
-                            <div className="flex items-center gap-0.5 rounded-full bg-cortex-800/60 border border-cortex-700/40 p-0.5">
-                                {(["off", "2d", "3d"] as const).map((v) => (
-                                    <button
-                                        key={v}
-                                        onClick={() => {
-                                            if (v === "off") setBgGraphVariant("off");
-                                            else setBgGraphVariant(prev => prev === v ? "off" : v);
-                                        }}
-                                        className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full transition-all duration-200 ${
-                                            bgGraphVariant === v
-                                                ? "bg-blue-600/80 text-white shadow-sm"
-                                                : "text-cortex-500 hover:text-cortex-300"
-                                        }`}
-                                    >
-                                        {v === "off" ? "BG" : v.toUpperCase()}
-                                    </button>
-                                ))}
+                        <div className="flex gap-2 items-center">
+                            {/* View Toggle (Details/Filter) */}
+                            <button
+                                onClick={() => setIsSidebarCollapsed(prev => !prev)}
+                                className={`p-2 rounded-full transition-all duration-200 ${
+                                    !isSidebarCollapsed
+                                        ? "bg-blue-600/80 text-white shadow-sm"
+                                        : "bg-cortex-800/60 border border-cortex-700/40 text-cortex-500 hover:text-cortex-300"
+                                }`}
+                                title="Toggle Filters & View Style"
+                            >
+                                <Filter className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Settings Popover Toggle */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setSettingsOpen(prev => !prev)}
+                                    className={`p-2 rounded-full transition-all duration-200 ${
+                                        settingsOpen
+                                            ? "bg-slate-700 text-white shadow-sm"
+                                            : "bg-cortex-800/60 border border-cortex-700/40 text-cortex-500 hover:text-cortex-300"
+                                    }`}
+                                    title="View Settings"
+                                >
+                                    <Settings className="w-3.5 h-3.5" />
+                                </button>
+                                
+                                {settingsOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                                        <div className="absolute right-0 mt-2 w-48 bg-cortex-900 border border-cortex-700 rounded-xl shadow-2xl z-50 p-3 animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="mb-2 px-1">
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-cortex-500">Visualization</h4>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                {(["off", "2d", "3d"] as const).map((v) => (
+                                                    <button
+                                                        key={v}
+                                                        onClick={() => {
+                                                            if (v === "off") setBgGraphVariant("off");
+                                                            else setBgGraphVariant(prev => prev === v ? "off" : v);
+                                                            setSettingsOpen(false);
+                                                        }}
+                                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                                                            bgGraphVariant === v
+                                                                ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
+                                                                : "text-cortex-400 hover:bg-cortex-800 hover:text-white border border-transparent"
+                                                        }`}
+                                                    >
+                                                        <span>{v === "off" ? "Disabled" : `${v.toUpperCase()} Background`}</span>
+                                                        {bgGraphVariant === v && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             {/* Chat Toggle */}

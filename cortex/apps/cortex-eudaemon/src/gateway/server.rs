@@ -95,6 +95,8 @@ use crate::services::viewspec_synthesis::{
 use crate::services::workflow_engine_client::{
     AttributionDomain, EpistemicAssessment, ExecutionProfile, ReplayContract, WorkflowEngineClient,
 };
+use crate::services::agent_service::AgentService;
+use crate::services::console_service::ConsoleService;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -3069,6 +3071,7 @@ impl GatewayService {
         let state = GatewayState::new();
         let app = Router::new()
             .route("/ws", get(ws_handler))
+            .route("/ws/chat", get(ws_chat_handler))
             .route("/ws/cortex/collab", get(ws_collab_handler))
             .route("/api/system/status", get(get_system_status))
             .route("/api/system/whoami", get(get_system_whoami))
@@ -24881,6 +24884,44 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
 
 async fn ws_handler(ws: WebSocketUpgrade, State(state): State<GatewayState>) -> impl IntoResponse {
     ws.on_upgrade(|socket| handle_socket(socket, state))
+}
+
+async fn ws_chat_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<GatewayState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(|socket| handle_chat_socket(socket, state))
+}
+
+async fn handle_chat_socket(socket: WebSocket, _state: GatewayState) {
+    let (mut sender, mut _receiver) = socket.split();
+
+    // Use AgentService to send a chat message and stream the response
+    // streaming=true by default for live research focus
+    let mut stream = match AgentService::send_chat_message(
+        "User",
+        "Hello from Explore View",
+        None, // space_id
+        true, // streaming
+    ).await {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = sender.send(Message::Text(format!("Error: {}", e))).await;
+            return;
+        }
+    };
+
+    while let Some(event) = stream.next().await {
+        match event {
+            Ok(evt) => {
+                let json = serde_json::to_string(&evt).unwrap_or_default();
+                if sender.send(Message::Text(json)).await.is_err() {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
 }
 
 async fn handle_socket(socket: WebSocket, state: GatewayState) {

@@ -6,7 +6,7 @@ autobins = false
 autotests = false
 
 [features]
-default = []
+default = ["service-scaffolds"]
 cortex_runtime_v0 = []
 service-scaffolds = []
 siq-service-client = []

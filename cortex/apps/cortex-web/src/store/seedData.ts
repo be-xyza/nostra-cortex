@@ -257,6 +257,52 @@ export const SEED_EVENTS: GlobalEvent[] = [
         text: "### Release Readiness\n- [x] Security audit completed\n- [x] Documentation updated\n- [ ] Final regression tests passing\n- [ ] Steward approval signed"
       }
     }
+  },
+  {
+    id: "seed-research-event-1",
+    type: "HeapBlockCreated",
+    spaceId: "research",
+    timestamp: "2026-03-22T08:00:00Z",
+    payload: {
+      artifactId: "research-init-110",
+      blockType: "note",
+      title: "Cortex Studio: Production Loop Activation",
+      surfaceId: "surface:research-init-110",
+      emittedAt: "2026-03-22T08:00:00Z",
+      surfaceJson: {
+        payload_type: "note",
+        text: "# Initiative 110: Status Update\n\nThe Production Loop for Cortex Studio is now being activated. This enables real-time artifact convergence between the local daemon and the IC canisters.\n\n- [x] Protocol alignment complete\n- [/] Real-time bridge validation in progress\n- [ ] Final CI gate hardening",
+        meta: {
+          mentions: ["110-cortex-studio-production-loop"],
+          tags: ["research", "studio", "active"]
+        },
+        surfaceId: "surface:research-init-110",
+        title: "Cortex Studio: Production Loop Activation"
+      }
+    }
+  },
+  {
+    id: "seed-research-event-2",
+    type: "HeapBlockCreated",
+    spaceId: "research",
+    timestamp: "2026-03-22T09:15:00Z",
+    payload: {
+      artifactId: "research-init-123",
+      blockType: "note",
+      title: "Cortex-Web Framework Alignment",
+      surfaceId: "surface:research-init-123",
+      emittedAt: "2026-03-22T09:15:00Z",
+      surfaceJson: {
+        payload_type: "note",
+        text: "# Initiative 123: Web Architecture Convergence\n\nFixing the data alignment issues where the research space explore view was empty due to legacy mock space IDs. Successfully synchronized `seedData.ts` with project reality.",
+        meta: {
+          mentions: ["123-cortex-web-architecture"],
+          tags: ["research", "web", "completed"]
+        },
+        surfaceId: "surface:research-init-123",
+        title: "Cortex-Web Framework Alignment"
+      }
+    }
   }
 ];
 
@@ -514,157 +560,39 @@ function cgEdge(from: string, to: string, kind: string = "references", confidenc
 export const MOCK_CONTRIBUTION_GRAPH = {
   graph_root_hash: "mock-ambient-graph-v1",
   nodes: [
-    // ── Systems Layer (Space: Alpha) ──
-    cgNode("000", "DPub Contribution Graph", "Systems", "active", "anchor", "space-alpha"),
-    cgNode("046", "System Standards", "Systems", "active", "anchor", "space-alpha"),
-    cgNode("125", "System Integrity Quality", "Systems", "active", "anchor", "space-alpha"),
-    cgNode("105", "Test Catalog", "Systems", "active", "anchor", "space-alpha"),
-    cgNode("118", "Runtime Extraction", "Systems", "active", "anchor", "space-alpha"),
-    cgNode("089", "Code Standards", "Systems", "draft", "reference", "space-alpha"),
-    cgNode("055", "Compliance Validation", "Systems", "draft", "reference", "space-alpha"),
-    cgNode("063", "Testing Methodology", "Systems", "completed", "reference", "space-alpha"),
-
-    // ── Infrastructure Layer (Space: Beta) ──
-    cgNode("004", "Architecture Gaps", "infrastructure", "superseded", "reference", "space-beta"),
-    cgNode("006", "Sentiment Capture", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("011", "Video Streaming", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("014", "AI Agents on ICP", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("017", "Agent Role Patterns", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("020", "D3 Graph Performance", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("027", "Workflow Builder", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("031", "Production Foundation", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("035", "Auto Analysis", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("042", "Vector Embedding", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("044", "HRM Integration", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("051", "RAG Ingestion", "infrastructure", "draft", "reference", "space-beta"),
-    cgNode("085", "File Infrastructure", "infrastructure", "active", "anchor", "space-beta"),
-
-    // ── Protocol Layer (Space: Gamma) ──
-    cgNode("007", "Spaces Concept", "protocol", "active", "anchor", "space-gamma"),
-    cgNode("008", "Contribution Types", "protocol", "draft", "reference", "space-gamma"),
-    cgNode("012", "Bootstrap Protocol", "protocol", "draft", "reference", "space-gamma"),
-    cgNode("013", "Workflow Engine", "protocol", "active", "anchor", "space-gamma"),
-    cgNode("018", "Library Registry", "protocol", "draft", "reference", "space-gamma"),
-    cgNode("019", "Log Registry", "protocol", "active", "anchor", "space-gamma"),
-    cgNode("037", "Knowledge Engine", "protocol", "draft", "reference", "space-gamma"),
-    cgNode("040", "Schema Standards", "protocol", "draft", "reference", "space-gamma"),
-    cgNode("067", "Unified Protocol", "protocol", "draft", "reference", "space-gamma"),
-    cgNode("119", "Nostra Commons", "protocol", "active", "anchor", "space-gamma"),
-
-    // ── Runtime Layer (Space: Eudaemon) ──
-    cgNode("023", "Flashcards Use Case", "runtime", "draft", "reference", "eudaemon-alpha"),
-    cgNode("033", "System Monitor", "runtime", "draft", "reference", "eudaemon-alpha"),
-    cgNode("047", "Temporal Architecture", "runtime", "active", "anchor", "eudaemon-alpha"),
-    cgNode("122", "Agent Runtime Kernel", "runtime", "active", "anchor", "eudaemon-alpha"),
-    cgNode("129", "Simulation Adapter", "runtime", "draft", "reference", "eudaemon-alpha"),
-
-    // ── Cortex Layer (Space: Eudaemon) ──
-    cgNode("074", "UI Substrate", "Cortex", "active", "anchor", "eudaemon-alpha"),
-    cgNode("117", "UI Standardization", "Cortex", "active", "anchor", "eudaemon-alpha"),
-    cgNode("123", "Web Architecture", "Cortex", "active", "anchor", "eudaemon-alpha"),
-    cgNode("124", "AGUI Heap Mode", "Cortex", "active", "anchor", "eudaemon-alpha"),
-    cgNode("132", "Eudaemon Alpha", "Cortex", "active", "anchor", "eudaemon-alpha"),
-    // -- Fixed Missing References --
-    cgNode("075", "Graph Layout Engines", "infrastructure", "active", "reference", "space-beta"),
-    cgNode("015", "Library Standards", "protocol", "completed", "reference", "space-gamma"),
-    cgNode("026", "Schema Registry", "protocol", "active", "anchor", "space-gamma"),
-    cgNode("109", "Lineage Extraction", "Systems", "active", "anchor", "space-alpha"),
-    cgNode("005", "Architecture Roadmap", "infrastructure", "superseded", "reference", "space-beta"),
-    cgNode("028", "Workflow DSL", "protocol", "draft", "reference", "space-gamma"),
-    cgNode("080", "File Registry", "infrastructure", "active", "anchor", "space-beta"),
-    cgNode("056", "Validation Hooks", "Systems", "draft", "reference", "space-alpha"),
-    cgNode("097", "Commons Model", "protocol", "active", "anchor", "space-gamma"),
-    cgNode("045", "HRM Scheduler", "runtime", "draft", "reference", "eudaemon-alpha"),
+    // ── Research Space Initiatives (Aligned with project reality) ──
+    cgNode("000", "DPub Contribution Graph", "Systems", "active", "anchor", "research"),
+    cgNode("007", "Nostra Spaces Concept", "protocol", "active", "anchor", "research"),
+    cgNode("013", "Nostra Workflow Engine", "protocol", "active", "anchor", "research"),
+    cgNode("019", "Nostra Log Registry", "protocol", "active", "anchor", "research"),
+    cgNode("021", "KIP Integration", "Systems", "active", "anchor", "research"),
+    cgNode("026", "Nostra Schema Manager", "protocol", "active", "anchor", "research"),
+    cgNode("040", "Nostra Schema Standards", "protocol", "active", "anchor", "research"),
+    cgNode("041", "Nostra Vector Store", "infrastructure", "active", "anchor", "research"),
+    cgNode("042", "Vector Embedding Strategy", "infrastructure", "active", "anchor", "research"),
+    cgNode("047", "Temporal Architecture", "runtime", "completed", "anchor", "research"),
+    cgNode("067", "Unified Protocol", "protocol", "active", "anchor", "research"),
+    cgNode("074", "Cortex UI Substrate", "Cortex", "active", "anchor", "research"),
+    cgNode("080", "DPub Standard", "protocol", "active", "anchor", "research"),
+    cgNode("105", "Cortex Test Catalog", "Systems", "completed", "anchor", "research"),
+    cgNode("109", "Cortex Desktop UX System", "Systems", "active", "anchor", "research"),
+    cgNode("118", "Cortex Runtime Extraction", "Systems", "active", "anchor", "research"),
+    cgNode("123", "Cortex Web Architecture", "Cortex", "active", "anchor", "research"),
+    cgNode("124", "AGUI Heap Mode", "Cortex", "active", "anchor", "research"),
+    cgNode("125", "System Integrity Quality", "Systems", "active", "anchor", "research"),
+    cgNode("132", "Eudaemon Alpha Initiative", "Cortex", "active", "anchor", "research"),
+    cgNode("135", "Nostra Contribution Protocol", "protocol", "active", "anchor", "research"),
   ],
   edges: [
-    // Systems cross-references
+    cgEdge("013", "047", "depends_on", 0.9),
+    cgEdge("019", "013", "references", 0.7),
+    cgEdge("026", "040", "depends_on", 0.8),
+    cgEdge("074", "123", "depends_on", 0.9),
+    cgEdge("124", "074", "references", 0.6),
+    cgEdge("118", "047", "references", 0.5),
+    cgEdge("132", "118", "depends_on", 0.8),
     cgEdge("125", "105", "depends_on", 0.9),
-    cgEdge("125", "046", "references", 0.8),
-    cgEdge("105", "063", "references", 0.7),
-    cgEdge("046", "089", "depends_on", 0.8),
-    cgEdge("000", "118", "references", 0.6),
-    cgEdge("055", "046", "references", 0.5),
-
-    // Infrastructure web
-    cgEdge("004", "031", "references", 0.5),
-    cgEdge("014", "017", "depends_on", 0.8),
-    cgEdge("042", "051", "references", 0.7),
-    cgEdge("020", "075", "references", 0.6),
-    cgEdge("044", "042", "references", 0.5),
-    cgEdge("085", "031", "depends_on", 0.7),
-    cgEdge("035", "017", "references", 0.4),
-    cgEdge("006", "008", "references", 0.5),
-    cgEdge("011", "085", "references", 0.4),
-    cgEdge("027", "013", "depends_on", 0.8),
-
-    // Protocol backbone
-    cgEdge("007", "008", "depends_on", 0.9),
-    cgEdge("008", "012", "references", 0.6),
-    cgEdge("013", "019", "references", 0.7),
-    cgEdge("018", "015", "depends_on", 0.7),
-    cgEdge("037", "040", "references", 0.6),
-    cgEdge("067", "119", "depends_on", 0.8),
-    cgEdge("119", "007", "references", 0.7),
-    cgEdge("040", "026", "depends_on", 0.8),
-    cgEdge("012", "007", "references", 0.6),
-
-    // Runtime connections
-    cgEdge("047", "013", "depends_on", 0.9),
-    cgEdge("122", "047", "references", 0.7),
-    cgEdge("129", "122", "depends_on", 0.8),
-    cgEdge("033", "019", "references", 0.5),
-    cgEdge("023", "007", "references", 0.4),
-
-    // Product/UX connections
-    cgEdge("109", "005", "supersedes", 0.9),
-    cgEdge("109", "074", "depends_on", 0.8),
-    cgEdge("005", "028", "references", 0.5),
-
-    // Architectural ties
-    cgEdge("026", "040", "references", 0.7),
-    cgEdge("080", "000", "depends_on", 0.9),
-    cgEdge("056", "067", "references", 0.6),
-    cgEdge("097", "118", "depends_on", 0.8),
-    cgEdge("015", "018", "references", 0.5),
-
-    // Experimental → production paths
-    cgEdge("028", "074", "references", 0.6),
-    cgEdge("045", "074", "references", 0.5),
-    cgEdge("075", "020", "references", 0.7),
-
-    // Cortex internal
-    cgEdge("117", "074", "depends_on", 0.9),
-    cgEdge("123", "117", "depends_on", 0.8),
-    cgEdge("124", "123", "depends_on", 0.8),
-    cgEdge("132", "122", "depends_on", 0.9),
-    cgEdge("132", "118", "references", 0.7),
-    cgEdge("074", "005", "supersedes", 0.8),
-
-    // Cross-layer strategic connections
-    cgEdge("118", "000", "depends_on", 0.9),
-    cgEdge("122", "014", "references", 0.6),
-    cgEdge("132", "047", "references", 0.7),
-    cgEdge("124", "007", "references", 0.5),
-    cgEdge("123", "109", "references", 0.6),
-    cgEdge("097", "119", "references", 0.7),
-    cgEdge("089", "063", "references", 0.6),
-    cgEdge("031", "004", "supersedes", 0.5),
-    cgEdge("067", "013", "references", 0.6),
-    cgEdge("080", "119", "references", 0.7),
-    cgEdge("056", "122", "references", 0.5),
-    cgEdge("033", "125", "references", 0.6),
-    cgEdge("051", "037", "depends_on", 0.7),
-    cgEdge("046", "055", "references", 0.5),
-    cgEdge("085", "007", "references", 0.4),
-    cgEdge("119", "080", "depends_on", 0.8),
-    cgEdge("129", "047", "depends_on", 0.7),
-    cgEdge("045", "005", "references", 0.4),
-    cgEdge("117", "109", "references", 0.6),
-    // -- Lineage Test Edges --
-    cgEdge("118", "004", "supersedes", 1.0),
-    cgEdge("074", "075", "supersedes", 0.9),
-    cgEdge("000", "013", "supersedes", 0.8),
-    cgEdge("109", "118", "supersedes", 0.95),
+    cgEdge("007", "135", "references", 0.7),
   ]
 };
 export const MOCK_NAVIGATION_PLAN = compilePreviewNavigationPlan(INTRO_SPACE_ID);
@@ -862,8 +790,9 @@ export const MOCK_UX_WORKBENCH_SPACES = {
         columns: ["ID", "Name", "Created"],
         rows: [
           { ID: INTRO_SPACE_ID, Name: "Intro Preview", Created: "2026-03-13" },
-          { ID: "SPACE-002", Name: "Research Lab", Created: "2026-03-01" },
-          { ID: "SPACE-003", Name: "Production Alpha", Created: "2026-03-10" }
+          { ID: "nostra-governance-v0", Name: "Governance", Created: "2026-03-10" },
+          { ID: "research", Name: "Research Lab", Created: "2026-03-01" },
+          { ID: "system", Name: "System Control", Created: "2026-03-10" }
         ]
       }
     }
