@@ -548,6 +548,8 @@ struct CortexA2uiFeedbackResponse {
     artifact_id: String,
     feedback_artifact_id: String,
     stored_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    follow_up_artifact_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
@@ -564,9 +566,7 @@ struct CortexPromotionHistoryResponse {
     decisions: Vec<UxPromotionDecision>,
 }
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    follow_up_artifact_id: Option<String>,
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 struct CortexCloseoutTasksQuery {
     contribution_id: Option<String>,
@@ -13808,6 +13808,23 @@ async fn post_cortex_heap_block_a2ui_feedback(
         );
     };
 
+    if parent_projection
+        .projection
+        .attributes
+        .as_ref()
+        .and_then(|attrs| attrs.get("approval_required"))
+        .map(|value| value.trim().eq_ignore_ascii_case("steward"))
+        .unwrap_or(false)
+        && authz_role_rank(&identity.role) < authz_role_rank("steward")
+    {
+        return cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            "HEAP_A2UI_FEEDBACK_FORBIDDEN",
+            "Steward role is required to approve this kickoff request.",
+            Some(json!({ "artifactId": artifact_id })),
+        );
+    }
+
     let actor_role = identity.role.clone();
     let actor_id = identity
         .principal
@@ -13900,6 +13917,161 @@ async fn post_cortex_heap_block_a2ui_feedback(
         }
         Err(response) => response,
     }
+}
+
+fn maybe_emit_initiative_kickoff_follow_up_task(
+    parent_projection: &HeapProjectionRecord,
+    feedback_artifact_id: &str,
+    stored_at: &str,
+    actor_id: &str,
+    actor_role: &str,
+    decision: &str,
+) -> Option<String> {
+    let normalized_decision = decision.trim().to_ascii_lowercase();
+    if normalized_decision != "approved" && normalized_decision != "approve" {
+        return None;
+    }
+
+    let attributes = parent_projection.projection.attributes.as_ref()?;
+    if attributes.get("approval_kind").map(String::as_str) != Some("initiative_kickoff") {
+        return None;
+    }
+
+    if let Some(existing) = read_heap_projection_store()
+        .into_iter()
+        .find(|entry| {
+            entry.deleted_at.is_none()
+                && entry.projection.block_type == "task"
+                && entry
+                    .projection
+                    .attributes
+                    .as_ref()
+                    .and_then(|attrs| attrs.get("kickoff_approval_artifact_id"))
+                    .map(String::as_str)
+                    == Some(parent_projection.projection.artifact_id.as_str())
+        })
+        .map(|entry| entry.projection.artifact_id)
+    {
+        return Some(existing);
+    }
+
+    let structured = parent_projection
+        .surface_json
+        .get("structured_data")
+        .and_then(Value::as_object)?;
+    if structured
+        .get("solicitation_kind")
+        .and_then(Value::as_str)
+        != Some("initiative_kickoff_approval")
+    {
+        return None;
+    }
+
+    let title = structured
+        .get("title")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            parent_projection
+                .projection
+                .title
+                .strip_suffix(" Approval")
+                .unwrap_or(parent_projection.projection.title.as_str())
+        });
+    let task_body = structured
+        .get("description")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())?;
+    let task_context = attributes.get("task_context")?;
+
+    let kickoff_artifact_id = format!(
+        "kickoff_{}_{}",
+        parent_projection.projection.artifact_id,
+        Utc::now().timestamp_millis()
+    );
+
+    let payload = json!({
+        "schema_version": "1.0.0",
+        "mode": "heap",
+        "workspace_id": parent_projection.projection.workspace_id.clone(),
+        "source": {
+            "agent_id": actor_id,
+            "request_id": format!("kickoff_follow_up_{}_{}", parent_projection.projection.artifact_id, Utc::now().timestamp_millis()),
+            "emitted_at": stored_at,
+            "session_id": format!("heap_kickoff_follow_up:{}", parent_projection.projection.workspace_id),
+        },
+        "block": {
+            "type": "task",
+            "title": title,
+            "attributes": {
+                "initiative_id": attributes.get("initiative_id").cloned().unwrap_or_default(),
+                "initiative_kickoff_template_id": attributes
+                    .get("initiative_kickoff_template_id")
+                    .cloned()
+                    .unwrap_or_default(),
+                "agent_role": attributes
+                    .get("requested_agent_role")
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        structured
+                            .get("requested_agent_role")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string()
+                    }),
+                "requested_agent_role": attributes
+                    .get("requested_agent_role")
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        structured
+                            .get("requested_agent_role")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string()
+                    }),
+                "required_capabilities": attributes
+                    .get("required_capabilities")
+                    .cloned()
+                    .unwrap_or_default(),
+                "reference_paths": attributes.get("reference_paths").cloned().unwrap_or_default(),
+                "task_context_version": attributes
+                    .get("task_context_version")
+                    .cloned()
+                    .unwrap_or_default(),
+                "task_context": task_context,
+                "routing_decision_mode": attributes
+                    .get("routing_decision_mode")
+                    .cloned()
+                    .unwrap_or_default(),
+                "kickoff_approval_artifact_id": parent_projection.projection.artifact_id.clone(),
+                "kickoff_feedback_artifact_id": feedback_artifact_id.to_string(),
+                "kickoff_approved_at": stored_at.to_string(),
+                "kickoff_approved_by": actor_id.to_string()
+            },
+            "behaviors": ["task", "actionable"]
+        },
+        "content": {
+            "payload_type": "task",
+            "task": task_body
+        },
+        "projection_hints": {
+            "mirror_mentions_to_relations": true,
+            "relation_map_version": "relations_v1",
+            "files_key_format": "hash:file_size"
+        },
+        "crdt_projection": {
+            "artifact_id": kickoff_artifact_id
+        }
+    });
+
+    let emit_request = parse_emit_heap_block(payload).ok()?;
+    emit_heap_block_core(
+        emit_request,
+        actor_id.to_string(),
+        actor_role.to_string(),
+    )
+    .ok()
+    .map(|response| response.artifact_id)
 }
 
 async fn post_cortex_heap_steward_gate_validate(
@@ -14097,23 +14269,6 @@ async fn post_cortex_heap_steward_gate_apply(
         block_id: child_block_id.clone(),
         block_type: child_block_type,
         title: child_title,
-    if parent_projection
-        .projection
-        .attributes
-        .as_ref()
-        .and_then(|attrs| attrs.get("approval_required"))
-        .map(|value| value.trim().eq_ignore_ascii_case("steward"))
-        .unwrap_or(false)
-        && authz_role_rank(&identity.role) < authz_role_rank("steward")
-    {
-        return cortex_ux_error(
-            StatusCode::FORBIDDEN,
-            "HEAP_A2UI_FEEDBACK_FORBIDDEN",
-            "Steward role is required to approve this kickoff request.",
-            Some(json!({ "artifactId": artifact_id })),
-        );
-    }
-
         surface_id: "steward_gate_surface".to_string(),
         emitted_at: now.clone(),
         created_at: now.clone(),
@@ -14199,161 +14354,6 @@ async fn post_cortex_heap_steward_gate_apply(
 
 pub(crate) async fn get_cortex_artifacts(headers: HeaderMap) -> axum::response::Response {
     let identity = match enforce_role_authorization(
-fn maybe_emit_initiative_kickoff_follow_up_task(
-    parent_projection: &HeapProjectionRecord,
-    feedback_artifact_id: &str,
-    stored_at: &str,
-    actor_id: &str,
-    actor_role: &str,
-    decision: &str,
-) -> Option<String> {
-    let normalized_decision = decision.trim().to_ascii_lowercase();
-    if normalized_decision != "approved" && normalized_decision != "approve" {
-        return None;
-    }
-
-    let attributes = parent_projection.projection.attributes.as_ref()?;
-    if attributes.get("approval_kind").map(String::as_str) != Some("initiative_kickoff") {
-        return None;
-    }
-
-    if let Some(existing) = read_heap_projection_store()
-        .into_iter()
-        .find(|entry| {
-            entry.deleted_at.is_none()
-                && entry.projection.block_type == "task"
-                && entry
-                    .projection
-                    .attributes
-                    .as_ref()
-                    .and_then(|attrs| attrs.get("kickoff_approval_artifact_id"))
-                    .map(String::as_str)
-                    == Some(parent_projection.projection.artifact_id.as_str())
-        })
-        .map(|entry| entry.projection.artifact_id)
-    {
-        return Some(existing);
-    }
-
-    let structured = parent_projection
-        .surface_json
-        .get("structured_data")
-        .and_then(Value::as_object)?;
-    if structured
-        .get("solicitation_kind")
-        .and_then(Value::as_str)
-        != Some("initiative_kickoff_approval")
-    {
-        return None;
-    }
-
-    let title = structured
-        .get("title")
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| {
-            parent_projection
-                .projection
-                .title
-                .strip_suffix(" Approval")
-                .unwrap_or(parent_projection.projection.title.as_str())
-        });
-    let task_body = structured
-        .get("description")
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())?;
-    let task_context = attributes.get("task_context")?;
-
-    let kickoff_artifact_id = format!(
-        "kickoff_{}_{}",
-        parent_projection.projection.artifact_id,
-        Utc::now().timestamp_millis()
-    );
-
-    let payload = json!({
-        "schema_version": "1.0.0",
-        "mode": "heap",
-        "workspace_id": parent_projection.projection.workspace_id.clone(),
-        "source": {
-            "agent_id": actor_id,
-            "request_id": format!("kickoff_follow_up_{}_{}", parent_projection.projection.artifact_id, Utc::now().timestamp_millis()),
-            "emitted_at": stored_at,
-            "session_id": format!("heap_kickoff_follow_up:{}", parent_projection.projection.workspace_id),
-        },
-        "block": {
-            "type": "task",
-            "title": title,
-            "attributes": {
-                "initiative_id": attributes.get("initiative_id").cloned().unwrap_or_default(),
-                "initiative_kickoff_template_id": attributes
-                    .get("initiative_kickoff_template_id")
-                    .cloned()
-                    .unwrap_or_default(),
-                "agent_role": attributes
-                    .get("requested_agent_role")
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        structured
-                            .get("requested_agent_role")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string()
-                    }),
-                "requested_agent_role": attributes
-                    .get("requested_agent_role")
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        structured
-                            .get("requested_agent_role")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string()
-                    }),
-                "required_capabilities": attributes
-                    .get("required_capabilities")
-                    .cloned()
-                    .unwrap_or_default(),
-                "reference_paths": attributes.get("reference_paths").cloned().unwrap_or_default(),
-                "task_context_version": attributes
-                    .get("task_context_version")
-                    .cloned()
-                    .unwrap_or_default(),
-                "task_context": task_context,
-                "routing_decision_mode": attributes
-                    .get("routing_decision_mode")
-                    .cloned()
-                    .unwrap_or_default(),
-                "kickoff_approval_artifact_id": parent_projection.projection.artifact_id.clone(),
-                "kickoff_feedback_artifact_id": feedback_artifact_id.to_string(),
-                "kickoff_approved_at": stored_at.to_string(),
-                "kickoff_approved_by": actor_id.to_string()
-            },
-            "behaviors": ["task", "actionable"]
-        },
-        "content": {
-            "payload_type": "task",
-            "task": task_body
-        },
-        "projection_hints": {
-            "mirror_mentions_to_relations": true,
-            "relation_map_version": "relations_v1",
-            "files_key_format": "hash:file_size"
-        },
-        "crdt_projection": {
-            "artifact_id": kickoff_artifact_id
-        }
-    });
-
-    let emit_request = parse_emit_heap_block(payload).ok()?;
-    emit_heap_block_core(
-        emit_request,
-        actor_id.to_string(),
-        actor_role.to_string(),
-    )
-    .ok()
-    .map(|response| response.artifact_id)
-}
-
         &headers,
         "get_cortex_artifacts",
         None,
@@ -33727,16 +33727,6 @@ mod tests {
         assert_eq!(runs_json[0]["run_id"], "monitor_fixture_001");
     }
 
-    #[tokio::test]
-    async fn motoko_graph_capture_writes_pending_event_with_deterministic_id() {
-        let _lock = acquire_testing_env_lock();
-        let temp = TestTempDir::new();
-        std::fs::create_dir_all(temp.path().join("decisions").join("pending"))
-            .expect("create pending dir");
-        let _guard = MotokoGraphLogDirGuard::set(temp.path());
-
-        let payload = DecisionCaptureRequest {
-            schema_version: "1.0.0".to_string(),
     fn initiative_kickoff_parent_payload(
         initiative_id: &str,
         template_id: &str,
@@ -34159,6 +34149,16 @@ mod tests {
         assert_eq!(body["errorCode"], "HEAP_A2UI_FEEDBACK_FORBIDDEN");
     }
 
+    #[tokio::test]
+    async fn motoko_graph_capture_writes_pending_event_with_deterministic_id() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        std::fs::create_dir_all(temp.path().join("decisions").join("pending"))
+            .expect("create pending dir");
+        let _guard = MotokoGraphLogDirGuard::set(temp.path());
+
+        let payload = DecisionCaptureRequest {
+            schema_version: "1.0.0".to_string(),
             contribution: "078".to_string(),
             decision_date: "2026-02-08".to_string(),
             selected_option: "Request Additional Evidence".to_string(),
