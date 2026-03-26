@@ -5,13 +5,14 @@ import argparse
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
-try:
-    import tomllib
-except Exception as exc:
-    print(f"FAIL: tomllib unavailable: {exc}")
-    raise SystemExit(1)
+LIB_DIR = Path(__file__).resolve().parent / "lib"
+if str(LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(LIB_DIR))
+
+from toml_loader import tomllib
 
 
 def repo_root() -> Path:
