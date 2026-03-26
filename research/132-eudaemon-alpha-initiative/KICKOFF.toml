@@ -1,0 +1,58 @@
+enabled = true
+template_id = "initiative-132-kickoff"
+label = "132 kickoff approval"
+description = "Request steward approval for the Initiative 132 institutional agent kickoff."
+objective = "Load the Initiative 132 kickoff as a bounded, approval-first task that preserves the heap, closeout, workflow, and stewardship boundaries before execution starts."
+agent_role = "systems-architect"
+
+required_capabilities = [
+  "heap-governance",
+  "workflow-orchestration",
+  "institutional-agent-architecture",
+  "closeout-ledgers",
+  "steward-review",
+]
+
+reference_paths = [
+  "research/132-eudaemon-alpha-initiative/WORK_PRIMITIVES_ARCHITECTURE.md",
+  "research/132-eudaemon-alpha-initiative/README.md",
+  "research/124-polymorphic-heap-mode/PLAN.md",
+  "research/126-agent-harness-architecture/PLAN.md",
+  "research/130-space-capability-graph-governance/PLAN.md",
+  "research/134-hybrid-workflow-authority-and-execution/PLAN.md",
+]
+
+required_tasks = [
+  "Read the Initiative 132 plan, README, and work-primitives architecture notes.",
+  "Confirm the boundary stack: heap for exploratory work, closeout ledgers for follow-through, workflow artifacts for executable plans, and initiatives for governed architecture intent.",
+  "Identify the first bounded kickoff slice for 132 without inventing a bespoke Eudaemon-only task or workspace primitive.",
+  "Map the required integration touchpoints across heap promotion, stewardship feedback, closeout linkage, and workflow-backed promotion paths.",
+  "Surface any policy or dependency ambiguity that should be routed to proposal generation or steward escalation before direct execution.",
+]
+
+success_criteria = [
+  "The kickoff task clearly preserves the initiative-versus-runtime primitive boundary.",
+  "The router can decide whether 132 should go direct, proposal-first, or back to steward review.",
+  "The kickoff does not imply autonomous promotion or a bespoke Eudaemon-only execution path.",
+]
+
+bottleneck_signals = [
+  "The kickoff starts treating the initiative plan as an executable workflow artifact.",
+  "A new Eudaemon-specific task primitive or workspace abstraction is introduced.",
+  "Dependencies on 124, 126, 130, or 134 are still too ambiguous for a bounded first slice.",
+]
+
+error_signals = [
+  "Heap notes, closeout tasks, workflow checkpoints, and initiative artifacts are collapsed into one primitive.",
+  "The kickoff bypasses steward review for structural or promotion-level decisions.",
+  "The first slice assumes direct graph mutation or auto-promotion from exploratory outputs.",
+]
+
+fallback_routes = [
+  "Escalate to proposal generation if the first bounded slice still has multiple viable implementation paths.",
+  "Escalate to steward review if the heap, workflow, or closeout boundaries are still disputed.",
+  "Pause the kickoff if the work still depends on unresolved 124/126/130/134 interface decisions.",
+]
+
+approval_summary = "Steward-backed kickoff approval for initiative 132 before any institutional-agent execution work is emitted."
+approval_rationale = "This kickoff should confirm the heap, closeout, workflow, and initiative boundaries before Eudaemon execution begins. Approval keeps Initiative 132 aligned to governed primitives rather than inventing a bespoke runtime path."

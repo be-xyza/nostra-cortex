@@ -68,15 +68,8 @@ Scope: Initiative 132 readiness review before further implementation
 - Keep Initiative 132 as a governed research initiative with frontmatter, explicit dependencies, and portfolio registration.
 - Use initiatives to record architecture intent, sequencing, and stewardship, not as runtime scratchpads.
 
-### Kickoff approval
-- Use heap kickoff approval only for bounded initiative kickoff packets that already have governed initiative metadata and a steward-backed execution boundary.
-- The kickoff launcher must emit an approval-first `agent_solicitation`, not a direct execution task.
-- Steward approval may mint a follow-up heap task, but execution still routes through the task router after approval.
-- Kickoff approval does not replace steward-gated structural APIs, workflow authority, or initiative governance.
-
 ### Promotion path
 - Heap note -> proposal / DPub / workflow draft / contribution update
-- Initiative kickoff approval -> steward feedback -> routed kickoff task
 - Closeout task -> verified completion artifact
 - Workflow draft -> definition -> instance
 - Initiative plan -> ContributionGraph lineage and portfolio governance
@@ -88,7 +81,6 @@ Scope: Initiative 132 readiness review before further implementation
 3. Do not overload primitives: notes are not initiatives, and initiatives are not runtime tasks.
 4. Prefer implemented contracts over speculative models: use existing heap, closeout, action-plan, and workflow surfaces before inventing anything new.
 5. References inform design; they do not outrank local authority artifacts.
-6. Kickoff approval is approval-first and bounded: it is not a generic "start initiative" affordance.
 
 ## Consequences for Initiative 132
 

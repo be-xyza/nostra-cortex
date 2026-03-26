@@ -548,6 +548,8 @@ struct CortexA2uiFeedbackResponse {
     artifact_id: String,
     feedback_artifact_id: String,
     stored_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    follow_up_artifact_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
@@ -564,7 +566,7 @@ struct CortexPromotionHistoryResponse {
     decisions: Vec<UxPromotionDecision>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 struct CortexCloseoutTasksQuery {
     contribution_id: Option<String>,
@@ -13806,18 +13808,32 @@ async fn post_cortex_heap_block_a2ui_feedback(
         );
     };
 
+    if parent_projection
+        .projection
+        .attributes
+        .as_ref()
+        .and_then(|attrs| attrs.get("approval_required"))
+        .map(|value| value.trim().eq_ignore_ascii_case("steward"))
+        .unwrap_or(false)
+        && authz_role_rank(&identity.role) < authz_role_rank("steward")
+    {
+        return cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            "HEAP_A2UI_FEEDBACK_FORBIDDEN",
+            "Steward role is required to approve this kickoff request.",
+            Some(json!({ "artifactId": artifact_id })),
+        );
+    }
+
     let actor_role = identity.role.clone();
     let actor_id = identity
         .principal
         .clone()
         .unwrap_or_else(|| actor_id_from_headers(&headers));
-    let submitted_by = actor_id_from_headers(&headers);
+    let submitted_by = actor_id.clone();
     let stored_at = now_iso();
-    let feedback_artifact_id = format!(
-        "feedback_{}_{}",
-        artifact_id,
-        Utc::now().timestamp_millis()
-    );
+    let feedback_artifact_id =
+        format!("feedback_{}_{}", artifact_id, Utc::now().timestamp_millis());
     let feedback_notes = request
         .feedback
         .as_deref()
@@ -13879,16 +13895,183 @@ async fn post_cortex_heap_block_a2ui_feedback(
         }
     };
 
-    match emit_heap_block_core(emit_request, actor_id, actor_role) {
-        Ok(_) => Json(CortexA2uiFeedbackResponse {
-            accepted: true,
-            artifact_id,
-            feedback_artifact_id,
-            stored_at,
-        })
-        .into_response(),
+    match emit_heap_block_core(emit_request, actor_id.clone(), actor_role.clone()) {
+        Ok(_) => {
+            let follow_up_artifact_id = maybe_emit_initiative_kickoff_follow_up_task(
+                &parent_projection,
+                &feedback_artifact_id,
+                &stored_at,
+                &actor_id,
+                &actor_role,
+                decision,
+            );
+
+            Json(CortexA2uiFeedbackResponse {
+                accepted: true,
+                artifact_id,
+                feedback_artifact_id,
+                stored_at,
+                follow_up_artifact_id,
+            })
+            .into_response()
+        }
         Err(response) => response,
     }
+}
+
+fn maybe_emit_initiative_kickoff_follow_up_task(
+    parent_projection: &HeapProjectionRecord,
+    feedback_artifact_id: &str,
+    stored_at: &str,
+    actor_id: &str,
+    actor_role: &str,
+    decision: &str,
+) -> Option<String> {
+    let normalized_decision = decision.trim().to_ascii_lowercase();
+    if normalized_decision != "approved" && normalized_decision != "approve" {
+        return None;
+    }
+
+    let attributes = parent_projection.projection.attributes.as_ref()?;
+    if attributes.get("approval_kind").map(String::as_str) != Some("initiative_kickoff") {
+        return None;
+    }
+
+    if let Some(existing) = read_heap_projection_store()
+        .into_iter()
+        .find(|entry| {
+            entry.deleted_at.is_none()
+                && entry.projection.block_type == "task"
+                && entry
+                    .projection
+                    .attributes
+                    .as_ref()
+                    .and_then(|attrs| attrs.get("kickoff_approval_artifact_id"))
+                    .map(String::as_str)
+                    == Some(parent_projection.projection.artifact_id.as_str())
+        })
+        .map(|entry| entry.projection.artifact_id)
+    {
+        return Some(existing);
+    }
+
+    let structured = parent_projection
+        .surface_json
+        .get("structured_data")
+        .and_then(Value::as_object)?;
+    if structured
+        .get("solicitation_kind")
+        .and_then(Value::as_str)
+        != Some("initiative_kickoff_approval")
+    {
+        return None;
+    }
+
+    let title = structured
+        .get("title")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            parent_projection
+                .projection
+                .title
+                .strip_suffix(" Approval")
+                .unwrap_or(parent_projection.projection.title.as_str())
+        });
+    let task_body = structured
+        .get("description")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())?;
+    let task_context = attributes.get("task_context")?;
+
+    let kickoff_artifact_id = format!(
+        "kickoff_{}_{}",
+        parent_projection.projection.artifact_id,
+        Utc::now().timestamp_millis()
+    );
+
+    let payload = json!({
+        "schema_version": "1.0.0",
+        "mode": "heap",
+        "workspace_id": parent_projection.projection.workspace_id.clone(),
+        "source": {
+            "agent_id": actor_id,
+            "request_id": format!("kickoff_follow_up_{}_{}", parent_projection.projection.artifact_id, Utc::now().timestamp_millis()),
+            "emitted_at": stored_at,
+            "session_id": format!("heap_kickoff_follow_up:{}", parent_projection.projection.workspace_id),
+        },
+        "block": {
+            "type": "task",
+            "title": title,
+            "attributes": {
+                "initiative_id": attributes.get("initiative_id").cloned().unwrap_or_default(),
+                "initiative_kickoff_template_id": attributes
+                    .get("initiative_kickoff_template_id")
+                    .cloned()
+                    .unwrap_or_default(),
+                "agent_role": attributes
+                    .get("requested_agent_role")
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        structured
+                            .get("requested_agent_role")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string()
+                    }),
+                "requested_agent_role": attributes
+                    .get("requested_agent_role")
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        structured
+                            .get("requested_agent_role")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string()
+                    }),
+                "required_capabilities": attributes
+                    .get("required_capabilities")
+                    .cloned()
+                    .unwrap_or_default(),
+                "reference_paths": attributes.get("reference_paths").cloned().unwrap_or_default(),
+                "task_context_version": attributes
+                    .get("task_context_version")
+                    .cloned()
+                    .unwrap_or_default(),
+                "task_context": task_context,
+                "routing_decision_mode": attributes
+                    .get("routing_decision_mode")
+                    .cloned()
+                    .unwrap_or_default(),
+                "kickoff_approval_artifact_id": parent_projection.projection.artifact_id.clone(),
+                "kickoff_feedback_artifact_id": feedback_artifact_id.to_string(),
+                "kickoff_approved_at": stored_at.to_string(),
+                "kickoff_approved_by": actor_id.to_string()
+            },
+            "behaviors": ["task", "actionable"]
+        },
+        "content": {
+            "payload_type": "task",
+            "task": task_body
+        },
+        "projection_hints": {
+            "mirror_mentions_to_relations": true,
+            "relation_map_version": "relations_v1",
+            "files_key_format": "hash:file_size"
+        },
+        "crdt_projection": {
+            "artifact_id": kickoff_artifact_id
+        }
+    });
+
+    let emit_request = parse_emit_heap_block(payload).ok()?;
+    emit_heap_block_core(
+        emit_request,
+        actor_id.to_string(),
+        actor_role.to_string(),
+    )
+    .ok()
+    .map(|response| response.artifact_id)
 }
 
 async fn post_cortex_heap_steward_gate_validate(
@@ -33542,6 +33725,428 @@ mod tests {
         let runs_json = response_json(runs_response).await;
         assert_eq!(runs_json.as_array().map(|v| v.len()), Some(1));
         assert_eq!(runs_json[0]["run_id"], "monitor_fixture_001");
+    }
+
+    fn initiative_kickoff_parent_payload(
+        initiative_id: &str,
+        template_id: &str,
+        title: &str,
+        requested_agent_role: &str,
+        task_body: &str,
+        request_id: &str,
+    ) -> Value {
+        let kickoff_context = json!({
+            "version": "1.0.0",
+            "initiative_id": initiative_id,
+            "title": title,
+            "objective": format!("Launch the governed {} kickoff.", initiative_id),
+            "decision_mode": "auto_if_clear_else_proposal",
+            "agent_role": requested_agent_role,
+            "required_capabilities": ["research-analysis"],
+            "required_tasks": ["Read the plan."],
+            "success_criteria": ["Task exists after approval."],
+            "bottleneck_signals": ["Missing schema inventory"],
+            "error_signals": ["GraphRAG starts too early"],
+            "fallback_routes": ["Escalate to steward"],
+            "routing_options": [],
+            "reference_paths": [format!("research/{initiative_id}/PLAN.md")]
+        });
+
+        json!({
+            "schema_version": "1.0.0",
+            "mode": "heap",
+            "workspace_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "source": {
+                "agent_id": "cortex-web",
+                "request_id": request_id,
+                "emitted_at": "2026-03-26T00:00:00Z",
+                "session_id": format!("heap:{request_id}")
+            },
+            "block": {
+                "type": "agent_solicitation",
+                "title": format!("{title} Approval"),
+                "attributes": {
+                    "initiative_id": initiative_id,
+                    "initiative_kickoff_template_id": template_id,
+                    "requested_agent_role": requested_agent_role,
+                    "required_capabilities": "research-analysis",
+                    "reference_paths": format!("research/{initiative_id}/PLAN.md"),
+                    "task_context_version": "1.0.0",
+                    "task_context": kickoff_context.to_string(),
+                    "routing_decision_mode": "auto_if_clear_else_proposal",
+                    "approval_kind": "initiative_kickoff",
+                    "approval_required": "steward",
+                    "review_lane": "private_review"
+                },
+                "behaviors": ["awaiting_approval"]
+            },
+            "content": {
+                "payload_type": "structured_data",
+                "structured_data": {
+                    "type": "agent_solicitation",
+                    "solicitation_kind": "initiative_kickoff_approval",
+                    "initiative_id": initiative_id,
+                    "initiative_kickoff_template_id": template_id,
+                    "title": title,
+                    "role": requested_agent_role,
+                    "requested_agent_role": requested_agent_role,
+                    "authority_scope": "steward_gate",
+                    "message": "Review the package before kickoff.",
+                    "description": task_body
+                }
+            },
+            "crdt_projection": {
+                "artifact_id": request_id
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn approved_initiative_kickoff_feedback_emits_follow_up_task() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let payload = initiative_kickoff_parent_payload(
+            "078",
+            "initiative-078-kickoff",
+            "Initiative 078 Kickoff",
+            "research-architect",
+            "# Initiative 078 Kickoff\n- [ ] Read the plan.",
+            "initiative-kickoff-approval-parent",
+        );
+
+        let emit_response = post_cortex_heap_emit(headers.clone(), Json(payload)).await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved for bounded kickoff.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["accepted"], true);
+        let follow_up_artifact_id = body["followUpArtifactId"]
+            .as_str()
+            .expect("follow-up artifact id");
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(query_body["items"][0]["projection"]["artifactId"], follow_up_artifact_id);
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["kickoff_approval_artifact_id"],
+            parent_artifact_id
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["kickoff_approved_by"],
+            "systems-steward"
+        );
+        assert_eq!(query_body["items"][0]["surfaceJson"]["payload_type"], "task");
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["task"],
+            "# Initiative 078 Kickoff\n- [ ] Read the plan."
+        );
+    }
+
+    #[tokio::test]
+    async fn rejected_initiative_kickoff_feedback_does_not_emit_follow_up_task() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            headers.clone(),
+            Json(initiative_kickoff_parent_payload(
+                "078",
+                "initiative-078-kickoff",
+                "Initiative 078 Kickoff",
+                "research-architect",
+                "# Initiative 078 Kickoff\n- [ ] Read the plan.",
+                "initiative-kickoff-rejected-parent",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "rejected".to_string(),
+                feedback: Some("Not yet bounded.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["followUpArtifactId"], Value::Null);
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 0);
+    }
+
+    #[tokio::test]
+    async fn repeated_initiative_kickoff_approval_is_idempotent() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            headers.clone(),
+            Json(initiative_kickoff_parent_payload(
+                "078",
+                "initiative-078-kickoff",
+                "Initiative 078 Kickoff",
+                "research-architect",
+                "# Initiative 078 Kickoff\n- [ ] Read the plan.",
+                "initiative-kickoff-duplicate-parent",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response_one = post_cortex_heap_block_a2ui_feedback(
+            headers.clone(),
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved once.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response_one.status(), StatusCode::OK);
+        let body_one = response_json(response_one).await;
+        let follow_up_artifact_id = body_one["followUpArtifactId"]
+            .as_str()
+            .expect("follow-up artifact id")
+            .to_string();
+
+        let response_two = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved twice.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response_two.status(), StatusCode::OK);
+        let body_two = response_json(response_two).await;
+        assert_eq!(body_two["followUpArtifactId"], follow_up_artifact_id);
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(query_body["items"][0]["projection"]["artifactId"], follow_up_artifact_id);
+    }
+
+    #[tokio::test]
+    async fn approved_initiative_132_kickoff_feedback_emits_follow_up_task() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            headers.clone(),
+            Json(initiative_kickoff_parent_payload(
+                "132",
+                "initiative-132-kickoff",
+                "Initiative 132 Kickoff",
+                "systems-architect",
+                "# Initiative 132 Kickoff\n- [ ] Read the plan.",
+                "initiative-132-kickoff-parent",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved for Initiative 132 kickoff.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        let follow_up_artifact_id = body["followUpArtifactId"]
+            .as_str()
+            .expect("follow-up artifact id");
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(query_body["items"][0]["projection"]["artifactId"], follow_up_artifact_id);
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["initiative_id"],
+            "132"
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["initiative_kickoff_template_id"],
+            "initiative-132-kickoff"
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["requested_agent_role"],
+            "systems-architect"
+        );
+    }
+
+    #[tokio::test]
+    async fn operator_cannot_approve_steward_required_initiative_kickoff() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut steward_headers = HeaderMap::new();
+        steward_headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        steward_headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            steward_headers,
+            Json(initiative_kickoff_parent_payload(
+                "078",
+                "initiative-078-kickoff",
+                "Initiative 078 Kickoff",
+                "research-architect",
+                "# Initiative 078 Kickoff\n- [ ] Read the plan.",
+                "initiative-kickoff-operator-forbidden",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let mut operator_headers = HeaderMap::new();
+        operator_headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        operator_headers.insert(
+            "x-cortex-actor",
+            "cortex-operator".parse().expect("actor header"),
+        );
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            operator_headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Operator tried to approve.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "HEAP_A2UI_FEEDBACK_FORBIDDEN");
     }
 
     #[tokio::test]

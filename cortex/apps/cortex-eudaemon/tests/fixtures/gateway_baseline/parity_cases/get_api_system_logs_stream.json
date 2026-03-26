@@ -8,8 +8,20 @@
   "normalization": {
     "mode": "strict",
     "ignored_fields": [],
-    "required_keys": []
+    "required_keys": [
+      "status"
+    ]
   },
-  "legacy_response": {},
-  "runtime_response": {}
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/logs/stream"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/logs/stream"
+  }
 }

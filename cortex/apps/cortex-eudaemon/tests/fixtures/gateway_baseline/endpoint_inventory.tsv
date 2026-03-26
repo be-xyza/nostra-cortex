@@ -115,6 +115,7 @@ GET	/api/testing/runs/:run_id
 GET	/api/workflows
 GET	/api/workflows/catalog
 GET	/ws
+GET	/ws/chat
 GET	/ws/cortex/collab
 POST	/api/acp/fs/read_text_file
 POST	/api/acp/fs/write_text_file
@@ -208,4 +209,3 @@ POST	/api/workflow/run
 POST	/api/workflow/save
 PUT	/api/cortex/preferences/theme-policy
 PUT	/api/spaces/:space_id/capability-graph
-GET	/ws/chat
