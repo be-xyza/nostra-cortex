@@ -1,0 +1,58 @@
+enabled = true
+template_id = "initiative-078-kickoff"
+label = "078 kickoff approval"
+description = "Request steward approval for the Initiative 078 knowledge graph kickoff."
+objective = "Load the initiative 078 graph kickoff as a reusable task that preserves routing context, surfaces bottlenecks early, and keeps execution governed."
+agent_role = "research-architect"
+
+required_capabilities = [
+  "research-analysis",
+  "schema-registry",
+  "ontology-design",
+  "graph-query-contracts",
+  "retrieval-governance",
+]
+
+reference_paths = [
+  "research/078-knowledge-graphs/DECISIONS.md",
+  "research/078-knowledge-graphs/CHECKLIST.md",
+  "research/reference/analysis/trustgraph.md",
+  "research/reference/analysis/trustgraph_capability_matrix.md",
+]
+
+required_tasks = [
+  "Read the initiative plan, decisions, checklist, and TrustGraph reference analysis.",
+  "Audit existing JSON schema locations under `shared/standards/` and verify the current registry story.",
+  "Draft the M21 schema registry index without moving files yet.",
+  "Define the minimal ontology scope for `Space`, `Contribution`, `Capability`, `Relation`, and `ProvenanceScope`.",
+  "Specify the `KnowledgeBundle` manifest fields and retrieval policy contract.",
+  "Prototype the read-only triple facade only after the registry and ontology shape are clear.",
+  "Keep GraphRAG gated until ingestion and cross-index quality checks are green.",
+]
+
+success_criteria = [
+  "A planner/router can parse the emitted context without schema changes.",
+  "The kickoff task body exposes the objective, bottlenecks, and error signals.",
+  "The launcher remains reusable for future initiatives through the same governed registry path.",
+]
+
+bottleneck_signals = [
+  "Schema inventory drift or missing registry ownership.",
+  "Ontology scope expanding beyond the minimal Space/Contribution/Capability/Relation/Provenance set.",
+  "Graph query work starting before the registry and ontology contracts are stable.",
+]
+
+error_signals = [
+  "Files are moved before the schema index is in place.",
+  "GraphRAG work starts without ingestion and cross-index validation.",
+  "Task context is reduced to a one-line launcher without routing detail.",
+]
+
+fallback_routes = [
+  "Escalate to schema registry cleanup if the current layout is inconsistent.",
+  "Pause and refine the ontology scope if the initial vocabulary grows too quickly.",
+  "Return to the proposal/planner lane if execution dependencies are still ambiguous.",
+]
+
+approval_summary = "Steward-backed kickoff approval for initiative 078 so the staged M21-M25 graph delivery stays governed before execution."
+approval_rationale = "This kickoff should not bypass stewardship. Approval confirms the schema-registry-first sequence, minimal ontology scope, read-only triple facade, and GraphRAG gating before execution."
