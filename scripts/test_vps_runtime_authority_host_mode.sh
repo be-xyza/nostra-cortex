@@ -12,6 +12,7 @@ fail() {
 make_fixture() {
   local tmpdir="$1"
   local worker_exec="$2"
+  local web_mode="${3:-not_deployed}"
   local commit
 
   mkdir -p \
@@ -29,7 +30,7 @@ make_fixture() {
   git -C "$tmpdir/repo" commit -q -m 'fixture'
   commit="$(git -C "$tmpdir/repo" rev-parse HEAD)"
 
-  cat >"$tmpdir/state/cortex_runtime_authority.json" <<EOF
+  cat >"$tmpdir/state/cortex_runtime_authority.json" <<EOF2
 {
   "schemaVersion": "1.0.0",
   "generatedAt": "2026-03-26T00:00:00Z",
@@ -50,7 +51,7 @@ make_fixture() {
       "workingDirectory": "$tmpdir/repo/nostra/worker"
     },
     "cortexWeb": {
-      "deploymentMode": "not_deployed",
+      "deploymentMode": "$web_mode",
       "sourceRoot": "$tmpdir/repo/cortex/apps/cortex-web"
     }
   },
@@ -59,19 +60,19 @@ make_fixture() {
     "operationsIndex": "$ROOT_DIR/docs/cortex/README.md"
   }
 }
-EOF
+EOF2
 
-  cat >"$tmpdir/systemd/cortex-gateway.service" <<EOF
+  cat >"$tmpdir/systemd/cortex-gateway.service" <<EOF2
 [Service]
 WorkingDirectory=$tmpdir/repo/cortex
 ExecStart=$tmpdir/repo/cortex/target/release/cortex-gateway
-EOF
+EOF2
 
-  cat >"$tmpdir/systemd/cortex-worker.service" <<EOF
+  cat >"$tmpdir/systemd/cortex-worker.service" <<EOF2
 [Service]
 WorkingDirectory=$tmpdir/repo/nostra/worker
 ExecStart=$worker_exec
-EOF
+EOF2
 }
 
 pass_fixture="$(mktemp -d /tmp/cortex-vps-auth-pass.XXXXXX)"
@@ -89,15 +90,15 @@ fail_fixture="$(mktemp -d /tmp/cortex-vps-auth-fail.XXXXXX)"
 make_fixture "$fail_fixture" "/usr/local/bin/cortex_worker"
 
 set +e
-output="$(
+output="$({
   NOSTRA_VPS_DEPLOY_ROOT="$fail_fixture" \
   NOSTRA_VPS_REPO_ROOT="$fail_fixture/repo" \
   NOSTRA_VPS_STATE_ROOT="$fail_fixture/state" \
   NOSTRA_VPS_AUTHORITY_MANIFEST="$fail_fixture/state/cortex_runtime_authority.json" \
   NOSTRA_VPS_SYSTEMD_ROOT="$fail_fixture/systemd" \
   NOSTRA_VPS_SKIP_PROCESS_PROVENANCE=1 \
-  bash "$CHECK_SCRIPT" 2>&1
-)"
+  bash "$CHECK_SCRIPT"
+} 2>&1)"
 rc=$?
 set -e
 
@@ -107,6 +108,30 @@ fi
 
 if ! grep -Fq "/usr/local/bin/cortex_worker" <<<"$output"; then
   fail "host-mode contract did not report detached worker path"
+fi
+
+web_mode_fixture="$(mktemp -d /tmp/cortex-vps-auth-web-mode.XXXXXX)"
+make_fixture "$web_mode_fixture" "$web_mode_fixture/repo/nostra/worker/target/release/cortex_worker" "served_from_vps"
+
+set +e
+web_output="$({
+  NOSTRA_VPS_DEPLOY_ROOT="$web_mode_fixture" \
+  NOSTRA_VPS_REPO_ROOT="$web_mode_fixture/repo" \
+  NOSTRA_VPS_STATE_ROOT="$web_mode_fixture/state" \
+  NOSTRA_VPS_AUTHORITY_MANIFEST="$web_mode_fixture/state/cortex_runtime_authority.json" \
+  NOSTRA_VPS_SYSTEMD_ROOT="$web_mode_fixture/systemd" \
+  NOSTRA_VPS_SKIP_PROCESS_PROVENANCE=1 \
+  bash "$CHECK_SCRIPT"
+} 2>&1)"
+web_rc=$?
+set -e
+
+if [[ "$web_rc" -eq 0 ]]; then
+  fail "host-mode contract unexpectedly passed non-not_deployed cortex-web fixture"
+fi
+
+if ! grep -Fq "deploymentMode must equal not_deployed" <<<"$web_output"; then
+  fail "host-mode contract did not report cortex-web deploymentMode mismatch"
 fi
 
 echo "PASS: vps runtime authority host-mode fixture coverage"

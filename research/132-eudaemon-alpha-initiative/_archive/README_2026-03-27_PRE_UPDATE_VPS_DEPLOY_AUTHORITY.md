@@ -2,7 +2,7 @@
 
 **Status**: Active  
 **Created**: 2026-03-07  
-**Updated**: 2026-03-27  
+**Updated**: 2026-03-19  
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -80,7 +80,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Canonical Phase 6 runtime**: Python Eudaemon Alpha worker plus Rust gateway on the same Hetzner host
 - **Canonical gateway URL**: `http://127.0.0.1:3000/api/cortex/studio`
 - **Deployment model**: direct Linux services via `systemd`; no Docker requirement for Phase 6
-- **Promotion authority**: operator-local SSH via [`scripts/promote_eudaemon_alpha_vps.sh`](/Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh); GitHub signals promotability only
 - **Auth posture**: `NOSTRA_AUTHZ_DEV_MODE=0`, `NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER=0`, `NOSTRA_AGENT_IDENTITY_ENFORCEMENT=1`
 - **Submission model**: heap-to-governed-artifact promotion with steward review
 - **Operational access**: loopback-local gateway plus SSH access from a local private key
@@ -94,7 +93,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - Canonical env template: [`.env.hetzner.example`](/Users/xaoj/ICP/eudaemon-alpha/agent/.env.hetzner.example)
 - Local env template: [`.env.example`](/Users/xaoj/ICP/eudaemon-alpha/agent/.env.example)
 - Hetzner runbook: [`eudaemon-alpha-phase6-hetzner.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-hetzner.md)
-- Local promotion command: [`scripts/promote_eudaemon_alpha_vps.sh`](/Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh)
 - Companion repo bootstrap script: [`bootstrap_eudaemon_alpha_hetzner.sh`](/Users/xaoj/ICP/eudaemon-alpha/scripts/bootstrap_eudaemon_alpha_hetzner.sh)
 - Production gateway launcher: [`run_cortex_gateway_production.sh`](/Users/xaoj/ICP/scripts/run_cortex_gateway_production.sh)
 - Companion repo agent launcher: [`run_eudaemon_alpha_agent.sh`](/Users/xaoj/ICP/eudaemon-alpha/scripts/run_eudaemon_alpha_agent.sh)
