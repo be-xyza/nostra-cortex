@@ -69,8 +69,6 @@ The only supported production promotion path is the operator-local command [`scr
 4. Run [`scripts/check_vps_runtime_authority.sh`](/Users/xaoj/ICP/scripts/check_vps_runtime_authority.sh) on-host before any smoke validation.
 5. Fail the promotion if repo, manifest, units, or running binaries drift from the intended commit.
 
-The default operator expectation is a stable local SSH alias for `eudaemon-alpha-hetzner`. If an operator needs a temporary direct host token, SSH config file, or non-default port, they may set `NOSTRA_EUDAEMON_VPS_HOST` and `NOSTRA_EUDAEMON_VPS_SSH_ARGS` for that invocation without introducing a second deployment authority surface.
-
 The on-host deploy path must:
 
 1. Fetch `origin`.
@@ -116,14 +114,6 @@ bash /Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh
 Promote a specific known-good commit:
 
 ```bash
-bash /Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh <commit-sha>
-```
-
-Promote with an explicit host token and temporary SSH options:
-
-```bash
-NOSTRA_EUDAEMON_VPS_HOST=root@203.0.113.10 \
-NOSTRA_EUDAEMON_VPS_SSH_ARGS='-F /tmp/eudaemon-alpha-ssh.conf -p 2222' \
 bash /Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh <commit-sha>
 ```
 

@@ -12,8 +12,7 @@ test -x /Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh
 
 2. Confirm the active runbook is [`docs/cortex/eudaemon-alpha-phase6-hetzner.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-hetzner.md).
 3. Confirm the local SSH alias is configured for `eudaemon-alpha-hetzner` using [`docs/cortex/eudaemon-alpha-ssh-config.example`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-ssh-config.example).
-4. If an alias is unavailable for a one-off promotion, prepare `NOSTRA_EUDAEMON_VPS_HOST` and `NOSTRA_EUDAEMON_VPS_SSH_ARGS` for that invocation instead of editing the deploy flow.
-5. Confirm GitHub has reported the target `main` commit as promotable before operator promotion.
+4. Confirm GitHub has reported the target `main` commit as promotable before operator promotion.
 
 ## Phase 1: Governed Promotion
 

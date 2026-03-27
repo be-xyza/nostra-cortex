@@ -37,19 +37,53 @@ cat <<'STUB' >"$ssh_stub"
 #!/usr/bin/env bash
 set -euo pipefail
 
-host="$1"
-shift
+args=("$@")
+option_value_expected=0
+host=""
+index=0
+
+while (( index < ${#args[@]} )); do
+  token="${args[$index]}"
+  if (( option_value_expected == 1 )); then
+    option_value_expected=0
+    ((index += 1))
+    continue
+  fi
+  case "$token" in
+    -F|-i|-J|-l|-o|-p)
+      option_value_expected=1
+      ((index += 1))
+      continue
+      ;;
+    -*)
+      ((index += 1))
+      continue
+      ;;
+    *)
+      host="$token"
+      ((index += 1))
+      break
+      ;;
+  esac
+done
+
+if [[ -z "$host" ]]; then
+  echo "missing ssh host" >&2
+  exit 1
+fi
+
+remote_args=("${args[@]:$index}")
 cat >/dev/null
 printf 'host=%s\n' "$host" >>"$FAKE_SSH_LOG"
-printf 'args=%s\n' "$*" >>"$FAKE_SSH_LOG"
+printf 'args=%s\n' "${args[*]}" >>"$FAKE_SSH_LOG"
 
 if [[ "${FAKE_SSH_MODE:-success}" == "fail" ]]; then
   echo "remote failure" >&2
   exit 1
 fi
 
-target_commit="$4"
-manifest_path="$8"
+target_commit="${remote_args[3]}"
+manifest_path="${remote_args[7]}"
 if [[ "${FAKE_SSH_MODE:-success}" == "mismatch" ]]; then
   target_commit="mismatch"
 fi
@@ -75,6 +109,27 @@ fi
 
 if ! grep -Fq "host=fixture-host" "$ssh_log"; then
   fail "promotion script did not invoke ssh on success path"
+fi
+
+rm -f "$ssh_log"
+
+ssh_args_output="$({
+  cd "$work_repo"
+  FAKE_SSH_LOG="$ssh_log" \
+  NOSTRA_WORKSPACE_ROOT="$work_repo" \
+  SSH_BIN="$ssh_stub" \
+  NOSTRA_EUDAEMON_PROMOTE_FETCH_REMOTE=0 \
+  NOSTRA_EUDAEMON_VPS_HOST="fixture-host" \
+  NOSTRA_EUDAEMON_VPS_SSH_ARGS="-F /tmp/fake-config -p 2222" \
+  bash "$PROMOTE_SCRIPT" "$main_commit"
+} 2>&1)"
+
+if ! grep -Fq "Promoted commit $main_commit to fixture-host" <<<"$ssh_args_output"; then
+  fail "promotion script did not report successful promotion with ssh args override"
+fi
+
+if ! grep -Fq "args=-F /tmp/fake-config -p 2222 fixture-host" "$ssh_log"; then
+  fail "promotion script did not pass through ssh args override"
 fi
 
 rm -f "$ssh_log"
