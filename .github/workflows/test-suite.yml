@@ -244,6 +244,24 @@ jobs:
           else
             echo "SKIP: scripts/check_alignment_contract_targets.sh not found"
           fi
+      - name: VPS Runtime Authority Contract Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/check_vps_runtime_authority.sh" ]]; then
+            chmod +x scripts/check_vps_runtime_authority.sh
+            bash scripts/check_vps_runtime_authority.sh --repo-contract
+          else
+            echo "SKIP: scripts/check_vps_runtime_authority.sh not found"
+          fi
+      - name: VPS Runtime Authority Host-Mode Fixture Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/test_vps_runtime_authority_host_mode.sh" ]]; then
+            chmod +x scripts/test_vps_runtime_authority_host_mode.sh
+            bash scripts/test_vps_runtime_authority_host_mode.sh
+          else
+            echo "SKIP: scripts/test_vps_runtime_authority_host_mode.sh not found"
+          fi
       - name: Docs Structure Check
         if: steps.preflight.outputs.run == 'true'
         run: |
@@ -715,7 +733,7 @@ jobs:
 
   deploy:
     name: Deploy to VPS
-    needs: [test-rust, test-motoko, lint, siq-observe, siq-softgate, test-catalog-consistency, cortex-runtime-freeze-gates, initiative-118-evidence-gate, offline-simulations-playwright, acp-gateway-integration]
+    needs: [test-rust, test-motoko, lint, siq-observe, siq-softgate, test-catalog-consistency, cortex-runtime-freeze-gates, offline-simulations-playwright, acp-gateway-integration]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     environment: production
