@@ -5,16 +5,15 @@ Wants=cortex-icp-network.service
 
 [Service]
 Type=simple
-User=nostra
-Group=nostra
-WorkingDirectory=/srv/nostra/eudaemon-alpha/repo/nostra/worker
-EnvironmentFile=/srv/nostra/eudaemon-alpha/config/eudaemon-alpha.env
-# Assumes the binary built by cargo is symlinked or in PATH
-ExecStart=/usr/local/bin/cortex_worker
+User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=__DEPLOY_ROOT__/repo/nostra/worker
+EnvironmentFile=__DEPLOY_ROOT__/config/eudaemon-alpha.env
+ExecStart=__DEPLOY_ROOT__/repo/nostra/worker/target/release/cortex_worker
 Restart=always
 RestartSec=5
-StandardOutput=append:/srv/nostra/eudaemon-alpha/logs/cortex-worker.log
-StandardError=append:/srv/nostra/eudaemon-alpha/logs/cortex-worker.log
+StandardOutput=append:__DEPLOY_ROOT__/logs/cortex-worker.log
+StandardError=append:__DEPLOY_ROOT__/logs/cortex-worker.log
 
 [Install]
 WantedBy=multi-user.target

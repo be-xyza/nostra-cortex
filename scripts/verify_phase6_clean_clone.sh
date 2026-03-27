@@ -36,11 +36,14 @@ for required_path in \
   "${ROOT_DIR}/docs/cortex/eudaemon-alpha-phase6-checklist.md" \
   "${ROOT_DIR}/docs/cortex/eudaemon-alpha-ssh-config.example" \
   "${ROOT_DIR}/.github/ISSUE_TEMPLATE/eudaemon-alpha-phase6-bring-up.md" \
-  "${ROOT_DIR}/scripts/run_cortex_runtime_freeze_gates.sh"
+  "${ROOT_DIR}/scripts/run_cortex_runtime_freeze_gates.sh" \
+  "${ROOT_DIR}/scripts/check_vps_runtime_authority.sh"
 do
   [[ -f "${required_path}" ]] || fail "required Phase 6 asset missing: ${required_path}"
 done
 pass "Phase 6 operator assets are present"
+
+bash "${ROOT_DIR}/scripts/check_vps_runtime_authority.sh" --repo-contract
 
 bash "${ROOT_DIR}/scripts/run_cortex_runtime_freeze_gates.sh"
 

@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/shared/standards/cortex_runtime_authority.schema.json",
+  "title": "Cortex Runtime Authority Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "deployRoot",
+    "repoRoot",
+    "git",
+    "runtime",
+    "authorityDocs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "deployRoot": {
+      "type": "string"
+    },
+    "repoRoot": {
+      "type": "string"
+    },
+    "git": {
+      "type": "object",
+      "required": [
+        "branch",
+        "commit",
+        "origin"
+      ],
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "gateway",
+        "worker",
+        "cortexWeb"
+      ],
+      "properties": {
+        "gateway": {
+          "$ref": "#/$defs/runtimeComponent"
+        },
+        "worker": {
+          "$ref": "#/$defs/runtimeComponent"
+        },
+        "cortexWeb": {
+          "type": "object",
+          "required": [
+            "deploymentMode",
+            "sourceRoot"
+          ],
+          "properties": {
+            "deploymentMode": {
+              "type": "string"
+            },
+            "sourceRoot": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "authorityDocs": {
+      "type": "object",
+      "required": [
+        "primaryRunbook",
+        "operationsIndex"
+      ],
+      "properties": {
+        "primaryRunbook": {
+          "type": "string"
+        },
+        "operationsIndex": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "runtimeComponent": {
+      "type": "object",
+      "required": [
+        "execPath",
+        "workingDirectory"
+      ],
+      "properties": {
+        "execPath": {
+          "type": "string"
+        },
+        "workingDirectory": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
