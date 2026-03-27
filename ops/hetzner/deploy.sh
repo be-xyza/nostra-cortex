@@ -116,7 +116,6 @@ log "   > Rebuilding cortex_worker from $WORKER_WORKDIR at $TARGET_COMMIT..."
 log "   > Rendering systemd units from repo templates..."
 render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-gateway.service" "/etc/systemd/system/cortex-gateway.service"
 render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-worker.service" "/etc/systemd/system/cortex-worker.service"
-render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-icp-network.service" "/etc/systemd/system/cortex-icp-network.service"
 sudo systemctl daemon-reload
 
 log "   > Restarting services..."

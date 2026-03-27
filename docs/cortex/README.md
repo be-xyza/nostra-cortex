@@ -12,7 +12,7 @@ GitHub validates whether `main` is promotable, but production VPS mutation is op
 - [`docs/cortex/eudaemon-alpha-phase6-checklist.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-checklist.md)
 - [`docs/cortex/eudaemon-alpha-ssh-config.example`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-ssh-config.example)
 - [`docs/architecture/nostra-cortex-boundary.md`](/Users/xaoj/ICP/docs/architecture/nostra-cortex-boundary.md)
-- [`research/013-nostra-workflow-engine/DECISIONS.md`](/Users/xaoj/ICP/research/013-nostra-workflow-engine/DECISIONS.md)
+- [`research/013-nostra-workflow-engine/`](/Users/xaoj/ICP/research/013-nostra-workflow-engine)
 
 ## Focus Areas
 
