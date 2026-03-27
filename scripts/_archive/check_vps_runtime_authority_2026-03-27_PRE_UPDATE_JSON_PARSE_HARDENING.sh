@@ -101,10 +101,6 @@ check_file_contains() {
 check_json_parse() {
   local label="$1"
   local path="$2"
-  if command -v jq >/dev/null 2>&1 && jq empty "$path" >/dev/null 2>&1; then
-    push_check "$label:$path"
-    return 0
-  fi
   if python3 - "$path" <<'PY' >/dev/null 2>&1
 import json
 import pathlib
@@ -115,7 +111,7 @@ PY
   then
     push_check "$label:$path"
   else
-    push_error "$label failed to parse: $path (requires jq or a working python3)"
+    push_error "$label failed to parse: $path"
   fi
 }
 
