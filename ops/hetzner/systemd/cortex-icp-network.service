@@ -1,0 +1,20 @@
+[Unit]
+Description=Managed local ICP network for Eudaemon Alpha Phase 6
+After=network-online.target
+Wants=network-online.target
+Before=cortex-gateway.service
+
+[Service]
+Type=oneshot
+User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=__DEPLOY_ROOT__/repo
+EnvironmentFile=__DEPLOY_ROOT__/config/eudaemon-alpha.env
+ExecStart=__DEPLOY_ROOT__/repo/scripts/run_cortex_icp_network.sh
+ExecStop=__DEPLOY_ROOT__/repo/scripts/stop_cortex_icp_network.sh
+RemainAfterExit=yes
+StandardOutput=append:__DEPLOY_ROOT__/logs/cortex-icp-network.log
+StandardError=append:__DEPLOY_ROOT__/logs/cortex-icp-network.log
+
+[Install]
+WantedBy=multi-user.target
