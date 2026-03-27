@@ -262,15 +262,6 @@ jobs:
           else
             echo "SKIP: scripts/test_vps_runtime_authority_host_mode.sh not found"
           fi
-      - name: VPS Promotion Script Fixture Check
-        if: steps.preflight.outputs.run == 'true'
-        run: |
-          if [[ -f "scripts/test_promote_eudaemon_alpha_vps.sh" ]]; then
-            chmod +x scripts/test_promote_eudaemon_alpha_vps.sh
-            bash scripts/test_promote_eudaemon_alpha_vps.sh
-          else
-            echo "SKIP: scripts/test_promote_eudaemon_alpha_vps.sh not found"
-          fi
       - name: Docs Structure Check
         if: steps.preflight.outputs.run == 'true'
         run: |
@@ -740,19 +731,17 @@ jobs:
         if: steps.preflight.outputs.run == 'true'
         run: cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" --test acp_staging_operationalization -- --ignored
 
-  promotable-vps:
-    name: Promotable for VPS
+  deploy:
+    name: Deploy to VPS
     needs: [test-rust, test-motoko, lint, siq-observe, siq-softgate, test-catalog-consistency, cortex-runtime-freeze-gates, offline-simulations-playwright, acp-gateway-integration]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    environment: production
     steps:
-      - name: Summarize VPS promotability
-        run: |
-          {
-            echo "## VPS promotion signal"
-            echo
-            echo "Commit `${GITHUB_SHA}` on `main` passed the required quality gates."
-            echo
-            echo "GitHub Actions did not mutate the VPS."
-            echo "Deploy authority remains operator-initiated via `scripts/promote_eudaemon_alpha_vps.sh` from a governed machine."
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Deploy to Eudaemon Alpha VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: /srv/nostra/eudaemon-alpha/repo/ops/hetzner/deploy.sh

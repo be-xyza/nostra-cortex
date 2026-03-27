@@ -19,7 +19,6 @@ REPO_TEMPLATE_GATEWAY="$ROOT_DIR/ops/hetzner/systemd/cortex-gateway.service"
 REPO_TEMPLATE_WORKER="$ROOT_DIR/ops/hetzner/systemd/cortex-worker.service"
 REPO_TEMPLATE_ICP="$ROOT_DIR/ops/hetzner/systemd/cortex-icp-network.service"
 DEPLOY_SCRIPT="$ROOT_DIR/ops/hetzner/deploy.sh"
-PROMOTION_SCRIPT="$ROOT_DIR/scripts/promote_eudaemon_alpha_vps.sh"
 DOCS_INDEX="$ROOT_DIR/docs/cortex/README.md"
 PRIMARY_RUNBOOK="$ROOT_DIR/docs/cortex/eudaemon-alpha-phase6-hetzner.md"
 CHECKLIST_DOC="$ROOT_DIR/docs/cortex/eudaemon-alpha-phase6-checklist.md"
@@ -88,37 +87,8 @@ check_dir_exists() {
   fi
 }
 
-check_file_contains() {
-  local label="$1"
-  local path="$2"
-  local pattern="$3"
-  if grep -Fq "$pattern" "$path"; then
-    push_check "$label:$pattern"
-  else
-    push_error "$label missing pattern '$pattern' in $path"
-  fi
-}
-
-check_json_parse() {
-  local label="$1"
-  local path="$2"
-  if python3 - "$path" <<'PY' >/dev/null 2>&1
-import json
-import pathlib
-import sys
-
-json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-PY
-  then
-    push_check "$label:$path"
-  else
-    push_error "$label failed to parse: $path"
-  fi
-}
-
 check_repo_contract() {
   check_file_exists "deploy_script" "$DEPLOY_SCRIPT"
-  check_file_exists "promotion_script" "$PROMOTION_SCRIPT"
   check_file_exists "gateway_template" "$REPO_TEMPLATE_GATEWAY"
   check_file_exists "worker_template" "$REPO_TEMPLATE_WORKER"
   check_file_exists "icp_template" "$REPO_TEMPLATE_ICP"
@@ -126,37 +96,6 @@ check_repo_contract() {
   check_file_exists "primary_runbook" "$PRIMARY_RUNBOOK"
   check_file_exists "checklist_doc" "$CHECKLIST_DOC"
   check_file_exists "manifest_schema" "$SCHEMA_PATH"
-
-  if grep -Fq 'TARGET_COMMIT="${1:-}"' "$DEPLOY_SCRIPT"; then
-    push_check "deploy_target_commit_input:present"
-  else
-    push_error "deploy script missing explicit commit input"
-  fi
-
-  if grep -Fq 'git -C "$REPO_ROOT" fetch origin main' "$DEPLOY_SCRIPT"; then
-    push_check "deploy_fetch_origin_main:present"
-  else
-    push_error "deploy script missing origin/main fetch"
-  fi
-
-  if grep -Fq 'cat-file -e "${TARGET_COMMIT}^{commit}"' "$DEPLOY_SCRIPT"; then
-    push_check "deploy_commit_verification:present"
-  else
-    push_error "deploy script missing explicit commit verification"
-  fi
-
-  if grep -Fq 'git -C "$REPO_ROOT" checkout --detach "$TARGET_COMMIT"' "$DEPLOY_SCRIPT" && \
-     grep -Fq 'git -C "$REPO_ROOT" reset --hard "$TARGET_COMMIT"' "$DEPLOY_SCRIPT"; then
-    push_check "deploy_exact_checkout:present"
-  else
-    push_error "deploy script missing exact target checkout/reset behavior"
-  fi
-
-  if grep -Fq 'git reset --hard origin/main' "$DEPLOY_SCRIPT"; then
-    push_error "deploy script still hard-resets directly to origin/main"
-  else
-    push_check "deploy_hidden_origin_main_reset:absent"
-  fi
 
   if grep -Fq 'cd "$GATEWAY_WORKDIR"' "$DEPLOY_SCRIPT"; then
     push_check "deploy_build_root:gateway"
@@ -182,12 +121,6 @@ check_repo_contract() {
     push_error "deploy script missing authority manifest path"
   fi
 
-  if grep -Fq '"deploymentMode": "not_deployed"' "$DEPLOY_SCRIPT"; then
-    push_check "deploy_cortex_web_mode:not_deployed"
-  else
-    push_error "deploy script missing cortex-web not_deployed declaration"
-  fi
-
   local worker_exec gateway_exec
   worker_exec="$(unit_value "ExecStart" "$REPO_TEMPLATE_WORKER" || true)"
   gateway_exec="$(unit_value "ExecStart" "$REPO_TEMPLATE_GATEWAY" || true)"
@@ -210,14 +143,6 @@ check_repo_contract() {
   else
     push_error "docs index missing active phase6 authority docs"
   fi
-
-  check_file_contains "runbook_promotion_path" "$PRIMARY_RUNBOOK" "scripts/promote_eudaemon_alpha_vps.sh"
-  check_file_contains "runbook_manifest_path" "$PRIMARY_RUNBOOK" "cortex_runtime_authority.json"
-  check_file_contains "runbook_repo_authority" "$PRIMARY_RUNBOOK" "/srv/nostra/eudaemon-alpha/repo"
-  check_file_contains "runbook_operator_ssh" "$PRIMARY_RUNBOOK" "operator-initiated"
-  check_file_contains "runbook_cortex_web_not_deployed" "$PRIMARY_RUNBOOK" "not_deployed"
-  check_file_contains "checklist_promotion_path" "$CHECKLIST_DOC" "scripts/promote_eudaemon_alpha_vps.sh"
-  check_file_contains "docs_index_promotion_path" "$DOCS_INDEX" "scripts/promote_eudaemon_alpha_vps.sh"
 
   while IFS= read -r rel_path; do
     [[ -z "$rel_path" ]] && continue
@@ -278,7 +203,6 @@ check_host_contract() {
   check_dir_exists "repo_root" "$REPO_ROOT"
   check_dir_exists "state_root" "$STATE_ROOT"
   check_file_exists "manifest" "$MANIFEST_PATH"
-  check_json_parse "manifest_json" "$MANIFEST_PATH"
 
   if git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     push_check "repo_git_checkout:true"
@@ -396,28 +320,10 @@ check_host_contract() {
     check_running_process_provenance "cortex-worker.service" "$manifest_worker_exec"
   fi
 
-  if [[ "$manifest_web_mode" == "not_deployed" ]]; then
-    push_check "cortex_web_mode_matches_boundary:true"
-  else
-    push_error "manifest cortexWeb deploymentMode must equal not_deployed"
-  fi
-
   if [[ -n "$manifest_web_root" && -d "$manifest_web_root" ]]; then
     push_check "cortex_web_source_root_exists:true"
   else
     push_error "manifest cortexWeb sourceRoot missing or unreadable: $manifest_web_root"
-  fi
-
-  if [[ -n "$manifest_runbook" && -f "$manifest_runbook" ]]; then
-    check_file_contains "host_runbook_promotion_path" "$manifest_runbook" "scripts/promote_eudaemon_alpha_vps.sh"
-    check_file_contains "host_runbook_repo_authority" "$manifest_runbook" "/srv/nostra/eudaemon-alpha/repo"
-    check_file_contains "host_runbook_manifest_authority" "$manifest_runbook" "cortex_runtime_authority.json"
-    check_file_contains "host_runbook_not_deployed" "$manifest_runbook" "not_deployed"
-  fi
-
-  if [[ -f "$CHECKLIST_DOC" ]]; then
-    check_file_contains "host_checklist_promotion_path" "$CHECKLIST_DOC" "scripts/promote_eudaemon_alpha_vps.sh"
-    check_file_contains "host_checklist_authority_check" "$CHECKLIST_DOC" "check_vps_runtime_authority.sh"
   fi
 }
 

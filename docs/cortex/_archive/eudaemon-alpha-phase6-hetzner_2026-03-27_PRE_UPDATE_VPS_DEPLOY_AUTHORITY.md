@@ -2,13 +2,10 @@
 
 This is the canonical VPS runtime runbook for the current Eudaemon Alpha host.
 
-## Deployment Authority Model
+## Runtime Authority Model
 
-- Source authority: committed `main`
-- GitHub authority: validates promotability only; it does not mutate the VPS
-- Deploy authority: operator-initiated SSH promotion from a governed machine
 - Canonical analysis authority: `/srv/nostra/eudaemon-alpha/repo`
-- Host-local runtime authority manifest: `/srv/nostra/eudaemon-alpha/state/cortex_runtime_authority.json`
+- Host-local authority manifest: `/srv/nostra/eudaemon-alpha/state/cortex_runtime_authority.json`
 - Deployed runtime components:
   - `cortex-gateway`
   - `cortex_worker`
@@ -59,26 +56,16 @@ Canonical roots:
 - source path: `/srv/nostra/eudaemon-alpha/repo/cortex/apps/cortex-web`
 - operator use: local or separately hosted client against the live gateway
 
-## Promotion Contract
+## Deploy Contract
 
-The only supported production promotion path is the operator-local command [`scripts/promote_eudaemon_alpha_vps.sh`](/Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh). It is operator-initiated over SSH and must:
+The VPS deploy path must:
 
-1. Resolve a target commit from `origin/main`.
-2. SSH to the VPS using local operator SSH config.
-3. Run [`ops/hetzner/deploy.sh`](/Users/xaoj/ICP/ops/hetzner/deploy.sh) on-host with that exact commit.
-4. Run [`scripts/check_vps_runtime_authority.sh`](/Users/xaoj/ICP/scripts/check_vps_runtime_authority.sh) on-host before any smoke validation.
-5. Fail the promotion if repo, manifest, units, or running binaries drift from the intended commit.
-
-The on-host deploy path must:
-
-1. Fetch `origin`.
-2. Verify the chosen commit exists.
-3. Checkout/reset the mirror to that exact committed revision.
-4. Build the gateway from `/srv/nostra/eudaemon-alpha/repo/cortex`.
-5. Build the worker from `/srv/nostra/eudaemon-alpha/repo/nostra/worker`.
-6. Render and install the systemd units from repo templates.
-7. Restart the gateway and worker.
-8. Write `/srv/nostra/eudaemon-alpha/state/cortex_runtime_authority.json`.
+1. Sync `/srv/nostra/eudaemon-alpha/repo` to the intended committed revision.
+2. Build the gateway from `/srv/nostra/eudaemon-alpha/repo/cortex`.
+3. Build the worker from `/srv/nostra/eudaemon-alpha/repo/nostra/worker`.
+4. Render and install the systemd units from the repo templates.
+5. Write `/srv/nostra/eudaemon-alpha/state/cortex_runtime_authority.json`.
+6. Restart the gateway and worker.
 
 The authority manifest is the first source of truth for the VPS agent. Running services must be treated as derived state that is validated against that manifest, not as authority by themselves.
 
@@ -96,34 +83,11 @@ This check must confirm:
 - the authority manifest exists and parses
 - manifest commit matches repo `HEAD`
 - installed gateway and worker units run binaries under the repo mirror
-- running gateway and worker processes match the manifest executable paths
 - declared working directories exist
-- authority docs referenced by the manifest exist and match the runtime boundary
-- `cortex-web` deployment mode is explicitly `not_deployed`
+- `cortex-web` deployment mode is explicit
+- authority docs referenced by the manifest exist
 
 If this check fails, the VPS agent must treat the host as out of sync and stop before analysis or runtime mutation work.
-
-## Operator Runbook
-
-Promote the latest promotable `main` commit:
-
-```bash
-bash /Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh
-```
-
-Promote a specific known-good commit:
-
-```bash
-bash /Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh <commit-sha>
-```
-
-Rollback uses the same governed path:
-
-```bash
-bash /Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh <previous-known-good-commit>
-```
-
-After promotion or rollback, rerun the authority check and then continue to smoke validation.
 
 ## Operator Validation
 
