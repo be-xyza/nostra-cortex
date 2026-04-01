@@ -54,6 +54,7 @@ pub enum ContributionKind {
     Pr,
     Bounty,
     Decision,
+    Question,
     Task,
 }
 
@@ -2079,7 +2080,7 @@ fn contribution_node_schema_doc() -> serde_json::Value {
         "id": {"type": "string"},
         "resource_ref": {"type": "string"},
         "title": {"type": "string"},
-        "kind": {"type": "string", "enum": ["initiative", "pr", "bounty", "decision", "task"]},
+        "kind": {"type": "string", "enum": ["initiative", "pr", "bounty", "decision", "question", "task"]},
         "status": {"type": "string", "enum": ALLOWED_STATUS},
         "layer": {"type": "string"},
         "portfolio_role": {"type": "string", "enum": ALLOWED_PORTFOLIO_ROLE},
@@ -2235,6 +2236,19 @@ stewardship:
         );
         assert_eq!(kind, "references");
         assert_eq!(confidence, 0.6);
+    }
+
+    #[test]
+    fn contribution_kind_supports_question_nodes() {
+        let encoded =
+            serde_json::to_string(&ContributionKind::Question).expect("serialize question kind");
+        assert_eq!(encoded, "\"question\"");
+        let schema = contribution_node_schema_doc();
+        let schema_json = serde_json::to_string(&schema).expect("serialize schema doc");
+        assert!(
+            schema_json.contains("\"question\""),
+            "node schema should advertise question as an allowed kind"
+        );
     }
 
     #[test]

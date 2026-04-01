@@ -10,7 +10,12 @@ impl Stage for ClassifyStage {
 
     fn process(&self, input: Document) -> Result<Document> {
         let mut doc = input;
-        let schema_ref = doc.request.schema_ref.clone().unwrap_or_default().to_lowercase();
+        let schema_ref = doc
+            .request
+            .schema_ref
+            .clone()
+            .unwrap_or_default()
+            .to_lowercase();
 
         for entity in &mut doc.candidate_entities {
             let label = entity.label.to_lowercase();
