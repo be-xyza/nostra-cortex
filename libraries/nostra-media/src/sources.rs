@@ -47,7 +47,7 @@ impl VideoSource for LocalFileVideoSource {
     }
 
     fn get_duration_in_frames(&self) -> u32 {
-        0 
+        0
     }
 }
 
@@ -59,23 +59,32 @@ pub struct CompositeSource {
 impl VideoSource for CompositeSource {
     async fn get_frame(&self, ctx: &TimelineContext) -> Result<Vec<u8>, String> {
         let mut base_frame = vec![0; (ctx.width * ctx.height * 4) as usize];
-        
+
         for layer in &self.layers {
             let layer_frame = layer.get_frame(ctx).await?;
             // Simple alpha blending
             for i in (0..base_frame.len()).step_by(4) {
                 let alpha = layer_frame[i + 3] as f32 / 255.0;
-                base_frame[i] = ((layer_frame[i] as f32 * alpha) + (base_frame[i] as f32 * (1.0 - alpha))) as u8;
-                base_frame[i+1] = ((layer_frame[i+1] as f32 * alpha) + (base_frame[i+1] as f32 * (1.0 - alpha))) as u8;
-                base_frame[i+2] = ((layer_frame[i+2] as f32 * alpha) + (base_frame[i+2] as f32 * (1.0 - alpha))) as u8;
-                base_frame[i+3] = 255; // Solid output
+                base_frame[i] = ((layer_frame[i] as f32 * alpha)
+                    + (base_frame[i] as f32 * (1.0 - alpha))) as u8;
+                base_frame[i + 1] = ((layer_frame[i + 1] as f32 * alpha)
+                    + (base_frame[i + 1] as f32 * (1.0 - alpha)))
+                    as u8;
+                base_frame[i + 2] = ((layer_frame[i + 2] as f32 * alpha)
+                    + (base_frame[i + 2] as f32 * (1.0 - alpha)))
+                    as u8;
+                base_frame[i + 3] = 255; // Solid output
             }
         }
-        
+
         Ok(base_frame)
     }
 
     fn get_duration_in_frames(&self) -> u32 {
-        self.layers.iter().map(|l| l.get_duration_in_frames()).max().unwrap_or(0)
+        self.layers
+            .iter()
+            .map(|l| l.get_duration_in_frames())
+            .max()
+            .unwrap_or(0)
     }
 }

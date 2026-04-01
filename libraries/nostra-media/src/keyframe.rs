@@ -1,4 +1,4 @@
-use crate::interpolate::{interpolate, ExtrapolateType, InterpolateOptions};
+use crate::interpolate::{ExtrapolateType, InterpolateOptions, interpolate};
 
 #[derive(Debug, Clone)]
 pub struct Keyframe {

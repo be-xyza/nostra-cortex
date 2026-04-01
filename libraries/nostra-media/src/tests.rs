@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod integration_tests {
     use crate::composition::{Sequence, TimelineContext};
-    use crate::interpolate::{interpolate, ExtrapolateType, InterpolateOptions};
-    use crate::spring::{spring, SpringConfig, SpringOptions};
+    use crate::interpolate::{ExtrapolateType, InterpolateOptions, interpolate};
+    use crate::spring::{SpringConfig, SpringOptions, spring};
 
     #[test]
     fn test_sequence_and_interpolation() {
