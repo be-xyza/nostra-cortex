@@ -229,7 +229,8 @@ async fn main() -> Result<()> {
     }
 
     let config = ConfigService::get();
-    let canister_id = config.get_canister_id("primary")
+    let canister_id = config
+        .get_canister_id("primary")
         .expect("CANISTER_ID (primary) is strictly required");
     println!("   > Target Canister: {}", canister_id);
 
@@ -237,11 +238,13 @@ async fn main() -> Result<()> {
     let kip = KipClient::new(agent_arc.clone(), canister_id);
 
     // Streaming Canister
-    let streaming_id = config.get_canister_id("streaming")
+    let streaming_id = config
+        .get_canister_id("streaming")
         .expect("Streaming Canister ID (CANISTER_ID_NOSTRA_STREAMING) must be set");
     println!("   > Streaming Canister: {}", streaming_id);
 
-    let backend_id = config.get_canister_id("backend")
+    let backend_id = config
+        .get_canister_id("backend")
         .expect("Backend Canister ID (CANISTER_ID_NOSTRA_BACKEND) must be set");
     println!("   > Backend Canister: {}", backend_id);
 
