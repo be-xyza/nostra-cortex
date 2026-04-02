@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-04-01T00:00:00Z",
+  "generated_at": "2026-02-24T00:00:00Z",
   "exceptions": [
     {
       "id": "reference_constitutional_contract_missing",
@@ -8,7 +8,7 @@
       "command_target": "scripts/check_reference_constitutional_contract.py",
       "owner": "Research Steward",
       "reason": "Legacy reference constitutional contract checker pending restoration.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -17,7 +17,7 @@
       "command_target": "scripts/check_workflow_declarations.sh",
       "owner": "Systems Steward",
       "reason": "Workflow declaration parity checker pending restoration.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -26,7 +26,7 @@
       "command_target": "scripts/check_test_catalog_consistency.sh",
       "owner": "Systems Steward",
       "reason": "Test catalog consistency checker pending restoration.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -35,7 +35,7 @@
       "command_target": "scripts/check_role_semantics.py",
       "owner": "Constitutional Steward",
       "reason": "Role semantics checker pending restoration.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -44,7 +44,7 @@
       "command_target": "scripts/check_reference_paths.sh",
       "owner": "Research Steward",
       "reason": "Reference path hygiene checker pending restoration.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -53,7 +53,7 @@
       "command_target": "scripts/check_docs_structure.sh",
       "owner": "Operational Steward",
       "reason": "Docs catalog structure checker pending restoration.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -62,7 +62,7 @@
       "command_target": "scripts/check_core_standards_drift.py",
       "owner": "Systems Steward",
       "reason": "Core standards drift checker pending restoration.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -70,7 +70,7 @@
       "script_path": "scripts/check_reference_metadata_v2.py",
       "owner": "Systems Steward",
       "reason": "Legacy CI reference pending implementation.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -78,7 +78,7 @@
       "script_path": "scripts/check_reference_taxonomy_integrity.py",
       "owner": "Systems Steward",
       "reason": "Legacy CI reference pending implementation.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -86,7 +86,7 @@
       "script_path": "scripts/check_no_panic_paths.sh",
       "owner": "Systems Steward",
       "reason": "Legacy CI reference pending implementation.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -94,7 +94,7 @@
       "script_path": "scripts/check_phase7_closeout_tasks.py",
       "owner": "Systems Steward",
       "reason": "Legacy CI reference pending implementation.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -102,7 +102,7 @@
       "script_path": "scripts/check_cortex_ux_fixture_drift.py",
       "owner": "Systems Steward",
       "reason": "Legacy CI reference pending implementation.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     },
     {
@@ -110,7 +110,7 @@
       "script_path": "nostra/scripts/verify_compliance.sh",
       "owner": "Systems Steward",
       "reason": "Legacy CI reference pending implementation.",
-      "expires_at": "2026-04-30",
+      "expires_at": "2026-03-31",
       "enabled": true
     }
   ]
