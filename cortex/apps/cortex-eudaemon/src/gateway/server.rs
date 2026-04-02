@@ -1,3 +1,7 @@
+use crate::gateway::session_auth::{
+    AuthSession, build_session_record, load_session_from_headers, project_auth_session,
+    resolve_session_cookie, set_cookie_value, switch_active_role, upsert_session_record,
+};
 use crate::gateway::state::{AgentApprovalSignal, GatewayState};
 use crate::services::acp_adapter::{
     AcpAdapter, AcpPolicyConfig, AcpPolicyError, FsReadTextFileRequest, FsWriteTextFileRequest,
@@ -7,6 +11,9 @@ use crate::services::acp_metrics::get_acp_metrics_snapshot;
 use crate::services::acp_protocol::{JsonRpcRequest, handle_rpc_request, is_acp_pilot_enabled};
 use crate::services::agent_evaluation_loop::evaluate_agent_gate;
 use crate::services::agent_execution_events::{emit_agent_execution_record, hash_json_value};
+use crate::services::agent_service::{
+    ChatAgentIdentity, ChatContentPart, ChatHistoryTurn, ChatSourceAnchor,
+};
 use crate::services::artifact_collab_crdt::{
     ArtifactCollabCheckpoint, ArtifactCrdtConflict, ArtifactCrdtState, ArtifactCrdtUpdateEnvelope,
     apply_update as apply_crdt_update, build_replace_markdown_update,
@@ -38,18 +45,25 @@ use crate::services::cortex_ux_store::{
 use crate::services::file_system_service::FileSystemService;
 use crate::services::governance_client::{ActionScopeEvaluation, GovernanceClient};
 use crate::services::heap_mapper::{
-    EmitHeapBlockRequest, HeapBlockProjection, canonicalize_emit_heap_block,
-    map_emit_heap_block_to_agui_mutations, parse_emit_heap_block,
-    parse_iso_timestamp as parse_heap_iso_timestamp, project_heap_block, validate_emit_heap_block,
+    EmitHeapBlockRequest, HeapA2uiContent, HeapBlockProjection, HeapContent, HeapPayloadType,
+    HeapRichTextContent, canonicalize_emit_heap_block, map_emit_heap_block_to_a2ui_mutations,
+    parse_emit_heap_block, parse_iso_timestamp as parse_heap_iso_timestamp, project_heap_block,
+    validate_emit_heap_block,
 };
 use crate::services::heap_nesting::{NestingProjectionRecord, build_nested_a2ui_tree_by_artifact};
-use crate::services::llm_adapter::client::{LlmAdapterClient, LlmStreamEvent};
-use crate::services::llm_adapter::config::{LlmAdapterFailMode, llm_adapter_config_from_env};
-use crate::services::llm_adapter::tool_loop::{builtin_tools, run_responses_tool_loop};
 use crate::services::ops_agents::{AgentContributionApprovalRequest, AgentRunRecord};
 #[cfg(test)]
 use crate::services::ops_flows::{WorkflowAutomationDescriptor, WorkflowCatalogEntry};
 use crate::services::provider_probe::ProviderProbeRequest;
+use crate::services::provider_runtime::client::{
+    ProviderRuntimeClient, ProviderRuntimeStreamEvent,
+};
+use crate::services::provider_runtime::config::{
+    ProviderRuntimeFailMode, load_provider_registry_state, provider_runtime_config_from_env,
+    resolve_provider_runtime_state,
+};
+use crate::services::provider_runtime::policy::provider_by_id_if_executable;
+use crate::services::provider_runtime::tool_loop::{builtin_tools, run_responses_tool_loop};
 use crate::services::siq_types::{
     SiqCoverage, SiqDependencyClosure, SiqGateSummary, SiqGraphProjection, SiqHealth,
     SiqRunArtifact,
@@ -100,10 +114,10 @@ use axum::{
     Router,
     body::{Body, to_bytes},
     extract::{
-        Path, Query, Request, State,
+        DefaultBodyLimit, Multipart, Path, Query, Request, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Json, Response},
     routing::{get, post, put},
@@ -143,6 +157,9 @@ use cortex_domain::simulation::scenario::{
 use cortex_domain::simulation::session::{
     SimulationAction as DomainSimulationAction, run_deterministic_session as run_domain_session,
 };
+use cortex_domain::spaces::{
+    SpaceAgentRoutingOverride, SpaceRoutingSettings, SpaceRuntimeSettingsRegistry,
+};
 use cortex_domain::ux::{
     CompilationContext, CompiledActionPlanRequest, CompiledSurfacingPlan, compile_action_plan,
     compile_navigation_plan,
@@ -164,11 +181,16 @@ use cortex_domain::workflow::{
 use cortex_runtime::ports::TimeProvider as RuntimeTimeProvider;
 use cortex_runtime::workflow::adapter::WorkflowExecutionAdapter;
 use cortex_runtime::workflow::local_durable_worker::LocalDurableWorkerAdapter;
+use futures_util::FutureExt;
 use futures_util::{sink::SinkExt, stream::StreamExt};
-use nostra_extraction::contribution_graph::{
-    ContributionGraphV1, DoctorReport, EditionDiffReport, PathAssessmentBundleV1, assess_path,
-    diff_editions, doctor, ingest_and_write, publish_edition, query_graph, simulate,
-    validate_research_portfolio,
+use nostra_extraction::{
+    ExtractionMode, ExtractionRequestV1, ExtractionStatus,
+    contribution_graph::{
+        ContributionGraphV1, DoctorReport, EditionDiffReport, PathAssessmentBundleV1, assess_path,
+        diff_editions, doctor, ingest_and_write, publish_edition, query_graph, simulate,
+        validate_research_portfolio,
+    },
+    run_local_pipeline_with_content,
 };
 use nostra_resource_ref::{PredicateRef, ResourceRef};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -241,7 +263,6 @@ impl Default for RuntimeDispatchTelemetryState {
 #[derive(Serialize)]
 struct SystemStatus {
     icp_cli_running: bool,
-    dfx_running: bool,
     version: String,
     replica_port: u16,
 }
@@ -251,7 +272,6 @@ struct SystemReady {
     ready: bool,
     gateway_port: u16,
     icp_network_healthy: bool,
-    dfx_port_healthy: bool,
     notes: Vec<String>,
 }
 
@@ -1341,6 +1361,71 @@ struct SpatialExperimentRunSummary {
     event_key: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutPosition {
+    x: f64,
+    y: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutViewState {
+    #[serde(default)]
+    zoom: Option<f64>,
+    #[serde(default)]
+    pan_x: Option<f64>,
+    #[serde(default)]
+    pan_y: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutState {
+    #[serde(default)]
+    shape_positions: BTreeMap<String, SpatialPlaneLayoutPosition>,
+    #[serde(default)]
+    collapsed_groups: BTreeMap<String, bool>,
+    #[serde(default)]
+    view_state: Option<SpatialPlaneLayoutViewState>,
+    #[serde(default)]
+    selected_shape_ids: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutLineage {
+    #[serde(default)]
+    view_spec_id: Option<String>,
+    #[serde(default)]
+    workflow_id: Option<String>,
+    #[serde(default)]
+    graph_hash: Option<String>,
+    #[serde(default)]
+    space_id: Option<String>,
+    updated_by: String,
+    updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutV1 {
+    schema_version: String,
+    plane_id: String,
+    view_spec_id: String,
+    space_id: String,
+    revision: u64,
+    layout: SpatialPlaneLayoutState,
+    lineage: SpatialPlaneLayoutLineage,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutResponse {
+    accepted: bool,
+    layout: SpatialPlaneLayoutV1,
+}
+
 const VIEWSPEC_PROPOSAL_INDEX_KEY: &str = "/cortex/ux/viewspecs/proposals/index.json";
 const VIEWSPEC_ACTIVE_SCOPE_INDEX_KEY: &str = "/cortex/ux/viewspecs/active/index.json";
 const VIEWSPEC_REPLAY_INDEX_KEY: &str = "/cortex/ux/viewspecs/replay/index.json";
@@ -1518,11 +1603,14 @@ struct ArtifactDocumentV2 {
     fallback_active: bool,
     /// Optional: A2UI Heap Block metadata (Initiative 124 Phase 3)
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    agui_initial_ui_json: Option<String>,
+    #[serde(alias = "agui_initial_ui_json")]
+    a2ui_initial_ui_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    agui_tags: Option<Vec<String>>,
+    #[serde(alias = "agui_tags")]
+    a2ui_tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    agui_mentions: Option<Vec<String>>,
+    #[serde(alias = "agui_mentions")]
+    a2ui_mentions: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     heap_workspace_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -1554,7 +1642,7 @@ struct HeapProjectionRecord {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct EmitHeapBlockResponse {
+pub(crate) struct EmitHeapBlockResponse {
     schema_version: String,
     accepted: bool,
     artifact_id: String,
@@ -1622,6 +1710,137 @@ struct HeapBlocksResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     next_cursor: Option<String>,
     items: Vec<HeapBlockListItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadArtifactThumbnail {
+    r#type: String,
+    size: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    width: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    height: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadArtifactRecord {
+    upload_id: String,
+    resource_ref: String,
+    space_id: String,
+    title: Option<String>,
+    source_agent_id: String,
+    hash: String,
+    name: String,
+    mime_type: String,
+    file_size: u64,
+    is_uploaded: bool,
+    thumbnails: Vec<HeapUploadArtifactThumbnail>,
+    extraction_supported: bool,
+    stored_path: String,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadArtifactResponse {
+    upload_id: String,
+    resource_ref: String,
+    hash: String,
+    name: String,
+    mime_type: String,
+    file_size: u64,
+    is_uploaded: bool,
+    thumbnails: Vec<HeapUploadArtifactThumbnail>,
+    extraction_supported: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadExtractionTriggerResponse {
+    job_id: String,
+    status: ExtractionStatus,
+    upload_id: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    requested_parser_profile: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadExtractionTriggerRequest {
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    parser_profile: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadExtractionStatusRecord {
+    job_id: String,
+    upload_id: String,
+    status: ExtractionStatus,
+    #[serde(default)]
+    created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    requested_parser_profile: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    parser_backend: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    confidence: Option<f32>,
+    #[serde(default)]
+    flags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    result_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    page_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    block_count: Option<u32>,
+    last_updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadExtractionRunsResponse {
+    generated_at: String,
+    upload_id: String,
+    items: Vec<HeapUploadExtractionStatusRecord>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadExtractionRunDetailResponse {
+    #[serde(flatten)]
+    run: HeapUploadExtractionStatusRecord,
+    #[serde(default)]
+    attempted_backends: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    model_id: Option<String>,
+    #[serde(default)]
+    first_page_preview: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    first_page_block_count: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadParserProfileRecord {
+    parser_profile: String,
+    configured: bool,
+    supports_mime: Vec<String>,
+    role: String,
+    parser_hint: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct HeapUploadParserProfilesResponse {
+    generated_at: String,
+    items: Vec<HeapUploadParserProfileRecord>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -3074,7 +3293,20 @@ impl GatewayService {
             .route("/ws", get(ws_handler))
             .route("/ws/chat", get(ws_chat_handler))
             .route("/ws/cortex/collab", get(ws_collab_handler))
+            .route(
+                "/api/cortex/chat/conversations",
+                get(get_cortex_chat_conversations),
+            )
+            .route(
+                "/api/cortex/chat/conversations/:thread_id",
+                get(get_cortex_chat_conversation),
+            )
             .route("/api/system/status", get(get_system_status))
+            .route("/api/system/session", get(get_system_session))
+            .route(
+                "/api/system/session/active-role",
+                post(post_system_session_active_role),
+            )
             .route("/api/system/whoami", get(get_system_whoami))
             .route("/api/system/ready", get(get_system_ready))
             .route("/api/system/build", get(get_system_build))
@@ -3143,6 +3375,13 @@ impl GatewayService {
             .route(
                 "/api/spaces/:space_id/capability-graph",
                 get(get_space_capability_graph).put(put_space_capability_graph),
+            )
+            .route("/api/spaces/:space_id/readiness", get(get_space_readiness))
+            .route("/api/spaces/:space_id/settings", get(get_space_settings))
+            .route("/api/spaces/:space_id/routing", put(put_space_routing))
+            .route(
+                "/api/spaces/:space_id/agents/:agent_id/routing",
+                put(put_space_agent_routing),
             )
             .route(
                 "/api/spaces/:space_id/navigation-plan",
@@ -3299,6 +3538,11 @@ impl GatewayService {
             .route(
                 "/api/cortex/viewspecs/experiments/spatial/runs/:run_id",
                 get(get_cortex_viewspec_spatial_experiment_run),
+            )
+            .route(
+                "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id",
+                get(get_cortex_viewspec_spatial_layout)
+                    .post(post_cortex_viewspec_spatial_layout),
             )
             .route(
                 "/api/cortex/viewspecs/validate",
@@ -3503,6 +3747,31 @@ impl GatewayService {
                 get(get_cortex_capability_matrix),
             )
             .route("/api/cortex/studio/heap/emit", post(post_cortex_heap_emit))
+            .route("/api/cortex/studio/uploads", post(post_cortex_heap_upload))
+            .route(
+                "/api/cortex/studio/uploads/parser-profiles",
+                get(get_cortex_heap_upload_parser_profiles),
+            )
+            .route(
+                "/api/cortex/studio/uploads/:upload_id/extract",
+                post(post_cortex_heap_upload_extract),
+            )
+            .route(
+                "/api/cortex/studio/uploads/:upload_id/extractions",
+                get(get_cortex_heap_upload_extractions),
+            )
+            .route(
+                "/api/cortex/studio/uploads/:upload_id/extractions/:job_id",
+                get(get_cortex_heap_upload_extraction_run),
+            )
+            .route(
+                "/api/cortex/studio/uploads/:upload_id/extraction",
+                get(get_cortex_heap_upload_extraction_status),
+            )
+            .route(
+                "/api/cortex/studio/uploads/:upload_id/blob",
+                get(get_cortex_heap_upload_blob),
+            )
             .route(
                 "/api/cortex/studio/heap/blocks",
                 get(get_cortex_heap_blocks),
@@ -3802,6 +4071,7 @@ impl GatewayService {
                 "/api/kg/spaces/:space_id/agents/contributions/:run_id/approval",
                 post(post_agent_contribution_approval),
             )
+            .layer(DefaultBodyLimit::max(16 * 1024 * 1024))
             .with_state(state)
             .layer(middleware::from_fn(runtime_gateway_dispatch_middleware))
             .layer(tower_http::cors::CorsLayer::permissive());
@@ -3989,6 +4259,8 @@ fn is_local_legacy_bypass_api_route(path: &str) -> bool {
         || path.starts_with("/api/spaces/")
         || path == "/api/cortex/studio/heap"
         || path.starts_with("/api/cortex/studio/heap/")
+        || path == "/api/cortex/studio/uploads"
+        || path.starts_with("/api/cortex/studio/uploads/")
 }
 
 fn has_legacy_bypass_header(request: &Request) -> bool {
@@ -4020,6 +4292,12 @@ mod runtime_dispatch_route_classification_tests {
             "/api/cortex/studio/heap/blocks/01KM005NGZ9K7RMRF919TQJ9AS/a2ui/feedback"
         ));
         assert!(is_local_legacy_bypass_api_route(
+            "/api/cortex/studio/uploads"
+        ));
+        assert!(is_local_legacy_bypass_api_route(
+            "/api/cortex/studio/uploads/01KUPLOAD/extract"
+        ));
+        assert!(is_local_legacy_bypass_api_route(
             "/api/spaces/nostra-governance-v0/navigation-plan"
         ));
         assert!(!is_api_request("/api/system/ux/workbench"));
@@ -4032,6 +4310,10 @@ mod runtime_dispatch_route_classification_tests {
             "/api/spaces/nostra-governance-v0/navigation-plan"
         ));
         assert!(!is_api_request("/api/cortex/studio/heap/blocks"));
+        assert!(!is_api_request("/api/cortex/studio/uploads"));
+        assert!(!is_api_request(
+            "/api/cortex/studio/uploads/01KUPLOAD/extract"
+        ));
         assert!(!is_api_request(
             "/api/cortex/studio/heap/blocks/01KM005NGZ9K7RMRF919TQJ9AS/a2ui/feedback"
         ));
@@ -4248,6 +4530,22 @@ fn cortex_ux_artifacts_store_path() -> PathBuf {
 
 fn cortex_ux_heap_projection_store_path() -> PathBuf {
     cortex_ux_log_dir().join("heap_projection_store.json")
+}
+
+fn cortex_ux_upload_artifact_store_path() -> PathBuf {
+    cortex_ux_log_dir().join("heap_uploads.json")
+}
+
+fn cortex_ux_upload_extraction_store_path() -> PathBuf {
+    cortex_ux_log_dir().join("heap_upload_extractions.json")
+}
+
+fn cortex_ux_upload_blob_dir() -> PathBuf {
+    cortex_ux_log_dir().join("uploads").join("blobs")
+}
+
+fn cortex_ux_upload_result_dir() -> PathBuf {
+    cortex_ux_log_dir().join("uploads").join("results")
 }
 
 fn cortex_ux_heap_emit_rejections_log_path() -> PathBuf {
@@ -5043,6 +5341,25 @@ fn resolve_authz_identity(
         }
     }
 
+    if let Some(session) = load_session_from_headers(headers) {
+        let principal_matches = match (principal.as_deref(), session.principal.as_deref()) {
+            (Some(request_principal), Some(session_principal)) => {
+                request_principal == session_principal
+            }
+            (Some(_), None) => false,
+            _ => true,
+        };
+        if principal_matches {
+            return Ok(ResolvedActorIdentity {
+                principal: session.principal.or(principal),
+                role: session.active_role,
+                claims: session.global_claims,
+                verified: session.identity_verified,
+                source: "session_claims".to_string(),
+            });
+        }
+    }
+
     if allow_unverified_role_header() {
         return Ok(ResolvedActorIdentity {
             principal,
@@ -5453,6 +5770,24 @@ fn write_heap_projection_store(items: &[HeapProjectionRecord]) -> Result<(), Str
     write_json_file_vec(&cortex_ux_heap_projection_store_path(), items)
 }
 
+fn read_heap_upload_store() -> Vec<HeapUploadArtifactRecord> {
+    read_json_file_vec(&cortex_ux_upload_artifact_store_path())
+}
+
+fn write_heap_upload_store(items: &[HeapUploadArtifactRecord]) -> Result<(), String> {
+    write_json_file_vec(&cortex_ux_upload_artifact_store_path(), items)
+}
+
+fn read_heap_upload_extraction_store() -> Vec<HeapUploadExtractionStatusRecord> {
+    read_json_file_vec(&cortex_ux_upload_extraction_store_path())
+}
+
+fn write_heap_upload_extraction_store(
+    items: &[HeapUploadExtractionStatusRecord],
+) -> Result<(), String> {
+    write_json_file_vec(&cortex_ux_upload_extraction_store_path(), items)
+}
+
 fn generate_block_ulid() -> String {
     const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
     let now_ms = Utc::now().timestamp_millis().max(0) as u128;
@@ -5501,7 +5836,7 @@ fn sanitize_space_id_for_env(space_id: &str) -> String {
     out
 }
 
-fn resolve_heap_workspace_id(workspace_hint: &str) -> String {
+pub(crate) fn resolve_heap_workspace_id(workspace_hint: &str) -> String {
     let trimmed = workspace_hint.trim();
     if is_crockford_ulid(trimmed) {
         return trimmed.to_string();
@@ -6749,6 +7084,14 @@ fn spatial_experiment_run_summary_key(run_id: &str) -> String {
     )
 }
 
+fn spatial_plane_layout_key(space_id: &str, view_spec_id: &str) -> String {
+    format!(
+        "/cortex/ux/viewspecs/spatial/layouts/{}/{}.json",
+        sanitize_viewspec_candidate_set_token(space_id),
+        sanitize_viewspec_candidate_set_token(view_spec_id)
+    )
+}
+
 fn spatial_experiment_event_date(timestamp: &str) -> String {
     timestamp
         .get(0..10)
@@ -6773,6 +7116,8 @@ fn spatial_experiment_event_supported(event_type: &str) -> bool {
             | "button_click"
             | "approval"
             | "spatial_shape_click"
+            | "spatial_shape_move"
+            | "spatial_edge_connect"
             | "spatial_adapter_loaded"
             | "spatial_adapter_fallback"
             | "spatial_adapter_replay"
@@ -8253,6 +8598,154 @@ async fn get_cortex_viewspec_spatial_experiment_run(
             Some(json!({ "reason": err })),
         ),
     }
+}
+
+async fn get_cortex_viewspec_spatial_layout(
+    Path((space_id, view_spec_id)): Path<(String, String)>,
+) -> axum::response::Response {
+    let space_id = space_id.trim().to_string();
+    let view_spec_id = view_spec_id.trim().to_string();
+    if space_id.is_empty() || view_spec_id.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPATIAL_LAYOUT_LOOKUP",
+            "space_id and view_spec_id are required.",
+            Some(json!({
+                "spaceId": space_id,
+                "viewSpecId": view_spec_id,
+            })),
+        );
+    }
+
+    let key = spatial_plane_layout_key(space_id.as_str(), view_spec_id.as_str());
+    match store_read_json::<SpatialPlaneLayoutV1>(key.as_str()).await {
+        Ok(Some(layout)) => Json(SpatialPlaneLayoutResponse {
+            accepted: true,
+            layout,
+        })
+        .into_response(),
+        Ok(None) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "SPATIAL_LAYOUT_NOT_FOUND",
+            "Spatial layout was not found for the requested scope.",
+            Some(json!({
+                "spaceId": space_id,
+                "viewSpecId": view_spec_id,
+            })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "SPATIAL_LAYOUT_LOAD_FAILED",
+            "Failed to load spatial layout artifact.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn post_cortex_viewspec_spatial_layout(
+    Path((space_id, view_spec_id)): Path<(String, String)>,
+    Json(request): Json<SpatialPlaneLayoutV1>,
+) -> axum::response::Response {
+    let path_space_id = space_id.trim().to_string();
+    let path_view_spec_id = view_spec_id.trim().to_string();
+    if path_space_id.is_empty() || path_view_spec_id.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPATIAL_LAYOUT_SCOPE",
+            "space_id and view_spec_id are required.",
+            None,
+        );
+    }
+    if request.space_id.trim() != path_space_id || request.view_spec_id.trim() != path_view_spec_id
+    {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "SPATIAL_LAYOUT_SCOPE_MISMATCH",
+            "Spatial layout scope does not match the request path.",
+            Some(json!({
+                "pathSpaceId": path_space_id,
+                "pathViewSpecId": path_view_spec_id,
+                "bodySpaceId": request.space_id,
+                "bodyViewSpecId": request.view_spec_id,
+            })),
+        );
+    }
+    if request.schema_version.trim().is_empty()
+        || request.plane_id.trim().is_empty()
+        || request.revision == 0
+        || request.lineage.updated_by.trim().is_empty()
+        || request.lineage.updated_at.trim().is_empty()
+    {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPATIAL_LAYOUT_REQUEST",
+            "schemaVersion, planeId, revision, lineage.updatedBy, and lineage.updatedAt are required.",
+            None,
+        );
+    }
+
+    for (shape_id, position) in &request.layout.shape_positions {
+        if shape_id.trim().is_empty() || !position.x.is_finite() || !position.y.is_finite() {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "INVALID_SPATIAL_LAYOUT_POSITION",
+                "Spatial layout positions must reference non-empty shape ids and finite coordinates.",
+                Some(json!({
+                    "shapeId": shape_id,
+                    "x": position.x,
+                    "y": position.y,
+                })),
+            );
+        }
+    }
+
+    if let Some(view_state) = request.layout.view_state.as_ref() {
+        let valid_zoom = view_state.zoom.map(f64::is_finite).unwrap_or(true);
+        let valid_pan_x = view_state.pan_x.map(f64::is_finite).unwrap_or(true);
+        let valid_pan_y = view_state.pan_y.map(f64::is_finite).unwrap_or(true);
+        if !valid_zoom || !valid_pan_x || !valid_pan_y {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "INVALID_SPATIAL_LAYOUT_VIEW_STATE",
+                "Spatial layout view_state values must be finite numbers when provided.",
+                Some(json!({
+                    "viewState": view_state,
+                })),
+            );
+        }
+    }
+
+    if request
+        .layout
+        .selected_shape_ids
+        .iter()
+        .any(|shape_id| shape_id.trim().is_empty())
+    {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPATIAL_LAYOUT_SELECTION",
+            "selected_shape_ids must contain non-empty shape ids.",
+            Some(json!({
+                "selectedShapeIds": request.layout.selected_shape_ids,
+            })),
+        );
+    }
+
+    let key = spatial_plane_layout_key(path_space_id.as_str(), path_view_spec_id.as_str());
+    if let Err(err) = store_write_json(key.as_str(), &request).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "SPATIAL_LAYOUT_STORE_FAILED",
+            "Failed to persist spatial layout artifact.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    Json(SpatialPlaneLayoutResponse {
+        accepted: true,
+        layout: request,
+    })
+    .into_response()
 }
 
 async fn get_cortex_viewspec_learning_profile(
@@ -12091,6 +12584,650 @@ fn parse_heap_cursor(cursor: &str) -> Option<(String, String)> {
     Some((updated_at.to_string(), artifact_id.to_string()))
 }
 
+fn heap_upload_resource_ref(upload_id: &str) -> String {
+    format!("cortex://upload?id={upload_id}")
+}
+
+fn heap_upload_result_ref(upload_id: &str, job_id: &str) -> String {
+    format!("cortex://upload-result?id={upload_id}&job={job_id}")
+}
+
+fn heap_upload_file_key(hash: &str, file_size: u64) -> String {
+    format!("{hash}:{file_size}")
+}
+
+fn sanitize_upload_filename(name: &str) -> String {
+    let candidate = FsPath::new(name)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("upload.bin");
+    candidate
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+fn infer_mime_type_from_name(name: &str) -> &'static str {
+    match FsPath::new(name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("pdf") => "application/pdf",
+        Some("md") | Some("markdown") => "text/markdown",
+        Some("txt") => "text/plain",
+        Some("json") => "application/json",
+        Some("csv") => "text/csv",
+        Some("html") | Some("htm") => "text/html",
+        Some("xml") => "application/xml",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        _ => "application/octet-stream",
+    }
+}
+
+fn heap_upload_extraction_supported(mime_type: &str) -> bool {
+    matches!(
+        mime_type,
+        "application/pdf"
+            | "text/plain"
+            | "text/markdown"
+            | "application/json"
+            | "text/csv"
+            | "text/html"
+            | "application/xml"
+    )
+}
+
+fn parser_profile_for_mime(mime_type: &str) -> &'static str {
+    match mime_type {
+        "application/pdf" => "docling",
+        "text/plain" | "text/markdown" | "application/json" | "text/csv" | "text/html"
+        | "application/xml" => "markitdown",
+        _ => "liteparse",
+    }
+}
+
+fn normalize_requested_parser_profile(value: Option<&str>) -> Result<Option<String>, String> {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    match value {
+        "auto" | "docling" | "liteparse" | "markitdown" => Ok(Some(value.to_string())),
+        _ => Err(format!("unsupported parser_profile '{value}'")),
+    }
+}
+
+fn configured_parser_profile(profile: &str) -> bool {
+    let executable_env = match profile {
+        "docling" => "NOSTRA_DOCLING_ADAPTER_EXECUTABLE",
+        "liteparse" => "NOSTRA_LITEPARSE_ADAPTER_EXECUTABLE",
+        "markitdown" => "NOSTRA_MARKITDOWN_ADAPTER_EXECUTABLE",
+        _ => return false,
+    };
+    std::env::var(executable_env)
+        .ok()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+}
+
+fn parser_hint_for_profile(profile: &str) -> &'static str {
+    match profile {
+        "docling" => "docling+ocrmypdf",
+        "liteparse" => "liteparse+bbox",
+        "markitdown" => "markitdown+text",
+        "auto" => "auto",
+        _ => "unknown",
+    }
+}
+
+fn parser_role_for_profile(profile: &str) -> &'static str {
+    match profile {
+        "docling" => "primary",
+        "liteparse" => "fallback",
+        "markitdown" => "normalizer",
+        "auto" => "primary",
+        _ => "fallback",
+    }
+}
+
+fn supported_mime_types_for_profile(profile: &str) -> Vec<String> {
+    match profile {
+        "docling" => vec!["application/pdf".to_string()],
+        "liteparse" => vec![
+            "application/pdf".to_string(),
+            "image/png".to_string(),
+            "image/jpeg".to_string(),
+            "image/webp".to_string(),
+        ],
+        "markitdown" => vec![
+            "text/plain".to_string(),
+            "text/markdown".to_string(),
+            "application/json".to_string(),
+            "text/csv".to_string(),
+            "text/html".to_string(),
+            "application/xml".to_string(),
+        ],
+        "auto" => vec![
+            "application/pdf".to_string(),
+            "text/plain".to_string(),
+            "text/markdown".to_string(),
+            "application/json".to_string(),
+            "text/csv".to_string(),
+            "text/html".to_string(),
+            "application/xml".to_string(),
+            "image/png".to_string(),
+            "image/jpeg".to_string(),
+            "image/webp".to_string(),
+        ],
+        _ => Vec::new(),
+    }
+}
+
+fn build_heap_upload_parser_profiles_response() -> HeapUploadParserProfilesResponse {
+    let parser_profiles = ["auto", "docling", "liteparse", "markitdown"];
+    HeapUploadParserProfilesResponse {
+        generated_at: now_iso(),
+        items: parser_profiles
+            .into_iter()
+            .map(|profile| HeapUploadParserProfileRecord {
+                parser_profile: profile.to_string(),
+                configured: if profile == "auto" {
+                    true
+                } else {
+                    configured_parser_profile(profile)
+                },
+                supports_mime: supported_mime_types_for_profile(profile),
+                role: parser_role_for_profile(profile).to_string(),
+                parser_hint: parser_hint_for_profile(profile).to_string(),
+            })
+            .collect(),
+    }
+}
+
+fn source_type_for_mime(mime_type: &str) -> &'static str {
+    match mime_type {
+        "application/pdf" => "pdf",
+        value if value.starts_with("image/") => "image",
+        _ => "text",
+    }
+}
+
+fn upload_blob_extension(name: &str) -> String {
+    FsPath::new(name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| format!(".{}", value.to_ascii_lowercase()))
+        .unwrap_or_default()
+}
+
+fn heap_upload_blob_path(hash: &str, name: &str) -> PathBuf {
+    cortex_ux_upload_blob_dir().join(format!("{}{}", hash, upload_blob_extension(name)))
+}
+
+fn heap_upload_result_path(job_id: &str) -> PathBuf {
+    cortex_ux_upload_result_dir().join(format!("{}.json", sanitize_upload_filename(job_id)))
+}
+
+fn heap_upload_artifact_response(record: &HeapUploadArtifactRecord) -> HeapUploadArtifactResponse {
+    HeapUploadArtifactResponse {
+        upload_id: record.upload_id.clone(),
+        resource_ref: record.resource_ref.clone(),
+        hash: record.hash.clone(),
+        name: record.name.clone(),
+        mime_type: record.mime_type.clone(),
+        file_size: record.file_size,
+        is_uploaded: record.is_uploaded,
+        thumbnails: record.thumbnails.clone(),
+        extraction_supported: record.extraction_supported,
+    }
+}
+
+fn find_heap_upload_by_id(upload_id: &str) -> Option<HeapUploadArtifactRecord> {
+    read_heap_upload_store()
+        .into_iter()
+        .find(|entry| entry.upload_id == upload_id)
+}
+
+fn find_heap_upload_by_resource_ref(resource_ref: &str) -> Option<HeapUploadArtifactRecord> {
+    read_heap_upload_store()
+        .into_iter()
+        .find(|entry| entry.resource_ref == resource_ref)
+}
+
+fn find_heap_upload_by_file_key(file_key: &str) -> Option<HeapUploadArtifactRecord> {
+    read_heap_upload_store()
+        .into_iter()
+        .find(|entry| heap_upload_file_key(&entry.hash, entry.file_size) == file_key)
+}
+
+fn heap_upload_extraction_record_created_at(record: &HeapUploadExtractionStatusRecord) -> &str {
+    if record.created_at.trim().is_empty() {
+        record.last_updated_at.as_str()
+    } else {
+        record.created_at.as_str()
+    }
+}
+
+fn sort_heap_upload_extraction_records_desc(items: &mut [HeapUploadExtractionStatusRecord]) {
+    items.sort_by(|left, right| {
+        heap_upload_extraction_record_created_at(right)
+            .cmp(heap_upload_extraction_record_created_at(left))
+            .then_with(|| right.last_updated_at.cmp(&left.last_updated_at))
+            .then_with(|| right.job_id.cmp(&left.job_id))
+    });
+}
+
+fn upsert_heap_upload_extraction_status(
+    mut record: HeapUploadExtractionStatusRecord,
+) -> Result<HeapUploadExtractionStatusRecord, String> {
+    let mut items = read_heap_upload_extraction_store();
+    if record.created_at.trim().is_empty() {
+        record.created_at = record.last_updated_at.clone();
+    }
+    if let Some(existing) = items.iter_mut().find(|entry| entry.job_id == record.job_id) {
+        if record.created_at.trim().is_empty() {
+            record.created_at = existing.created_at.clone();
+        }
+        *existing = record.clone();
+    } else {
+        items.push(record.clone());
+    }
+    write_heap_upload_extraction_store(&items)?;
+    Ok(record)
+}
+
+fn list_heap_upload_extraction_statuses(upload_id: &str) -> Vec<HeapUploadExtractionStatusRecord> {
+    let mut items = read_heap_upload_extraction_store()
+        .into_iter()
+        .filter(|entry| entry.upload_id == upload_id)
+        .collect::<Vec<_>>();
+    sort_heap_upload_extraction_records_desc(&mut items);
+    items
+}
+
+fn find_heap_upload_extraction_status(upload_id: &str) -> Option<HeapUploadExtractionStatusRecord> {
+    list_heap_upload_extraction_statuses(upload_id)
+        .into_iter()
+        .next()
+}
+
+fn find_heap_upload_extraction_run(
+    upload_id: &str,
+    job_id: &str,
+) -> Option<HeapUploadExtractionStatusRecord> {
+    read_heap_upload_extraction_store()
+        .into_iter()
+        .find(|entry| entry.upload_id == upload_id && entry.job_id == job_id)
+}
+
+fn read_heap_upload_result_value(job_id: &str) -> Option<Value> {
+    let path = heap_upload_result_path(job_id);
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+}
+
+fn heap_upload_result_attempted_backends(value: &Value) -> Vec<String> {
+    value
+        .get("attempted_backends")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|item| !item.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn heap_upload_result_model_id(value: &Value) -> Option<String> {
+    value
+        .get("provenance")
+        .and_then(Value::as_object)
+        .and_then(|provenance| provenance.get("model_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn heap_upload_result_first_page_block_count(value: &Value) -> Option<u32> {
+    value
+        .get("normalized_document")
+        .and_then(Value::as_object)
+        .and_then(|document| document.get("pages"))
+        .and_then(Value::as_array)
+        .and_then(|pages| pages.first())
+        .and_then(Value::as_object)
+        .and_then(|page| page.get("blocks"))
+        .and_then(Value::as_array)
+        .map(|blocks| blocks.len() as u32)
+}
+
+fn heap_upload_result_first_page_preview(value: &Value) -> Vec<String> {
+    value
+        .get("normalized_document")
+        .and_then(Value::as_object)
+        .and_then(|document| document.get("pages"))
+        .and_then(Value::as_array)
+        .and_then(|pages| pages.first())
+        .and_then(Value::as_object)
+        .and_then(|page| page.get("blocks"))
+        .and_then(Value::as_array)
+        .map(|blocks| {
+            blocks
+                .iter()
+                .filter_map(|block| block.get("text").and_then(Value::as_str))
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+                .take(6)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn build_heap_upload_extraction_run_detail_response(
+    run: HeapUploadExtractionStatusRecord,
+) -> HeapUploadExtractionRunDetailResponse {
+    let result = read_heap_upload_result_value(&run.job_id);
+    HeapUploadExtractionRunDetailResponse {
+        attempted_backends: result
+            .as_ref()
+            .map(heap_upload_result_attempted_backends)
+            .unwrap_or_default(),
+        model_id: result.as_ref().and_then(heap_upload_result_model_id),
+        first_page_preview: result
+            .as_ref()
+            .map(heap_upload_result_first_page_preview)
+            .unwrap_or_default(),
+        first_page_block_count: result
+            .as_ref()
+            .and_then(heap_upload_result_first_page_block_count),
+        run,
+    }
+}
+
+fn normalize_heap_upload_projection_status(status: &ExtractionStatus) -> &'static str {
+    match status {
+        ExtractionStatus::Completed => "indexed",
+        ExtractionStatus::NeedsReview => "needs_review",
+        ExtractionStatus::Failed => "failed",
+        ExtractionStatus::Submitted | ExtractionStatus::Running => "extracting",
+    }
+}
+
+fn enrich_heap_projection_record_with_upload_status(
+    mut entry: HeapProjectionRecord,
+) -> HeapProjectionRecord {
+    if entry.projection.block_type != "upload" {
+        return entry;
+    }
+    let upload = entry
+        .projection
+        .file_keys
+        .iter()
+        .find_map(|file_key| find_heap_upload_by_file_key(file_key));
+    let Some(upload) = upload else {
+        return entry;
+    };
+    let mut attributes = entry.projection.attributes.clone().unwrap_or_default();
+    attributes.insert("upload_id".to_string(), upload.upload_id.clone());
+    attributes.insert("resource_ref".to_string(), upload.resource_ref.clone());
+    attributes.insert("upload_status".to_string(), "uploaded".to_string());
+    if let Some(status) = find_heap_upload_extraction_status(&upload.upload_id) {
+        attributes.insert(
+            "extraction_status".to_string(),
+            normalize_heap_upload_projection_status(&status.status).to_string(),
+        );
+        if let Some(requested_parser_profile) = status.requested_parser_profile {
+            attributes.insert(
+                "requested_parser_profile".to_string(),
+                requested_parser_profile,
+            );
+        }
+        if let Some(parser_backend) = status.parser_backend {
+            attributes.insert("parser_backend".to_string(), parser_backend);
+        }
+        if let Some(confidence) = status.confidence {
+            attributes.insert(
+                "extraction_confidence".to_string(),
+                format!("{confidence:.2}"),
+            );
+        }
+        if !status.flags.is_empty() {
+            attributes.insert("extraction_flags".to_string(), status.flags.join(", "));
+        }
+        if let Some(result_ref) = status.result_ref {
+            attributes.insert("extraction_result_ref".to_string(), result_ref);
+        }
+        if let Some(summary) = status.summary {
+            attributes.insert("extraction_summary".to_string(), summary);
+        }
+        if let Some(page_count) = status.page_count {
+            attributes.insert("extraction_page_count".to_string(), page_count.to_string());
+        }
+        if let Some(block_count) = status.block_count {
+            attributes.insert(
+                "extraction_block_count".to_string(),
+                block_count.to_string(),
+            );
+        }
+    } else if upload.extraction_supported {
+        attributes.insert("extraction_status".to_string(), "uploaded".to_string());
+    }
+    entry.projection.attributes = Some(attributes);
+    entry
+}
+
+fn enrich_heap_projection_records(rows: Vec<HeapProjectionRecord>) -> Vec<HeapProjectionRecord> {
+    rows.into_iter()
+        .map(enrich_heap_projection_record_with_upload_status)
+        .collect()
+}
+
+fn heap_emit_validation_error(
+    code: &str,
+    message: impl Into<String>,
+    details: Option<Value>,
+) -> crate::services::heap_mapper::HeapMapperError {
+    crate::services::heap_mapper::HeapMapperError {
+        code: code.to_string(),
+        message: message.into(),
+        details,
+    }
+}
+
+fn validate_upload_backed_heap_emit(
+    request: &EmitHeapBlockRequest,
+) -> Result<(), crate::services::heap_mapper::HeapMapperError> {
+    if request.block.r#type != "upload" {
+        return Ok(());
+    }
+    if request.files.len() != 1 {
+        return Err(heap_emit_validation_error(
+            "HEAP_UPLOAD_FILES_REQUIRED",
+            "Upload heap blocks must include exactly one file reference.",
+            Some(json!({ "fileCount": request.files.len() })),
+        ));
+    }
+    if !matches!(
+        request.content.payload_type,
+        crate::services::heap_mapper::HeapPayloadType::Pointer
+    ) {
+        return Err(heap_emit_validation_error(
+            "HEAP_UPLOAD_POINTER_REQUIRED",
+            "Upload heap blocks must use content.payload_type='pointer'.",
+            None,
+        ));
+    }
+    let pointer = request
+        .content
+        .pointer
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            heap_emit_validation_error(
+                "HEAP_UPLOAD_POINTER_REQUIRED",
+                "Upload heap blocks must include content.pointer.",
+                None,
+            )
+        })?;
+    let upload = find_heap_upload_by_resource_ref(pointer).ok_or_else(|| {
+        heap_emit_validation_error(
+            "HEAP_UPLOAD_ARTIFACT_REQUIRED",
+            "Upload heap blocks must reference a registered runtime upload artifact.",
+            Some(json!({ "pointer": pointer })),
+        )
+    })?;
+    let normalized_upload_workspace_id = resolve_heap_workspace_id(&upload.space_id);
+    if normalized_upload_workspace_id != request.workspace_id {
+        return Err(heap_emit_validation_error(
+            "HEAP_UPLOAD_SPACE_MISMATCH",
+            "Upload artifact space does not match the heap block space.",
+            Some(json!({
+                "pointer": pointer,
+                "uploadSpaceId": upload.space_id,
+                "uploadWorkspaceId": normalized_upload_workspace_id,
+                "spaceId": request.workspace_id
+            })),
+        ));
+    }
+    let file = &request.files[0];
+    if file.hash != upload.hash || file.file_size != upload.file_size || file.name != upload.name {
+        return Err(heap_emit_validation_error(
+            "HEAP_UPLOAD_FILE_MISMATCH",
+            "Upload file metadata must match the registered upload artifact.",
+            Some(json!({
+                "expected": { "hash": upload.hash, "fileSize": upload.file_size, "name": upload.name },
+                "actual": { "hash": file.hash, "fileSize": file.file_size, "name": file.name }
+            })),
+        ));
+    }
+    if file.path.as_deref().map(str::trim) != Some(pointer) {
+        return Err(heap_emit_validation_error(
+            "HEAP_UPLOAD_PATH_MISMATCH",
+            "Upload file path must match content.pointer.",
+            Some(json!({ "pointer": pointer, "filePath": file.path })),
+        ));
+    }
+    Ok(())
+}
+
+fn decode_upload_bytes_to_text(bytes: &[u8], mime_type: &str) -> (String, Vec<String>) {
+    if matches!(
+        mime_type,
+        "text/plain"
+            | "text/markdown"
+            | "application/json"
+            | "text/csv"
+            | "text/html"
+            | "application/xml"
+    ) {
+        return (String::from_utf8_lossy(bytes).to_string(), Vec::new());
+    }
+    if mime_type == "application/pdf" {
+        let text = String::from_utf8_lossy(bytes).to_string();
+        return (text, vec!["binary_source_text_fallback".to_string()]);
+    }
+    (
+        String::from_utf8_lossy(bytes).to_string(),
+        vec!["unsupported_binary_text_fallback".to_string()],
+    )
+}
+
+fn build_heap_upload_extraction_summary(
+    parser_backend: &str,
+    page_count: Option<u32>,
+    block_count: Option<u32>,
+    confidence: Option<f32>,
+) -> String {
+    format!(
+        "parser={} pages={} blocks={} confidence={:.2}",
+        parser_backend,
+        page_count.unwrap_or(0),
+        block_count.unwrap_or(0),
+        confidence.unwrap_or(0.0),
+    )
+}
+
+fn normalize_upload_extraction_flags(flags: &mut Vec<String>) {
+    if !flags
+        .iter()
+        .any(|flag| flag == "resolved_content_replaced_by_parser")
+    {
+        return;
+    }
+
+    rewrite_upload_fallback_flag(
+        flags,
+        "binary_source_text_fallback",
+        "binary_source_text_superseded_by_parser",
+    );
+    rewrite_upload_fallback_flag(
+        flags,
+        "unsupported_binary_text_fallback",
+        "unsupported_binary_text_superseded_by_parser",
+    );
+}
+
+fn rewrite_upload_fallback_flag(flags: &mut Vec<String>, from: &str, to: &str) {
+    let mut found = false;
+    flags.retain(|flag| {
+        if flag == from {
+            found = true;
+            false
+        } else {
+            true
+        }
+    });
+    if found && !flags.iter().any(|flag| flag == to) {
+        flags.push(to.to_string());
+    }
+}
+
+fn upload_fallback_flags_require_review(flags: &[String]) -> bool {
+    flags.iter().any(|flag| {
+        matches!(
+            flag.as_str(),
+            "binary_source_text_fallback" | "unsupported_binary_text_fallback"
+        )
+    })
+}
+
+fn finalize_upload_extraction_status(
+    base_status: ExtractionStatus,
+    confidence: f32,
+    flags: &[String],
+) -> ExtractionStatus {
+    if matches!(
+        base_status,
+        ExtractionStatus::Failed | ExtractionStatus::NeedsReview
+    ) {
+        return base_status;
+    }
+
+    if confidence < 0.55 || upload_fallback_flags_require_review(flags) {
+        ExtractionStatus::NeedsReview
+    } else {
+        ExtractionStatus::Completed
+    }
+}
+
 fn stable_heap_emit_op_id(
     artifact_id: &str,
     request: &EmitHeapBlockRequest,
@@ -12207,7 +13344,733 @@ async fn post_cortex_heap_emit(
     }
 }
 
-fn emit_heap_block_core(
+async fn post_cortex_heap_upload(
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> axum::response::Response {
+    let identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_heap_upload",
+        None,
+        "capability:heap_upload",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "HEAP_UPLOAD_FORBIDDEN",
+        "Operator role or higher is required to upload heap files.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let actor_id = identity
+        .principal
+        .clone()
+        .unwrap_or_else(|| actor_id_from_headers(&headers));
+
+    let mut space_id: Option<String> = None;
+    let mut title: Option<String> = None;
+    let mut source_agent_id: Option<String> = None;
+    let mut file_name: Option<String> = None;
+    let mut mime_type: Option<String> = None;
+    let mut file_bytes: Option<Vec<u8>> = None;
+
+    loop {
+        let next = match multipart.next_field().await {
+            Ok(next) => next,
+            Err(err) => {
+                return cortex_ux_error(
+                    StatusCode::BAD_REQUEST,
+                    "HEAP_UPLOAD_MULTIPART_INVALID",
+                    "Failed to parse multipart upload payload.",
+                    Some(json!({ "reason": err.to_string() })),
+                );
+            }
+        };
+        let Some(field) = next else {
+            break;
+        };
+        let name = field.name().unwrap_or_default().to_string();
+        match name.as_str() {
+            "space_id" => match field.text().await {
+                Ok(value) => space_id = Some(value.trim().to_string()),
+                Err(err) => {
+                    return cortex_ux_error(
+                        StatusCode::BAD_REQUEST,
+                        "HEAP_UPLOAD_SPACE_INVALID",
+                        "space_id field could not be read.",
+                        Some(json!({ "reason": err.to_string() })),
+                    );
+                }
+            },
+            "title" => {
+                if let Ok(value) = field.text().await {
+                    let trimmed = value.trim();
+                    if !trimmed.is_empty() {
+                        title = Some(trimmed.to_string());
+                    }
+                }
+            }
+            "source_agent_id" => {
+                if let Ok(value) = field.text().await {
+                    let trimmed = value.trim();
+                    if !trimmed.is_empty() {
+                        source_agent_id = Some(trimmed.to_string());
+                    }
+                }
+            }
+            "file" => {
+                if file_bytes.is_some() {
+                    return cortex_ux_error(
+                        StatusCode::BAD_REQUEST,
+                        "HEAP_UPLOAD_MULTIPLE_FILES_UNSUPPORTED",
+                        "Only one file may be uploaded per request.",
+                        None,
+                    );
+                }
+                file_name = field.file_name().map(sanitize_upload_filename);
+                mime_type = field
+                    .content_type()
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty());
+                match field.bytes().await {
+                    Ok(bytes) => file_bytes = Some(bytes.to_vec()),
+                    Err(err) => {
+                        return cortex_ux_error(
+                            StatusCode::BAD_REQUEST,
+                            "HEAP_UPLOAD_FILE_READ_FAILED",
+                            "Uploaded file payload could not be read.",
+                            Some(json!({ "reason": err.to_string() })),
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let Some(space_id) = space_id.filter(|value| !value.is_empty()) else {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "HEAP_UPLOAD_SPACE_REQUIRED",
+            "space_id is required.",
+            None,
+        );
+    };
+    let Some(file_bytes) = file_bytes else {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "HEAP_UPLOAD_FILE_REQUIRED",
+            "multipart field 'file' is required.",
+            None,
+        );
+    };
+    if file_bytes.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "HEAP_UPLOAD_FILE_EMPTY",
+            "Uploaded file cannot be empty.",
+            None,
+        );
+    }
+
+    let name = file_name.unwrap_or_else(|| "upload.bin".to_string());
+    let mime_type = mime_type.unwrap_or_else(|| infer_mime_type_from_name(&name).to_string());
+    let mut hasher = Sha256::new();
+    hasher.update(&file_bytes);
+    let hash = hex::encode(hasher.finalize());
+    let file_size = file_bytes.len() as u64;
+    let now = now_iso();
+
+    let mut uploads = read_heap_upload_store();
+    if let Some(existing_index) = uploads
+        .iter()
+        .position(|entry| entry.hash == hash && entry.file_size == file_size)
+    {
+        uploads[existing_index].updated_at = now;
+        if let Err(err) = write_heap_upload_store(&uploads) {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "HEAP_UPLOAD_STORE_WRITE_FAILED",
+                "Failed to update heap upload store.",
+                Some(json!({ "reason": err })),
+            );
+        }
+        let existing = uploads[existing_index].clone();
+        let stored_path = PathBuf::from(&existing.stored_path);
+        if !stored_path.exists() {
+            if let Some(parent) = stored_path.parent() {
+                if let Err(err) = fs::create_dir_all(parent) {
+                    return cortex_ux_error(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "HEAP_UPLOAD_STORAGE_PREP_FAILED",
+                        "Failed to prepare upload storage directory.",
+                        Some(json!({ "reason": err.to_string() })),
+                    );
+                }
+            }
+            if let Err(err) = fs::write(&stored_path, &file_bytes) {
+                return cortex_ux_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "HEAP_UPLOAD_STORAGE_WRITE_FAILED",
+                    "Failed to persist uploaded file bytes.",
+                    Some(json!({ "reason": err.to_string() })),
+                );
+            }
+        }
+        return Json(heap_upload_artifact_response(&existing)).into_response();
+    }
+
+    let upload_id = generate_block_ulid();
+    let resource_ref = heap_upload_resource_ref(&upload_id);
+    let stored_path = heap_upload_blob_path(&hash, &name);
+    if let Some(parent) = stored_path.parent() {
+        if let Err(err) = fs::create_dir_all(parent) {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "HEAP_UPLOAD_STORAGE_PREP_FAILED",
+                "Failed to prepare upload storage directory.",
+                Some(json!({ "reason": err.to_string() })),
+            );
+        }
+    }
+    if let Err(err) = fs::write(&stored_path, &file_bytes) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "HEAP_UPLOAD_STORAGE_WRITE_FAILED",
+            "Failed to persist uploaded file bytes.",
+            Some(json!({ "reason": err.to_string() })),
+        );
+    }
+
+    let record = HeapUploadArtifactRecord {
+        upload_id: upload_id.clone(),
+        resource_ref,
+        space_id,
+        title,
+        source_agent_id: source_agent_id.unwrap_or(actor_id),
+        hash,
+        name,
+        mime_type: mime_type.clone(),
+        file_size,
+        is_uploaded: true,
+        thumbnails: vec![],
+        extraction_supported: heap_upload_extraction_supported(&mime_type),
+        stored_path: stored_path.display().to_string(),
+        created_at: now.clone(),
+        updated_at: now,
+    };
+    uploads.push(record.clone());
+    if let Err(err) = write_heap_upload_store(&uploads) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "HEAP_UPLOAD_STORE_WRITE_FAILED",
+            "Failed to persist heap upload metadata.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    Json(heap_upload_artifact_response(&record)).into_response()
+}
+
+async fn post_cortex_heap_upload_extract(
+    headers: HeaderMap,
+    Path(upload_id): Path<String>,
+    Json(request): Json<Option<HeapUploadExtractionTriggerRequest>>,
+) -> axum::response::Response {
+    let _identity = match enforce_role_authorization(
+        &headers,
+        "post_cortex_heap_upload_extract",
+        None,
+        "capability:heap_upload_extract",
+        "mutate",
+        "operator",
+        authz_mutation_claims("heap"),
+        true,
+        vec![],
+        "HEAP_UPLOAD_EXTRACT_FORBIDDEN",
+        "Operator role or higher is required to trigger heap upload extraction.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    let Some(upload) = find_heap_upload_by_id(&upload_id) else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_UPLOAD_NOT_FOUND",
+            "Upload artifact was not found.",
+            Some(json!({ "uploadId": upload_id })),
+        );
+    };
+    if !upload.extraction_supported {
+        return cortex_ux_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "HEAP_UPLOAD_EXTRACTION_UNSUPPORTED",
+            "This upload type is not eligible for extraction.",
+            Some(json!({ "uploadId": upload.upload_id, "mimeType": upload.mime_type })),
+        );
+    }
+    let requested_parser_profile = match normalize_requested_parser_profile(
+        request
+            .as_ref()
+            .and_then(|payload| payload.parser_profile.as_deref()),
+    ) {
+        Ok(profile) => profile,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "HEAP_UPLOAD_PARSER_PROFILE_INVALID",
+                "parser_profile must be one of auto, docling, liteparse, or markitdown.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    };
+
+    let job_id = format!(
+        "upload_extract_{}_{}",
+        upload.upload_id,
+        Utc::now().timestamp_millis()
+    );
+    let created_at = now_iso();
+    let queued = HeapUploadExtractionStatusRecord {
+        job_id: job_id.clone(),
+        upload_id: upload.upload_id.clone(),
+        status: ExtractionStatus::Submitted,
+        created_at: created_at.clone(),
+        requested_parser_profile: requested_parser_profile.clone(),
+        parser_backend: None,
+        confidence: None,
+        flags: vec![],
+        result_ref: None,
+        summary: None,
+        page_count: None,
+        block_count: None,
+        last_updated_at: now_iso(),
+    };
+    if let Err(err) = upsert_heap_upload_extraction_status(queued) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "HEAP_UPLOAD_EXTRACTION_STATE_WRITE_FAILED",
+            "Failed to persist extraction submission state.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    tokio::spawn({
+        let upload = upload.clone();
+        let job_id = job_id.clone();
+        let requested_parser_profile = requested_parser_profile.clone();
+        async move {
+            let upload_id = upload.upload_id.clone();
+            if let Err(_) = std::panic::AssertUnwindSafe(run_heap_upload_extraction_job(
+                upload,
+                job_id.clone(),
+                requested_parser_profile.clone(),
+            ))
+            .catch_unwind()
+            .await
+            {
+                let _ = upsert_heap_upload_extraction_status(HeapUploadExtractionStatusRecord {
+                    job_id,
+                    upload_id,
+                    status: ExtractionStatus::Failed,
+                    created_at,
+                    requested_parser_profile,
+                    parser_backend: None,
+                    confidence: Some(0.0),
+                    flags: vec!["extraction_task_panic".to_string()],
+                    result_ref: None,
+                    summary: Some("extraction task panicked".to_string()),
+                    page_count: Some(0),
+                    block_count: Some(0),
+                    last_updated_at: now_iso(),
+                });
+            }
+        }
+    });
+
+    Json(HeapUploadExtractionTriggerResponse {
+        job_id,
+        status: ExtractionStatus::Submitted,
+        upload_id: upload.upload_id,
+        requested_parser_profile,
+    })
+    .into_response()
+}
+
+async fn run_heap_upload_extraction_job(
+    upload: HeapUploadArtifactRecord,
+    job_id: String,
+    requested_parser_profile: Option<String>,
+) {
+    let created_at = find_heap_upload_extraction_run(&upload.upload_id, &job_id)
+        .map(|record| record.created_at)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(now_iso);
+    let running = HeapUploadExtractionStatusRecord {
+        job_id: job_id.clone(),
+        upload_id: upload.upload_id.clone(),
+        status: ExtractionStatus::Running,
+        created_at: created_at.clone(),
+        requested_parser_profile: requested_parser_profile.clone(),
+        parser_backend: None,
+        confidence: None,
+        flags: vec![],
+        result_ref: None,
+        summary: None,
+        page_count: None,
+        block_count: None,
+        last_updated_at: now_iso(),
+    };
+    let _ = upsert_heap_upload_extraction_status(running);
+
+    let bytes = match fs::read(&upload.stored_path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            let _ = upsert_heap_upload_extraction_status(HeapUploadExtractionStatusRecord {
+                job_id,
+                upload_id: upload.upload_id.clone(),
+                status: ExtractionStatus::Failed,
+                created_at: created_at.clone(),
+                requested_parser_profile: requested_parser_profile.clone(),
+                parser_backend: None,
+                confidence: Some(0.0),
+                flags: vec![format!("storage_read_failed:{}", err)],
+                result_ref: None,
+                summary: Some("failed to read uploaded artifact".to_string()),
+                page_count: None,
+                block_count: None,
+                last_updated_at: now_iso(),
+            });
+            return;
+        }
+    };
+
+    let (resolved_content, mut flags) = decode_upload_bytes_to_text(&bytes, &upload.mime_type);
+    if resolved_content.trim().is_empty() {
+        flags.push("empty_resolved_content".to_string());
+    }
+
+    let parser_profile = requested_parser_profile
+        .as_deref()
+        .filter(|profile| *profile != "auto")
+        .map(str::to_string)
+        .unwrap_or_else(|| parser_profile_for_mime(&upload.mime_type).to_string());
+    let request = ExtractionRequestV1 {
+        job_id: Some(job_id.clone()),
+        source_ref: upload.resource_ref.clone(),
+        source_type: source_type_for_mime(&upload.mime_type).to_string(),
+        schema_ref: None,
+        space_id: Some(upload.space_id.clone()),
+        content: String::new(),
+        content_ref: Some(upload.resource_ref.clone()),
+        artifact_path: Some(upload.stored_path.clone()),
+        mime_type: Some(upload.mime_type.clone()),
+        file_size: Some(upload.file_size),
+        parser_profile: Some(parser_profile.clone()),
+        extraction_mode: ExtractionMode::Local,
+        fallback_policy: Default::default(),
+        timeout_seconds: Some(90),
+        index_to_knowledge: false,
+        idempotency_key: Some(format!("heap-upload:{}", upload.upload_id)),
+        provenance_hint: None,
+    };
+
+    match run_local_pipeline_with_content(&request, resolved_content) {
+        Ok(mut result) => {
+            flags.extend(result.flags.clone());
+            normalize_upload_extraction_flags(&mut flags);
+            let parser_backend = result
+                .normalized_document
+                .as_ref()
+                .map(|doc| doc.parser_backend.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .unwrap_or(parser_profile);
+            let page_count = result
+                .normalized_document
+                .as_ref()
+                .map(|doc| doc.pages.len() as u32)
+                .unwrap_or(0);
+            let block_count = result
+                .normalized_document
+                .as_ref()
+                .map(|doc| doc.pages.iter().map(|page| page.blocks.len() as u32).sum())
+                .unwrap_or(0);
+            let status =
+                finalize_upload_extraction_status(result.status.clone(), result.confidence, &flags);
+            if matches!(status, ExtractionStatus::NeedsReview)
+                && !flags.iter().any(|flag| flag == "needs_review")
+            {
+                flags.push("needs_review".to_string());
+            }
+            let result_ref = heap_upload_result_ref(&upload.upload_id, &job_id);
+            result.result_ref = Some(result_ref.clone());
+            result.status = status.clone();
+            let result_path = heap_upload_result_path(&job_id);
+            if let Some(parent) = result_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = write_json_file(&result_path, &result);
+            let summary = build_heap_upload_extraction_summary(
+                &parser_backend,
+                Some(page_count),
+                Some(block_count),
+                Some(result.confidence),
+            );
+            let _ = upsert_heap_upload_extraction_status(HeapUploadExtractionStatusRecord {
+                job_id,
+                upload_id: upload.upload_id.clone(),
+                status,
+                created_at: created_at.clone(),
+                requested_parser_profile: requested_parser_profile.clone(),
+                parser_backend: Some(parser_backend),
+                confidence: Some(result.confidence),
+                flags,
+                result_ref: Some(result_ref),
+                summary: Some(summary),
+                page_count: Some(page_count),
+                block_count: Some(block_count),
+                last_updated_at: now_iso(),
+            });
+        }
+        Err(err) => {
+            flags.push(format!("pipeline_error:{}", err));
+            let _ = upsert_heap_upload_extraction_status(HeapUploadExtractionStatusRecord {
+                job_id,
+                upload_id: upload.upload_id.clone(),
+                status: ExtractionStatus::Failed,
+                created_at,
+                requested_parser_profile,
+                parser_backend: Some(parser_profile),
+                confidence: Some(0.0),
+                flags,
+                result_ref: None,
+                summary: Some("extraction pipeline failed".to_string()),
+                page_count: Some(0),
+                block_count: Some(0),
+                last_updated_at: now_iso(),
+            });
+        }
+    }
+}
+
+async fn get_cortex_heap_upload_extractions(
+    headers: HeaderMap,
+    Path(upload_id): Path<String>,
+) -> axum::response::Response {
+    let _identity = match enforce_role_authorization(
+        &headers,
+        "get_cortex_heap_upload_extractions",
+        None,
+        "capability:heap_upload_extract",
+        "read",
+        "operator",
+        vec![],
+        false,
+        vec![],
+        "HEAP_UPLOAD_EXTRACT_STATUS_FORBIDDEN",
+        "Operator role or higher is required to read heap upload extraction runs.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    if find_heap_upload_by_id(&upload_id).is_none() {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_UPLOAD_NOT_FOUND",
+            "Upload artifact was not found.",
+            Some(json!({ "uploadId": upload_id })),
+        );
+    }
+
+    Json(HeapUploadExtractionRunsResponse {
+        generated_at: now_iso(),
+        upload_id: upload_id.clone(),
+        items: list_heap_upload_extraction_statuses(&upload_id),
+    })
+    .into_response()
+}
+
+async fn get_cortex_heap_upload_extraction_status(
+    headers: HeaderMap,
+    Path(upload_id): Path<String>,
+) -> axum::response::Response {
+    let _identity = match enforce_role_authorization(
+        &headers,
+        "get_cortex_heap_upload_extraction_status",
+        None,
+        "capability:heap_upload_extract",
+        "read",
+        "operator",
+        vec![],
+        false,
+        vec![],
+        "HEAP_UPLOAD_EXTRACT_STATUS_FORBIDDEN",
+        "Operator role or higher is required to read heap upload extraction status.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    if find_heap_upload_by_id(&upload_id).is_none() {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_UPLOAD_NOT_FOUND",
+            "Upload artifact was not found.",
+            Some(json!({ "uploadId": upload_id })),
+        );
+    }
+    match find_heap_upload_extraction_status(&upload_id) {
+        Some(status) => Json(status).into_response(),
+        None => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_UPLOAD_EXTRACTION_NOT_FOUND",
+            "Extraction has not been triggered for this upload.",
+            Some(json!({ "uploadId": upload_id })),
+        ),
+    }
+}
+
+async fn get_cortex_heap_upload_blob(
+    headers: HeaderMap,
+    Path(upload_id): Path<String>,
+) -> axum::response::Response {
+    let _identity = match enforce_role_authorization(
+        &headers,
+        "get_cortex_heap_upload_blob",
+        None,
+        "capability:heap_upload_read",
+        "read",
+        "viewer",
+        vec![],
+        false,
+        vec![],
+        "HEAP_UPLOAD_BLOB_FORBIDDEN",
+        "Viewer role or higher is required to read heap upload blobs.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    let upload = match find_heap_upload_by_id(&upload_id) {
+        Some(u) => u,
+        None => {
+            return cortex_ux_error(
+                StatusCode::NOT_FOUND,
+                "HEAP_UPLOAD_NOT_FOUND",
+                "Upload artifact was not found.",
+                Some(json!({ "uploadId": upload_id })),
+            );
+        }
+    };
+
+    let blob_path = heap_upload_blob_path(&upload.hash, &upload.name);
+    let bytes = match fs::read(&blob_path) {
+        Ok(b) => b,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::NOT_FOUND,
+                "HEAP_UPLOAD_BLOB_NOT_FOUND",
+                &format!("Upload blob file not found on disk: {err}"),
+                Some(json!({ "uploadId": upload_id, "path": blob_path.display().to_string() })),
+            );
+        }
+    };
+
+    let sanitized_name = sanitize_upload_filename(&upload.name);
+    axum::response::Response::builder()
+        .status(StatusCode::OK)
+        .header("content-type", &upload.mime_type)
+        .header("content-length", bytes.len().to_string())
+        .header(
+            "content-disposition",
+            format!("inline; filename=\"{sanitized_name}\""),
+        )
+        .header("cache-control", "private, max-age=3600")
+        .body(axum::body::Body::from(bytes))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+async fn get_cortex_heap_upload_extraction_run(
+    headers: HeaderMap,
+    Path((upload_id, job_id)): Path<(String, String)>,
+) -> axum::response::Response {
+    let _identity = match enforce_role_authorization(
+        &headers,
+        "get_cortex_heap_upload_extraction_run",
+        None,
+        "capability:heap_upload_extract",
+        "read",
+        "operator",
+        vec![],
+        false,
+        vec![],
+        "HEAP_UPLOAD_EXTRACT_STATUS_FORBIDDEN",
+        "Operator role or higher is required to read heap upload extraction run detail.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    if find_heap_upload_by_id(&upload_id).is_none() {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_UPLOAD_NOT_FOUND",
+            "Upload artifact was not found.",
+            Some(json!({ "uploadId": upload_id })),
+        );
+    }
+
+    match find_heap_upload_extraction_run(&upload_id, &job_id) {
+        Some(run) => Json(build_heap_upload_extraction_run_detail_response(run)).into_response(),
+        None => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "HEAP_UPLOAD_EXTRACTION_RUN_NOT_FOUND",
+            "Extraction run was not found for this upload.",
+            Some(json!({ "uploadId": upload_id, "jobId": job_id })),
+        ),
+    }
+}
+
+async fn get_cortex_heap_upload_parser_profiles(headers: HeaderMap) -> axum::response::Response {
+    let _identity = match enforce_role_authorization(
+        &headers,
+        "get_cortex_heap_upload_parser_profiles",
+        None,
+        "capability:heap_upload_extract",
+        "read",
+        "operator",
+        vec![],
+        false,
+        vec![],
+        "HEAP_UPLOAD_PARSER_PROFILES_FORBIDDEN",
+        "Operator role or higher is required to read parser profile availability.",
+    )
+    .await
+    {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    Json(build_heap_upload_parser_profiles_response()).into_response()
+}
+
+pub(crate) fn emit_heap_block_core(
     mut request: EmitHeapBlockRequest,
     actor_id: String,
     actor_role: String,
@@ -12224,6 +14087,23 @@ fn emit_heap_block_core(
     }
 
     if let Err(err) = validate_emit_heap_block(&request) {
+        append_heap_emit_rejection_safe(
+            &actor_id,
+            &actor_role,
+            request.source.request_id.clone(),
+            &err.code,
+            &err.message,
+            err.details.clone(),
+        );
+        return Err(cortex_ux_error(
+            heap_emit_error_status(&err.code),
+            &err.code,
+            &err.message,
+            err.details,
+        ));
+    }
+
+    if let Err(err) = validate_upload_backed_heap_emit(&request) {
         append_heap_emit_rejection_safe(
             &actor_id,
             &actor_role,
@@ -12260,7 +14140,7 @@ fn emit_heap_block_core(
         }
     };
 
-    let agui_mutations = match map_emit_heap_block_to_agui_mutations(&request, &canonical) {
+    let a2ui_mutations = match map_emit_heap_block_to_a2ui_mutations(&request, &canonical) {
         Ok(mutations) => mutations,
         Err(err) => {
             append_heap_emit_rejection_safe(
@@ -12349,9 +14229,9 @@ fn emit_heap_block_core(
             owner_role: actor_role.clone(),
             source_of_truth: source_state.source_of_truth.clone(),
             fallback_active: source_state.fallback_active,
-            agui_initial_ui_json: None,
-            agui_tags: None,
-            agui_mentions: None,
+            a2ui_initial_ui_json: None,
+            a2ui_tags: None,
+            a2ui_mentions: None,
             heap_workspace_id: None,
             heap_block_type: None,
             heap_emitted_at: None,
@@ -12407,7 +14287,7 @@ fn emit_heap_block_core(
         Some(artifact_realtime_channel(&artifact_id)),
         created_at.clone(),
     );
-    envelope.agui_mutations = agui_mutations;
+    envelope.agui_mutations = a2ui_mutations;
 
     let apply_result = match apply_crdt_update(&mut state, &envelope, now_iso()) {
         Ok(result) => result,
@@ -12475,9 +14355,9 @@ fn emit_heap_block_core(
         hash: items[artifact_idx].content_hash.clone(),
         block_count: estimate_markdown_blocks(&apply_result.materialized_markdown),
     };
-    items[artifact_idx].agui_initial_ui_json = Some(canonical.surface_json.to_string());
-    items[artifact_idx].agui_tags = Some(canonical.tags.clone());
-    items[artifact_idx].agui_mentions = Some(canonical.mentions_inline.clone());
+    items[artifact_idx].a2ui_initial_ui_json = Some(canonical.surface_json.to_string());
+    items[artifact_idx].a2ui_tags = Some(canonical.tags.clone());
+    items[artifact_idx].a2ui_mentions = Some(canonical.mentions_inline.clone());
     items[artifact_idx].heap_workspace_id = Some(request.workspace_id.clone());
     items[artifact_idx].heap_block_type = Some(request.block.r#type.clone());
     items[artifact_idx].heap_emitted_at = Some(request.source.emitted_at.clone());
@@ -12573,15 +14453,25 @@ fn emit_heap_block_core(
         request.source.request_id.clone(),
     );
 
+    let response_projection =
+        enrich_heap_projection_record_with_upload_status(HeapProjectionRecord {
+            projection: projection.clone(),
+            surface_json: canonical.surface_json.clone(),
+            warnings: canonical.warnings.clone(),
+            pinned_at: None,
+            deleted_at: payload_deleted_at.clone(),
+        })
+        .projection;
+
     Ok(EmitHeapBlockResponse {
         schema_version: "1.0.0".to_string(),
         accepted: true,
         artifact_id: artifact_id.clone(),
-        block_id: projection.block_id.clone(),
+        block_id: response_projection.block_id.clone(),
         op_id,
         idempotent: apply_result.idempotent,
         warnings: canonical.warnings,
-        projection,
+        projection: response_projection,
         source_of_truth: source_state.source_of_truth,
         fallback_active: source_state.fallback_active,
     })
@@ -12751,6 +14641,7 @@ async fn post_system_gates_emit_heap_block(
             payload_type: crate::services::heap_mapper::HeapPayloadType::StructuredData,
             a2ui: None,
             rich_text: None,
+            task: None,
             media: None,
             structured_data: Some(block_payload),
             pointer: None,
@@ -13167,6 +15058,7 @@ async fn get_cortex_heap_blocks(Query(query): Query<HeapBlocksQuery>) -> axum::r
         None
     };
     rows = projection_records_with_nested_surfaces(rows);
+    rows = enrich_heap_projection_records(rows);
 
     let items = rows
         .into_iter()
@@ -13379,6 +15271,7 @@ async fn get_cortex_heap_changed_blocks(
         None
     };
     rows = projection_records_with_nested_surfaces(rows);
+    rows = enrich_heap_projection_records(rows);
 
     let count = rows.len();
     let changed = rows
@@ -13571,6 +15464,13 @@ async fn post_cortex_heap_block_delete(
     .into_response()
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+struct HeapBlocksContextBundle {
+    blocks: Vec<serde_json::Value>,
+    block_count: usize,
+    prepared_at: String,
+}
+
 #[derive(Deserialize)]
 struct HeapBlocksContextRequest {
     block_ids: Vec<String>,
@@ -13582,10 +15482,625 @@ struct HeapBlocksContextResponse {
 }
 
 #[derive(Serialize)]
-struct HeapBlocksContextBundle {
-    blocks: Vec<serde_json::Value>,
-    block_count: usize,
-    prepared_at: String,
+#[serde(rename_all = "camelCase")]
+struct ChatConversationSummaryTurn {
+    role: String,
+    text: String,
+    timestamp: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatConversationMessageProjection {
+    id: String,
+    role: String,
+    timestamp: String,
+    text: String,
+    content: Vec<ChatContentPart>,
+    artifact_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    agent: Option<ChatAgentIdentity>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatConversationSummaryProjection {
+    thread_id: String,
+    title: String,
+    anchor: Option<ChatSourceAnchor>,
+    message_count: usize,
+    last_message_preview: String,
+    created_at: String,
+    updated_at: String,
+    recent_turns: Vec<ChatConversationSummaryTurn>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatConversationDetailProjection {
+    #[serde(flatten)]
+    summary: ChatConversationSummaryProjection,
+    messages: Vec<ChatConversationMessageProjection>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatConversationListResponse {
+    generated_at: String,
+    count: usize,
+    items: Vec<ChatConversationSummaryProjection>,
+}
+
+#[derive(Clone)]
+struct ChatConversationAccumulatedPart {
+    part_index: usize,
+    artifact_id: String,
+    content: Option<ChatContentPart>,
+}
+
+#[derive(Clone)]
+struct ChatConversationMessageAccumulator {
+    id: String,
+    role: String,
+    timestamp: String,
+    parts: Vec<ChatConversationAccumulatedPart>,
+    anchor: Option<ChatSourceAnchor>,
+    agent: Option<ChatAgentIdentity>,
+}
+
+pub(crate) fn build_heap_context_bundle_for_block_ids(
+    block_ids: &[String],
+) -> Vec<serde_json::Value> {
+    if block_ids.is_empty() {
+        return Vec::new();
+    }
+
+    let projections = read_heap_projection_store();
+    let projection_by_id = projections
+        .iter()
+        .filter(|entry| entry.deleted_at.is_none())
+        .map(|entry| (entry.projection.artifact_id.as_str(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let mut seen = std::collections::HashSet::<&str>::new();
+
+    block_ids
+        .iter()
+        .filter(|id| seen.insert(id.as_str()))
+        .filter_map(|id| projection_by_id.get(id.as_str()))
+        .map(|entry| {
+            json!({
+                "artifact_id": entry.projection.artifact_id,
+                "title": entry.projection.title,
+                "block_type": entry.projection.block_type,
+                "tags": entry.projection.tags,
+                "mentions": entry.projection.mentions_inline,
+                "surface_json": entry.surface_json,
+                "updated_at": entry.projection.updated_at,
+            })
+        })
+        .collect()
+}
+
+pub(crate) fn load_chat_thread_history(thread_id: &str) -> Vec<ChatHistoryTurn> {
+    let details = build_chat_conversation_details(Some(thread_id));
+    let Some(detail) = details.into_iter().next() else {
+        return Vec::new();
+    };
+
+    detail
+        .messages
+        .into_iter()
+        .map(|message| {
+            let text = message_text_for_history(&message);
+            ChatHistoryTurn {
+                role: message.role,
+                text,
+                timestamp: parse_heap_iso_timestamp(&message.timestamp)
+                    .map(|value| value.timestamp())
+                    .unwrap_or_else(|| Utc::now().timestamp()),
+            }
+        })
+        .collect()
+}
+
+pub(crate) fn persist_chat_message_parts(
+    space_id: Option<&str>,
+    thread_id: &str,
+    message_id: &str,
+    role: &str,
+    source_anchor: Option<ChatSourceAnchor>,
+    parts: &[ChatContentPart],
+    agent: Option<ChatAgentIdentity>,
+) -> Result<(), String> {
+    let emitted_at = now_iso();
+    let workspace_id = resolve_heap_workspace_id(space_id.unwrap_or("meta"));
+
+    for (index, part) in parts.iter().enumerate() {
+        let (block_type, title, content) = match part {
+            ChatContentPart::Text { text } => (
+                "conversation_message".to_string(),
+                if role == "user" {
+                    "User message".to_string()
+                } else {
+                    "Assistant message".to_string()
+                },
+                HeapContent {
+                    payload_type: HeapPayloadType::RichText,
+                    a2ui: None,
+                    rich_text: Some(HeapRichTextContent {
+                        plain_text: text.clone(),
+                        title_doc: None,
+                        text_doc: None,
+                    }),
+                    task: None,
+                    media: None,
+                    structured_data: None,
+                    pointer: None,
+                },
+            ),
+            ChatContentPart::A2ui {
+                surface_id,
+                title,
+                tree,
+            } => (
+                "conversation_a2ui".to_string(),
+                title
+                    .clone()
+                    .unwrap_or_else(|| "Assistant surface".to_string()),
+                HeapContent {
+                    payload_type: HeapPayloadType::A2ui,
+                    a2ui: Some(HeapA2uiContent {
+                        surface_id: surface_id.clone(),
+                        protocol_version: "1.0.0".to_string(),
+                        renderer: Some("react".to_string()),
+                        view_type: Some("chat".to_string()),
+                        tree: tree.clone(),
+                        data_model: None,
+                    }),
+                    rich_text: None,
+                    task: None,
+                    media: None,
+                    structured_data: None,
+                    pointer: None,
+                },
+            ),
+            ChatContentPart::Pointer { href, label, .. } => (
+                "conversation_pointer".to_string(),
+                label.clone(),
+                HeapContent {
+                    payload_type: HeapPayloadType::Pointer,
+                    a2ui: None,
+                    rich_text: None,
+                    task: None,
+                    media: None,
+                    structured_data: None,
+                    pointer: Some(href.clone()),
+                },
+            ),
+        };
+
+        let mut attributes = BTreeMap::new();
+        attributes.insert("thread_id".to_string(), thread_id.to_string());
+        attributes.insert("message_id".to_string(), message_id.to_string());
+        attributes.insert("role".to_string(), role.to_string());
+        attributes.insert("part_index".to_string(), index.to_string());
+        attributes.insert(
+            "part_type".to_string(),
+            match part {
+                ChatContentPart::Text { .. } => "text",
+                ChatContentPart::A2ui { .. } => "a2ui",
+                ChatContentPart::Pointer { .. } => "pointer",
+            }
+            .to_string(),
+        );
+        if let Some(anchor) = source_anchor.as_ref() {
+            attributes.insert("anchor_kind".to_string(), anchor.kind.clone());
+            attributes.insert("anchor_label".to_string(), anchor.label.clone());
+            attributes.insert("anchor_href".to_string(), anchor.href.clone());
+            if let Some(value) = anchor.route_id.as_ref() {
+                attributes.insert("anchor_route_id".to_string(), value.clone());
+            }
+            if let Some(value) = anchor.artifact_id.as_ref() {
+                attributes.insert("anchor_artifact_id".to_string(), value.clone());
+            }
+            if let Some(value) = anchor.view_id.as_ref() {
+                attributes.insert("anchor_view_id".to_string(), value.clone());
+            }
+            if let Some(value) = anchor.block_id.as_ref() {
+                attributes.insert("anchor_block_id".to_string(), value.clone());
+            }
+            if let Some(value) = anchor.component_id.as_ref() {
+                attributes.insert("anchor_component_id".to_string(), value.clone());
+            }
+        }
+        if let Some(agent_identity) = agent.as_ref() {
+            attributes.insert("agent_id".to_string(), agent_identity.id.clone());
+            attributes.insert("agent_label".to_string(), agent_identity.label.clone());
+            attributes.insert("agent_route".to_string(), agent_identity.route.clone());
+            attributes.insert("agent_mode".to_string(), agent_identity.mode.clone());
+        }
+        if let ChatContentPart::Pointer {
+            description: Some(description),
+            ..
+        } = part
+        {
+            attributes.insert("pointer_description".to_string(), description.clone());
+        }
+        if let ChatContentPart::Pointer {
+            artifact_id: Some(artifact_id),
+            ..
+        } = part
+        {
+            attributes.insert("pointer_artifact_id".to_string(), artifact_id.clone());
+        }
+
+        let artifact_id =
+            sanitize_fs_component(&format!("chat_{}_{}_{}", thread_id, message_id, index));
+
+        let request = EmitHeapBlockRequest {
+            schema_version: "1.0.0".to_string(),
+            mode: "heap".to_string(),
+            workspace_id: workspace_id.clone(),
+            source: crate::services::heap_mapper::HeapSource {
+                agent_id: "cortex-runtime-chat".to_string(),
+                session_id: Some(thread_id.to_string()),
+                request_id: Some(format!("chat:{}:{}:{}", thread_id, message_id, index)),
+                emitted_at: emitted_at.clone(),
+            },
+            block: crate::services::heap_mapper::HeapBlock {
+                id: None,
+                r#type: block_type,
+                title,
+                icon: None,
+                icon_type: None,
+                color: None,
+                main_tag: None,
+                attributes: Some(attributes),
+                behaviors: None,
+            },
+            content,
+            relations: crate::services::heap_mapper::HeapRelations::default(),
+            files: vec![],
+            apps: vec![],
+            meta: None,
+            projection_hints: crate::services::heap_mapper::HeapProjectionHints::default(),
+            crdt_projection: crate::services::heap_mapper::HeapCrdtProjection {
+                artifact_id: Some(artifact_id),
+                ..crate::services::heap_mapper::HeapCrdtProjection::default()
+            },
+        };
+
+        emit_heap_block_core(
+            request,
+            "cortex-runtime-chat".to_string(),
+            "operator".to_string(),
+        )
+        .map_err(|response| format!("chat_heap_emit_failed:{}", response.status()))?;
+    }
+
+    Ok(())
+}
+
+fn build_chat_conversation_details(
+    thread_filter: Option<&str>,
+) -> Vec<ChatConversationDetailProjection> {
+    let mut rows = read_heap_projection_store();
+    rows.retain(|entry| {
+        entry.deleted_at.is_none()
+            && matches!(
+                entry.projection.block_type.as_str(),
+                "conversation_message" | "conversation_a2ui" | "conversation_pointer"
+            )
+    });
+
+    let mut threads: BTreeMap<String, BTreeMap<String, ChatConversationMessageAccumulator>> =
+        BTreeMap::new();
+
+    for entry in rows {
+        let attrs = entry.projection.attributes.clone().unwrap_or_default();
+        let Some(thread_id) = attrs.get("thread_id").cloned() else {
+            continue;
+        };
+        if thread_filter.is_some_and(|value| value != thread_id) {
+            continue;
+        }
+        let Some(message_id) = attrs.get("message_id").cloned() else {
+            continue;
+        };
+        let role = attrs
+            .get("role")
+            .cloned()
+            .unwrap_or_else(|| "agent".to_string());
+        let part_index = attrs
+            .get("part_index")
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or_default();
+        let anchor = chat_anchor_from_attributes(&attrs);
+        let agent = chat_agent_from_attributes(&attrs);
+        let part =
+            chat_content_part_from_projection(&entry.projection, &entry.surface_json, &attrs);
+        let timestamp = entry.projection.updated_at.clone();
+
+        let thread_entry = threads.entry(thread_id.clone()).or_default();
+        let message_entry = thread_entry.entry(message_id.clone()).or_insert_with(|| {
+            ChatConversationMessageAccumulator {
+                id: message_id.clone(),
+                role: role.clone(),
+                timestamp: timestamp.clone(),
+                parts: Vec::new(),
+                anchor: anchor.clone(),
+                agent: agent.clone(),
+            }
+        });
+
+        if message_entry.timestamp > timestamp {
+            message_entry.timestamp = timestamp.clone();
+        }
+        if message_entry.anchor.is_none() {
+            message_entry.anchor = anchor.clone();
+        }
+        if message_entry.agent.is_none() {
+            message_entry.agent = agent.clone();
+        }
+        message_entry.parts.push(ChatConversationAccumulatedPart {
+            part_index,
+            artifact_id: entry.projection.artifact_id.clone(),
+            content: part,
+        });
+    }
+
+    let mut conversations = threads
+        .into_iter()
+        .map(|(thread_id, messages)| {
+            let mut ordered_messages = messages.into_values().collect::<Vec<_>>();
+            ordered_messages.sort_by(|left, right| {
+                left.timestamp
+                    .cmp(&right.timestamp)
+                    .then_with(|| left.id.cmp(&right.id))
+            });
+
+            let anchor = ordered_messages
+                .iter()
+                .find_map(|message| message.anchor.clone());
+
+            let projected_messages = ordered_messages
+                .iter()
+                .map(|message| {
+                    let mut ordered_parts = message.parts.clone();
+                    ordered_parts.sort_by(|left, right| {
+                        left.part_index
+                            .cmp(&right.part_index)
+                            .then_with(|| left.artifact_id.cmp(&right.artifact_id))
+                    });
+
+                    let text = ordered_parts
+                        .iter()
+                        .filter_map(|part| match part.content.as_ref() {
+                            Some(ChatContentPart::Text { text }) => {
+                                let trimmed = text.trim();
+                                if trimmed.is_empty() {
+                                    None
+                                } else {
+                                    Some(trimmed)
+                                }
+                            }
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n\n");
+
+                    ChatConversationMessageProjection {
+                        id: message.id.clone(),
+                        role: message.role.clone(),
+                        timestamp: message.timestamp.clone(),
+                        text: if text.trim().is_empty() {
+                            "Structured response".to_string()
+                        } else {
+                            text
+                        },
+                        content: ordered_parts
+                            .iter()
+                            .filter_map(|part| part.content.clone())
+                            .collect(),
+                        artifact_ids: ordered_parts
+                            .iter()
+                            .map(|part| part.artifact_id.clone())
+                            .collect(),
+                        agent: message.agent.clone(),
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let recent_turns = projected_messages
+                .iter()
+                .rev()
+                .take(8)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .map(|message| ChatConversationSummaryTurn {
+                    role: message.role.clone(),
+                    text: message.text.clone(),
+                    timestamp: message.timestamp.clone(),
+                })
+                .collect::<Vec<_>>();
+
+            let created_at = projected_messages
+                .first()
+                .map(|message| message.timestamp.clone())
+                .unwrap_or_else(now_iso);
+            let updated_at = projected_messages
+                .last()
+                .map(|message| message.timestamp.clone())
+                .unwrap_or_else(now_iso);
+            let title = projected_messages
+                .iter()
+                .find(|message| message.role == "user")
+                .map(|message| summarize_chat_preview(&message.text))
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| "Conversation".to_string());
+            let last_message_preview = projected_messages
+                .last()
+                .map(|message| summarize_chat_preview(&message.text))
+                .unwrap_or_default();
+
+            ChatConversationDetailProjection {
+                summary: ChatConversationSummaryProjection {
+                    thread_id,
+                    title,
+                    anchor,
+                    message_count: projected_messages.len(),
+                    last_message_preview,
+                    created_at,
+                    updated_at,
+                    recent_turns,
+                },
+                messages: projected_messages,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    conversations.sort_by(|left, right| {
+        right
+            .summary
+            .updated_at
+            .cmp(&left.summary.updated_at)
+            .then_with(|| right.summary.thread_id.cmp(&left.summary.thread_id))
+    });
+    conversations
+}
+
+fn chat_content_part_from_projection(
+    projection: &HeapBlockProjection,
+    surface_json: &Value,
+    attributes: &BTreeMap<String, String>,
+) -> Option<ChatContentPart> {
+    match attributes.get("part_type").map(String::as_str) {
+        Some("a2ui") => Some(ChatContentPart::A2ui {
+            surface_id: projection.surface_id.clone(),
+            title: Some(projection.title.clone()),
+            tree: surface_json.clone(),
+        }),
+        Some("pointer") => {
+            let href = surface_json
+                .get("pointer")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .to_string();
+            if href.trim().is_empty() {
+                None
+            } else {
+                Some(ChatContentPart::Pointer {
+                    href,
+                    label: projection.title.clone(),
+                    artifact_id: attributes.get("pointer_artifact_id").cloned(),
+                    description: attributes.get("pointer_description").cloned(),
+                })
+            }
+        }
+        _ => {
+            let text = surface_json
+                .get("plain_text")
+                .or_else(|| surface_json.get("text"))
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .to_string();
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(ChatContentPart::Text { text })
+            }
+        }
+    }
+}
+
+fn message_text_for_history(message: &ChatConversationMessageProjection) -> String {
+    let text = message
+        .content
+        .iter()
+        .filter_map(|part| match part {
+            ChatContentPart::Text { text } => Some(text.trim()),
+            _ => None,
+        })
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    if text.is_empty() {
+        message.text.clone()
+    } else {
+        text
+    }
+}
+
+fn chat_anchor_from_attributes(attributes: &BTreeMap<String, String>) -> Option<ChatSourceAnchor> {
+    Some(ChatSourceAnchor {
+        kind: attributes.get("anchor_kind")?.clone(),
+        label: attributes.get("anchor_label")?.clone(),
+        href: attributes.get("anchor_href")?.clone(),
+        route_id: attributes.get("anchor_route_id").cloned(),
+        artifact_id: attributes.get("anchor_artifact_id").cloned(),
+        view_id: attributes.get("anchor_view_id").cloned(),
+        block_id: attributes.get("anchor_block_id").cloned(),
+        component_id: attributes.get("anchor_component_id").cloned(),
+    })
+}
+
+fn chat_agent_from_attributes(attributes: &BTreeMap<String, String>) -> Option<ChatAgentIdentity> {
+    Some(ChatAgentIdentity {
+        id: attributes.get("agent_id")?.clone(),
+        label: attributes.get("agent_label")?.clone(),
+        route: attributes.get("agent_route")?.clone(),
+        mode: attributes.get("agent_mode")?.clone(),
+    })
+}
+
+fn summarize_chat_preview(text: &str) -> String {
+    let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.len() <= 140 {
+        normalized
+    } else {
+        format!("{}...", &normalized[..137])
+    }
+}
+
+async fn get_cortex_chat_conversations() -> axum::response::Response {
+    let details = build_chat_conversation_details(None);
+    let items = details
+        .into_iter()
+        .map(|detail| detail.summary)
+        .collect::<Vec<_>>();
+    Json(ChatConversationListResponse {
+        generated_at: now_iso(),
+        count: items.len(),
+        items,
+    })
+    .into_response()
+}
+
+async fn get_cortex_chat_conversation(Path(thread_id): Path<String>) -> axum::response::Response {
+    let details = build_chat_conversation_details(Some(thread_id.as_str()));
+    let Some(detail) = details.into_iter().next() else {
+        return cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "CHAT_CONVERSATION_NOT_FOUND",
+            "Conversation thread does not exist.",
+            Some(json!({ "threadId": thread_id })),
+        );
+    };
+
+    Json(json!({
+        "threadId": detail.summary.thread_id,
+        "title": detail.summary.title,
+        "anchor": detail.summary.anchor,
+        "messageCount": detail.summary.message_count,
+        "lastMessagePreview": detail.summary.last_message_preview,
+        "createdAt": detail.summary.created_at,
+        "updatedAt": detail.summary.updated_at,
+        "recentTurns": detail.summary.recent_turns,
+        "messages": detail.messages,
+    }))
+    .into_response()
 }
 
 async fn post_cortex_heap_blocks_context(
@@ -13603,29 +16118,7 @@ async fn post_cortex_heap_blocks_context(
         );
     }
 
-    let projections = read_heap_projection_store();
-    let requested_set: std::collections::HashSet<&str> =
-        request.block_ids.iter().map(|id| id.as_str()).collect();
-
-    let matched_blocks: Vec<serde_json::Value> = projections
-        .iter()
-        .filter(|entry| {
-            requested_set.contains(entry.projection.artifact_id.as_str())
-                && entry.deleted_at.is_none()
-        })
-        .map(|entry| {
-            json!({
-                "artifact_id": entry.projection.artifact_id,
-                "title": entry.projection.title,
-                "block_type": entry.projection.block_type,
-                "tags": entry.projection.tags,
-                "mentions": entry.projection.mentions_inline,
-                "surface_json": entry.surface_json,
-                "updated_at": entry.projection.updated_at,
-            })
-        })
-        .collect();
-
+    let matched_blocks = build_heap_context_bundle_for_block_ids(&request.block_ids);
     let block_count = matched_blocks.len();
     Json(HeapBlocksContextResponse {
         context_bundle: HeapBlocksContextBundle {
@@ -13729,6 +16222,14 @@ async fn get_cortex_heap_block_export(
 struct HeapBlockHistoryResponse {
     artifact_id: String,
     versions: Vec<HeapBlockVersion>,
+    #[serde(default)]
+    revisions: Vec<HeapArtifactRevisionSummary>,
+    #[serde(default)]
+    lineage: Vec<HeapLineageRelation>,
+    #[serde(rename = "uploadExtractionRuns", default)]
+    upload_extraction_runs: Vec<HeapUploadExtractionStatusRecord>,
+    #[serde(default)]
+    legacy_duplicates: Vec<SpaceLegacyPromptGroup>,
 }
 
 #[derive(Serialize)]
@@ -13737,6 +16238,181 @@ struct HeapBlockVersion {
     timestamp: String,
     mutation_type: String,
     actor: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HeapArtifactRevisionSummary {
+    revision_id: String,
+    revision_number: u64,
+    created_at: String,
+    created_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parent_revision_id: Option<String>,
+    published: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content_hash: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HeapLineageRelation {
+    relation: String,
+    artifact_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    block_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    subtitle: Option<String>,
+}
+
+fn semantic_relation_targets(surface_json: &Value) -> Vec<(String, String)> {
+    let mut relations = Vec::new();
+    let push_string =
+        |relations: &mut Vec<(String, String)>, relation: &str, value: Option<String>| {
+            if let Some(value) = value.filter(|candidate| !candidate.trim().is_empty()) {
+                relations.push((relation.to_string(), value));
+            }
+        };
+    push_string(
+        &mut relations,
+        "parent_artifact",
+        surface_string_field(surface_json, "parent_artifact_id"),
+    );
+    push_string(
+        &mut relations,
+        "artifact",
+        surface_string_field(surface_json, "artifact_id"),
+    );
+    push_string(
+        &mut relations,
+        "prompt_template",
+        surface_string_field(surface_json, "prompt_template_artifact_id"),
+    );
+    push_string(
+        &mut relations,
+        "prompt_execution",
+        surface_string_field(surface_json, "prompt_execution_artifact_id"),
+    );
+    push_string(
+        &mut relations,
+        "parent_run",
+        surface_string_field(surface_json, "parent_run_id"),
+    );
+    push_string(
+        &mut relations,
+        "run",
+        surface_string_field(surface_json, "run_id"),
+    );
+    if let Some(data) = surface_structured_data(surface_json) {
+        if let Some(children) = data.get("child_run_ids").and_then(|value| value.as_array()) {
+            for child in children {
+                if let Some(child_id) = child
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                {
+                    relations.push(("child_run".to_string(), child_id.to_string()));
+                }
+            }
+        }
+    }
+    relations
+}
+
+fn build_heap_lineage_relations(
+    artifact_id: &str,
+    projections: &[HeapProjectionRecord],
+) -> Vec<HeapLineageRelation> {
+    let title_map = projections
+        .iter()
+        .map(|entry| {
+            (
+                entry.projection.artifact_id.clone(),
+                (
+                    entry.projection.title.clone(),
+                    entry.projection.block_type.clone(),
+                    surface_string_field(&entry.surface_json, "type"),
+                ),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    let current = projections
+        .iter()
+        .find(|entry| entry.projection.artifact_id == artifact_id);
+    let mut relations = current
+        .map(|entry| {
+            semantic_relation_targets(&entry.surface_json)
+                .into_iter()
+                .map(|(relation, target_id)| {
+                    let target = title_map.get(&target_id);
+                    HeapLineageRelation {
+                        relation,
+                        artifact_id: target_id,
+                        title: target.map(|value| value.0.clone()),
+                        block_type: target.map(|value| value.1.clone()),
+                        subtitle: target.and_then(|value| value.2.clone()),
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    for candidate in projections {
+        if candidate.projection.artifact_id == artifact_id {
+            continue;
+        }
+        for (relation, target_id) in semantic_relation_targets(&candidate.surface_json) {
+            if target_id != artifact_id {
+                continue;
+            }
+            relations.push(HeapLineageRelation {
+                relation: format!("inbound_{relation}"),
+                artifact_id: candidate.projection.artifact_id.clone(),
+                title: Some(candidate.projection.title.clone()),
+                block_type: Some(candidate.projection.block_type.clone()),
+                subtitle: surface_string_field(&candidate.surface_json, "type"),
+            });
+        }
+    }
+
+    relations.sort_by(|left, right| {
+        left.relation
+            .cmp(&right.relation)
+            .then_with(|| left.artifact_id.cmp(&right.artifact_id))
+    });
+    relations.dedup_by(|left, right| {
+        left.relation == right.relation && left.artifact_id == right.artifact_id
+    });
+    relations
+}
+
+fn build_legacy_duplicate_groups(artifact_id: &str) -> Vec<SpaceLegacyPromptGroup> {
+    let artifacts = read_artifacts_store();
+    let Some(current) = artifacts
+        .iter()
+        .find(|entry| entry.artifact_id == artifact_id)
+    else {
+        return Vec::new();
+    };
+    let matching = artifacts
+        .iter()
+        .filter(|entry| entry.artifact_id != artifact_id)
+        .filter(|entry| entry.title == current.title && entry.content_hash == current.content_hash)
+        .map(|entry| entry.artifact_id.clone())
+        .collect::<Vec<_>>();
+    if matching.is_empty() {
+        return Vec::new();
+    }
+    let mut artifact_ids = vec![artifact_id.to_string()];
+    artifact_ids.extend(matching);
+    vec![SpaceLegacyPromptGroup {
+        title: current.title.clone(),
+        content_hash: Some(current.content_hash.clone()),
+        artifact_ids,
+    }]
 }
 
 async fn get_cortex_heap_block_history(
@@ -13792,10 +16468,40 @@ async fn get_cortex_heap_block_history(
                 .to_string(),
         })
         .collect();
+    let mut revisions = read_artifact_revisions()
+        .into_iter()
+        .filter(|revision| revision.artifact_id == artifact_id)
+        .map(|revision| HeapArtifactRevisionSummary {
+            revision_id: revision.revision_id,
+            revision_number: revision.revision_number,
+            created_at: revision.created_at,
+            created_by: revision.created_by,
+            parent_revision_id: revision.parent_revision_id,
+            published: revision.published,
+            content_hash: Some(revision.content_hash),
+        })
+        .collect::<Vec<_>>();
+    revisions.sort_by(|left, right| right.revision_number.cmp(&left.revision_number));
+    let lineage = build_heap_lineage_relations(&artifact_id, &projections);
+    let legacy_duplicates = build_legacy_duplicate_groups(&artifact_id);
+    let upload_extraction_runs = projections
+        .iter()
+        .find(|entry| entry.projection.artifact_id == artifact_id)
+        .and_then(|entry| {
+            entry.projection.file_keys.iter().find_map(|file_key| {
+                find_heap_upload_by_file_key(file_key)
+                    .map(|upload| list_heap_upload_extraction_statuses(&upload.upload_id))
+            })
+        })
+        .unwrap_or_default();
 
     Json(HeapBlockHistoryResponse {
         artifact_id,
         versions,
+        revisions,
+        lineage,
+        upload_extraction_runs,
+        legacy_duplicates,
     })
     .into_response()
 }
@@ -14269,9 +16975,9 @@ async fn post_cortex_heap_steward_gate_apply(
         owner_role: actor_role.clone(),
         source_of_truth: source_state.source_of_truth.clone(),
         fallback_active: source_state.fallback_active,
-        agui_initial_ui_json: None,
-        agui_tags: Some(vec![parent_projection.projection.block_id.clone()]),
-        agui_mentions: Some(vec![]),
+        a2ui_initial_ui_json: None,
+        a2ui_tags: Some(vec![parent_projection.projection.block_id.clone()]),
+        a2ui_mentions: Some(vec![]),
         heap_workspace_id: Some(parent_projection.projection.workspace_id.clone()),
         heap_block_type: Some(child_block_type.clone()),
         heap_emitted_at: Some(now.clone()),
@@ -14499,9 +17205,9 @@ async fn post_cortex_artifact_create(
         owner_role: actor_role.clone(),
         source_of_truth: source_state.source_of_truth,
         fallback_active: source_state.fallback_active,
-        agui_initial_ui_json: None,
-        agui_tags: None,
-        agui_mentions: None,
+        a2ui_initial_ui_json: None,
+        a2ui_tags: None,
+        a2ui_mentions: None,
         heap_workspace_id: None,
         heap_block_type: None,
         heap_emitted_at: None,
@@ -18642,6 +21348,77 @@ fn resolve_actor_principal(headers: &HeaderMap, actor_ref: Option<&str>) -> Opti
         })
 }
 
+fn resolve_actor_id_hint(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-cortex-actor")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn issue_gateway_session_from_identity(
+    headers: &HeaderMap,
+    endpoint: &str,
+    space_id: Option<&str>,
+    mutation_required: bool,
+) -> Result<(AuthSession, String), axum::response::Response> {
+    let existing_session_id = resolve_session_cookie(headers);
+    let existing_session = load_session_from_headers(headers);
+    let identity = resolve_authz_identity(headers, endpoint, space_id, mutation_required)?;
+    let issued_at = now_iso();
+    let record = if identity.source == "session_claims" {
+        if let Some(mut record) = existing_session {
+            record.principal = identity.principal.clone().or(record.principal);
+            record.actor_id_hint = resolve_actor_id_hint(headers).or(record.actor_id_hint);
+            record.identity_verified = identity.verified;
+            record.identity_source = identity.source;
+            if !identity.claims.is_empty() {
+                record.global_claims = identity.claims;
+            }
+            record.allow_unverified_role_header = allow_unverified_role_header();
+            record.updated_at = issued_at.clone();
+            record
+        } else {
+            build_session_record(
+                existing_session_id,
+                identity.principal.clone(),
+                resolve_actor_id_hint(headers),
+                identity.verified,
+                identity.source,
+                identity.role,
+                identity.claims,
+                allow_unverified_role_header(),
+                issued_at.clone(),
+            )
+        }
+    } else {
+        build_session_record(
+            existing_session_id,
+            identity.principal.clone(),
+            resolve_actor_id_hint(headers),
+            identity.verified,
+            identity.source,
+            identity.role,
+            identity.claims,
+            allow_unverified_role_header(),
+            issued_at.clone(),
+        )
+    };
+    let persisted = upsert_session_record(record).map_err(|err| {
+        cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "SESSION_PERSIST_FAILED",
+            "Unable to persist gateway session state.",
+            Some(json!({ "reason": err })),
+        )
+    })?;
+    Ok((
+        project_auth_session(&persisted, issued_at),
+        set_cookie_value(&persisted.session_id),
+    ))
+}
+
 fn decision_signature_secret() -> Option<String> {
     std::env::var("NOSTRA_DECISION_SIGNING_SECRET")
         .ok()
@@ -21917,21 +24694,14 @@ async fn health_check() -> impl IntoResponse {
     Json(json!({ "status": "ok" })).into_response()
 }
 
-fn preferred_ic_cli_bin() -> &'static str {
-    match std::env::var("CORTEX_IC_CLI").as_deref() {
-        Ok("dfx") => "dfx",
-        _ => "icp",
-    }
-}
-
-fn ic_cli_command(bin: &str) -> Command {
-    let mut command = Command::new(bin);
+fn ic_cli_command() -> Command {
+    let mut command = Command::new("icp");
     let term = std::env::var("TERM").unwrap_or_default();
     if term.trim().is_empty() || term.eq_ignore_ascii_case("dumb") {
         command.env("TERM", "xterm-256color");
     }
-    command.env("CLICOLOR", "1");
-    command.env_remove("NO_COLOR");
+    command.env("NO_COLOR", "1");
+    command.env("CLICOLOR", "0");
     command
 }
 
@@ -21941,24 +24711,10 @@ fn icp_network_healthy() -> bool {
 }
 
 fn ic_cli_version_output() -> String {
-    let preferred = preferred_ic_cli_bin();
-    let fallback = if preferred == "icp" {
-        Some("dfx")
-    } else {
-        None
-    };
-
-    let mut candidates = vec![preferred];
-    if let Some(fallback_bin) = fallback {
-        candidates.push(fallback_bin);
-    }
-
-    for bin in candidates {
-        if let Ok(output) = ic_cli_command(bin).arg("--version").output() {
-            let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !text.is_empty() {
-                return text;
-            }
+    if let Ok(output) = ic_cli_command().arg("--version").output() {
+        let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !text.is_empty() {
+            return text;
         }
     }
 
@@ -21982,7 +24738,6 @@ async fn get_system_ready() -> Json<SystemReady> {
         ready: icp_network_healthy,
         gateway_port,
         icp_network_healthy,
-        dfx_port_healthy: icp_network_healthy,
         notes,
     })
 }
@@ -22124,51 +24879,104 @@ async fn get_system_llm_adapter_status() -> axum::response::Response {
         )
             .into_response();
     }
+}
 
-    let client = match LlmAdapterClient::new(cfg.clone()) {
-        Ok(client) => client,
-        Err(err) => {
-            return (
-                StatusCode::OK,
-                Json(json!({
-                    "enabled": true,
-                    "baseUrl": cfg.base_url,
-                    "failMode": match cfg.fail_mode {
-                        LlmAdapterFailMode::Fallback => "fallback",
-                        LlmAdapterFailMode::FailClosed => "fail_closed",
-                    },
-                    "model": cfg.default_model,
-                    "adapterHealthError": err,
-                })),
-            )
-                .into_response();
-        }
-    };
+type SystemProviderRecord = crate::gateway::provider_admin::contracts::SystemProviderRecord;
+type SystemProvidersResponse = crate::gateway::provider_admin::contracts::SystemProvidersResponse;
+type PutSystemProviderBindingRequest =
+    crate::gateway::provider_admin::contracts::PutSystemProviderBindingRequest;
+type PutSystemProviderRequest = crate::gateway::provider_admin::contracts::PutSystemProviderRequest;
+type CreateAuthBindingRequest = crate::gateway::provider_admin::contracts::CreateAuthBindingRequest;
+type UpdateAuthBindingRequest = crate::gateway::provider_admin::contracts::UpdateAuthBindingRequest;
 
-    let mut response = json!({
-        "enabled": true,
-        "baseUrl": cfg.base_url,
-        "failMode": match cfg.fail_mode {
-            LlmAdapterFailMode::Fallback => "fallback",
-            LlmAdapterFailMode::FailClosed => "fail_closed",
-        },
-        "model": cfg.default_model,
-    });
+async fn build_system_provider_records() -> SystemProvidersResponse {
+    crate::gateway::provider_admin::service::build_system_providers_response().await
+}
 
-    match client.health_adapter().await {
-        Ok(value) => response["adapterHealth"] = value,
-        Err(err) => response["adapterHealthError"] = Value::String(err),
-    }
-    match client.openapi_paths().await {
-        Ok(value) => response["openapiPaths"] = serde_json::to_value(value).unwrap_or(Value::Null),
-        Err(err) => response["openapiError"] = Value::String(err),
-    }
-    match client.health_upstream_models().await {
-        Ok(value) => response["upstreamModels"] = value,
-        Err(err) => response["upstreamModelsError"] = Value::String(err),
-    }
+async fn get_system_providers(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_providers(headers).await
+}
 
-    (StatusCode::OK, Json(response)).into_response()
+async fn post_system_providers_discover(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::post_system_providers_discover(headers).await
+}
+
+async fn post_system_provider_validate(
+    headers: HeaderMap,
+    Json(payload): Json<ProviderProbeRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::post_system_provider_validate(headers, Json(payload))
+        .await
+}
+
+async fn put_system_provider(
+    headers: HeaderMap,
+    Path(provider_id): Path<String>,
+    Json(payload): Json<PutSystemProviderRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::put_system_provider(
+        headers,
+        Path(provider_id),
+        Json(payload),
+    )
+    .await
+}
+
+async fn put_system_provider_binding(
+    headers: HeaderMap,
+    Path(binding_id): Path<String>,
+    Json(payload): Json<PutSystemProviderBindingRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::put_system_provider_binding(
+        headers,
+        Path(binding_id),
+        Json(payload),
+    )
+    .await
+}
+
+async fn post_system_auth_binding(
+    headers: HeaderMap,
+    Json(payload): Json<CreateAuthBindingRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::post_system_auth_binding(headers, Json(payload)).await
+}
+
+async fn put_system_auth_binding(
+    headers: HeaderMap,
+    Path(auth_binding_id): Path<String>,
+    Json(payload): Json<UpdateAuthBindingRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::put_system_auth_binding(
+        headers,
+        Path(auth_binding_id),
+        Json(payload),
+    )
+    .await
+}
+
+async fn get_system_provider_runtime_status(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_provider_runtime_status(headers).await
+}
+
+async fn get_system_provider_inventory(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_provider_inventory(headers).await
+}
+
+async fn get_system_runtime_hosts(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_runtime_hosts(headers).await
+}
+
+async fn get_system_auth_bindings(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_auth_bindings(headers).await
+}
+
+async fn get_system_execution_bindings(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_execution_bindings(headers).await
+}
+
+async fn get_system_provider_discovery(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_provider_discovery(headers).await
 }
 
 fn route_node_id(route_id: &str) -> String {
@@ -22897,23 +25705,27 @@ async fn get_space_navigation_plan(
         Ok(identity) => identity,
         Err(response) => return response,
     };
-    let actor_role = if allow_unverified_role_header() {
-        query.actor_role.as_deref().map(str::trim).and_then(|role| {
-            if role.is_empty() {
-                None
+    let actor_role = load_session_from_headers(&headers)
+        .map(|session| session.active_role)
+        .or_else(|| {
+            if allow_unverified_role_header() {
+                query.actor_role.as_deref().map(str::trim).and_then(|role| {
+                    if role.is_empty() {
+                        None
+                    } else {
+                        let normalized_role = role.to_ascii_lowercase();
+                        if authz_valid_role(&normalized_role) {
+                            Some(normalized_role)
+                        } else {
+                            None
+                        }
+                    }
+                })
             } else {
-                let normalized_role = role.to_ascii_lowercase();
-                if authz_valid_role(&normalized_role) {
-                    Some(normalized_role)
-                } else {
-                    None
-                }
+                None
             }
         })
-    } else {
-        None
-    }
-    .unwrap_or_else(|| identity.role.clone());
+        .unwrap_or_else(|| identity.role.clone());
     let authz_outcome = authorize(&AuthorizationRequest {
         endpoint: Some("get_space_navigation_plan".to_string()),
         principal: identity.principal.clone(),
@@ -23030,21 +25842,25 @@ async fn post_space_action_plan(
             Err(response) => return response,
         };
 
-    let actor_role = if allow_unverified_role_header() {
-        if payload.actor_role.trim().is_empty() {
-            None
-        } else {
-            let normalized_role = payload.actor_role.to_ascii_lowercase();
-            if authz_valid_role(&normalized_role) {
-                Some(normalized_role)
+    let actor_role = load_session_from_headers(&headers)
+        .map(|session| session.active_role)
+        .or_else(|| {
+            if allow_unverified_role_header() {
+                if payload.actor_role.trim().is_empty() {
+                    None
+                } else {
+                    let normalized_role = payload.actor_role.to_ascii_lowercase();
+                    if authz_valid_role(&normalized_role) {
+                        Some(normalized_role)
+                    } else {
+                        None
+                    }
+                }
             } else {
                 None
             }
-        }
-    } else {
-        None
-    }
-    .unwrap_or_else(|| identity.role.clone());
+        })
+        .unwrap_or_else(|| identity.role.clone());
 
     let authz_outcome = authorize(&AuthorizationRequest {
         endpoint: Some("post_space_action_plan".to_string()),
@@ -23745,22 +26561,724 @@ struct SpacesListResponse {
     schema_version: String,
     generated_at: String,
     count: usize,
-    items: Vec<cortex_domain::spaces::SpaceRecord>,
+    items: Vec<SpaceDiscoveryRecord>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum SpaceSourceMode {
+    Registered,
+    Observed,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum SpaceReadinessStatus {
+    Pass,
+    Fail,
+    InProgress,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct SpaceReadiness {
+    registry: SpaceReadinessStatus,
+    navigation_plan: SpaceReadinessStatus,
+    agent_runs: SpaceReadinessStatus,
+    contribution_graph_artifact: SpaceReadinessStatus,
+    contribution_graph_runs: SpaceReadinessStatus,
+    capability_graph: SpaceReadinessStatus,
+    summary: SpaceReadinessStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SpaceDiscoveryRecord {
+    #[serde(flatten)]
+    record: cortex_domain::spaces::SpaceRecord,
+    source_mode: SpaceSourceMode,
+    readiness_summary: SpaceReadinessStatus,
+    readiness: SpaceReadiness,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct SpaceReadinessResponse {
+    schema_version: String,
+    generated_at: String,
+    space_id: String,
+    source_mode: SpaceSourceMode,
+    readiness_summary: SpaceReadinessStatus,
+    readiness: SpaceReadiness,
+}
+
+fn space_registry_path() -> PathBuf {
+    workspace_root().join("_spaces").join("registry.json")
+}
+
+fn load_space_registry() -> cortex_domain::spaces::SpaceRegistry {
+    cortex_domain::spaces::SpaceRegistry::load_from_path(&space_registry_path()).unwrap_or_default()
+}
+
+fn space_runtime_settings_path() -> PathBuf {
+    workspace_root()
+        .join("_spaces")
+        .join("runtime_settings.json")
+}
+
+fn load_space_runtime_settings_registry() -> SpaceRuntimeSettingsRegistry {
+    SpaceRuntimeSettingsRegistry::load_from_path(&space_runtime_settings_path()).unwrap_or_default()
+}
+
+fn save_space_runtime_settings_registry(
+    registry: &SpaceRuntimeSettingsRegistry,
+) -> Result<(), String> {
+    registry.save_to_path(&space_runtime_settings_path())
+}
+
+fn resolve_space_routing_settings(space_id: &str) -> SpaceRoutingSettings {
+    load_space_runtime_settings_registry()
+        .get(space_id)
+        .cloned()
+        .unwrap_or_default()
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+struct SpaceSettingsResponse {
+    schema_version: String,
+    generated_at: String,
+    space_id: String,
+    routing: SpaceRoutingSettings,
+    providers: Vec<SystemProviderRecord>,
+    agent_runs: Vec<crate::services::ops_agents::AgentRunSummaryResponse>,
+    lineage: SpaceLineageSummary,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    execution_profile: Option<DecisionSurfaceEnvelope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    attribution_domains: Option<DecisionSurfaceEnvelope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    governance_scope: Option<DecisionSurfaceEnvelope>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+struct SpaceLegacyPromptGroup {
+    title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    content_hash: Option<String>,
+    artifact_ids: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+struct SpaceLineageSummary {
+    prompt_artifacts: Vec<HeapProjectionRecord>,
+    feedback_artifacts: Vec<HeapProjectionRecord>,
+    legacy_prompt_groups: Vec<SpaceLegacyPromptGroup>,
+}
+
+fn observed_space_ids() -> BTreeSet<String> {
+    let mut ids = BTreeSet::new();
+
+    let spaces_root = workspace_root().join("_spaces");
+    if let Ok(entries) = fs::read_dir(&spaces_root) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let space_id = entry.file_name().to_string_lossy().trim().to_string();
+            if space_id.is_empty() || space_id == "registry.json" || space_id.starts_with('.') {
+                continue;
+            }
+            if path.join("capability_graph.json").exists() {
+                ids.insert(space_id);
+            }
+        }
+    }
+
+    let runs_dir = decision_surface_log_dir().join("agent_runs");
+    if let Ok(entries) = fs::read_dir(runs_dir) {
+        for entry in entries.flatten() {
+            let filename = entry.file_name();
+            let filename = filename.to_string_lossy();
+            let Some((space_id, _)) = filename.split_once("__") else {
+                continue;
+            };
+            let normalized = space_id.trim();
+            if !normalized.is_empty() {
+                ids.insert(normalized.to_string());
+            }
+        }
+    }
+
+    ids
+}
+
+fn space_contribution_graph_artifact_paths(space_id: &str) -> [PathBuf; 2] {
+    let root = workspace_root()
+        .join("_spaces")
+        .join(space_id)
+        .join("research")
+        .join("000-contribution-graph");
+    [root.join("contribution_graph.json"), root.join("dpub.json")]
+}
+
+fn space_readiness_for(
+    space_id: &str,
+    registry: &cortex_domain::spaces::SpaceRegistry,
+) -> SpaceReadiness {
+    let observed_ids = observed_space_ids();
+    let registered = registry.spaces.contains_key(space_id);
+    let observed = observed_ids.contains(space_id);
+    let capability_graph_path = space_capability_graph_path(space_id);
+    let capability_graph_dir = capability_graph_path
+        .parent()
+        .map(|path| path.to_path_buf())
+        .unwrap_or_else(|| workspace_root().join("_spaces").join(space_id));
+    let contribution_graph_artifact_paths = space_contribution_graph_artifact_paths(space_id);
+    let contribution_graph_artifact_dir = contribution_graph_artifact_paths[0]
+        .parent()
+        .map(|path| path.to_path_buf());
+    let contribution_graph_runs_dir = workspace_root()
+        .join("logs")
+        .join("contribution_graph")
+        .join("runs");
+
+    let registry_status = if registered {
+        SpaceReadinessStatus::Pass
+    } else if observed {
+        SpaceReadinessStatus::InProgress
+    } else {
+        SpaceReadinessStatus::Fail
+    };
+
+    let capability_graph_status = if capability_graph_path.exists() {
+        SpaceReadinessStatus::Pass
+    } else if capability_graph_dir.exists() {
+        SpaceReadinessStatus::InProgress
+    } else {
+        SpaceReadinessStatus::Fail
+    };
+
+    let navigation_plan_status = if capability_graph_path.exists() {
+        SpaceReadinessStatus::Pass
+    } else if capability_graph_dir.exists() {
+        SpaceReadinessStatus::InProgress
+    } else {
+        SpaceReadinessStatus::Fail
+    };
+
+    let agent_runs_status = match crate::services::ops_agents::list_agent_runs(space_id, 1) {
+        Ok(_) => SpaceReadinessStatus::Pass,
+        Err(_) => {
+            if registry_status == SpaceReadinessStatus::Fail {
+                SpaceReadinessStatus::Fail
+            } else {
+                SpaceReadinessStatus::InProgress
+            }
+        }
+    };
+
+    let contribution_graph_artifact_status = if contribution_graph_artifact_paths
+        .iter()
+        .any(|path| path.exists())
+    {
+        SpaceReadinessStatus::Pass
+    } else if contribution_graph_artifact_dir
+        .as_ref()
+        .map(|path| path.exists())
+        .unwrap_or(false)
+    {
+        SpaceReadinessStatus::InProgress
+    } else {
+        SpaceReadinessStatus::Fail
+    };
+
+    let contribution_graph_runs_status = if contribution_graph_runs_dir.exists() {
+        let prefix = format!("agent_run_{}__", space_id);
+        let has_space_runs = fs::read_dir(&contribution_graph_runs_dir)
+            .ok()
+            .into_iter()
+            .flat_map(|entries| entries.flatten())
+            .filter_map(|entry| entry.file_name().to_str().map(|value| value.to_string()))
+            .any(|filename| filename.contains(space_id) || filename.starts_with(&prefix));
+        if has_space_runs {
+            SpaceReadinessStatus::Pass
+        } else {
+            SpaceReadinessStatus::InProgress
+        }
+    } else {
+        SpaceReadinessStatus::Fail
+    };
+
+    let summary = if matches!(registry_status, SpaceReadinessStatus::Fail)
+        || matches!(navigation_plan_status, SpaceReadinessStatus::Fail)
+        || matches!(agent_runs_status, SpaceReadinessStatus::Fail)
+        || matches!(capability_graph_status, SpaceReadinessStatus::Fail)
+    {
+        SpaceReadinessStatus::Fail
+    } else if matches!(registry_status, SpaceReadinessStatus::InProgress)
+        || matches!(navigation_plan_status, SpaceReadinessStatus::InProgress)
+        || matches!(agent_runs_status, SpaceReadinessStatus::InProgress)
+        || matches!(
+            contribution_graph_artifact_status,
+            SpaceReadinessStatus::InProgress
+        )
+        || matches!(
+            contribution_graph_runs_status,
+            SpaceReadinessStatus::InProgress
+        )
+        || matches!(capability_graph_status, SpaceReadinessStatus::InProgress)
+    {
+        SpaceReadinessStatus::InProgress
+    } else {
+        SpaceReadinessStatus::Pass
+    };
+
+    SpaceReadiness {
+        registry: registry_status,
+        navigation_plan: navigation_plan_status,
+        agent_runs: agent_runs_status,
+        contribution_graph_artifact: contribution_graph_artifact_status,
+        contribution_graph_runs: contribution_graph_runs_status,
+        capability_graph: capability_graph_status,
+        summary,
+    }
+}
+
+fn synthesize_observed_space_record(
+    space_id: &str,
+    readiness: &SpaceReadiness,
+) -> cortex_domain::spaces::SpaceRecord {
+    let graph_path = space_capability_graph_path(space_id);
+    let graph = read_space_capability_graph(space_id).ok().flatten();
+    let (capability_graph_version, capability_graph_hash, created_at, updated_by) = graph
+        .map(|graph| {
+            (
+                Some(graph.base_catalog_version),
+                Some(graph.base_catalog_hash),
+                chrono::DateTime::parse_from_rfc3339(&graph.updated_at)
+                    .ok()
+                    .map(|value| value.timestamp().max(0).to_string())
+                    .unwrap_or_else(|| "0".to_string()),
+                graph.updated_by,
+            )
+        })
+        .unwrap_or_else(|| (None, None, "0".to_string(), "observed".to_string()));
+
+    cortex_domain::spaces::SpaceRecord {
+        space_id: space_id.to_string(),
+        creation_mode: cortex_domain::spaces::CreationMode::Observed,
+        reference_uri: None,
+        template_id: None,
+        draft_id: None,
+        draft_source_mode: Some("observed".to_string()),
+        lineage_note: Some(
+            "Observed live runtime evidence; awaiting canonical registry promotion.".to_string(),
+        ),
+        governance_scope: None,
+        visibility_state: None,
+        capability_graph_uri: if graph_path.exists() {
+            Some(space_capability_graph_uri(space_id))
+        } else {
+            None
+        },
+        capability_graph_version,
+        capability_graph_hash,
+        status: cortex_domain::spaces::SpaceStatus::Active,
+        created_at,
+        owner: updated_by,
+        members: vec![],
+        archetype: Some(
+            if matches!(readiness.summary, SpaceReadinessStatus::Pass) {
+                "Observed"
+            } else {
+                "Live Evidence"
+            }
+            .to_string(),
+        ),
+    }
+}
+
+fn discovery_record_for_space(
+    record: cortex_domain::spaces::SpaceRecord,
+    source_mode: SpaceSourceMode,
+    readiness: SpaceReadiness,
+) -> SpaceDiscoveryRecord {
+    let readiness_summary = readiness.summary.clone();
+    SpaceDiscoveryRecord {
+        record,
+        source_mode,
+        readiness_summary,
+        readiness,
+    }
+}
+
+fn surface_structured_data<'a>(
+    surface_json: &'a Value,
+) -> Option<&'a serde_json::Map<String, Value>> {
+    surface_json.as_object().and_then(|surface| {
+        surface
+            .get("structured_data")
+            .and_then(|value| value.as_object())
+            .or_else(|| surface.get("data").and_then(|value| value.as_object()))
+            .or(Some(surface))
+    })
+}
+
+fn surface_string_field(surface_json: &Value, key: &str) -> Option<String> {
+    surface_structured_data(surface_json)
+        .and_then(|data| data.get(key))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn is_prompt_lineage_projection(entry: &HeapProjectionRecord) -> bool {
+    matches!(
+        entry.projection.block_type.as_str(),
+        "prompt"
+            | "prompt_request"
+            | "agent_solicitation"
+            | "benchmark_solicitation"
+            | "prompt_template"
+            | "prompt_execution"
+            | "prompt_snapshot"
+    ) || matches!(
+        surface_string_field(&entry.surface_json, "type").as_deref(),
+        Some(
+            "prompt"
+                | "prompt_request"
+                | "agent_solicitation"
+                | "benchmark_solicitation"
+                | "prompt_template"
+                | "prompt_execution"
+                | "prompt_snapshot"
+        )
+    )
+}
+
+fn is_feedback_projection(entry: &HeapProjectionRecord) -> bool {
+    entry.projection.block_type == "steward_feedback"
+        || surface_string_field(&entry.surface_json, "type").as_deref() == Some("steward_feedback")
+}
+
+fn build_space_lineage_summary(space_id: &str) -> SpaceLineageSummary {
+    let workspace_id = resolve_heap_workspace_id(space_id);
+    let projections = read_heap_projection_store();
+    let artifacts = read_artifacts_store();
+    let mut content_hash_by_artifact = BTreeMap::<String, String>::new();
+    for artifact in artifacts {
+        content_hash_by_artifact.insert(artifact.artifact_id, artifact.content_hash);
+    }
+
+    let prompt_artifacts = projections
+        .iter()
+        .filter(|entry| entry.deleted_at.is_none())
+        .filter(|entry| {
+            entry.projection.workspace_id == workspace_id
+                || surface_string_field(&entry.surface_json, "space_id").as_deref()
+                    == Some(space_id)
+        })
+        .filter(|entry| is_prompt_lineage_projection(entry))
+        .cloned()
+        .collect::<Vec<_>>();
+    let feedback_artifacts = projections
+        .iter()
+        .filter(|entry| entry.deleted_at.is_none())
+        .filter(|entry| {
+            entry.projection.workspace_id == workspace_id
+                || surface_string_field(&entry.surface_json, "space_id").as_deref()
+                    == Some(space_id)
+        })
+        .filter(|entry| is_feedback_projection(entry))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let mut duplicate_groups = BTreeMap::<(String, String), Vec<String>>::new();
+    for prompt in &prompt_artifacts {
+        let content_hash = content_hash_by_artifact
+            .get(&prompt.projection.artifact_id)
+            .cloned()
+            .unwrap_or_default();
+        duplicate_groups
+            .entry((prompt.projection.title.clone(), content_hash))
+            .or_default()
+            .push(prompt.projection.artifact_id.clone());
+    }
+    let legacy_prompt_groups = duplicate_groups
+        .into_iter()
+        .filter(|(_, artifact_ids)| artifact_ids.len() > 1)
+        .map(
+            |((title, content_hash), artifact_ids)| SpaceLegacyPromptGroup {
+                title,
+                content_hash: if content_hash.is_empty() {
+                    None
+                } else {
+                    Some(content_hash)
+                },
+                artifact_ids,
+            },
+        )
+        .collect::<Vec<_>>();
+
+    SpaceLineageSummary {
+        prompt_artifacts,
+        feedback_artifacts,
+        legacy_prompt_groups,
+    }
+}
+
+async fn parse_decision_surface_response(
+    response: axum::response::Response,
+) -> Option<DecisionSurfaceEnvelope> {
+    if !response.status().is_success() {
+        return None;
+    }
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.ok()?;
+    serde_json::from_slice::<DecisionSurfaceEnvelope>(&bytes).ok()
+}
+
+async fn get_space_settings(
+    headers: HeaderMap,
+    Path(space_id): Path<String>,
+) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "get_space_settings",
+        Some(space_id.as_str()),
+        "capability:space_settings",
+        "read",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SPACE_SETTINGS_FORBIDDEN",
+        "Operator role or higher is required to inspect space settings.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    let normalized = space_id.trim();
+    if normalized.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPACE_ID",
+            "space_id is required.",
+            None,
+        );
+    }
+
+    let resolved_provider = resolve_provider_runtime_state();
+    let mut routing = resolve_space_routing_settings(normalized);
+    if routing.adapter_set_ref.is_none() {
+        routing.adapter_set_ref = resolved_provider.adapter_set_ref.clone();
+    }
+    if routing.default_model.is_none() {
+        routing.default_model = Some(resolved_provider.default_model.clone());
+    }
+    if routing.provider_id.is_none() {
+        routing.provider_id = Some(resolved_provider.provider_id.clone());
+    }
+    if routing.auth_binding_id.is_none() {
+        routing.auth_binding_id = resolved_provider.auth_binding_id.clone();
+    }
+    if routing.agent_routing_policy.is_none() {
+        routing.agent_routing_policy = Some("space_default_with_agent_overrides".to_string());
+    }
+    let providers = build_system_provider_records().await.providers;
+    let agent_runs =
+        crate::services::ops_agents::list_agent_runs(normalized, 50).unwrap_or_default();
+    let execution_profile = parse_decision_surface_response(
+        get_system_execution_profile(Path(normalized.to_string()))
+            .await
+            .into_response(),
+    )
+    .await;
+    let attribution_domains = parse_decision_surface_response(
+        get_system_attribution_domains(Path(normalized.to_string()))
+            .await
+            .into_response(),
+    )
+    .await;
+    let governance_scope = parse_decision_surface_response(
+        get_system_governance_scope(Path(normalized.to_string()))
+            .await
+            .into_response(),
+    )
+    .await;
+
+    Json(SpaceSettingsResponse {
+        schema_version: "1.0.0".to_string(),
+        generated_at: now_iso(),
+        space_id: normalized.to_string(),
+        routing,
+        providers,
+        agent_runs,
+        lineage: build_space_lineage_summary(normalized),
+        execution_profile,
+        attribution_domains,
+        governance_scope,
+    })
+    .into_response()
+}
+
+async fn put_space_routing(
+    headers: HeaderMap,
+    Path(space_id): Path<String>,
+    Json(mut payload): Json<SpaceRoutingSettings>,
+) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "put_space_routing",
+        Some(space_id.as_str()),
+        "capability:space_routing_update",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SPACE_ROUTING_UPDATE_FORBIDDEN",
+        "Operator role or higher is required to update space routing.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    let normalized = space_id.trim();
+    if normalized.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPACE_ID",
+            "space_id is required.",
+            None,
+        );
+    }
+
+    payload.updated_at = Some(now_iso());
+    payload.updated_by = resolve_actor_id_hint(&headers).or_else(|| Some("operator".to_string()));
+
+    let mut registry = load_space_runtime_settings_registry();
+    registry.upsert(normalized.to_string(), payload);
+    if let Err(err) = save_space_runtime_settings_registry(&registry) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "SPACE_ROUTING_PERSIST_FAILED",
+            "Unable to persist space routing settings.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    Json(resolve_space_routing_settings(normalized)).into_response()
+}
+
+async fn put_space_agent_routing(
+    headers: HeaderMap,
+    Path((space_id, agent_id)): Path<(String, String)>,
+    Json(payload): Json<SpaceAgentRoutingOverride>,
+) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "put_space_agent_routing",
+        Some(space_id.as_str()),
+        "capability:space_agent_routing_update",
+        "mutate",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SPACE_AGENT_ROUTING_UPDATE_FORBIDDEN",
+        "Operator role or higher is required to update agent routing.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    let normalized_space_id = space_id.trim();
+    let normalized_agent_id = agent_id.trim();
+    if normalized_space_id.is_empty() || normalized_agent_id.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_AGENT_ROUTING_REF",
+            "space_id and agent_id are required.",
+            None,
+        );
+    }
+
+    let mut registry = load_space_runtime_settings_registry();
+    let mut settings = registry
+        .get(normalized_space_id)
+        .cloned()
+        .unwrap_or_default();
+    settings.agent_overrides.insert(
+        normalized_agent_id.to_string(),
+        SpaceAgentRoutingOverride {
+            agent_id: Some(normalized_agent_id.to_string()),
+            ..payload
+        },
+    );
+    settings.updated_at = Some(now_iso());
+    settings.updated_by = resolve_actor_id_hint(&headers).or_else(|| Some("operator".to_string()));
+    registry.upsert(normalized_space_id.to_string(), settings.clone());
+    if let Err(err) = save_space_runtime_settings_registry(&registry) {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "SPACE_AGENT_ROUTING_PERSIST_FAILED",
+            "Unable to persist agent routing settings.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    Json(settings).into_response()
 }
 
 async fn get_spaces() -> impl IntoResponse {
-    let registry_path = workspace_root().join("_spaces").join("registry.json");
-    let mut items = cortex_domain::spaces::SpaceRegistry::load_from_path(&registry_path)
-        .unwrap_or_default()
+    let registry = load_space_registry();
+    let readiness_registry = registry.clone();
+    let registered_ids: BTreeSet<String> = registry.spaces.keys().cloned().collect();
+    let observed_ids = observed_space_ids();
+    let mut items = registry
         .spaces
         .into_values()
+        .map(|record| {
+            let readiness = space_readiness_for(&record.space_id, &readiness_registry);
+            discovery_record_for_space(record, SpaceSourceMode::Registered, readiness)
+        })
         .collect::<Vec<_>>();
 
+    for space_id in observed_ids {
+        if registered_ids.contains(&space_id) {
+            continue;
+        }
+        let readiness = space_readiness_for(&space_id, &readiness_registry);
+        let record = synthesize_observed_space_record(&space_id, &readiness);
+        items.push(discovery_record_for_space(
+            record,
+            SpaceSourceMode::Observed,
+            readiness,
+        ));
+    }
+
     items.sort_by(|left, right| {
-        right
-            .created_at
-            .cmp(&left.created_at)
-            .then_with(|| left.space_id.cmp(&right.space_id))
+        let left_rank = match &left.source_mode {
+            SpaceSourceMode::Registered => 0,
+            SpaceSourceMode::Observed => 1,
+        };
+        let right_rank = match &right.source_mode {
+            SpaceSourceMode::Registered => 0,
+            SpaceSourceMode::Observed => 1,
+        };
+        left_rank
+            .cmp(&right_rank)
+            .then_with(|| right.record.created_at.cmp(&left.record.created_at))
+            .then_with(|| left.record.space_id.cmp(&right.record.space_id))
     });
 
     (
@@ -23775,13 +27293,44 @@ async fn get_spaces() -> impl IntoResponse {
         .into_response()
 }
 
+async fn get_space_readiness(Path(space_id): Path<String>) -> impl IntoResponse {
+    let normalized = space_id.trim();
+    if normalized.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "space_id is required" })),
+        )
+            .into_response();
+    }
+
+    let registry = load_space_registry();
+    let readiness = space_readiness_for(normalized, &registry);
+    let source_mode = if registry.spaces.contains_key(normalized) {
+        SpaceSourceMode::Registered
+    } else {
+        SpaceSourceMode::Observed
+    };
+
+    (
+        StatusCode::OK,
+        Json(SpaceReadinessResponse {
+            schema_version: "1.0.0".to_string(),
+            generated_at: now_iso(),
+            space_id: normalized.to_string(),
+            source_mode,
+            readiness_summary: readiness.summary.clone(),
+            readiness,
+        }),
+    )
+        .into_response()
+}
+
 async fn get_system_status() -> Json<SystemStatus> {
     let icp_cli_running = icp_network_healthy();
     let version_output = ic_cli_version_output();
 
     Json(SystemStatus {
         icp_cli_running,
-        dfx_running: icp_cli_running,
         version: version_output.trim().to_string(),
         replica_port: 4943, // Default local port
     })
@@ -23803,27 +27352,107 @@ struct WhoAmIResponse {
     authz_decision_version: String,
 }
 
-async fn get_system_whoami(headers: HeaderMap) -> impl IntoResponse {
-    let requested_role =
-        resolve_requested_role(&headers, None).unwrap_or_else(|| "operator".to_string());
-    let identity = match resolve_authz_identity(&headers, "get_system_whoami", None, false) {
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SystemSessionActiveRoleRequest {
+    role: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    space_id: Option<String>,
+}
+
+async fn get_system_session(headers: HeaderMap) -> impl IntoResponse {
+    let (session, set_cookie) =
+        match issue_gateway_session_from_identity(&headers, "get_system_session", None, false) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+
+    (
+        StatusCode::OK,
+        [(header::SET_COOKIE, set_cookie)],
+        Json(session),
+    )
+        .into_response()
+}
+
+async fn post_system_session_active_role(
+    headers: HeaderMap,
+    Json(payload): Json<SystemSessionActiveRoleRequest>,
+) -> impl IntoResponse {
+    let (session, set_cookie) = match issue_gateway_session_from_identity(
+        &headers,
+        "post_system_session_active_role",
+        payload.space_id.as_deref(),
+        false,
+    ) {
         Ok(value) => value,
         Err(response) => return response,
     };
 
+    let updated = match switch_active_role(
+        &session.session_id,
+        &payload.role,
+        payload.space_id.as_deref(),
+        now_iso(),
+    ) {
+        Ok(record) => record,
+        Err(reason) if reason == "invalid_role" => {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "INVALID_SESSION_ROLE",
+                "Requested active role is not recognized.",
+                Some(json!({ "role": payload.role })),
+            );
+        }
+        Err(reason) if reason == "role_not_granted" => {
+            return cortex_ux_error(
+                StatusCode::FORBIDDEN,
+                "SESSION_ROLE_NOT_GRANTED",
+                "Requested active role is not granted for this session.",
+                Some(json!({ "role": payload.role, "spaceId": payload.space_id })),
+            );
+        }
+        Err(reason) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "SESSION_ROLE_SWITCH_FAILED",
+                "Unable to update the session active role.",
+                Some(json!({ "reason": reason })),
+            );
+        }
+    };
+
     (
         StatusCode::OK,
+        [(header::SET_COOKIE, set_cookie)],
+        Json(project_auth_session(&updated, now_iso())),
+    )
+        .into_response()
+}
+
+async fn get_system_whoami(headers: HeaderMap) -> impl IntoResponse {
+    let requested_role =
+        resolve_requested_role(&headers, None).unwrap_or_else(|| "operator".to_string());
+    let (session, set_cookie) =
+        match issue_gateway_session_from_identity(&headers, "get_system_whoami", None, false) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+
+    (
+        StatusCode::OK,
+        [(header::SET_COOKIE, set_cookie)],
         Json(WhoAmIResponse {
             schema_version: "1.0.0".to_string(),
             generated_at: now_iso(),
-            principal: identity.principal.clone(),
+            principal: session.principal.clone(),
             requested_role,
-            effective_role: identity.role,
-            claims: identity.claims,
-            identity_verified: identity.verified,
-            identity_source: identity.source,
+            effective_role: session.active_role,
+            claims: session.global_claims,
+            identity_verified: session.identity_verified,
+            identity_source: session.identity_source,
             authz_dev_mode: authz_dev_mode_enabled(),
-            allow_unverified_role_header: allow_unverified_role_header(),
+            allow_unverified_role_header: session.allow_unverified_role_header,
             authz_decision_version: authz_decision_version().to_string(),
         }),
     )
@@ -25138,7 +28767,7 @@ async fn get_system_decision_telemetry_by_space(Path(space_id): Path<String>) ->
 }
 
 async fn list_canisters() -> Json<Vec<CanisterInfo>> {
-    let output = ic_cli_command(preferred_ic_cli_bin())
+    let output = ic_cli_command()
         .arg("canister")
         .arg("id")
         .arg("--all")
@@ -25151,7 +28780,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         for line in stdout.lines() {
             if let Some((name, id)) = line.split_once(":") {
                 // Check status for each (could be slow, maybe optimize later)
-                let status_output = ic_cli_command(preferred_ic_cli_bin())
+                let status_output = ic_cli_command()
                     .arg("canister")
                     .arg("status")
                     .arg(id.trim())
@@ -25463,6 +29092,279 @@ fn default_agent_identity() -> String {
             normalize_agent_identity(std::env::var("NOSTRA_DEFAULT_AGENT_ID").ok().as_deref())
         })
         .unwrap_or_else(|| "agent:cortex-default".to_string())
+}
+
+fn resolve_prompt_template_artifact_for_run(
+    space_id: &str,
+    agent_id: Option<&str>,
+) -> Option<(String, String)> {
+    let projections = read_heap_projection_store();
+    let artifacts = read_artifacts_store();
+    let mut head_revision_by_artifact = BTreeMap::<String, String>::new();
+    for artifact in artifacts {
+        head_revision_by_artifact.insert(artifact.artifact_id, artifact.head_revision_id);
+    }
+    projections
+        .into_iter()
+        .filter(|entry| entry.deleted_at.is_none())
+        .filter(|entry| entry.projection.workspace_id == space_id)
+        .filter(|entry| is_prompt_lineage_projection(entry))
+        .filter(|entry| {
+            let scope = surface_string_field(&entry.surface_json, "prompt_scope");
+            let agent_matches = match (
+                normalize_agent_identity(agent_id),
+                surface_string_field(&entry.surface_json, "agent_id"),
+            ) {
+                (Some(expected), Some(actual)) => actual == expected,
+                (Some(_), None) => true,
+                (None, _) => true,
+            };
+            agent_matches
+                && matches!(
+                    scope.as_deref(),
+                    Some("analysis") | Some("planner") | Some("system") | None
+                )
+        })
+        .max_by(|left, right| left.projection.updated_at.cmp(&right.projection.updated_at))
+        .map(|entry| {
+            let revision_id = head_revision_by_artifact
+                .get(&entry.projection.artifact_id)
+                .cloned()
+                .unwrap_or_default();
+            (entry.projection.artifact_id, revision_id)
+        })
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedPlannerRuntime {
+    config: crate::services::provider_runtime::config::ProviderRuntimeConfig,
+    provider_label: String,
+    auth_mode: String,
+}
+
+fn resolve_planner_runtime(space_id: &str, agent_id: Option<&str>) -> ResolvedPlannerRuntime {
+    let resolved = resolve_provider_runtime_state();
+    let store = load_provider_registry_state().unwrap_or_default();
+    let routing = resolve_space_routing_settings(space_id);
+    let agent_override = agent_id.and_then(|candidate| routing.agent_overrides.get(candidate));
+    let selected_model = agent_override
+        .and_then(|entry| entry.default_model.clone())
+        .or_else(|| routing.default_model.clone())
+        .unwrap_or_else(|| resolved.default_model.clone());
+    let selected_provider_id = agent_override
+        .and_then(|entry| entry.provider_id.clone())
+        .or_else(|| routing.provider_id.clone())
+        .unwrap_or_else(|| resolved.provider_id.clone());
+    let executable_provider = provider_by_id_if_executable(&store, &selected_provider_id);
+    let effective_provider_id = executable_provider
+        .map(|provider| provider.provider_id.clone())
+        .unwrap_or_else(|| resolved.provider_id.clone());
+    let selected_binding_id = agent_override
+        .and_then(|entry| entry.auth_binding_id.clone())
+        .or_else(|| routing.auth_binding_id.clone())
+        .or_else(|| {
+            store
+                .providers
+                .iter()
+                .find(|entry| entry.provider_id == effective_provider_id)
+                .and_then(|entry| entry.auth_binding_id.clone())
+        })
+        .or_else(|| resolved.auth_binding_id.clone());
+    let api_key = selected_binding_id
+        .as_ref()
+        .and_then(|binding_id| {
+            store
+                .auth_bindings
+                .iter()
+                .find(|entry| entry.auth_binding_id == *binding_id)
+                .map(|entry| entry.secret.clone())
+        })
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| provider_runtime_config_from_env().api_key);
+    let auth_mode = agent_override
+        .and_then(|entry| entry.auth_mode.clone())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            if selected_binding_id.is_some() {
+                "auth_binding".to_string()
+            } else {
+                "api_key".to_string()
+            }
+        });
+    let mut config = provider_runtime_config_from_env();
+    config.default_model = selected_model.clone();
+    if let Some(provider) = executable_provider {
+        config.base_url = provider.base_url.clone();
+    }
+    config.api_key = api_key;
+
+    ResolvedPlannerRuntime {
+        config,
+        provider_label: executable_provider
+            .and_then(|entry| entry.provider_kind.clone())
+            .unwrap_or(resolved.provider_kind),
+        auth_mode,
+    }
+}
+
+#[allow(dead_code)]
+fn artifact_head_revision_id(artifact_id: &str) -> Option<String> {
+    read_artifacts_store()
+        .into_iter()
+        .find(|artifact| artifact.artifact_id == artifact_id)
+        .map(|artifact| artifact.head_revision_id)
+}
+
+#[allow(dead_code)]
+fn emit_internal_heap_block(
+    payload: Value,
+    actor_id: &str,
+) -> Result<EmitHeapBlockResponse, String> {
+    let request = parse_emit_heap_block(payload)
+        .map_err(|err| format!("prompt_emit_parse_failed:{}", err.message))?;
+    emit_heap_block_core(request, actor_id.to_string(), "operator".to_string())
+        .map_err(|response| format!("prompt_emit_failed:{}", response.status()))
+}
+
+#[allow(dead_code)]
+fn ensure_prompt_template_artifact(
+    space_id: &str,
+    agent_id: &str,
+    prompt_scope: &str,
+    prompt_text: &str,
+) -> Result<(String, String), String> {
+    let artifact_id = format!(
+        "prompt_template__{}__{}",
+        sanitize_fs_component(agent_id),
+        sanitize_fs_component(prompt_scope)
+    );
+    let title = format!("{} Prompt Template", agent_id);
+    let payload = json!({
+        "schema_version": "1.0.0",
+        "mode": "heap",
+        "workspace_id": resolve_heap_workspace_id(space_id),
+        "source": {
+            "agent_id": agent_id,
+            "emitted_at": now_iso(),
+        },
+        "block": {
+            "id": artifact_id,
+            "type": "prompt_template",
+            "title": title,
+            "attributes": {
+                "prompt_scope": prompt_scope,
+                "agent_id": agent_id,
+            }
+        },
+        "content": {
+            "payload_type": "structured_data",
+            "structured_data": {
+                "type": "prompt_template",
+                "space_id": space_id,
+                "agent_id": agent_id,
+                "prompt_scope": prompt_scope,
+                "prompt_text": prompt_text,
+            }
+        },
+        "crdt_projection": {
+            "artifact_id": artifact_id
+        }
+    });
+    let response = emit_internal_heap_block(payload, agent_id)?;
+    let revision_id = artifact_head_revision_id(&response.artifact_id).unwrap_or_default();
+    Ok((response.artifact_id, revision_id))
+}
+
+#[allow(dead_code)]
+fn persist_prompt_execution_artifact(
+    run: &AgentRunRecord,
+    prompt_text: &str,
+) -> Result<String, String> {
+    let agent_id = run
+        .run
+        .agent_id
+        .clone()
+        .unwrap_or_else(default_agent_identity);
+    let artifact_id = format!(
+        "prompt_execution__{}",
+        sanitize_fs_component(&run.run.run_id)
+    );
+    let payload = json!({
+        "schema_version": "1.0.0",
+        "mode": "heap",
+        "workspace_id": resolve_heap_workspace_id(&run.run.space_id),
+        "source": {
+            "agent_id": agent_id,
+            "emitted_at": now_iso(),
+        },
+        "block": {
+            "id": artifact_id,
+            "type": "prompt_execution",
+            "title": format!("Planner Prompt Execution · {}", run.run.run_id),
+            "attributes": {
+                "run_id": run.run.run_id,
+                "workflow_id": run.run.workflow_id,
+            }
+        },
+        "content": {
+            "payload_type": "structured_data",
+            "structured_data": {
+                "type": "prompt_execution",
+                "space_id": run.run.space_id,
+                "agent_id": run.run.agent_id,
+                "run_id": run.run.run_id,
+                "workflow_id": run.run.workflow_id,
+                "contribution_id": run.run.contribution_id,
+                "provider": run.run.provider,
+                "model": run.run.model,
+                "auth_mode": run.run.auth_mode,
+                "response_id": run.run.response_id,
+                "prompt_template_artifact_id": run.run.prompt_template_artifact_id,
+                "prompt_template_revision_id": run.run.prompt_template_revision_id,
+                "prompt_execution_artifact_id": artifact_id,
+                "parent_artifact_id": run.run.prompt_template_artifact_id,
+                "parent_run_id": run.run.parent_run_id,
+                "child_run_ids": run.run.child_run_ids,
+                "prompt_text": prompt_text,
+            }
+        },
+        "crdt_projection": {
+            "artifact_id": artifact_id
+        }
+    });
+    emit_internal_heap_block(payload, &agent_id).map(|response| response.artifact_id)
+}
+
+fn summarize_provider_trace(trace: Option<&Value>) -> Option<Value> {
+    let trace = trace?;
+    let provider = trace
+        .get("provider")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    let model = trace
+        .get("model")
+        .or_else(|| trace.get("modelFingerprint"))
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    let response_id = trace
+        .get("responseId")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    let auth_mode = trace
+        .get("authMode")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+
+    if provider.is_none() && model.is_none() && response_id.is_none() && auth_mode.is_none() {
+        return Some(trace.clone());
+    }
+
+    Some(json!({
+        "provider": provider,
+        "model": model,
+        "responseId": response_id,
+        "authMode": auth_mode,
+    }))
 }
 
 fn actor_registry_path() -> PathBuf {
@@ -26835,7 +30737,11 @@ async fn plan_agent_intent_v1(
     state: &GatewayState,
     record: &mut AgentRunRecord,
 ) -> Result<(AgentIntent, bool), String> {
-    let cfg = llm_adapter_config_from_env();
+    let cfg = provider_runtime_config_from_env();
+    let resolved_provider = resolve_provider_runtime_state();
+    record.run.provider = Some(resolved_provider.provider_id.clone());
+    record.run.model = Some(cfg.default_model.clone());
+    record.run.auth_mode = Some("api_key".to_string());
     let contribution_id = record.run.contribution_id.clone();
     let space_id = record.run.space_id.clone();
     let run_id = record.run.run_id.clone();
@@ -26891,11 +30797,11 @@ async fn plan_agent_intent_v1(
         return Ok((fallback, true));
     }
 
-    let client = match LlmAdapterClient::new(cfg.clone()) {
+    let client = match ProviderRuntimeClient::new(cfg.clone()) {
         Ok(client) => client,
         Err(err) => {
-            if cfg.fail_mode == LlmAdapterFailMode::FailClosed {
-                return Err(format!("llm_adapter_client_init_failed:{err}"));
+            if cfg.fail_mode == ProviderRuntimeFailMode::FailClosed {
+                return Err(format!("provider_runtime_client_init_failed:{err}"));
             }
             emit_agent_event(
                 state,
@@ -26932,18 +30838,18 @@ async fn plan_agent_intent_v1(
         &user_text,
         &tools,
         |event| match event {
-            LlmStreamEvent::TextDelta(delta) => {
+            ProviderRuntimeStreamEvent::TextDelta(delta) => {
                 live_transcript.push_str(&delta);
                 emit_surface(false, &live_transcript, tool_status.as_deref());
             }
-            LlmStreamEvent::ToolCallReady(call) => {
+            ProviderRuntimeStreamEvent::ToolCallReady(call) => {
                 tool_status = Some(format!(
                     "Tool running: {} args={}",
                     call.name, call.arguments_json
                 ));
                 emit_surface(true, &live_transcript, tool_status.as_deref());
             }
-            LlmStreamEvent::Completed { response_id } => {
+            ProviderRuntimeStreamEvent::Completed { response_id } => {
                 tool_status = Some(format!("Planner completed (response_id={})", response_id));
                 emit_surface(true, &live_transcript, tool_status.as_deref());
             }
@@ -26953,30 +30859,46 @@ async fn plan_agent_intent_v1(
     {
         Ok(value) => value,
         Err(err) => {
-            if cfg.fail_mode == LlmAdapterFailMode::FailClosed {
+            if cfg.fail_mode == ProviderRuntimeFailMode::FailClosed {
                 return Err(err);
             }
             emit_agent_event(
                 state,
                 record,
                 "planner_fallback",
-                json!({ "reason": "llm_adapter_request_failed", "error": err }),
+                json!({ "reason": "provider_runtime_request_failed", "error": err }),
             );
             return Ok((fallback_agent_intent(&contribution_id), true));
         }
     };
 
+    let prompt_template_artifact_id = record.run.prompt_template_artifact_id.clone();
+    let prompt_template_revision_id = record.run.prompt_template_revision_id.clone();
     emit_agent_event(
         state,
         record,
         "planner_completed",
-        json!({ "responseId": response_id, "outputChars": final_text.len() }),
+        json!({
+            "responseId": response_id,
+            "outputChars": final_text.len(),
+            "provider": resolved_provider.provider_id,
+            "model": cfg.default_model,
+            "promptTemplateArtifactId": prompt_template_artifact_id,
+            "promptTemplateRevisionId": prompt_template_revision_id
+        }),
     );
+    record.run.response_id = Some(response_id.clone());
+    record.run.provider_trace_summary = Some(json!({
+        "provider": record.run.provider.clone(),
+        "model": cfg.default_model,
+        "responseId": response_id,
+        "authMode": "api_key"
+    }));
 
     let mut intent = match parse_agent_intent_from_model_text(&final_text) {
         Ok(intent) => intent,
         Err(err) => {
-            if cfg.fail_mode == LlmAdapterFailMode::FailClosed {
+            if cfg.fail_mode == ProviderRuntimeFailMode::FailClosed {
                 return Err(err);
             }
             emit_agent_event(
@@ -26994,7 +30916,7 @@ async fn plan_agent_intent_v1(
         AgentIntent::CreateContextNode { .. } | AgentIntent::ApplyActionTarget { .. }
     );
     if !supported {
-        if cfg.fail_mode == LlmAdapterFailMode::FailClosed {
+        if cfg.fail_mode == ProviderRuntimeFailMode::FailClosed {
             return Err("planner_output_unsupported_intent_v1".to_string());
         }
         emit_agent_event(
@@ -27367,6 +31289,16 @@ async fn persist_agent_replay_artifact(
         "inputSnapshotHash": input_snapshot_hash,
         "outputSnapshotHash": output_snapshot_hash,
         "modelFingerprint": std::env::var("NOSTRA_AGENT_MODEL").ok(),
+        "provider": run.run.provider.clone(),
+        "model": run.run.model.clone(),
+        "authMode": run.run.auth_mode.clone(),
+        "responseId": run.run.response_id.clone(),
+        "promptTemplateArtifactId": run.run.prompt_template_artifact_id.clone(),
+        "promptTemplateRevisionId": run.run.prompt_template_revision_id.clone(),
+        "promptExecutionArtifactId": run.run.prompt_execution_artifact_id.clone(),
+        "parentRunId": run.run.parent_run_id.clone(),
+        "childRunIds": run.run.child_run_ids.clone(),
+        "providerTraceSummary": run.run.provider_trace_summary.clone(),
         "toolStateHash": hash_json_value(&Some(json!({
             "eventCount": run.events.len(),
             "latestEventType": run.events.last().map(|event| event.event_type.clone()),
@@ -27434,6 +31366,16 @@ async fn emit_execution_lifecycle(
         timestamp: now_iso(),
         space_id: Some(run.run.space_id.clone()),
         model_fingerprint: std::env::var("NOSTRA_AGENT_MODEL").ok(),
+        provider: run.run.provider.clone(),
+        model: run.run.model.clone(),
+        auth_mode: run.run.auth_mode.clone(),
+        response_id: run.run.response_id.clone(),
+        prompt_template_artifact_id: run.run.prompt_template_artifact_id.clone(),
+        prompt_template_revision_id: run.run.prompt_template_revision_id.clone(),
+        prompt_execution_artifact_id: run.run.prompt_execution_artifact_id.clone(),
+        parent_run_id: run.run.parent_run_id.clone(),
+        child_run_ids: run.run.child_run_ids.clone(),
+        provider_trace_summary: run.run.provider_trace_summary.clone(),
         tool_state_hash: Some(hash_json_value(&Some(json!({
             "eventCount": run.events.len(),
             "latestEventType": run.events.last().map(|event| event.event_type.clone()),
@@ -27997,6 +31939,33 @@ async fn project_temporal_primary_run(
         record.run.simulation = snapshot.simulation.clone();
         record.run.surface_update = snapshot.surface_update.clone();
         record.run.authority_outcome = snapshot.authority_outcome.clone();
+        if let Some(summary) = summarize_provider_trace(snapshot.provider_trace.as_ref()) {
+            record.run.provider_trace_summary = Some(summary.clone());
+            if record.run.provider.is_none() {
+                record.run.provider = summary
+                    .get("provider")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string);
+            }
+            if record.run.model.is_none() {
+                record.run.model = summary
+                    .get("model")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string);
+            }
+            if record.run.response_id.is_none() {
+                record.run.response_id = summary
+                    .get("responseId")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string);
+            }
+            if record.run.auth_mode.is_none() {
+                record.run.auth_mode = summary
+                    .get("authMode")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string);
+            }
+        }
         if let Some(binding) = record.run.temporal_binding.as_mut() {
             binding.status = Some(snapshot.status.clone());
             binding.last_projected_sequence = Some(last_sequence);
@@ -28430,6 +32399,9 @@ async fn post_agent_contribution(
         }
     };
     let started_at = now_iso();
+    let prompt_template =
+        resolve_prompt_template_artifact_for_run(&normalized_space, Some(agent_id.as_str()));
+    let planner_runtime = resolve_planner_runtime(&normalized_space, Some(agent_id.as_str()));
     let mut record = AgentRunRecord {
         run: AgentRun {
             run_id: run_id.clone(),
@@ -28441,6 +32413,21 @@ async fn post_agent_contribution(
             started_at: started_at.clone(),
             updated_at: started_at.clone(),
             stream_channel: Some("/ws".to_string()),
+            provider: Some(planner_runtime.provider_label.clone()),
+            model: Some(planner_runtime.config.default_model.clone()),
+            auth_mode: Some(planner_runtime.auth_mode.clone()),
+            response_id: None,
+            prompt_template_artifact_id: prompt_template
+                .as_ref()
+                .map(|(artifact_id, _)| artifact_id.clone()),
+            prompt_template_revision_id: prompt_template
+                .as_ref()
+                .map(|(_, revision_id)| revision_id.clone())
+                .filter(|value| !value.is_empty()),
+            prompt_execution_artifact_id: None,
+            parent_run_id: None,
+            child_run_ids: Vec::new(),
+            provider_trace_summary: None,
             simulation: None,
             surface_update: None,
             authority_outcome: None,
@@ -28962,6 +32949,64 @@ mod tests {
         }
     }
 
+    #[test]
+    fn extract_supported_models_preserves_string_rows() {
+        let payload = json!({
+            "data": [
+                "openai/gpt-5.4",
+                {"id": "llama3.1:8b"},
+                {"name": "qwen2.5-coder"},
+                {"id": "  "}
+            ]
+        });
+
+        assert_eq!(
+            crate::services::provider_runtime::discovery::extract_supported_models(&payload),
+            vec![
+                "openai/gpt-5.4".to_string(),
+                "llama3.1:8b".to_string(),
+                "qwen2.5-coder".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn normalize_upload_extraction_flags_marks_parser_superseded_fallbacks() {
+        let mut flags = vec![
+            "binary_source_text_fallback".to_string(),
+            "resolved_content_replaced_by_parser".to_string(),
+        ];
+
+        normalize_upload_extraction_flags(&mut flags);
+
+        assert!(
+            !flags
+                .iter()
+                .any(|flag| flag == "binary_source_text_fallback")
+        );
+        assert!(
+            flags
+                .iter()
+                .any(|flag| flag == "binary_source_text_superseded_by_parser")
+        );
+        assert!(!upload_fallback_flags_require_review(&flags));
+    }
+
+    #[test]
+    fn unresolved_binary_fallback_flags_still_require_review() {
+        let flags = vec!["binary_source_text_fallback".to_string()];
+        assert!(upload_fallback_flags_require_review(&flags));
+    }
+
+    #[test]
+    fn finalize_upload_extraction_status_preserves_needs_review() {
+        let flags = vec!["verification_confidence_below_threshold:0.78<0.85".to_string()];
+        assert_eq!(
+            finalize_upload_extraction_status(ExtractionStatus::NeedsReview, 0.78, &flags),
+            ExtractionStatus::NeedsReview
+        );
+    }
+
     struct TestTempDir {
         path: std::path::PathBuf,
     }
@@ -29368,6 +33413,61 @@ mod tests {
         serde_json::from_slice(&bytes).expect("response json")
     }
 
+    fn strip_provider_inventory_volatiles(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(map) => {
+                map.remove("generatedAt");
+                map.remove("lastSeenAt");
+                map.remove("updatedAt");
+                for child in map.values_mut() {
+                    strip_provider_inventory_volatiles(child);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    strip_provider_inventory_volatiles(item);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    type ProviderReadHandler = fn(
+        HeaderMap,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = axum::response::Response> + Send>,
+    >;
+
+    fn boxed_get_system_provider_inventory(
+        headers: HeaderMap,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> {
+        Box::pin(get_system_provider_inventory(headers))
+    }
+
+    fn boxed_get_system_runtime_hosts(
+        headers: HeaderMap,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> {
+        Box::pin(get_system_runtime_hosts(headers))
+    }
+
+    fn boxed_get_system_auth_bindings(
+        headers: HeaderMap,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> {
+        Box::pin(get_system_auth_bindings(headers))
+    }
+
+    fn boxed_get_system_execution_bindings(
+        headers: HeaderMap,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> {
+        Box::pin(get_system_execution_bindings(headers))
+    }
+
+    fn boxed_get_system_provider_discovery(
+        headers: HeaderMap,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> {
+        Box::pin(get_system_provider_discovery(headers))
+    }
+
     fn heap_emit_fixture(
         request_id: &str,
         title: &str,
@@ -29695,6 +33795,16 @@ mod tests {
                 started_at: now.clone(),
                 updated_at: now,
                 stream_channel: Some("/ws".to_string()),
+                provider: None,
+                model: None,
+                auth_mode: None,
+                response_id: None,
+                prompt_template_artifact_id: None,
+                prompt_template_revision_id: None,
+                prompt_execution_artifact_id: None,
+                parent_run_id: None,
+                child_run_ids: Vec::new(),
+                provider_trace_summary: None,
                 simulation: None,
                 surface_update: None,
                 authority_outcome: None,
@@ -29761,6 +33871,16 @@ mod tests {
                 started_at: now.clone(),
                 updated_at: now,
                 stream_channel: Some("/ws".to_string()),
+                provider: None,
+                model: None,
+                auth_mode: None,
+                response_id: None,
+                prompt_template_artifact_id: None,
+                prompt_template_revision_id: None,
+                prompt_execution_artifact_id: None,
+                parent_run_id: None,
+                child_run_ids: Vec::new(),
+                provider_trace_summary: None,
                 simulation: None,
                 surface_update: None,
                 authority_outcome: None,
@@ -29826,6 +33946,16 @@ mod tests {
                 started_at: "2026-02-24T00:00:00Z".to_string(),
                 updated_at: "2026-02-24T00:00:00Z".to_string(),
                 stream_channel: Some("/ws".to_string()),
+                provider: None,
+                model: None,
+                auth_mode: None,
+                response_id: None,
+                prompt_template_artifact_id: None,
+                prompt_template_revision_id: None,
+                prompt_execution_artifact_id: None,
+                parent_run_id: None,
+                child_run_ids: Vec::new(),
+                provider_trace_summary: None,
                 simulation: Some(json!({
                     "riskScore": 10,
                     "siqsScore": 98.0
@@ -30920,6 +35050,74 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn heap_emit_accepts_space_id_alias_and_task_payload() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "cortex-web".parse().expect("actor header"),
+        );
+
+        let mut payload = heap_emit_fixture(
+            "req-task-space-alias",
+            "Initiative 078 Kickoff",
+            "2026-03-26T00:00:00Z",
+            true,
+            "hash:file_size",
+        );
+        payload
+            .as_object_mut()
+            .expect("payload object")
+            .remove("workspace_id");
+        payload["space_id"] = json!("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+        payload["block"]["type"] = json!("task");
+        payload["block"]["behaviors"] = json!(["task"]);
+        payload["block"]["attributes"] = json!({
+            "initiative_id": "initiative-078-kickoff",
+            "agent_role": "research-architect"
+        });
+        payload["content"] = json!({
+            "payload_type": "task",
+            "task": "# Initiative 078 Kickoff\n- [ ] Read the plan"
+        });
+
+        let response = post_cortex_heap_emit(headers, Json(payload)).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["accepted"], true);
+
+        let projections = read_heap_projection_store();
+        assert_eq!(projections.len(), 1);
+        assert_eq!(projections[0].projection.block_type, "task");
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["payload_type"],
+            "task"
+        );
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["task"],
+            "# Initiative 078 Kickoff\n- [ ] Read the plan"
+        );
+    }
+
+    #[tokio::test]
     async fn heap_emit_is_idempotent_and_canonicalizes_file_keys() {
         let _lock = acquire_testing_env_lock();
         let temp = TestTempDir::new();
@@ -31040,6 +35238,440 @@ mod tests {
             query_body["items"][0]["surfaceJson"]["structured_data"]["parent_artifact_id"],
             "artifact-req-feedback-parent"
         );
+    }
+
+    fn initiative_kickoff_parent_payload(
+        initiative_id: &str,
+        template_id: &str,
+        title: &str,
+        requested_agent_role: &str,
+        task_body: &str,
+        request_id: &str,
+    ) -> Value {
+        let kickoff_context = json!({
+            "version": "1.0.0",
+            "initiative_id": initiative_id,
+            "title": title,
+            "objective": format!("Launch the governed {} kickoff.", initiative_id),
+            "decision_mode": "auto_if_clear_else_proposal",
+            "agent_role": requested_agent_role,
+            "required_capabilities": ["research-analysis"],
+            "required_tasks": ["Read the plan."],
+            "success_criteria": ["Task exists after approval."],
+            "bottleneck_signals": ["Missing schema inventory"],
+            "error_signals": ["GraphRAG starts too early"],
+            "fallback_routes": ["Escalate to steward"],
+            "routing_options": [],
+            "reference_paths": [format!("research/{initiative_id}/PLAN.md")]
+        });
+
+        json!({
+            "schema_version": "1.0.0",
+            "mode": "heap",
+            "workspace_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "source": {
+                "agent_id": "cortex-web",
+                "request_id": request_id,
+                "emitted_at": "2026-03-26T00:00:00Z",
+                "session_id": format!("heap:{request_id}")
+            },
+            "block": {
+                "type": "agent_solicitation",
+                "title": format!("{title} Approval"),
+                "attributes": {
+                    "initiative_id": initiative_id,
+                    "initiative_kickoff_template_id": template_id,
+                    "requested_agent_role": requested_agent_role,
+                    "required_capabilities": "research-analysis",
+                    "reference_paths": format!("research/{initiative_id}/PLAN.md"),
+                    "task_context_version": "1.0.0",
+                    "task_context": kickoff_context.to_string(),
+                    "routing_decision_mode": "auto_if_clear_else_proposal",
+                    "approval_kind": "initiative_kickoff",
+                    "approval_required": "steward",
+                    "review_lane": "private_review"
+                },
+                "behaviors": ["awaiting_approval"]
+            },
+            "content": {
+                "payload_type": "structured_data",
+                "structured_data": {
+                    "type": "agent_solicitation",
+                    "solicitation_kind": "initiative_kickoff_approval",
+                    "initiative_id": initiative_id,
+                    "initiative_kickoff_template_id": template_id,
+                    "title": title,
+                    "role": requested_agent_role,
+                    "requested_agent_role": requested_agent_role,
+                    "authority_scope": "steward_gate",
+                    "message": "Review the package before kickoff.",
+                    "description": task_body
+                }
+            },
+            "crdt_projection": {
+                "artifact_id": request_id
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn approved_initiative_kickoff_feedback_emits_follow_up_task() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let payload = initiative_kickoff_parent_payload(
+            "078",
+            "initiative-078-kickoff",
+            "Initiative 078 Kickoff",
+            "research-architect",
+            "# Initiative 078 Kickoff\n- [ ] Read the plan.",
+            "initiative-kickoff-approval-parent",
+        );
+
+        let emit_response = post_cortex_heap_emit(headers.clone(), Json(payload)).await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved for bounded kickoff.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["accepted"], true);
+        let follow_up_artifact_id = body["followUpArtifactId"]
+            .as_str()
+            .expect("follow-up artifact id");
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(
+            query_body["items"][0]["projection"]["artifactId"],
+            follow_up_artifact_id
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["kickoff_approval_artifact_id"],
+            parent_artifact_id
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["kickoff_approved_by"],
+            "systems-steward"
+        );
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["payload_type"],
+            "task"
+        );
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["task"],
+            "# Initiative 078 Kickoff\n- [ ] Read the plan."
+        );
+    }
+
+    #[tokio::test]
+    async fn rejected_initiative_kickoff_feedback_does_not_emit_follow_up_task() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            headers.clone(),
+            Json(initiative_kickoff_parent_payload(
+                "078",
+                "initiative-078-kickoff",
+                "Initiative 078 Kickoff",
+                "research-architect",
+                "# Initiative 078 Kickoff\n- [ ] Read the plan.",
+                "initiative-kickoff-rejected-parent",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "rejected".to_string(),
+                feedback: Some("Not yet bounded.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["followUpArtifactId"], Value::Null);
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 0);
+    }
+
+    #[tokio::test]
+    async fn repeated_initiative_kickoff_approval_is_idempotent() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            headers.clone(),
+            Json(initiative_kickoff_parent_payload(
+                "078",
+                "initiative-078-kickoff",
+                "Initiative 078 Kickoff",
+                "research-architect",
+                "# Initiative 078 Kickoff\n- [ ] Read the plan.",
+                "initiative-kickoff-duplicate-parent",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response_one = post_cortex_heap_block_a2ui_feedback(
+            headers.clone(),
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved once.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response_one.status(), StatusCode::OK);
+        let body_one = response_json(response_one).await;
+        let follow_up_artifact_id = body_one["followUpArtifactId"]
+            .as_str()
+            .expect("follow-up artifact id")
+            .to_string();
+
+        let response_two = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved twice.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response_two.status(), StatusCode::OK);
+        let body_two = response_json(response_two).await;
+        assert_eq!(body_two["followUpArtifactId"], follow_up_artifact_id);
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(
+            query_body["items"][0]["projection"]["artifactId"],
+            follow_up_artifact_id
+        );
+    }
+
+    #[tokio::test]
+    async fn approved_initiative_132_kickoff_feedback_emits_follow_up_task() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            headers.clone(),
+            Json(initiative_kickoff_parent_payload(
+                "132",
+                "initiative-132-kickoff",
+                "Initiative 132 Kickoff",
+                "systems-architect",
+                "# Initiative 132 Kickoff\n- [ ] Read the plan.",
+                "initiative-132-kickoff-parent",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved for Initiative 132 kickoff.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        let follow_up_artifact_id = body["followUpArtifactId"]
+            .as_str()
+            .expect("follow-up artifact id");
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(
+            query_body["items"][0]["projection"]["artifactId"],
+            follow_up_artifact_id
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["initiative_id"],
+            "132"
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["initiative_kickoff_template_id"],
+            "initiative-132-kickoff"
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["requested_agent_role"],
+            "systems-architect"
+        );
+    }
+
+    #[tokio::test]
+    async fn operator_cannot_approve_steward_required_initiative_kickoff() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut steward_headers = HeaderMap::new();
+        steward_headers.insert("x-cortex-role", "steward".parse().expect("role header"));
+        steward_headers.insert(
+            "x-cortex-actor",
+            "systems-steward".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            steward_headers,
+            Json(initiative_kickoff_parent_payload(
+                "078",
+                "initiative-078-kickoff",
+                "Initiative 078 Kickoff",
+                "research-architect",
+                "# Initiative 078 Kickoff\n- [ ] Read the plan.",
+                "initiative-kickoff-operator-forbidden",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let mut operator_headers = HeaderMap::new();
+        operator_headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        operator_headers.insert(
+            "x-cortex-actor",
+            "cortex-operator".parse().expect("actor header"),
+        );
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            operator_headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Operator tried to approve.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "HEAP_A2UI_FEEDBACK_FORBIDDEN");
     }
 
     #[tokio::test]
@@ -31536,6 +36168,18 @@ mod tests {
                 started_at: "2026-03-04T00:00:01Z".to_string(),
                 updated_at: "2026-03-04T00:00:01Z".to_string(),
                 stream_channel: None,
+                provider: Some("llm-adapter".to_string()),
+                model: Some("gpt-5.4".to_string()),
+                auth_mode: Some("api_key".to_string()),
+                response_id: None,
+                prompt_template_artifact_id: Some("prompt-template-a".to_string()),
+                prompt_template_revision_id: Some("rev-a".to_string()),
+                prompt_execution_artifact_id: Some("prompt-execution-a".to_string()),
+                parent_run_id: None,
+                child_run_ids: vec!["run-b".to_string()],
+                provider_trace_summary: Some(
+                    json!({"provider": "llm-adapter", "model": "gpt-5.4"}),
+                ),
                 simulation: None,
                 surface_update: None,
                 authority_outcome: None,
@@ -31561,6 +36205,18 @@ mod tests {
                 started_at: "2026-03-04T00:00:02Z".to_string(),
                 updated_at: "2026-03-04T00:00:02Z".to_string(),
                 stream_channel: None,
+                provider: Some("llm-adapter".to_string()),
+                model: Some("gpt-5.4-mini".to_string()),
+                auth_mode: Some("api_key".to_string()),
+                response_id: None,
+                prompt_template_artifact_id: Some("prompt-template-a".to_string()),
+                prompt_template_revision_id: Some("rev-a".to_string()),
+                prompt_execution_artifact_id: Some("prompt-execution-b".to_string()),
+                parent_run_id: Some("run-a".to_string()),
+                child_run_ids: Vec::new(),
+                provider_trace_summary: Some(
+                    json!({"provider": "llm-adapter", "model": "gpt-5.4-mini"}),
+                ),
                 simulation: None,
                 surface_update: None,
                 authority_outcome: None,
@@ -32637,31 +37293,44 @@ mod tests {
     #[test]
     fn chat_socket_request_parser_accepts_message_envelope() {
         let parsed = crate::gateway::chat_transport::decode_chat_client_message(
-            r#"{"type":"message","text":"Summarize this","contextRefs":["artifact-1"],"threadId":"thread-1"}"#,
+            r#"{"type":"message","content":[{"type":"text","text":"Summarize this"}],"context":{"blockIds":["artifact-1"]},"threadId":"thread-1"}"#,
         )
         .expect("message envelope");
 
         assert_eq!(parsed.text, "Summarize this");
-        assert_eq!(parsed.context_refs, vec!["artifact-1".to_string()]);
+        assert_eq!(parsed.context_block_ids, vec!["artifact-1".to_string()]);
         assert_eq!(parsed.thread_id.as_deref(), Some("thread-1"));
     }
 
     #[test]
     fn chat_socket_translator_emits_processing_streaming_and_terminal_message() {
+        let agent = crate::services::agent_service::ChatAgentIdentity {
+            id: "provider".to_string(),
+            label: "Cortex Runtime".to_string(),
+            route: "provider-runtime.responses".to_string(),
+            mode: "runtime".to_string(),
+        };
         let events = vec![
-            crate::services::agent_service::ChatEvent {
+            crate::services::agent_service::ChatEvent::TextDelta {
                 author: "System".to_string(),
                 message: "Hello ".to_string(),
                 timestamp: 1,
+                agent: agent.clone(),
             },
-            crate::services::agent_service::ChatEvent {
-                author: "System".to_string(),
-                message: "world".to_string(),
+            crate::services::agent_service::ChatEvent::Completed {
+                response: crate::services::agent_service::RuntimeChatResponse {
+                    response_id: "chat-1".to_string(),
+                    text: "Hello world".to_string(),
+                    content: vec![crate::services::agent_service::ChatContentPart::Text {
+                        text: "Hello world".to_string(),
+                    }],
+                    agent,
+                },
                 timestamp: 2,
             },
         ];
 
-        let frames = crate::gateway::chat_transport::translate_chat_events("chat-1", &events);
+        let frames = crate::gateway::chat_transport::translate_chat_events(&events);
 
         assert_eq!(frames.len(), 3);
         assert_eq!(frames[0]["type"], "processing");
@@ -32980,6 +37649,189 @@ mod tests {
                 .any(|entry| entry["routeId"].as_str() == Some("/logs")),
             "viewer fallback plan should not include operator-only /logs"
         );
+    }
+
+    #[tokio::test]
+    async fn system_session_returns_dev_override_grants_and_active_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "true");
+        let _allow_header_guard =
+            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "true");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert("x-cortex-actor", "web-test".parse().expect("actor header"));
+
+        let response = get_system_session(headers).await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response_json(response).await;
+        assert_eq!(body["authMode"], "dev_override");
+        assert_eq!(body["identityVerified"], false);
+        assert_eq!(body["activeRole"], "operator");
+        assert_eq!(body["allowRoleSwitch"], true);
+        assert_eq!(body["allowUnverifiedRoleHeader"], true);
+        assert!(body["sessionId"].as_str().is_some());
+        assert_eq!(
+            body["grantedRoles"],
+            json!(["viewer", "editor", "operator", "steward", "admin"])
+        );
+        assert!(body["spaceGrants"].as_array().is_some());
+    }
+
+    #[tokio::test]
+    async fn system_session_active_role_switch_rejects_ungranted_roles() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
+        let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
+        let _binding_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_PRINCIPAL_ROLE_BINDINGS",
+            r#"{"aaaaa-aa":"viewer"}"#,
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "viewer".parse().expect("role header"));
+        headers.insert(
+            "x-ic-principal",
+            "aaaaa-aa".parse().expect("principal header"),
+        );
+
+        let response = post_system_session_active_role(
+            headers,
+            Json(SystemSessionActiveRoleRequest {
+                role: "operator".to_string(),
+                space_id: None,
+            }),
+        )
+        .await
+        .into_response();
+
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SESSION_ROLE_NOT_GRANTED");
+    }
+
+    #[tokio::test]
+    async fn system_session_active_role_switch_accepts_space_scoped_grants() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
+        let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
+        let _binding_guard = EnvVarGuard::set(
+            "NOSTRA_DECISION_PRINCIPAL_ROLE_BINDINGS",
+            r#"{"aaaaa-aa":"viewer"}"#,
+        );
+        let _space_grants_guard = EnvVarGuard::set(
+            "NOSTRA_AUTHZ_SPACE_ROLE_GRANTS",
+            r#"{"space-ops":{"roles":["viewer","operator"],"claims":["capability:navigate"]}}"#,
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "viewer".parse().expect("role header"));
+        headers.insert(
+            "x-ic-principal",
+            "aaaaa-aa".parse().expect("principal header"),
+        );
+
+        let response = post_system_session_active_role(
+            headers,
+            Json(SystemSessionActiveRoleRequest {
+                role: "operator".to_string(),
+                space_id: Some("space-ops".to_string()),
+            }),
+        )
+        .await
+        .into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["activeRole"], "operator");
+    }
+
+    #[tokio::test]
+    async fn system_session_active_role_switch_preserves_session_grants_across_requests() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "true");
+        let _allow_header_guard =
+            EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "true");
+
+        let mut issue_headers = HeaderMap::new();
+        issue_headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        issue_headers.insert("x-cortex-actor", "web-test".parse().expect("actor header"));
+
+        let response = get_system_session(issue_headers).await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        let cookie = response
+            .headers()
+            .get(header::SET_COOKIE)
+            .expect("session cookie")
+            .to_str()
+            .expect("cookie string")
+            .to_string();
+
+        let mut session_headers = HeaderMap::new();
+        session_headers.insert("cookie", cookie.parse().expect("cookie header"));
+
+        let downgrade = post_system_session_active_role(
+            session_headers.clone(),
+            Json(SystemSessionActiveRoleRequest {
+                role: "viewer".to_string(),
+                space_id: Some("meta".to_string()),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(downgrade.status(), StatusCode::OK);
+        let downgrade_body = response_json(downgrade).await;
+        assert_eq!(downgrade_body["activeRole"], "viewer");
+        assert_eq!(
+            downgrade_body["grantedRoles"],
+            json!(["viewer", "editor", "operator", "steward", "admin"])
+        );
+
+        let session_response = get_system_session(session_headers.clone())
+            .await
+            .into_response();
+        assert_eq!(session_response.status(), StatusCode::OK);
+        let session_body = response_json(session_response).await;
+        assert_eq!(session_body["activeRole"], "viewer");
+        assert_eq!(
+            session_body["grantedRoles"],
+            json!(["viewer", "editor", "operator", "steward", "admin"])
+        );
+        assert_eq!(session_body["allowRoleSwitch"], true);
+
+        let upgrade = post_system_session_active_role(
+            session_headers,
+            Json(SystemSessionActiveRoleRequest {
+                role: "operator".to_string(),
+                space_id: Some("meta".to_string()),
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(upgrade.status(), StatusCode::OK);
+        let upgrade_body = response_json(upgrade).await;
+        assert_eq!(upgrade_body["activeRole"], "operator");
     }
 
     #[tokio::test]
@@ -36232,6 +41084,16 @@ mod tests {
             simulation: None,
             surface_update: None,
             authority_outcome: None,
+            provider: None,
+            model: None,
+            auth_mode: None,
+            response_id: None,
+            prompt_template_artifact_id: None,
+            prompt_template_revision_id: None,
+            prompt_execution_artifact_id: None,
+            parent_run_id: None,
+            child_run_ids: Vec::new(),
+            provider_trace_summary: None,
             provider_trace: None,
             approval_timeout_seconds: 300,
             terminal: true,
@@ -36717,5 +41579,1019 @@ mod tests {
         let formatted = timestamp_iso(1_700_000_000).expect("timestamp to format");
         assert!(formatted.contains('T'));
         assert!(formatted.ends_with('Z') || formatted.contains('+'));
+    }
+
+    #[tokio::test]
+    async fn system_providers_endpoint_requires_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("viewer"),
+        );
+        headers.insert(
+            "x-cortex-actor",
+            axum::http::HeaderValue::from_static("actor-provider-read-1"),
+        );
+
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            get_system_providers(headers),
+        )
+        .await
+        .expect("providers route should resolve promptly");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SYSTEM_PROVIDERS_READ_FORBIDDEN");
+    }
+
+    #[tokio::test]
+    async fn system_providers_endpoint_allows_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("operator"),
+        );
+        headers.insert(
+            "x-cortex-actor",
+            axum::http::HeaderValue::from_static("actor-provider-read-2"),
+        );
+
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            get_system_providers(headers),
+        )
+        .await
+        .expect("providers route should resolve promptly");
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn system_provider_runtime_status_requires_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("viewer"),
+        );
+        headers.insert(
+            "x-cortex-actor",
+            axum::http::HeaderValue::from_static("actor-provider-status-1"),
+        );
+
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            get_system_provider_runtime_status(headers),
+        )
+        .await
+        .expect("runtime status route should resolve promptly");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(
+            body["errorCode"],
+            "SYSTEM_PROVIDER_RUNTIME_STATUS_FORBIDDEN"
+        );
+    }
+
+    #[tokio::test]
+    async fn system_providers_response_redacts_auth_binding_secret_material() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        crate::services::provider_runtime::config::save_provider_registry_state(
+            &crate::services::provider_runtime::config::ProviderRegistryState {
+                providers: vec![crate::services::provider_runtime::config::ProviderRuntimeSettings {
+                    provider_id: "openai_primary".to_string(),
+                    name: "OpenAI Primary".to_string(),
+                    provider_type: "Llm".to_string(),
+                    provider_kind: Some("OpenAI".to_string()),
+                    host_id: None,
+                    enabled: true,
+                    base_url: "https://api.openai.com/v1".to_string(),
+                    default_model: "gpt-5.4".to_string(),
+                    adapter_set_ref: None,
+                    auth_binding_id: Some("auth.openai_primary".to_string()),
+                    provider_family_id: Some("openai".to_string()),
+                    profile_id: Some("gpt-5.4".to_string()),
+                    instance_id: Some("openai_primary__api_openai_com".to_string()),
+                    device_id: None,
+                    environment_id: Some("production".to_string()),
+                    locality_kind: Some(crate::services::provider_runtime::config::ProviderLocalityKind::Cloud),
+                    discovery_source: Some("manual".to_string()),
+                    batch_policy: None,
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    supported_models: vec!["gpt-5.4".to_string()],
+                    metadata: BTreeMap::new(),
+                }],
+                runtime_hosts: Vec::new(),
+                auth_bindings: vec![crate::services::provider_runtime::config::AuthBindingRecord {
+                    auth_binding_id: "auth.openai_primary".to_string(),
+                    target_kind: crate::services::provider_runtime::config::AuthBindingTargetKind::Provider,
+                    target_id: "openai_primary".to_string(),
+                    auth_type: crate::services::provider_runtime::config::AuthBindingType::ApiKey,
+                    label: Some("OpenAI key".to_string()),
+                    source: Some("manual".to_string()),
+                    secret: "super-secret-token".to_string(),
+                    has_secret: true,
+                    created_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    metadata: BTreeMap::new(),
+                }],
+                execution_bindings: vec![crate::services::provider_runtime::config::ExecutionBindingRecord {
+                    binding_id:
+                        crate::services::provider_runtime::config::DEFAULT_LLM_BINDING_ID
+                            .to_string(),
+                    provider_type: "Llm".to_string(),
+                    bound_provider_id: "openai_primary".to_string(),
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    metadata: BTreeMap::new(),
+                }],
+                discovery: Vec::new(),
+            },
+        )
+        .expect("save provider state");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("operator"),
+        );
+        headers.insert(
+            "x-cortex-actor",
+            axum::http::HeaderValue::from_static("actor-provider-read-3"),
+        );
+
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            get_system_providers(headers),
+        )
+        .await
+        .expect("providers route should resolve promptly");
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["authBindings"][0]["hasSecret"], true);
+        assert!(body["authBindings"][0].get("secret").is_none());
+        assert!(
+            !body.to_string().contains("super-secret-token"),
+            "serialized provider inventory should not include raw auth secrets"
+        );
+    }
+
+    #[tokio::test]
+    async fn split_operator_provider_endpoints_require_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        let endpoint_checks: [(&str, ProviderReadHandler, &str); 5] = [
+            (
+                "provider_inventory",
+                boxed_get_system_provider_inventory,
+                "SYSTEM_PROVIDER_INVENTORY_READ_FORBIDDEN",
+            ),
+            (
+                "runtime_hosts",
+                boxed_get_system_runtime_hosts,
+                "SYSTEM_RUNTIME_HOSTS_READ_FORBIDDEN",
+            ),
+            (
+                "auth_bindings",
+                boxed_get_system_auth_bindings,
+                "SYSTEM_AUTH_BINDINGS_READ_FORBIDDEN",
+            ),
+            (
+                "execution_bindings",
+                boxed_get_system_execution_bindings,
+                "SYSTEM_EXECUTION_BINDINGS_READ_FORBIDDEN",
+            ),
+            (
+                "provider_discovery",
+                boxed_get_system_provider_discovery,
+                "SYSTEM_PROVIDER_DISCOVERY_READ_FORBIDDEN",
+            ),
+        ];
+
+        for (actor_suffix, handler, error_code) in endpoint_checks {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "x-cortex-role",
+                axum::http::HeaderValue::from_static("viewer"),
+            );
+            headers.insert(
+                "x-cortex-actor",
+                axum::http::HeaderValue::from_str(&format!("actor-{actor_suffix}"))
+                    .expect("actor header"),
+            );
+
+            let response =
+                tokio::time::timeout(std::time::Duration::from_secs(2), handler(headers))
+                    .await
+                    .expect("split read endpoint should resolve promptly");
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            let body = response_json(response).await;
+            assert_eq!(body["errorCode"], error_code);
+        }
+    }
+
+    #[tokio::test]
+    async fn split_operator_provider_endpoints_allow_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        let endpoint_checks: [ProviderReadHandler; 5] = [
+            boxed_get_system_provider_inventory,
+            boxed_get_system_runtime_hosts,
+            boxed_get_system_auth_bindings,
+            boxed_get_system_execution_bindings,
+            boxed_get_system_provider_discovery,
+        ];
+
+        for (index, handler) in endpoint_checks.into_iter().enumerate() {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "x-cortex-role",
+                axum::http::HeaderValue::from_static("operator"),
+            );
+            headers.insert(
+                "x-cortex-actor",
+                axum::http::HeaderValue::from_str(&format!("actor-operator-{index}"))
+                    .expect("actor header"),
+            );
+
+            let response =
+                tokio::time::timeout(std::time::Duration::from_secs(2), handler(headers))
+                    .await
+                    .expect("split read endpoint should resolve promptly");
+            assert_eq!(response.status(), StatusCode::OK);
+        }
+    }
+
+    #[tokio::test]
+    async fn system_providers_aggregate_matches_split_operator_reads() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        crate::services::provider_runtime::config::save_provider_registry_state(
+            &crate::services::provider_runtime::config::ProviderRegistryState {
+                providers: vec![crate::services::provider_runtime::config::ProviderRuntimeSettings {
+                    provider_id: "openai_primary".to_string(),
+                    name: "OpenAI Primary".to_string(),
+                    provider_type: "Llm".to_string(),
+                    provider_kind: Some("OpenAI".to_string()),
+                    host_id: None,
+                    enabled: true,
+                    base_url: "https://api.openai.com/v1".to_string(),
+                    default_model: "gpt-5.4".to_string(),
+                    adapter_set_ref: None,
+                    auth_binding_id: Some("auth.openai_primary".to_string()),
+                    provider_family_id: Some("openai".to_string()),
+                    profile_id: Some("gpt-5.4".to_string()),
+                    instance_id: Some("openai_primary__api_openai_com".to_string()),
+                    device_id: None,
+                    environment_id: Some("production".to_string()),
+                    locality_kind: Some(crate::services::provider_runtime::config::ProviderLocalityKind::Cloud),
+                    discovery_source: Some("manual".to_string()),
+                    batch_policy: None,
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    supported_models: vec!["gpt-5.4".to_string()],
+                    metadata: BTreeMap::new(),
+                }],
+                runtime_hosts: vec![crate::services::provider_runtime::config::RuntimeHostRecord {
+                    host_id: "host.local.primary".to_string(),
+                    name: "Local Host".to_string(),
+                    host_kind: crate::services::provider_runtime::config::RuntimeHostKind::Local,
+                    endpoint: "http://127.0.0.1:11434".to_string(),
+                    locality_kind: crate::services::provider_runtime::config::ProviderLocalityKind::Local,
+                    device_id: Some("local-device".to_string()),
+                    environment_id: Some("local-dev".to_string()),
+                    health: None,
+                    capabilities: vec!["ollama".to_string()],
+                    remote_discovery_enabled: false,
+                    execution_routable: true,
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    metadata: BTreeMap::new(),
+                }],
+                auth_bindings: vec![crate::services::provider_runtime::config::AuthBindingRecord {
+                    auth_binding_id: "auth.openai_primary".to_string(),
+                    target_kind: crate::services::provider_runtime::config::AuthBindingTargetKind::Provider,
+                    target_id: "openai_primary".to_string(),
+                    auth_type: crate::services::provider_runtime::config::AuthBindingType::ApiKey,
+                    label: Some("OpenAI key".to_string()),
+                    source: Some("manual".to_string()),
+                    secret: "super-secret-token".to_string(),
+                    has_secret: true,
+                    created_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    metadata: BTreeMap::new(),
+                }],
+                execution_bindings: vec![crate::services::provider_runtime::config::ExecutionBindingRecord {
+                    binding_id:
+                        crate::services::provider_runtime::config::DEFAULT_LLM_BINDING_ID
+                            .to_string(),
+                    provider_type: "Llm".to_string(),
+                    bound_provider_id: "openai_primary".to_string(),
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    metadata: BTreeMap::new(),
+                }],
+                discovery: vec![crate::services::provider_runtime::config::ProviderDiscoveryRecord {
+                    provider_id: "openai_primary".to_string(),
+                    provider_type: "Llm".to_string(),
+                    provider_kind: Some("OpenAI".to_string()),
+                    endpoint: "https://api.openai.com/v1".to_string(),
+                    default_model: Some("gpt-5.4".to_string()),
+                    supported_models: vec!["gpt-5.4".to_string()],
+                    adapter_health: None,
+                    adapter_health_error: None,
+                    openapi_paths: vec!["/v1/chat/completions".to_string()],
+                    upstream_models_error: None,
+                    fail_mode: Some("fallback".to_string()),
+                    topology: None,
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    metadata: BTreeMap::new(),
+                }],
+            },
+        )
+        .expect("save provider state");
+
+        let operator_headers = || {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "x-cortex-role",
+                axum::http::HeaderValue::from_static("operator"),
+            );
+            headers.insert(
+                "x-cortex-actor",
+                axum::http::HeaderValue::from_static("actor-provider-parity"),
+            );
+            headers
+        };
+
+        let aggregate = response_json(get_system_providers(operator_headers()).await).await;
+        let provider_inventory =
+            response_json(get_system_provider_inventory(operator_headers()).await).await;
+        let runtime_hosts = response_json(get_system_runtime_hosts(operator_headers()).await).await;
+        let auth_bindings = response_json(get_system_auth_bindings(operator_headers()).await).await;
+        let execution_bindings =
+            response_json(get_system_execution_bindings(operator_headers()).await).await;
+        let discovery =
+            response_json(get_system_provider_discovery(operator_headers()).await).await;
+
+        let mut aggregate_providers = aggregate["providers"].clone();
+        let mut split_providers = provider_inventory["providers"].clone();
+        strip_provider_inventory_volatiles(&mut aggregate_providers);
+        strip_provider_inventory_volatiles(&mut split_providers);
+
+        assert_eq!(aggregate_providers, split_providers);
+        assert_eq!(aggregate["runtimeHosts"], runtime_hosts["runtimeHosts"]);
+        assert_eq!(aggregate["authBindings"], auth_bindings["authBindings"]);
+        assert_eq!(
+            aggregate["executionBindings"],
+            execution_bindings["executionBindings"]
+        );
+        let mut aggregate_discovery = aggregate["discoveryRecords"].clone();
+        let mut split_discovery = discovery["discoveryRecords"].clone();
+        strip_provider_inventory_volatiles(&mut aggregate_discovery);
+        strip_provider_inventory_volatiles(&mut split_discovery);
+
+        assert_eq!(aggregate_discovery, split_discovery);
+    }
+
+    #[tokio::test]
+    async fn put_system_auth_binding_preserves_host_scope_when_requested() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        crate::services::provider_runtime::config::save_provider_registry_state(
+            &crate::services::provider_runtime::config::ProviderRegistryState {
+                providers: Vec::new(),
+                runtime_hosts: vec![
+                    crate::services::provider_runtime::config::RuntimeHostRecord {
+                        host_id: "host.vps.primary".to_string(),
+                        name: "Primary VPS".to_string(),
+                        host_kind: crate::services::provider_runtime::config::RuntimeHostKind::Vps,
+                        endpoint: "ssh://root@204.168.175.150".to_string(),
+                        locality_kind:
+                            crate::services::provider_runtime::config::ProviderLocalityKind::Cloud,
+                        device_id: None,
+                        environment_id: Some("eudaemon-alpha".to_string()),
+                        health: None,
+                        capabilities: vec!["ssh".to_string()],
+                        remote_discovery_enabled: true,
+                        execution_routable: false,
+                        updated_at: Some("2026-04-01T00:00:00Z".to_string()),
+                        metadata: BTreeMap::new(),
+                    },
+                ],
+                auth_bindings: vec![
+                    crate::services::provider_runtime::config::AuthBindingRecord {
+                        auth_binding_id: "auth.host.primary".to_string(),
+                        target_kind:
+                            crate::services::provider_runtime::config::AuthBindingTargetKind::Host,
+                        target_id: "host.vps.primary".to_string(),
+                        auth_type:
+                            crate::services::provider_runtime::config::AuthBindingType::SshKey,
+                        label: Some("Primary host SSH".to_string()),
+                        source: Some("manual".to_string()),
+                        secret: "ssh-private-key".to_string(),
+                        has_secret: true,
+                        created_at: Some("2026-04-01T00:00:00Z".to_string()),
+                        updated_at: Some("2026-04-01T00:00:00Z".to_string()),
+                        metadata: BTreeMap::new(),
+                    },
+                ],
+                execution_bindings: Vec::new(),
+                discovery: Vec::new(),
+            },
+        )
+        .expect("save provider state");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("operator"),
+        );
+        headers.insert(
+            "x-cortex-actor",
+            axum::http::HeaderValue::from_static("actor-auth-binding-update-host"),
+        );
+
+        let response = put_system_auth_binding(
+            headers,
+            Path("auth.host.primary".to_string()),
+            Json(UpdateAuthBindingRequest {
+                label: Some("Primary host SSH updated".to_string()),
+                api_key: None,
+                auth_type: None,
+                source: Some("manual".to_string()),
+                target_id: Some("host.vps.primary".to_string()),
+                target_kind: Some("host".to_string()),
+                metadata: BTreeMap::new(),
+            }),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["targetKind"], "host");
+        assert_eq!(body["targetId"], "host.vps.primary");
+
+        let persisted = crate::services::provider_runtime::config::load_provider_registry_state()
+            .expect("load provider state");
+        let binding = persisted
+            .auth_bindings
+            .iter()
+            .find(|entry| entry.auth_binding_id == "auth.host.primary")
+            .expect("host binding to persist");
+        assert_eq!(
+            binding.target_kind,
+            crate::services::provider_runtime::config::AuthBindingTargetKind::Host
+        );
+        assert_eq!(binding.target_id, "host.vps.primary");
+    }
+
+    #[tokio::test]
+    async fn post_system_auth_binding_host_scope_does_not_upsert_provider_record() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _runtime_disabled = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "false");
+
+        crate::services::provider_runtime::config::save_provider_registry_state(
+            &crate::services::provider_runtime::config::ProviderRegistryState {
+                providers: Vec::new(),
+                runtime_hosts: vec![
+                    crate::services::provider_runtime::config::RuntimeHostRecord {
+                        host_id: "host.vps.primary".to_string(),
+                        name: "Primary VPS".to_string(),
+                        host_kind: crate::services::provider_runtime::config::RuntimeHostKind::Vps,
+                        endpoint: "ssh://root@204.168.175.150".to_string(),
+                        locality_kind:
+                            crate::services::provider_runtime::config::ProviderLocalityKind::Cloud,
+                        device_id: None,
+                        environment_id: Some("eudaemon-alpha".to_string()),
+                        health: None,
+                        capabilities: vec!["ssh".to_string()],
+                        remote_discovery_enabled: true,
+                        execution_routable: false,
+                        updated_at: Some("2026-04-01T00:00:00Z".to_string()),
+                        metadata: BTreeMap::new(),
+                    },
+                ],
+                auth_bindings: Vec::new(),
+                execution_bindings: Vec::new(),
+                discovery: Vec::new(),
+            },
+        )
+        .expect("save provider state");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("operator"),
+        );
+        headers.insert(
+            "x-cortex-actor",
+            axum::http::HeaderValue::from_static("actor-auth-binding-create-host"),
+        );
+
+        let response = post_system_auth_binding(
+            headers,
+            Json(CreateAuthBindingRequest {
+                target_id: Some("host.vps.primary".to_string()),
+                target_kind: Some("host".to_string()),
+                auth_binding_id: Some("auth.host.primary".to_string()),
+                auth_type: Some("ssh_key".to_string()),
+                label: Some("Primary host SSH".to_string()),
+                source: Some("manual".to_string()),
+                api_key: Some("ssh-private-key".to_string()),
+                metadata: BTreeMap::new(),
+            }),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["targetKind"], "host");
+        assert_eq!(body["targetId"], "host.vps.primary");
+
+        let persisted = crate::services::provider_runtime::config::load_provider_registry_state()
+            .expect("load provider state");
+        assert!(persisted.providers.is_empty());
+        let binding = persisted
+            .auth_bindings
+            .iter()
+            .find(|entry| entry.auth_binding_id == "auth.host.primary")
+            .expect("host binding to persist");
+        assert_eq!(
+            binding.target_kind,
+            crate::services::provider_runtime::config::AuthBindingTargetKind::Host
+        );
+        assert_eq!(binding.target_id, "host.vps.primary");
+    }
+
+    #[test]
+    fn runtime_host_discovery_requires_explicit_remote_discovery_enablement() {
+        let host = crate::services::provider_runtime::config::RuntimeHostRecord {
+            host_id: "host.vps.primary".to_string(),
+            name: "Eudaemon Alpha VPS".to_string(),
+            host_kind: crate::services::provider_runtime::config::RuntimeHostKind::Vps,
+            endpoint: "ssh://root@204.168.175.150".to_string(),
+            locality_kind: crate::services::provider_runtime::config::ProviderLocalityKind::Cloud,
+            device_id: None,
+            environment_id: Some("eudaemon-alpha".to_string()),
+            health: None,
+            capabilities: vec!["ssh".to_string()],
+            remote_discovery_enabled: false,
+            execution_routable: false,
+            updated_at: None,
+            metadata: BTreeMap::new(),
+        };
+
+        assert!(
+            !crate::services::provider_runtime::policy::runtime_host_allows_remote_discovery(&host)
+        );
+    }
+
+    #[test]
+    fn runtime_host_discovery_allows_explicitly_enabled_ssh_host() {
+        let host = crate::services::provider_runtime::config::RuntimeHostRecord {
+            host_id: "host.vps.primary".to_string(),
+            name: "Eudaemon Alpha VPS".to_string(),
+            host_kind: crate::services::provider_runtime::config::RuntimeHostKind::Vps,
+            endpoint: "ssh://root@204.168.175.150".to_string(),
+            locality_kind: crate::services::provider_runtime::config::ProviderLocalityKind::Cloud,
+            device_id: None,
+            environment_id: Some("eudaemon-alpha".to_string()),
+            health: None,
+            capabilities: vec!["ssh".to_string()],
+            remote_discovery_enabled: true,
+            execution_routable: false,
+            updated_at: None,
+            metadata: BTreeMap::new(),
+        };
+
+        assert!(
+            crate::services::provider_runtime::policy::runtime_host_allows_remote_discovery(&host)
+        );
+    }
+
+    #[tokio::test]
+    async fn put_system_provider_binding_rejects_non_executable_provider() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        crate::services::provider_runtime::config::save_provider_registry_state(
+            &crate::services::provider_runtime::config::ProviderRegistryState {
+                providers: vec![crate::services::provider_runtime::config::ProviderRuntimeSettings {
+                    provider_id: "ollama_vps_primary".to_string(),
+                    name: "Remote Ollama".to_string(),
+                    provider_type: "Llm".to_string(),
+                    provider_kind: Some("Ollama".to_string()),
+                    host_id: Some("host.vps.primary".to_string()),
+                    enabled: true,
+                    base_url: "ssh://root@204.168.175.150".to_string(),
+                    default_model: "llama3.1:8b".to_string(),
+                    adapter_set_ref: None,
+                    auth_binding_id: Some("auth.none.ollama_vps_primary".to_string()),
+                    provider_family_id: Some("ollama".to_string()),
+                    profile_id: Some("llama3.1:8b".to_string()),
+                    instance_id: Some("ollama_vps_primary__ssh_root_204.168.175.150".to_string()),
+                    device_id: None,
+                    environment_id: Some("eudaemon-alpha".to_string()),
+                    locality_kind: Some(crate::services::provider_runtime::config::ProviderLocalityKind::Cloud),
+                    discovery_source: Some("ssh_host_probe".to_string()),
+                    batch_policy: None,
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    supported_models: Vec::new(),
+                    metadata: BTreeMap::new(),
+                }],
+                runtime_hosts: vec![crate::services::provider_runtime::config::RuntimeHostRecord {
+                    host_id: "host.vps.primary".to_string(),
+                    name: "Eudaemon Alpha VPS".to_string(),
+                    host_kind: crate::services::provider_runtime::config::RuntimeHostKind::Vps,
+                    endpoint: "ssh://root@204.168.175.150".to_string(),
+                    locality_kind: crate::services::provider_runtime::config::ProviderLocalityKind::Cloud,
+                    device_id: None,
+                    environment_id: Some("eudaemon-alpha".to_string()),
+                    health: None,
+                    capabilities: vec!["ssh".to_string()],
+                    remote_discovery_enabled: true,
+                    execution_routable: false,
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    metadata: BTreeMap::new(),
+                }],
+                auth_bindings: vec![crate::services::provider_runtime::config::AuthBindingRecord {
+                    auth_binding_id: "auth.none.ollama_vps_primary".to_string(),
+                    target_kind: crate::services::provider_runtime::config::AuthBindingTargetKind::Provider,
+                    target_id: "ollama_vps_primary".to_string(),
+                    auth_type: crate::services::provider_runtime::config::AuthBindingType::None,
+                    label: Some("Remote Ollama".to_string()),
+                    source: Some("manual".to_string()),
+                    secret: String::new(),
+                    has_secret: false,
+                    created_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    updated_at: Some("2026-03-25T00:00:00Z".to_string()),
+                    metadata: BTreeMap::new(),
+                }],
+                execution_bindings: Vec::new(),
+                discovery: Vec::new(),
+            },
+        )
+        .expect("save provider state");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-cortex-role",
+            axum::http::HeaderValue::from_static("operator"),
+        );
+
+        let response = put_system_provider_binding(
+            headers,
+            Path("llm.default".to_string()),
+            Json(PutSystemProviderBindingRequest {
+                provider_type: Some("Llm".to_string()),
+                bound_provider_id: "ollama_vps_primary".to_string(),
+                metadata: BTreeMap::new(),
+            }),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SYSTEM_PROVIDER_BINDING_NOT_EXECUTABLE");
+    }
+
+    #[tokio::test]
+    async fn chat_context_bundle_preserves_requested_block_order() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "actor-chat-order".parse().expect("actor header"),
+        );
+
+        let first = heap_emit_fixture(
+            "chat-context-a",
+            "Context A",
+            "2026-03-28T10:00:00Z",
+            false,
+            "hash_size",
+        );
+        let second = heap_emit_fixture(
+            "chat-context-b",
+            "Context B",
+            "2026-03-28T10:00:01Z",
+            false,
+            "hash_size",
+        );
+
+        assert_eq!(
+            post_cortex_heap_emit(headers.clone(), Json(first))
+                .await
+                .status(),
+            StatusCode::OK
+        );
+        assert_eq!(
+            post_cortex_heap_emit(headers, Json(second)).await.status(),
+            StatusCode::OK
+        );
+
+        let bundle = build_heap_context_bundle_for_block_ids(&[
+            "artifact-chat-context-b".to_string(),
+            "artifact-chat-context-a".to_string(),
+            "artifact-chat-context-b".to_string(),
+        ]);
+
+        assert_eq!(bundle.len(), 2);
+        assert_eq!(bundle[0]["artifact_id"], "artifact-chat-context-b");
+        assert_eq!(bundle[0]["title"], "Context B");
+        assert_eq!(bundle[1]["artifact_id"], "artifact-chat-context-a");
+        assert_eq!(bundle[1]["title"], "Context A");
+    }
+
+    #[tokio::test]
+    async fn chat_conversation_projection_round_trips_mixed_content_and_history() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let thread_id = "thread-chat-roundtrip";
+        let anchor = ChatSourceAnchor {
+            kind: "view".to_string(),
+            label: "Explore".to_string(),
+            href: "/explore?thread=thread-chat-roundtrip".to_string(),
+            route_id: Some("/explore".to_string()),
+            artifact_id: None,
+            view_id: Some("aggregate:prompts".to_string()),
+            block_id: None,
+            component_id: None,
+        };
+        let agent = ChatAgentIdentity {
+            id: "provider".to_string(),
+            label: "Cortex Runtime".to_string(),
+            route: "provider-runtime.responses".to_string(),
+            mode: "runtime".to_string(),
+        };
+
+        persist_chat_message_parts(
+            Some("nostra-space"),
+            thread_id,
+            "msg-001",
+            "user",
+            Some(anchor.clone()),
+            &[ChatContentPart::Text {
+                text: "Summarize the selected block.".to_string(),
+            }],
+            None,
+        )
+        .expect("persist user turn");
+        persist_chat_message_parts(
+            Some("nostra-space"),
+            thread_id,
+            "msg-002",
+            "agent",
+            Some(anchor.clone()),
+            &[
+                ChatContentPart::Text {
+                    text: "Hydrated canonical response".to_string(),
+                },
+                ChatContentPart::A2ui {
+                    surface_id: "chat_context_summary:thread-chat-roundtrip".to_string(),
+                    title: Some("Resolved context bundle".to_string()),
+                    tree: json!({
+                        "type": "Container",
+                        "children": {
+                            "explicitList": [{
+                                "id": "context-heading",
+                                "componentProperties": {
+                                    "Heading": { "text": "Resolved context bundle" }
+                                }
+                            }]
+                        }
+                    }),
+                },
+                ChatContentPart::Pointer {
+                    href: "/explore?artifact_id=artifact-chat-context-a".to_string(),
+                    label: "Context A".to_string(),
+                    artifact_id: Some("artifact-chat-context-a".to_string()),
+                    description: Some("widget · updated 2026-03-28T10:00:00Z".to_string()),
+                },
+            ],
+            Some(agent.clone()),
+        )
+        .expect("persist agent turn");
+
+        let mut projections = read_heap_projection_store();
+        projections.reverse();
+        write_heap_projection_store(&projections).expect("rewrite projection order");
+
+        let details = build_chat_conversation_details(Some(thread_id));
+        assert_eq!(details.len(), 1);
+        let detail = &details[0];
+
+        assert_eq!(detail.summary.thread_id, thread_id);
+        assert_eq!(detail.summary.title, "Summarize the selected block.");
+        assert_eq!(
+            detail.summary.last_message_preview,
+            "Hydrated canonical response"
+        );
+        assert_eq!(
+            detail
+                .summary
+                .anchor
+                .as_ref()
+                .map(|value| value.href.as_str()),
+            Some("/explore?thread=thread-chat-roundtrip")
+        );
+        assert_eq!(detail.messages.len(), 2);
+        assert_eq!(detail.messages[0].id, "msg-001");
+        assert_eq!(detail.messages[0].text, "Summarize the selected block.");
+        assert_eq!(detail.messages[1].id, "msg-002");
+        assert_eq!(detail.messages[1].text, "Hydrated canonical response");
+        assert_eq!(detail.messages[1].artifact_ids.len(), 3);
+        assert_eq!(detail.messages[1].content.len(), 3);
+        assert!(matches!(
+            detail.messages[1].content[0],
+            ChatContentPart::Text { ref text } if text == "Hydrated canonical response"
+        ));
+        assert!(matches!(
+            detail.messages[1].content[1],
+            ChatContentPart::A2ui { ref surface_id, .. } if surface_id == "chat_context_summary:thread-chat-roundtrip"
+        ));
+        assert!(matches!(
+            detail.messages[1].content[2],
+            ChatContentPart::Pointer {
+                ref label,
+                ref artifact_id,
+                ref description,
+                ..
+            } if label == "Context A"
+                && artifact_id.as_deref() == Some("artifact-chat-context-a")
+                && description.as_deref() == Some("widget · updated 2026-03-28T10:00:00Z")
+        ));
+        assert_eq!(
+            detail.messages[1]
+                .agent
+                .as_ref()
+                .map(|value| value.route.as_str()),
+            Some("provider-runtime.responses")
+        );
+
+        let history = load_chat_thread_history(thread_id);
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].role, "user");
+        assert_eq!(history[0].text, "Summarize the selected block.");
+        assert_eq!(history[1].role, "agent");
+        assert_eq!(history[1].text, "Hydrated canonical response");
+
+        let list_body = response_json(get_cortex_chat_conversations().await.into_response()).await;
+        assert_eq!(list_body["count"], 1);
+        assert_eq!(list_body["items"][0]["threadId"], thread_id);
+        assert_eq!(
+            list_body["items"][0]["lastMessagePreview"],
+            "Hydrated canonical response"
+        );
+
+        let detail_body = response_json(
+            get_cortex_chat_conversation(Path(thread_id.to_string()))
+                .await
+                .into_response(),
+        )
+        .await;
+        assert_eq!(detail_body["threadId"], thread_id);
+        assert_eq!(detail_body["messages"][1]["content"][1]["type"], "a2ui");
+        assert_eq!(detail_body["messages"][1]["content"][2]["type"], "pointer");
+    }
+
+    #[tokio::test]
+    async fn chat_conversation_projection_handles_structured_only_messages() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let thread_id = "thread-chat-structured-only";
+        let agent = ChatAgentIdentity {
+            id: "provider".to_string(),
+            label: "Cortex Runtime".to_string(),
+            route: "provider-runtime.responses".to_string(),
+            mode: "runtime".to_string(),
+        };
+
+        persist_chat_message_parts(
+            Some("nostra-space"),
+            thread_id,
+            "msg-structured",
+            "agent",
+            None,
+            &[
+                ChatContentPart::A2ui {
+                    surface_id: "chat_context_summary:thread-chat-structured-only".to_string(),
+                    title: Some("Resolved context bundle".to_string()),
+                    tree: json!({
+                        "type": "Container",
+                        "children": { "explicitList": [] }
+                    }),
+                },
+                ChatContentPart::Pointer {
+                    href: "/explore?artifact_id=artifact-chat-context-b".to_string(),
+                    label: "Context B".to_string(),
+                    artifact_id: Some("artifact-chat-context-b".to_string()),
+                    description: Some("widget · updated 2026-03-28T10:00:01Z".to_string()),
+                },
+            ],
+            Some(agent),
+        )
+        .expect("persist structured only turn");
+
+        let details = build_chat_conversation_details(Some(thread_id));
+        assert_eq!(details.len(), 1);
+        let detail = &details[0];
+        assert_eq!(detail.summary.title, "Conversation");
+        assert_eq!(detail.summary.last_message_preview, "Structured response");
+        assert_eq!(detail.messages.len(), 1);
+        assert_eq!(detail.messages[0].text, "Structured response");
+        assert_eq!(detail.messages[0].content.len(), 2);
+        assert!(matches!(
+            detail.messages[0].content[0],
+            ChatContentPart::A2ui { .. }
+        ));
+        assert!(matches!(
+            detail.messages[0].content[1],
+            ChatContentPart::Pointer { .. }
+        ));
+
+        let history = load_chat_thread_history(thread_id);
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].text, "Structured response");
     }
 }
