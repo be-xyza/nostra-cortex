@@ -1,8 +1,11 @@
+use nostra_shared::types::provider_registry::{
+    LlmProviderType, ProviderBatchCadenceKind, ProviderBatchFlushPolicy, ProviderBatchPolicy,
+    ProviderBatchScopeKind, ProviderBatchWindow, ProviderRecord,
+};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
-use nostra_shared::types::provider_registry::{ProviderRecord, LlmProviderType};
 
 // Global singleton config instance
 pub static CONFIG: OnceLock<ConfigService> = OnceLock::new();
@@ -141,7 +144,9 @@ impl ConfigService {
         if let Ok(id) = std::env::var("CANISTER_ID") {
             config.canisters.primary = Some(id);
         }
-        if let Ok(id) = std::env::var("CANISTER_ID_NOSTRA_STREAMING").or_else(|_| std::env::var("NOSTRA_STREAMING_CANISTER_ID")) {
+        if let Ok(id) = std::env::var("CANISTER_ID_NOSTRA_STREAMING")
+            .or_else(|_| std::env::var("NOSTRA_STREAMING_CANISTER_ID"))
+        {
             config.canisters.streaming = Some(id);
         }
         if let Ok(id) = std::env::var("CANISTER_ID_NOSTRA_BACKEND") {
@@ -170,11 +175,45 @@ impl ConfigService {
                 graph: GraphConfig {
                     sync_mode: GraphSyncMode::QueryOnly,
                 },
-                providers: vec![
-                    ProviderRecord::new_llm("ollama-local", "Local Ollama", LlmProviderType::Ollama, "http://localhost:11434"),
-                    ProviderRecord::new_llm("open-router", "OpenRouter", LlmProviderType::OpenRouter, "https://openrouter.ai/api/v1"),
-                    ProviderRecord::new_llm("double-word-batch", "DoubleWord Batch", LlmProviderType::DoubleWord, "https://api.doubleword.ai/v1/batch"),
-                ],
+                providers: {
+                    let mut doubleword = ProviderRecord::new_llm(
+                        "double-word-batch",
+                        "DoubleWord Batch",
+                        LlmProviderType::DoubleWord,
+                        "https://api.doubleword.ai/v1/batch",
+                    );
+                    doubleword.batch_policy = Some(ProviderBatchPolicy {
+                        provider_family_id: "doubleword".to_string(),
+                        provider_profile_id: Some("batch.default".to_string()),
+                        cadence_kind: ProviderBatchCadenceKind::Interval,
+                        scope_kind: ProviderBatchScopeKind::RequestGroup,
+                        flush_policy: ProviderBatchFlushPolicy::OnInterval,
+                        ordering_key: Some("request_group_id".to_string()),
+                        dedupe_key: Some("request_hash".to_string()),
+                        batch_window: Some(ProviderBatchWindow {
+                            interval_seconds: Some(60),
+                            max_items: Some(100),
+                            max_age_seconds: Some(600),
+                            timezone: Some("UTC".to_string()),
+                        }),
+                    });
+
+                    vec![
+                        ProviderRecord::new_llm(
+                            "ollama-local",
+                            "Local Ollama",
+                            LlmProviderType::Ollama,
+                            "http://localhost:11434",
+                        ),
+                        ProviderRecord::new_llm(
+                            "open-router",
+                            "OpenRouter",
+                            LlmProviderType::OpenRouter,
+                            "https://openrouter.ai/api/v1",
+                        ),
+                        doubleword,
+                    ]
+                },
             },
             governance: GovernanceConfig {
                 deployment_gate: "Open".to_string(),
