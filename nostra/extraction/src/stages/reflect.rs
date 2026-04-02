@@ -16,17 +16,13 @@ impl Stage for ReflectStage {
             doc.confidence = (doc.confidence - 0.08).max(0.0);
         }
 
-        if doc.request.content.len() > 2000 && doc.candidate_entities.len() < 4 {
+        if doc.resolved_content.len() > 2000 && doc.candidate_entities.len() < 4 {
             doc.flags
                 .push("reflection_possible_under_extraction".to_string());
             doc.confidence = (doc.confidence - 0.1).max(0.0);
         }
 
-        if doc
-            .request
-            .content
-            .to_lowercase()
-            .contains("unknown")
+        if doc.resolved_content.to_lowercase().contains("unknown")
             && doc.candidate_relations.is_empty()
         {
             doc.flags

@@ -1,6 +1,8 @@
-pub mod stages;
 pub mod adapters;
 pub mod contribution_graph;
+pub mod parser_bridge;
+pub mod parser_contract;
+pub mod stages;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -69,6 +71,16 @@ pub struct ExtractionRequestV1 {
     #[serde(default)]
     pub content: String,
     #[serde(default)]
+    pub content_ref: Option<String>,
+    #[serde(default)]
+    pub artifact_path: Option<String>,
+    #[serde(default)]
+    pub mime_type: Option<String>,
+    #[serde(default)]
+    pub file_size: Option<u64>,
+    #[serde(default)]
+    pub parser_profile: Option<String>,
+    #[serde(default)]
     pub extraction_mode: ExtractionMode,
     #[serde(default)]
     pub fallback_policy: ExtractionFallbackPolicyV1,
@@ -97,7 +109,46 @@ pub struct ExtractionRelationV1 {
     pub relation_type: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ExtractionBoundingBoxV1 {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ExtractionBlockV1 {
+    pub block_type: String,
+    pub text: String,
+    #[serde(default)]
+    pub bbox: Option<ExtractionBoundingBoxV1>,
+    #[serde(default)]
+    pub reading_order: Option<u32>,
+    #[serde(default)]
+    pub confidence: Option<f32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ExtractionPageV1 {
+    pub page_number: u32,
+    #[serde(default)]
+    pub page_image_ref: Option<String>,
+    #[serde(default)]
+    pub blocks: Vec<ExtractionBlockV1>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct NormalizedDocumentV1 {
+    #[serde(default)]
+    pub parser_backend: String,
+    #[serde(default)]
+    pub parser_profile: Option<String>,
+    #[serde(default)]
+    pub pages: Vec<ExtractionPageV1>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ExtractionStatus {
     Submitted,
@@ -133,11 +184,16 @@ pub struct ExtractionResultV1 {
     pub attempted_backends: Vec<String>,
     #[serde(default)]
     pub fallback_reason: Option<String>,
+    #[serde(default)]
+    pub normalized_document: Option<NormalizedDocumentV1>,
+    #[serde(default)]
+    pub result_ref: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Document {
     pub request: ExtractionRequestV1,
+    pub resolved_content: String,
     pub status: ExtractionStatus,
     pub confidence: f32,
     pub metadata: serde_json::Value,
@@ -147,10 +203,19 @@ pub struct Document {
     pub provenance: ExtractionProvenanceV1,
     pub attempted_backends: Vec<String>,
     pub fallback_reason: Option<String>,
+    pub normalized_document: Option<NormalizedDocumentV1>,
+    pub result_ref: Option<String>,
 }
 
 impl Document {
     pub fn from_request(request: &ExtractionRequestV1) -> Self {
+        Self::from_request_with_content(request, None)
+    }
+
+    pub fn from_request_with_content(
+        request: &ExtractionRequestV1,
+        resolved_content: Option<String>,
+    ) -> Self {
         let job_id = request
             .job_id
             .clone()
@@ -185,12 +250,18 @@ impl Document {
         if provenance.timestamp.trim().is_empty() {
             provenance.timestamp = now_epoch_millis().to_string();
         }
+        let resolved_content = if request.content.trim().is_empty() {
+            resolved_content.unwrap_or_default()
+        } else {
+            request.content.clone()
+        };
 
         Self {
             request: ExtractionRequestV1 {
                 job_id: Some(job_id),
                 ..request.clone()
             },
+            resolved_content,
             status: ExtractionStatus::Running,
             confidence: 0.0,
             metadata: json!({}),
@@ -200,11 +271,13 @@ impl Document {
             provenance,
             attempted_backends: vec!["local_pipeline".to_string()],
             fallback_reason: None,
+            normalized_document: None,
+            result_ref: None,
         }
     }
 
     pub fn into_result(mut self) -> ExtractionResultV1 {
-        if self.request.content.trim().is_empty() {
+        if self.resolved_content.trim().is_empty() {
             self.status = ExtractionStatus::NeedsReview;
             self.flags.push("empty_input_content".to_string());
         }
@@ -222,6 +295,8 @@ impl Document {
             provenance: self.provenance,
             attempted_backends: self.attempted_backends,
             fallback_reason: self.fallback_reason,
+            normalized_document: self.normalized_document,
+            result_ref: self.result_ref,
         }
     }
 }
@@ -275,6 +350,29 @@ pub fn run_local_pipeline(request: &ExtractionRequestV1) -> Result<ExtractionRes
     Ok(output.into_result())
 }
 
+pub fn run_local_pipeline_with_content(
+    request: &ExtractionRequestV1,
+    resolved_content: String,
+) -> Result<ExtractionResultV1> {
+    let pipeline = build_local_pipeline();
+    let doc = Document::from_request_with_content(request, Some(resolved_content));
+    let output = pipeline.run(doc)?;
+    Ok(output.into_result())
+}
+
+pub fn validate_extraction_input_source(request: &ExtractionRequestV1) -> Result<(), String> {
+    let has_inline_content = !request.content.trim().is_empty();
+    let has_content_ref = request
+        .content_ref
+        .as_deref()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false);
+    if has_inline_content == has_content_ref {
+        return Err("exactly one of content or content_ref must be populated".to_string());
+    }
+    Ok(())
+}
+
 fn default_min_confidence() -> f32 {
     0.85
 }
@@ -299,6 +397,11 @@ mod tests {
             space_id: Some("space:test".to_string()),
             content: "Nostra Cortex uses Rust and Motoko. Alice works at Zipstack Labs."
                 .to_string(),
+            content_ref: None,
+            artifact_path: None,
+            mime_type: Some("text/plain".to_string()),
+            file_size: None,
+            parser_profile: Some("local_heuristic".to_string()),
             extraction_mode: ExtractionMode::Local,
             fallback_policy: ExtractionFallbackPolicyV1::default(),
             timeout_seconds: Some(60),
@@ -334,10 +437,12 @@ mod tests {
         req.fallback_policy.min_confidence = 0.99;
         let result = run_local_pipeline(&req).expect("pipeline result");
         assert!(matches!(result.status, ExtractionStatus::NeedsReview));
-        assert!(result
-            .flags
-            .iter()
-            .any(|flag| flag.contains("verification_confidence_below_threshold")));
+        assert!(
+            result
+                .flags
+                .iter()
+                .any(|flag| flag.contains("verification_confidence_below_threshold"))
+        );
     }
 
     #[test]
@@ -345,7 +450,10 @@ mod tests {
         let req = base_request();
         let first = run_local_pipeline(&req).expect("first");
         let second = run_local_pipeline(&req).expect("second");
-        assert_eq!(format!("{:?}", first.status), format!("{:?}", second.status));
+        assert_eq!(
+            format!("{:?}", first.status),
+            format!("{:?}", second.status)
+        );
         let first_entities = first
             .candidate_entities
             .iter()
@@ -360,14 +468,51 @@ mod tests {
         let first_relations = first
             .candidate_relations
             .iter()
-            .map(|r| format!("{}|{}|{}|{}", r.id, r.source_id, r.target_id, r.relation_type))
+            .map(|r| {
+                format!(
+                    "{}|{}|{}|{}",
+                    r.id, r.source_id, r.target_id, r.relation_type
+                )
+            })
             .collect::<Vec<_>>();
         let second_relations = second
             .candidate_relations
             .iter()
-            .map(|r| format!("{}|{}|{}|{}", r.id, r.source_id, r.target_id, r.relation_type))
+            .map(|r| {
+                format!(
+                    "{}|{}|{}|{}",
+                    r.id, r.source_id, r.target_id, r.relation_type
+                )
+            })
             .collect::<Vec<_>>();
         assert_eq!(first_relations, second_relations);
         assert!((first.confidence - second.confidence).abs() < f32::EPSILON);
+    }
+    #[test]
+    fn content_ref_requests_can_run_with_host_resolved_content() {
+        let mut req = base_request();
+        req.content.clear();
+        req.content_ref = Some("cortex://upload?id=upload-123".to_string());
+        let result = run_local_pipeline_with_content(
+            &req,
+            "Docling extracts Nostra Cortex architecture notes.".to_string(),
+        )
+        .expect("pipeline result");
+        assert!(result.normalized_document.is_some());
+        assert!(validate_extraction_input_source(&req).is_ok());
+    }
+
+    #[test]
+    fn extraction_input_source_requires_exactly_one_content_source() {
+        let req = base_request();
+        assert!(validate_extraction_input_source(&req).is_ok());
+
+        let mut both = base_request();
+        both.content_ref = Some("cortex://upload?id=upload-123".to_string());
+        assert!(validate_extraction_input_source(&both).is_err());
+
+        let mut neither = base_request();
+        neither.content.clear();
+        assert!(validate_extraction_input_source(&neither).is_err());
     }
 }
