@@ -42,7 +42,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-03-31"
+updated: "2026-03-19"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -168,9 +168,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Keep `api_key` provider support deployment-ready for Hetzner.
 - Treat Codex subscription access as an explicit sidecar/profile path rather than a generic API-credit shortcut.
 - Do not require the advisory batch lane for boot-critical steward communication.
-- Treat provider/runtime/auth inventory and runtime status as operator-only Cortex execution infrastructure rather than agent-facing default-readable state.
-- Use split operator inventory/status contracts for steward diagnostics, and preserve `403 -> access_denied` behavior on non-operator paths.
-- Require server-side execution eligibility for any default binding or runtime override so discovered inventory does not become executable implicitly.
 
 ### Phase F: Runtime Migration Readiness
 - Keep external runtime adapters provisional.
@@ -248,33 +245,6 @@ Implement the self-scaffolding pipeline from the Graph-Native Architecture desig
 - On gap detection, the agent scaffolds new service code in `sandboxes/`.
 - On test pass, the agent packages the scaffold as a `ContributionType.DELIVERABLE` (PR) to the host repo.
 - Human developer merges → container rebuilds → agent awakens with new capability.
-
-### 7.5 Rust-Native Runtime Parity & Protocol Hardening
-Transition the current `eudaemon-alpha` Python worker into a parity-backed `cortex-eudaemon` Rust slice. Validation against the current repo and external pattern sources supports this as a constrained migration program, not a wholesale Phase 7 replatform. This phase mandates:
-- **Parity-Backed Migration**: Preserve the Phase 6 Python worker + Rust gateway deployment model until the Rust slice proves behavioral parity against current heap, lifecycle, workflow, and provider contracts.
-- **Existing Boundary Reuse**: Follow the current workspace seams in `cortex-domain`, `cortex-runtime`, `cortex-ic-adapter`, and `cortex-eudaemon` rather than inventing a new core crate taxonomy.
-- **Strict Payload Boundaries**: Harden external Gateway and A2UI DTOs with discriminated unions where the domain is variant-shaped, consistent `camelCase` serialization, and contract-synchronized TypeScript bindings.
-- **Protocol Fidelity**: Remove ad hoc cross-language payload drift on the highest-risk network boundaries first, while preserving explicitly governed compatibility fields where current contracts still require them.
-- **Measured Extraction Pressure**: Drive crate or module extraction from observed bloat and reuse pressure, not from abstract modularity goals alone.
-
-Immediate Phase 7 seam candidates validated in the current repo:
-1. **Provider Runtime Surface**: isolate provider registry/runtime/client/policy logic so live-provider and batch-audit adapters can evolve without further inflating the main gateway surface.
-2. **ACP / Terminal Execution Surface**: separate ACP protocol, terminal orchestration, permission ledger, and execution-policy enforcement into a narrower execution-control slice.
-3. **Workbench UX / Heap Projection Surface**: extract the large heap/workbench/viewspec projection and UX orchestration logic into a dedicated application slice with clearer projection contracts.
-
-### 7.6 Execution Isolation Hardening
-To safely expand Eudaemon Alpha toward higher-authority execution:
-- **Phase 6 Posture Preservation**: Keep the current Hetzner `systemd` deployment and operator-local SSH promotion model as the Phase 6 baseline. Do not treat Phase 7 as a blanket replacement of that runtime contract.
-- **Immediate Service Hardening**: Tighten service-level restrictions first through host policy, working-directory minimization, repo/state path separation, and operator-only execution-infrastructure visibility.
-- **Executor-Specific Sandbox Trigger**: Require OS-level sandboxing when Eudaemon begins executing untrusted code, generated shell/code evaluation loops, or broader autonomous contribution paths. This control applies to the executor slice that runs those actions, not automatically to the entire gateway/runtime stack.
-- **Privilege Degradation**: Ensure any sandboxed execution path operates with explicit network, filesystem, and capability restrictions plus bounded resource controls before higher-authority automation is enabled.
-- **Infrastructure Protection**: Preserve the runtime host topology boundary by keeping provider/runtime/auth inventory operator-only and by ensuring discovered inventory never becomes executable implicitly.
-
-### 7.7 Validated Phase 7 Sequencing
-The validated progression for Initiative 132 is:
-1. **Contract Hardening Now**: tighten DTOs, payload discriminators, and TypeScript/Rust contract sync on the currently exposed Gateway and A2UI boundaries.
-2. **Parity Slice Next**: port the highest-value Eudaemon loop capabilities into Rust behind existing `cortex-domain` / `cortex-runtime` seams and verify parity before shifting runtime authority.
-3. **Isolation Before Untrusted Execution**: add executor-specific OS-level sandboxing before enabling untrusted code execution or broader autonomous contribution flows.
 
 ---
 

@@ -1,24 +1,5 @@
 # Decision Log — Initiative 123
 
-## DEC-123-005: Canonical Web Chat Surface Uses Runtime-First Dispatch and Heap-Backed Conversation Projection
-**Date**: 2026-03-28
-**Status**: Approved
-
-**Decision**: Standardize the `cortex-web` conversation surface so `/ws/chat` is a thin transport, the gateway resolves canonical heap context and persisted thread history, generation dispatches to the provider-runtime Responses path first, and conversation history persists as heap-backed block content projected back to the web host through canonical chat routes.
-
-**Rationale**:
-1. The prior prototype shape split authority across browser `localStorage`, ad hoc thread UI state, and a text-only generation path.
-2. Host-neutrality requires the runtime to own context resolution, persistence, and generation routing rather than letting `cortex-web` become a second conversation authority.
-3. Shared A2UI rendering and heap-backed projections align chat with the same execution-layer contracts used elsewhere in the Workbench.
-
-**Implications**:
-1. Canonical chat browse/hydrate routes are:
-   - `GET /api/cortex/chat/conversations`
-   - `GET /api/cortex/chat/conversations/:thread_id`
-2. Persisted conversation content uses canonical heap-backed block forms (`conversation_message`, `conversation_a2ui`, `conversation_pointer`).
-3. `/conversations` remains temporary only as a projection UI over canonical server-backed state; browser `localStorage` is cache, not authority.
-4. `workflow-engine.process_message` may remain available only as compatibility fallback while provider-runtime is the primary generator path.
-
 ## DEC-123-001: Canonical Initiative Numbering and Scope
 **Date**: 2026-02-22  
 **Status**: Approved
