@@ -1,5 +1,7 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { SEED_EVENTS, INTRO_SPACE_ID, MOCK_WHOAMI, MOCK_LAYOUT_SPEC, MOCK_NAVIGATION_PLAN, MOCK_UX_WORKBENCH_MAIN, MOCK_UX_WORKBENCH_LABS, MOCK_UX_WORKBENCH_SYSTEM, MOCK_UX_WORKBENCH_SPACES, MOCK_UX_WORKBENCH_HEAP, MOCK_UX_WORKBENCH_STUDIO } from './seedData';
+import { SEED_EVENTS, INTRO_SPACE_ID, MOCK_WHOAMI, MOCK_LAYOUT_SPEC, MOCK_NAVIGATION_PLAN, MOCK_UX_WORKBENCH_MAIN, MOCK_UX_WORKBENCH_LABS, MOCK_UX_WORKBENCH_EXECUTION_CANVAS, MOCK_UX_WORKBENCH_SYSTEM, MOCK_UX_WORKBENCH_SPACES, MOCK_UX_WORKBENCH_HEAP, MOCK_UX_WORKBENCH_STUDIO } from './seedData.ts';
+import { useUserPreferences } from './userPreferences.ts';
+import { PREVIEW_SNAPSHOT_IDS, isPreviewEventRecord, isPreviewSnapshotId } from './previewFixtureCatalog.ts';
 
 export interface GlobalEvent {
   id: string;
@@ -45,6 +47,10 @@ interface CortexEventDB extends DBSchema {
  * Read the event log for a given space since a specific timestamp.
  */
 export async function getEventsBySpaceSince(spaceId: string, sinceTs: string): Promise<GlobalEvent[]> {
+  await purgePreviewFixturesIfDisabled();
+  if (!arePreviewFixturesEnabled() && spaceId === INTRO_SPACE_ID) {
+    return [];
+  }
   await seedMockSpaceIfNeeded(spaceId);
   const db = await initEventStore();
   const tx = db.transaction('events', 'readonly');
@@ -54,6 +60,7 @@ export async function getEventsBySpaceSince(spaceId: string, sinceTs: string): P
   // We'll fetch by space and filter in memory for now, as local logs are typically small.
   const events = await index.getAll(spaceId);
   return events
+    .filter((event) => arePreviewFixturesEnabled() || !isPreviewEventRecord(event))
     .filter(e => e.spaceId === spaceId && e.timestamp > sinceTs)
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
@@ -87,7 +94,7 @@ export async function initEventStore(): Promise<IDBPDatabase<CortexEventDB>> {
  * This is called automatically when reading events for a space.
  */
 async function seedMockSpaceIfNeeded(spaceId: string) {
-  if (spaceId !== INTRO_SPACE_ID) return;
+  if (spaceId !== INTRO_SPACE_ID || !arePreviewFixturesEnabled()) return;
 
   const db = await initEventStore();
   const txCheck = db.transaction('events', 'readonly');
@@ -109,6 +116,10 @@ async function seedMockSpaceIfNeeded(spaceId: string) {
  * Get a specific snapshot by ID from the `snapshots` store.
  */
 export async function getSnapshot(id: string): Promise<PlatformEntityState | null> {
+  await purgePreviewFixturesIfDisabled();
+  if (!arePreviewFixturesEnabled() && isPreviewSnapshotId(id)) {
+    return null;
+  }
   await initSystemSnapshotsIfNeeded();
   const db = await initEventStore();
   const tx = db.transaction('snapshots', 'readonly');
@@ -135,6 +146,10 @@ export async function putSnapshot(id: string, state: PlatformEntityState, versio
  * Ensure system mock snapshots exist in IDB.
  */
 export async function initSystemSnapshotsIfNeeded(): Promise<void> {
+  await purgePreviewFixturesIfDisabled();
+  if (!arePreviewFixturesEnabled()) {
+    return;
+  }
   const db = await initEventStore();
   
   // For Sovereign Local Host mock environments, we always re-seed the static mocks
@@ -163,6 +178,7 @@ export async function initSystemSnapshotsIfNeeded(): Promise<void> {
   const workbenches = [
     { id: "system:ux:workbench", state: MOCK_UX_WORKBENCH_MAIN },
     { id: "system:ux:workbench:/labs", state: MOCK_UX_WORKBENCH_LABS },
+    { id: "system:ux:workbench:/labs/execution-canvas", state: MOCK_UX_WORKBENCH_EXECUTION_CANVAS },
     { id: "system:ux:workbench:/system", state: MOCK_UX_WORKBENCH_SYSTEM },
     { id: "system:ux:workbench:/spaces", state: MOCK_UX_WORKBENCH_SPACES },
     { id: "system:ux:workbench:/heap", state: MOCK_UX_WORKBENCH_HEAP },
@@ -198,11 +214,17 @@ export async function appendEvent(event: GlobalEvent): Promise<void> {
  * Read the entire event log for a given space, sorted chronologically.
  */
 export async function getEventsBySpace(spaceId: string): Promise<GlobalEvent[]> {
+  await purgePreviewFixturesIfDisabled();
+  if (!arePreviewFixturesEnabled() && spaceId === INTRO_SPACE_ID) {
+    return [];
+  }
   await seedMockSpaceIfNeeded(spaceId);
   const db = await initEventStore();
   const index = db.transaction('events', 'readonly').store.index('by-space');
   const events = await index.getAll(spaceId);
-  return events.sort((a: GlobalEvent, b: GlobalEvent) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  return events
+    .filter((event) => arePreviewFixturesEnabled() || !isPreviewEventRecord(event))
+    .sort((a: GlobalEvent, b: GlobalEvent) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 /**
  * Retrieve all events related to a specific artifact.
@@ -217,6 +239,10 @@ export async function getEventsByArtifactId(spaceId: string, artifactId: string)
  * Seed the store with default events if it's currently empty for the given space.
  */
 export async function seedIfEmpty(spaceId: string): Promise<void> {
+  await purgePreviewFixturesIfDisabled();
+  if (!arePreviewFixturesEnabled() && spaceId === INTRO_SPACE_ID) {
+    return;
+  }
   const existing = await getEventsBySpace(spaceId);
   const existingIds = new Set(existing.map(e => e.id));
   
@@ -233,4 +259,41 @@ export async function seedIfEmpty(spaceId: string): Promise<void> {
   if (addedCount > 0) {
     console.log(`[EventStore] Seeded space ${spaceId} with ${addedCount} missing default events.`);
   }
+}
+
+function arePreviewFixturesEnabled(): boolean {
+  return useUserPreferences.getState().registryMode === 'preview';
+}
+
+let previewFixturePurgePromise: Promise<void> | null = null;
+
+async function purgePreviewFixturesIfDisabled(): Promise<void> {
+  if (arePreviewFixturesEnabled()) {
+    previewFixturePurgePromise = null;
+    return;
+  }
+
+  if (!previewFixturePurgePromise) {
+    previewFixturePurgePromise = (async () => {
+      const db = await initEventStore();
+      const snapshotTx = db.transaction('snapshots', 'readwrite');
+      for (const snapshotId of PREVIEW_SNAPSHOT_IDS) {
+        await snapshotTx.store.delete(snapshotId);
+      }
+      await snapshotTx.done;
+
+      const eventTx = db.transaction('events', 'readwrite');
+      const allEvents = await eventTx.store.getAll();
+      for (const event of allEvents) {
+        if (isPreviewEventRecord(event)) {
+          await eventTx.store.delete(event.id);
+        }
+      }
+      await eventTx.done;
+    })().finally(() => {
+      previewFixturePurgePromise = null;
+    });
+  }
+
+  await previewFixturePurgePromise;
 }

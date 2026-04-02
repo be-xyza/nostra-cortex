@@ -4,15 +4,18 @@ import { ShellLayout } from "./components/commons/ShellLayout";
 import { ErrorBoundary } from "./components/commons/ErrorBoundary";
 import { ExecutionContainmentHeader } from "./components/layout/ExecutionContainmentHeader";
 import { WorkbenchSurfaceView } from "./components/commons/WorkbenchSurfaceView";
+import { ArtifactsWorkbenchHost } from "./components/artifacts/ArtifactsWorkbenchHost";
 import { WorkflowWorkbenchHost } from "./components/workflows/WorkflowWorkbenchHost";
 import { HeapBlockGrid } from "./components/heap/HeapBlockGrid";
 import { SpacesPage } from "./components/spaces/SpacesPage";
 import { SpaceDetailPage } from "./components/spaces/SpaceDetailPage";
 import { SpaceStudioPage } from "./components/spaces/SpaceStudioPage";
-import { SPACE_STUDIO_ROUTE } from "./components/spaces/spaceStudioRoutes";
+import { ExecutionCanvasPage } from "./components/spaces/ExecutionCanvasPage";
+import { EXECUTION_CANVAS_ROUTE, SPACE_STUDIO_ROUTE } from "./components/spaces/spaceStudioRoutes";
 import { ContributionsWorkbenchHost } from "./components/contributions/ContributionsWorkbenchHost";
 import { LogsPage } from "./components/live/LogsPage";
 import { ProviderDashboard } from "./components/system/ProviderDashboard";
+import { ConversationsPage } from "./components/conversations/ConversationsPage";
 
 export function App() {
   const navigate = useNavigate();
@@ -48,11 +51,17 @@ export function App() {
         <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Navigate to="/explore" replace />} />
+            <Route path="/artifacts/*" element={<ArtifactsWorkbenchHost />} />
             <Route path="/workflows/*" element={<WorkflowWorkbenchHost />} />
             <Route path="/contributions/*" element={<ContributionsWorkbenchHost />} />
             <Route path={SPACE_STUDIO_ROUTE} element={
               <ExecutionContainmentHeader surfaceName="Space Studio">
                 <SpaceStudioPage />
+              </ExecutionContainmentHeader>
+            } />
+            <Route path={EXECUTION_CANVAS_ROUTE} element={
+              <ExecutionContainmentHeader surfaceName="Execution Canvas">
+                <ExecutionCanvasPage />
               </ExecutionContainmentHeader>
             } />
             <Route path="/labs/*" element={
@@ -62,6 +71,7 @@ export function App() {
             } />
             <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/spaces/:id" element={<SpaceDetailPage />} />
+            <Route path="/conversations" element={<ConversationsPage />} />
             <Route path="/explore" element={<HeapBlockGrid showFilterSidebar={true} />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/system/providers" element={

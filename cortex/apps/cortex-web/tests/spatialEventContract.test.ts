@@ -8,10 +8,11 @@ test("A2UI event contract is locked to approved SpatialPlane event types", () =>
     "button_click",
     "approval",
     "spatial_shape_click",
+    "spatial_shape_move",
+    "spatial_edge_connect",
     "spatial_adapter_loaded",
     "spatial_adapter_fallback",
     "spatial_adapter_replay",
     "spatial_adapter_replay_failed"
   ]);
 });
-

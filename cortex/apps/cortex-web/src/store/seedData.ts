@@ -1,14 +1,19 @@
-import { GlobalEvent } from './eventStore';
-import { buildSpaceStudioRoute, SPACE_STUDIO_ROUTE } from "../components/spaces/spaceStudioRoutes.ts";
-import { 
-  PlatformCapabilityGraph, 
+import type { GlobalEvent } from './eventStore.ts';
+import {
+  buildExecutionCanvasRoute,
+  buildSpaceStudioRoute,
+  EXECUTION_CANVAS_ROUTE,
+  SPACE_STUDIO_ROUTE
+} from "../components/spaces/spaceStudioRoutes.ts";
+import type {
+  PlatformCapabilityGraph,
   SpaceCapabilityGraph,
-  CompiledNavigationPlan, 
+  CompiledNavigationPlan,
   PlatformCapabilityCatalog,
   PlatformCapabilityCatalogNode,
   CompiledNavigationEntry,
   WorkflowTopologyResponse
-} from "../contracts";
+} from "../contracts.ts";
 
 export const INTRO_SPACE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 
@@ -578,7 +583,7 @@ export const MOCK_CONTRIBUTION_GRAPH = {
     cgNode("109", "Cortex Desktop UX System", "Systems", "active", "anchor", "research"),
     cgNode("118", "Cortex Runtime Extraction", "Systems", "active", "anchor", "research"),
     cgNode("123", "Cortex Web Architecture", "Cortex", "active", "anchor", "research"),
-    cgNode("124", "AGUI Heap Mode", "Cortex", "active", "anchor", "research"),
+    cgNode("124", "Polymorphic Heap Mode", "Cortex", "active", "anchor", "research"),
     cgNode("125", "System Integrity Quality", "Systems", "active", "anchor", "research"),
     cgNode("132", "Eudaemon Alpha Initiative", "Cortex", "active", "anchor", "research"),
     cgNode("135", "Nostra Contribution Protocol", "protocol", "active", "anchor", "research"),
@@ -642,7 +647,16 @@ export const MOCK_UX_WORKBENCH_LABS = {
       id: "root",
       type: "Column",
       props: { gap: "6", padding: "6" },
-      children: ["title", "desc", "schema-designer-card", "lineage-card", "space-studio-card", "promotion-card", "action-grid"]
+      children: [
+        "title",
+        "desc",
+        "schema-designer-card",
+        "lineage-card",
+        "space-studio-card",
+        "execution-canvas-card",
+        "promotion-card",
+        "action-grid"
+      ]
     },
     {
       id: "title",
@@ -688,6 +702,17 @@ export const MOCK_UX_WORKBENCH_LABS = {
       props: { text: "Draft a new space, test its shape, and decide later whether it should become a live space or a reusable template." }
     },
     {
+      id: "execution-canvas-card",
+      type: "Card",
+      props: { text: "Execution Canvas" },
+      children: ["execution-canvas-body"]
+    },
+    {
+      id: "execution-canvas-body",
+      type: "Text",
+      props: { text: "Prototype execution flows on a governed spatial canvas before they become durable workflow-backed surfaces." }
+    },
+    {
       id: "promotion-card",
       type: "Card",
       props: { text: "How it works" },
@@ -702,7 +727,7 @@ export const MOCK_UX_WORKBENCH_LABS = {
       id: "action-grid",
       type: "Grid",
       props: {},
-      children: ["btn-start-draft", "btn-open-templates"]
+      children: ["btn-start-draft", "btn-open-templates", "btn-open-execution-canvas"]
     },
     {
       id: "btn-start-draft",
@@ -713,8 +738,131 @@ export const MOCK_UX_WORKBENCH_LABS = {
       id: "btn-open-templates",
       type: "Button",
       props: { label: "Open templates", href: buildSpaceStudioRoute("templates") }
+    },
+    {
+      id: "btn-open-execution-canvas",
+      type: "Button",
+      props: { label: "Open execution canvas", href: buildExecutionCanvasRoute() }
     }
   ]
+};
+
+export const MOCK_UX_WORKBENCH_EXECUTION_CANVAS = {
+  type: "WorkbenchSurface",
+  surfaceId: "surface:workbench-execution-canvas",
+  title: "Execution Canvas",
+  components: [
+    {
+      id: "root",
+      type: "Column",
+      props: { gap: "4", padding: "4" },
+      children: ["title", "desc", "plane"]
+    },
+    {
+      id: "title",
+      type: "Heading",
+      props: { text: "Execution Canvas" }
+    },
+    {
+      id: "desc",
+      type: "Text",
+      props: { text: "Governed Labs execution surface with canonical SpatialPlane primitives." }
+    },
+    {
+      id: "plane",
+      type: "SpatialPlane",
+      props: {
+        plane_id: "execution-canvas-preview",
+        surface_class: "execution",
+        focus_bounds: { x: 0, y: 0, w: 1200, h: 720 },
+        layout_ref: {
+          space_id: INTRO_SPACE_ID,
+          view_spec_id: "workbench-labs-execution-canvas"
+        },
+        commands: [
+          {
+            op: "create_shape",
+            shape: {
+              id: "node-intent",
+              kind: "node",
+              node_class: "input",
+              status: "idle",
+              x: 96,
+              y: 132,
+              text: "Intent",
+              ports: [{ id: "out", side: "right", direction: "out", label: "intent" }]
+            }
+          },
+          {
+            op: "create_shape",
+            shape: {
+              id: "node-worker",
+              kind: "node",
+              node_class: "tool",
+              status: "running",
+              x: 412,
+              y: 132,
+              text: "Worker",
+              ports: [
+                { id: "in", side: "left", direction: "in", label: "context" },
+                { id: "out", side: "right", direction: "out", label: "result" }
+              ]
+            }
+          },
+          {
+            op: "create_shape",
+            shape: {
+              id: "node-surface",
+              kind: "node",
+              node_class: "output",
+              status: "blocked",
+              x: 764,
+              y: 132,
+              text: "Surface",
+              ports: [{ id: "in", side: "left", direction: "in", label: "surface" }]
+            }
+          },
+          {
+            op: "create_shape",
+            shape: {
+              id: "edge-intent-worker",
+              kind: "edge",
+              edge_class: "data",
+              x: 260,
+              y: 198,
+              from_shape_id: "node-intent",
+              to_shape_id: "node-worker",
+              from_port_id: "out",
+              to_port_id: "in",
+              text: "Context"
+            }
+          },
+          {
+            op: "create_shape",
+            shape: {
+              id: "edge-worker-surface",
+              kind: "edge",
+              edge_class: "control",
+              x: 608,
+              y: 198,
+              from_shape_id: "node-worker",
+              to_shape_id: "node-surface",
+              from_port_id: "out",
+              to_port_id: "in",
+              text: "Render"
+            }
+          },
+          {
+            op: "set_selection",
+            shape_ids: ["node-worker"]
+          }
+        ]
+      }
+    }
+  ],
+  meta: {
+    routeId: EXECUTION_CANVAS_ROUTE
+  }
 };
 
 export const MOCK_UX_WORKBENCH_SYSTEM = {
