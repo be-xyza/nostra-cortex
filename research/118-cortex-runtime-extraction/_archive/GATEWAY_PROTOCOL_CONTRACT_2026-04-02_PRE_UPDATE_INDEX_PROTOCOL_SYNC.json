@@ -5,10 +5,10 @@
   "title": "Gateway Protocol Contract",
   "generated_at": "2026-02-24T07:43:53Z",
   "inventory_source": "cortex/apps/cortex-eudaemon/tests/fixtures/gateway_baseline/endpoint_inventory.tsv",
-  "endpoint_count": 213,
+  "endpoint_count": 211,
   "method_counts": {
-    "GET": 120,
-    "POST": 91,
+    "GET": 119,
+    "POST": 90,
     "PUT": 2
   },
   "endpoint_class_counts": {
@@ -17,7 +17,7 @@
     "kg": 26,
     "metrics": 3,
     "other": 7,
-    "system": 44,
+    "system": 42,
     "testing": 5,
     "workflow": 3,
     "ws": 3
@@ -4608,50 +4608,6 @@
     },
     {
       "method": "GET",
-      "path_template": "/api/system/session",
-      "endpoint_class": "system",
-      "request_schema": {
-        "path_params": "templated path params are required when present",
-        "query": "endpoint-specific query parameters",
-        "headers": {
-          "content-type": "application/json for JSON payload endpoints",
-          "x-idempotency-key": "used per idempotency_semantics"
-        },
-        "body": "none"
-      },
-      "response_schema": {
-        "status_code": "http status code",
-        "body": "endpoint-specific JSON payload",
-        "error_envelope": {
-          "code": "stable_machine_code",
-          "message": "operator-readable summary",
-          "details": "optional structured details"
-        }
-      },
-      "error_normalization": {
-        "default_code": "gateway_error",
-        "retryable_statuses": [
-          429,
-          500,
-          502,
-          503,
-          504
-        ],
-        "validation_status": 400,
-        "authz_status": 403,
-        "not_found_status": 404
-      },
-      "event_emissions": [],
-      "transaction_boundary": "read_only",
-      "idempotency_semantics": {
-        "mode": "not_applicable",
-        "header": null,
-        "dedupe_key": null,
-        "replay_behavior": "none"
-      }
-    },
-    {
-      "method": "GET",
       "path_template": "/api/system/status",
       "endpoint_class": "system",
       "request_schema": {
@@ -8871,50 +8827,6 @@
         "mode": "recommended_header",
         "header": "x-idempotency-key",
         "dedupe_key": "POST:/api/spaces/create",
-        "replay_behavior": "return_prior_result"
-      }
-    },
-    {
-      "method": "POST",
-      "path_template": "/api/system/session/active-role",
-      "endpoint_class": "system",
-      "request_schema": {
-        "path_params": "templated path params are required when present",
-        "query": "endpoint-specific query parameters",
-        "headers": {
-          "content-type": "application/json for JSON payload endpoints",
-          "x-idempotency-key": "used per idempotency_semantics"
-        },
-        "body": "json object"
-      },
-      "response_schema": {
-        "status_code": "http status code",
-        "body": "endpoint-specific JSON payload",
-        "error_envelope": {
-          "code": "stable_machine_code",
-          "message": "operator-readable summary",
-          "details": "optional structured details"
-        }
-      },
-      "error_normalization": {
-        "default_code": "gateway_error",
-        "retryable_statuses": [
-          429,
-          500,
-          502,
-          503,
-          504
-        ],
-        "validation_status": 400,
-        "authz_status": 403,
-        "not_found_status": 404
-      },
-      "event_emissions": [],
-      "transaction_boundary": "single_request_mutation",
-      "idempotency_semantics": {
-        "mode": "recommended_header",
-        "header": "x-idempotency-key",
-        "dedupe_key": "POST:/api/system/session/active-role",
         "replay_behavior": "return_prior_result"
       }
     },
