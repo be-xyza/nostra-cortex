@@ -39,9 +39,10 @@ fn advance(animation: AnimationNode, now: f64, config: &SpringConfig) -> Animati
 
     let delta_time = (now - last_timestamp).min(64.0);
 
-    if config.damping <= 0.0 {
-        panic!("Spring damping must be greater than 0");
-    }
+    assert!(
+        config.damping > 0.0,
+        "Spring damping must be greater than 0"
+    );
 
     let c = config.damping;
     let m = config.mass;

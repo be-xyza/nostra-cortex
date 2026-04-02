@@ -12,7 +12,7 @@ pub struct KeyframeSequence {
 
 impl KeyframeSequence {
     pub fn new(mut keyframes: Vec<Keyframe>) -> Self {
-        keyframes.sort_by(|a, b| a.frame.partial_cmp(&b.frame).unwrap());
+        keyframes.sort_by(|a, b| a.frame.total_cmp(&b.frame));
         Self { keyframes }
     }
 
