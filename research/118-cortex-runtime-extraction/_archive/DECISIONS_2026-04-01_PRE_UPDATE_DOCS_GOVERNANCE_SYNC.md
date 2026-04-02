@@ -149,8 +149,8 @@ Not a blocker, but must be documented.
 
 ## ADR-012: Crate Separation Strategy for Cortex Runtime
 
-**Status**: Accepted  
-**Date**: 2026-02-12  
+**Status**: Accepted
+**Date**: 2026-02-12
 **Supersedes**: ADR-012 Rev A (Module-Only Onion Structure)
 
 ### Context
@@ -214,14 +214,14 @@ Async orchestration layer with port trait definitions.
 routing, agent orchestration, port traits (`StorageAdapter`, `NetworkAdapter`,
 `TimeProvider`, `LogAdapter`, `GovernanceAdapter`).
 
-**Dependencies**: `cortex-domain`, `tokio` (restricted), `async-trait`, `serde`.  
+**Dependencies**: `cortex-domain`, `tokio` (restricted), `async-trait`, `serde`.
 **Forbidden**: `candid`, `ic-agent`, UI frameworks, HTTP frameworks.
 
 #### `cortex-ic-adapter` (Layer 3 — Infrastructure)
 
 ICP-specific adapter implementation.
 
-**Dependencies**: `cortex-runtime`, `ic-agent`, `candid`.  
+**Dependencies**: `cortex-runtime`, `ic-agent`, `candid`.
 **Must NOT be depended upon by**: `cortex-domain`, `cortex-runtime`.
 
 #### Host Crates (Layer 4)
@@ -272,7 +272,7 @@ Phase 0 includes workspace crate creation before extraction begins.
 
 ## ADR-013: Adapter Strategy — Static Trait Dispatch with Registry-Ready Identity
 
-**Status**: Accepted  
+**Status**: Accepted
 **Date**: 2026-02-12
 
 ### Context
@@ -328,7 +328,7 @@ initiative when:
 
 ## ADR-014: Constitutional Maturity Ladder — Graph Core and Structural Integrity
 
-**Status**: Accepted  
+**Status**: Accepted
 **Date**: 2026-02-12
 
 ### Context
@@ -541,7 +541,7 @@ This decision resolves ADR-014 §Layer 3:
 
 ## ADR-017: Phase 0/1 Closure Gate Before Phase 2+
 
-**Status**: Accepted  
+**Status**: Accepted
 **Date**: 2026-02-15
 
 ### Decision
@@ -609,14 +609,14 @@ Unfreeze prerequisites are satisfied and recorded:
 3. Steward-authorized merge for Phase 2 PR-1:
    https://github.com/be-xyza/cortex-dev/pull/2
 
-Scope of grant: **Phase 2 PR-1 only** (`acp_meta_policy` extraction).  
+Scope of grant: **Phase 2 PR-1 only** (`acp_meta_policy` extraction).
 Later Phase 2 slices remain independently gated.
 
 ---
 
 ## ADR-018: Feature-Gated AsyncExternalOp Policy Integration
 
-**Status**: Accepted  
+**Status**: Accepted
 **Date**: 2026-02-15
 
 ### Context
@@ -671,41 +671,3 @@ Adopt BAML-derived patterns in two bounded layers:
   - `nostra/libraries/nostra-workflow-core/src/debates.rs`
 - Phase task mapping:
   - `research/118-cortex-runtime-extraction/experiments/baml/BAML_PHASE_TASKLIST_2026-02-15.md`
-
----
-
-## ADR-019: Provider Admin Surfaces Are Operator-Only Execution Infrastructure
-
-**Status**: Accepted
-**Date**: 2026-03-26
-
-### Context
-
-As Phase 5 extraction work expanded into provider/runtime management, the gateway began exposing detailed provider inventory, runtime host topology, auth-binding relationships, discovery diagnostics, and resolved runtime status through broad read surfaces. The implementation also materialized discovery records that were useful for inventory, but not always executable by the runtime.
-
-Without a sharper boundary:
-- general or agent-facing readers could learn operator infrastructure topology
-- discovery semantics could be mistaken for execution authorization
-- route-local shaping logic could drift away from the runtime eligibility rules
-
-### Decision
-
-Treat the provider/runtime/auth control plane as Cortex execution infrastructure with three explicit rules:
-
-1. Detailed reads are operator-only.
-2. Canonical operator reads are split into narrow contracts rather than one overloaded aggregate response.
-3. Execution bindability is a server-side eligibility invariant, not a discovery-side or UI-side hint.
-
-### Implications
-
-1. The canonical operator reads are:
-   - `GET /api/system/provider-inventory`
-   - `GET /api/system/runtime-hosts`
-   - `GET /api/system/auth-bindings`
-   - `GET /api/system/execution-bindings`
-   - `GET /api/system/provider-discovery`
-   - `GET /api/system/provider-runtime/status`
-2. `GET /api/system/providers` remains only as a compatibility aggregate composed from the split reads.
-3. Remote discovery requires explicit host capability rather than mere presence of SSH coordinates or SSH auth.
-4. Discovered providers may remain catalog-visible even when non-executable, but binding and runtime selection must reject them unless they satisfy execution eligibility.
-5. Provider-admin orchestration belongs in a dedicated gateway/provider-admin module rather than route-local monolith logic.
