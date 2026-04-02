@@ -119,7 +119,7 @@ CORTEX RUNTIME PURITY CONTRACT v1.3
 - `StructuralDiff` type in `cortex-domain` — pure graph diff (nodes/edges added/removed/changed)
 - Workspace `Cargo.toml` updated with new members
 
-**Verification**: 
+**Verification**:
 - `cargo check -p cortex-domain --target wasm32-unknown-unknown` passes
 - `cargo check -p cortex-runtime --target wasm32-unknown-unknown --no-default-features` passes
 - Domain CI purity check passes (no async, no unsafe, no forbidden deps)
@@ -297,33 +297,6 @@ Operational command contract:
 
 ---
 
-### Phase 5A: Provider Admin Boundary Hardening and Contract Split
-
-**Objective**: complete the first provider/runtime control-plane extraction slice without broad gateway churn while hardening the operator boundary around execution infrastructure.
-
-**Scope**:
-- Extract provider/runtime/auth admin orchestration from the gateway monolith into a dedicated provider-admin module.
-- Treat provider inventory, runtime hosts, auth bindings, execution bindings, provider discovery records, and resolved runtime status as operator-only execution infrastructure.
-- Keep `GET /api/system/providers` as a compatibility aggregate built from the split operator services while establishing narrow canonical reads:
-  - `GET /api/system/provider-inventory`
-  - `GET /api/system/runtime-hosts`
-  - `GET /api/system/auth-bindings`
-  - `GET /api/system/execution-bindings`
-  - `GET /api/system/provider-discovery`
-  - `GET /api/system/provider-runtime/status`
-- Add explicit runtime-host policy fields for remote discovery and execution routability instead of inferring authority from endpoint schemes.
-- Require remote discovery capability before any SSH-backed probe runs.
-- Enforce provider execution eligibility server-side for binding updates and runtime selection so discovered or catalog-only records do not become executable by accident.
-
-**Verification**:
-- Non-operator reads for the provider/runtime admin surfaces return `403`.
-- Operator reads succeed for both the split contracts and the compatibility aggregate.
-- Secret material remains excluded from serialized auth-binding responses.
-- Discovery skips hosts without explicit remote-discovery capability.
-- Runtime resolution and binding updates reject non-executable providers and fall back away from non-routable bindings.
-
----
-
 ## Success Criteria
 
 1. `cortex-runtime` compiles to `wasm32-unknown-unknown --no-default-features`
@@ -336,8 +309,6 @@ Operational command contract:
 8. No global statics exposing runtime state to host
 9. Desktop functions identically after extraction
 10. Full runtime test suite runs headless with mock adapters
-11. Provider/runtime/admin inventory and status surfaces are operator-only unless an explicitly redacted contract is introduced.
-12. Remote discovery capability and provider execution eligibility are enforced server-side rather than by advisory UI metadata.
 
 ## Behavior Parity Verification Plan
 

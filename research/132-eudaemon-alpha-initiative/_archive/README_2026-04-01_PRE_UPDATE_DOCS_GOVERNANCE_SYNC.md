@@ -1,8 +1,8 @@
 # 132 — Eudaemon Alpha Initiative
 
-**Status**: Active  
-**Created**: 2026-03-07  
-**Updated**: 2026-04-01
+**Status**: Active
+**Created**: 2026-03-07
+**Updated**: 2026-03-27
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -72,8 +72,8 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 |-------|------------|---------|
 | 1 | External research node | Python Eudaemon Alpha worker on Hetzner + local Rust gateway |
 | 2 | Multi-agent research system | Specialized hosted agents sharing the same governed gateway |
-| 3 | Native Cortex workers | Parity-backed Rust slices (Temporal pattern, stricter typed API boundaries) |
-| 4 | Institutional intelligence | Fully native, with OS-level sandboxing required for untrusted execution paths |
+| 3 | Native Cortex workers | Rust workers (Temporal pattern) |
+| 4 | Institutional intelligence | Fully native |
 
 ## Key Decisions
 
@@ -84,27 +84,10 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Auth posture**: `NOSTRA_AUTHZ_DEV_MODE=0`, `NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER=0`, `NOSTRA_AGENT_IDENTITY_ENFORCEMENT=1`
 - **Submission model**: heap-to-governed-artifact promotion with steward review
 - **Operational access**: loopback-local gateway plus SSH access from a local private key
-- **Migration posture**: `cortex-eudaemon` is the future parity target, but Phase 7 should advance through parity-backed Rust slices and measured extraction from the current `cortex-eudaemon` surface rather than a wholesale replatform
-- **Security Posture**: Phase 6 remains a governed Hetzner `systemd` runtime with operator-local SSH promotion; OS-level sandboxing becomes mandatory for the executor slice that runs untrusted code or broader autonomous contribution loops
+- **Migration posture**: `cortex-eudaemon` is the future parity target, not the current deployment default
 - **Cognitive audit posture**: external batch cognition is advisory only; Eudaemon is the architect and synthesizer for audit loops, not the direct high-volume analyzer
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
-
-## Validated Phase 7 Sequencing
-
-The validated next-step order for Initiative 132 is:
-
-1. **Contract hardening now**: tighten Rust/TypeScript DTO sync, discriminated payloads, and network-boundary serialization on the currently exposed Gateway and A2UI contracts.
-2. **Parity-backed Rust slice next**: port the highest-value Eudaemon loop capabilities into `cortex-eudaemon` without changing the canonical Phase 6 deployment authority model until parity is proven.
-3. **Executor isolation before untrusted execution**: apply OS-level sandboxing to the execution slice that runs generated shell/code or broader autonomous contribution actions before those capabilities become real.
-
-The first extraction seams worth pursuing in the current repo are:
-
-- **Provider runtime surface**: provider registry/runtime/client/policy logic
-- **ACP / terminal execution surface**: ACP protocol, terminal control, and permission-ledger enforcement
-- **Workbench UX / heap projection surface**: heap/workbench/viewspec projection and UX orchestration
-
-Current stage evidence now shows Batch 1 materially advanced on the provider-runtime surface: remote runtime-host discovery moved behind `provider_runtime::discovery`, provider-admin auth-binding helper logic moved behind `gateway::provider_admin`, and the governed parity/operator checks remained green after the extraction. ACP and workbench extraction remain deferred by default rather than being pulled into the same batch.
 
 ## Deployment Surfaces
 
@@ -121,8 +104,6 @@ The `eudaemon-alpha/` path is a companion implementation repo attached to the ro
 ## References
 
 - [Implementation Plan](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PLAN.md)
-- [Phase 7 Execution Plan](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PHASE7_EXECUTION_PLAN.md)
-- [Batch 1 Decision Gate](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/BATCH1_DECISION_GATE.md)
 - [Implementation Decisions](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/DECISIONS.md)
 - [Work Primitive Architecture](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/WORK_PRIMITIVES_ARCHITECTURE.md)
 - [Hetzner Runbook](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-hetzner.md)
