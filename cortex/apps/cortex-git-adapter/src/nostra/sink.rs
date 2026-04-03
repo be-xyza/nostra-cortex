@@ -27,14 +27,14 @@ impl NostraSinkHandle {
 
 pub async fn build_sink(config: &AppConfig) -> anyhow::Result<NostraSinkHandle> {
     let method = config.kip_method.trim().to_string();
-    if config.use_dfx {
+    if config.use_icp_cli {
         let cwd = config
-            .dfx_project_root
+            .icp_project_root
             .clone()
-            .ok_or_else(|| anyhow::anyhow!("CORTEX_GIT_ADAPTER_USE_DFX is enabled but CORTEX_GIT_ADAPTER_DFX_PROJECT_ROOT is not set"))?;
-        return Ok(NostraSinkHandle::new(std::sync::Arc::new(DfxSink {
+            .ok_or_else(|| anyhow::anyhow!("CORTEX_GIT_ADAPTER_USE_ICP is enabled but CORTEX_GIT_ADAPTER_ICP_PROJECT_ROOT is not set"))?;
+        return Ok(NostraSinkHandle::new(std::sync::Arc::new(IcpCliSink {
             cwd,
-            canister: config.dfx_canister_name.clone(),
+            canister: config.icp_canister_name.clone(),
             method,
         })));
     }
@@ -44,7 +44,7 @@ pub async fn build_sink(config: &AppConfig) -> anyhow::Result<NostraSinkHandle> 
         .as_deref()
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "missing KIP canister id; set CANISTER_ID_NOSTRA_KIP (or enable dfx mode)"
+                "missing KIP canister id; set CANISTER_ID_NOSTRA_KIP (or enable icp cli mode)"
             )
         })?;
     let canister_id = Principal::from_text(canister_id_text)?;
@@ -67,18 +67,18 @@ async fn build_agent(url: &str) -> anyhow::Result<Agent> {
     Ok(agent)
 }
 
-struct DfxSink {
+struct IcpCliSink {
     cwd: PathBuf,
     canister: String,
     method: String,
 }
 
 #[async_trait]
-impl NostraSink for DfxSink {
+impl NostraSink for IcpCliSink {
     async fn execute_kip(&self, command: &str) -> Result<Value, String> {
-        // dfx arg is a candid tuple: ("<cmd>")
+        // icp arg is a candid tuple: ("<cmd>")
         let arg = format!("(\"{}\")", escape_candid_string(command));
-        let out = Command::new("dfx")
+        let out = Command::new("icp")
             .args([
                 "canister",
                 "call",
@@ -89,10 +89,10 @@ impl NostraSink for DfxSink {
             .current_dir(&self.cwd)
             .output()
             .await
-            .map_err(|e| format!("failed to run dfx: {e}"))?;
+            .map_err(|e| format!("failed to run icp: {e}"))?;
         if !out.status.success() {
             return Err(format!(
-                "dfx canister call failed: {}",
+                "icp canister call failed: {}",
                 String::from_utf8_lossy(&out.stderr).trim()
             ));
         }

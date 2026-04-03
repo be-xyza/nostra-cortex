@@ -1,5 +1,5 @@
 pub mod brand_policy;
-pub mod dfx;
+pub mod ic;
 pub mod governance;
 pub mod ic_cli;
 pub mod streaming;

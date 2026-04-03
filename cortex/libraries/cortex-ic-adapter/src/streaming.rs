@@ -1,4 +1,4 @@
-use crate::dfx::resolve_canister_id_any;
+use crate::ic::resolve_canister_id_any;
 use async_trait::async_trait;
 use candid::{CandidType, Decode, Encode, Principal};
 use cortex_domain::streaming::types::{

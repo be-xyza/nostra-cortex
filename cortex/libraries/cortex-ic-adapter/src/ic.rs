@@ -64,12 +64,7 @@ pub async fn resolve_canister_id_from_cli(
     canister_name: &str,
     project_root: Option<&Path>,
 ) -> Result<String, String> {
-    let kind = match std::env::var("CORTEX_IC_CLI").as_deref() {
-        Ok("icp") => "icp",
-        _ => "dfx",
-    };
-
-    let mut cmd = Command::new(kind);
+    let mut cmd = Command::new("icp");
     cmd.args(["canister", "id", canister_name]);
 
     if let Some(root) = project_root {
@@ -85,17 +80,17 @@ pub async fn resolve_canister_id_from_cli(
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct DfxCli {
+pub struct IcCli {
     project_root: Option<PathBuf>,
 }
 
-impl DfxCli {
+impl IcCli {
     pub fn new(project_root: Option<PathBuf>) -> Self {
         Self { project_root }
     }
 
     pub async fn is_installed() -> bool {
-        Command::new("dfx")
+        Command::new("icp")
             .arg("--version")
             .output()
             .await
@@ -141,7 +136,7 @@ impl DfxCli {
         method: &str,
         argument: Option<&str>,
     ) -> Result<String, String> {
-        let mut command = Command::new("dfx");
+        let mut command = Command::new("icp");
         command.args(["canister", "call", name, method]);
         if let Some(arg) = argument {
             command.arg(arg);
@@ -158,7 +153,7 @@ impl DfxCli {
     }
 
     async fn output(&self, args: &[&str]) -> Result<std::process::Output, String> {
-        let mut command = Command::new("dfx");
+        let mut command = Command::new("icp");
         command.args(args);
         if let Some(root) = self.project_root.as_deref() {
             command.current_dir(root);
