@@ -18,6 +18,7 @@ import type {
   EmitGateSummaryHeapBlockRequest,
   EmitGateSummaryHeapBlockResponse,
   ArtifactPublishRequest,
+  AuthSession,
   HeapBlocksQueryParams,
   HeapChangedBlocksResponse,
   HeapStewardGateApplyResponse,
@@ -25,6 +26,14 @@ import type {
   HeapBlockHistoryResponse,
   HeapBlocksContextResponse,
   HeapBlocksResponse,
+  ChatConversationDetail,
+  ChatConversationSummaryResponse,
+  HeapUploadArtifactResponse,
+  HeapUploadExtractionRunDetail,
+  HeapUploadExtractionRunsResponse,
+  HeapUploadParserProfilesResponse,
+  HeapUploadExtractionStatusResponse,
+  HeapUploadExtractionTriggerResponse,
   ContributionGraph,
   PathAssessment,
   PlatformCapabilityCatalog,
@@ -33,27 +42,52 @@ import type {
   SpaceCapabilityGraphUpsertResponse,
   SpaceCreateRequest,
   SpaceCreateResponse,
-  SpacesListResponse,
+  SpaceRoutingOverrideRecord,
+  SpaceRoutingRecord,
+  SpaceReadinessStatus,
   SpatialPlaneLayoutResponse,
   SpatialPlaneLayoutV1,
+  SpaceSettingsResponse,
+  SpacesListResponse,
   SpatialExperimentEventRequest,
   SpatialExperimentEventResponse,
   SpatialExperimentRunSummary,
   ShellLayoutSpec,
   WhoAmIResponse,
   A2UISubmitFeedbackRequest,
+  A2UISubmitFeedbackResponse,
   WorkflowActiveScopeResponse,
+  WorkflowCandidateRequest,
+  WorkflowCandidateSet,
+  WorkflowCandidateStageRequest,
+  WorkflowCandidateStageResponse,
+  WorkflowCandidatesResponse,
   WorkflowCheckpointResponse,
   WorkflowDefinitionResponse,
   WorkflowDigestResponse,
+  WorkflowIntentRequest,
+  WorkflowIntentResponse,
   WorkflowInstanceResponse,
   WorkflowOutcomeResponse,
+  WorkflowProposeRequest,
+  WorkflowProposalEnvelope,
   WorkflowProjectionKind,
   WorkflowProjectionResponse,
   WorkflowReplayResponse,
   WorkflowTraceResponse,
   SystemProvidersResponse,
+  OperatorProviderInventoryResponse,
+  RuntimeHostInventoryResponse,
+  AuthBindingRecord,
+  AuthBindingInventoryResponse,
+  ExecutionBindingStatusResponse,
+  ProviderDiscoveryInventoryResponse,
+  ProviderValidationRequest,
+  ProviderValidationResponse,
+  SystemProviderRuntimeStatusResponse,
 } from "./contracts.ts";
+import { filterPreviewDeletedBlocks, filterPreviewHeapBlocks } from "./store/previewFixtureCatalog.ts";
+import { readPreviewFixturesEnabledFromStorage } from "./shared/previewFixtures.ts";
 import {
   isGatewayApiPath as isWorkflowGatewayApiPath,
   normalizeWorkflowHref,
@@ -64,6 +98,17 @@ const BASE =
   ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_CORTEX_GATEWAY_URL as string | undefined) ??
   "";
 export const SPACE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+
+function isLocalDevelopmentHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+export function resolveGatewayBaseUrl(): string {
+  if (typeof window !== "undefined" && isLocalDevelopmentHost(window.location.hostname)) {
+    return window.location.origin;
+  }
+  return BASE;
+}
 
 function defaultSpaceId(): string {
   if (typeof window !== "undefined") {
@@ -82,8 +127,7 @@ function defaultSpaceId(): string {
   if (envSpace) {
     return envSpace;
   }
-  const registryMode = String(env.VITE_SPACE_REGISTRY_MODE ?? "auto").trim().toLowerCase();
-  return registryMode === "preview" ? SPACE_ID : "meta";
+  return "meta";
 }
 
 export function resolveWorkbenchSpaceId(spaceId?: string): string {
@@ -93,6 +137,10 @@ export function resolveWorkbenchSpaceId(spaceId?: string): string {
 }
 
 export function gatewayWsBase(): string {
+  if (typeof window !== "undefined" && isLocalDevelopmentHost(window.location.hostname)) {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}`;
+  }
   if (!BASE) {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${window.location.host}`;
@@ -101,7 +149,7 @@ export function gatewayWsBase(): string {
 }
 
 export function gatewayBaseUrl(): string {
-  return BASE;
+  return resolveGatewayBaseUrl();
 }
 
 export function isGatewayApiPath(path: string): boolean {
@@ -109,8 +157,9 @@ export function isGatewayApiPath(path: string): boolean {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, {
+  const response = await fetch(`${resolveGatewayBaseUrl()}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {})
@@ -124,8 +173,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function requestTextOrJson(path: string, init?: RequestInit): Promise<string | Record<string, unknown>> {
-  const response = await fetch(`${BASE}${path}`, {
+  const response = await fetch(`${resolveGatewayBaseUrl()}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {})
@@ -142,11 +192,46 @@ async function requestTextOrJson(path: string, init?: RequestInit): Promise<stri
   return response.text();
 }
 
+async function requestMultipart<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${resolveGatewayBaseUrl()}${path}`, {
+    ...init,
+    credentials: "include",
+    headers: {
+      ...(init?.headers ?? {})
+    }
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`${response.status} ${response.statusText}: ${body}`);
+  }
+  return (await response.json()) as T;
+}
+
+function shouldExposePreviewFixtures(): boolean {
+  return readPreviewFixturesEnabledFromStorage();
+}
+
+function resolveEmitHeapBlockSpaceId(payload: EmitHeapBlockRequest): string {
+  const candidate =
+    ("space_id" in payload ? payload.space_id : undefined)
+    ?? ("workspace_id" in payload ? payload.workspace_id : undefined);
+  return candidate?.trim() ?? "";
+}
+
+function normalizeEmitHeapBlockRequest(payload: EmitHeapBlockRequest): EmitHeapBlockRequest {
+  const spaceId = resolveEmitHeapBlockSpaceId(payload);
+  const { workspace_id: _legacyWorkspaceId, ...rest } = payload;
+  return {
+    ...rest,
+    space_id: spaceId,
+  };
+}
+
 function assertValidEmitHeapBlockRequest(payload: EmitHeapBlockRequest): void {
   if (payload.schema_version !== "1.0.0" || payload.mode !== "heap") {
     throw new Error("emitHeapBlock requires schema_version=1.0.0 and mode=heap");
   }
-  if (!payload.space_id?.trim()) {
+  if (!resolveEmitHeapBlockSpaceId(payload)) {
     throw new Error("emitHeapBlock requires space_id");
   }
   if (!payload.source?.agent_id?.trim() || !payload.source?.emitted_at?.trim()) {
@@ -165,6 +250,9 @@ function assertValidEmitHeapBlockRequest(payload: EmitHeapBlockRequest): void {
   if (payloadType === "rich_text" && !payload.content.rich_text) {
     throw new Error("emitHeapBlock requires content.rich_text when payload_type=rich_text");
   }
+  if (payloadType === "task" && !payload.content.task) {
+    throw new Error("emitHeapBlock requires content.task when payload_type=task");
+  }
   if (payloadType === "media" && !payload.content.media) {
     throw new Error("emitHeapBlock requires content.media when payload_type=media");
   }
@@ -178,6 +266,26 @@ function assertValidEmitHeapBlockRequest(payload: EmitHeapBlockRequest): void {
 
 export const workbenchApi = {
   getShellLayout: () => request<ShellLayoutSpec>("/api/cortex/layout/spec"),
+  getSession: (actorRole: string, actorId: string) =>
+    request<AuthSession>("/api/system/session", {
+      headers: {
+        "x-cortex-role": actorRole,
+        "x-cortex-actor": actorId,
+      }
+    }),
+  setActiveRole: (role: string, spaceId?: string, actorId?: string) =>
+    request<AuthSession>("/api/system/session/active-role", {
+      method: "POST",
+      headers: actorId
+        ? {
+            "x-cortex-actor": actorId,
+          }
+        : undefined,
+      body: JSON.stringify({
+        role,
+        ...(spaceId ? { spaceId } : {}),
+      }),
+    }),
   getWhoami: (actorRole: string, actorId: string) =>
     request<WhoAmIResponse>("/api/system/whoami", {
       headers: {
@@ -192,6 +300,42 @@ export const workbenchApi = {
   getCapabilityGraph: () => request<PlatformCapabilityGraph>(`/api/system/capability-graph`),
   getCapabilityCatalog: () => request<PlatformCapabilityCatalog>(`/api/system/capability-catalog`),
   getSpaces: () => request<SpacesListResponse>(`/api/spaces`),
+  getSpaceReadiness: (spaceId: string) =>
+    request<{
+      schemaVersion: string;
+      generatedAt: string;
+      spaceId: string;
+      sourceMode: "registered" | "observed";
+      readinessSummary: SpaceReadinessStatus;
+      readiness: {
+        registry: SpaceReadinessStatus;
+        navigationPlan: SpaceReadinessStatus;
+        agentRuns: SpaceReadinessStatus;
+        contributionGraphArtifact: SpaceReadinessStatus;
+        contributionGraphRuns: SpaceReadinessStatus;
+        capabilityGraph: SpaceReadinessStatus;
+        summary: SpaceReadinessStatus;
+      };
+    }>(`/api/spaces/${encodeURIComponent(spaceId)}/readiness`),
+  getSpaceSettings: (spaceId: string) =>
+    request<SpaceSettingsResponse>(`/api/spaces/${encodeURIComponent(spaceId)}/settings`),
+  putSpaceRouting: (spaceId: string, payload: SpaceRoutingRecord) =>
+    request<SpaceRoutingRecord>(`/api/spaces/${encodeURIComponent(spaceId)}/routing`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  putSpaceAgentRouting: (
+    spaceId: string,
+    agentId: string,
+    payload: SpaceRoutingOverrideRecord,
+  ) =>
+    request<SpaceRoutingRecord>(
+      `/api/spaces/${encodeURIComponent(spaceId)}/agents/${encodeURIComponent(agentId)}/routing`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      },
+    ),
   getSpaceCapabilityGraph: (spaceId: string) =>
     request<SpaceCapabilityGraph>(`/api/spaces/${encodeURIComponent(spaceId)}/capability-graph`),
   putSpaceCapabilityGraph: (
@@ -278,8 +422,6 @@ export const workbenchApi = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  getSpatialExperimentRun: (runId: string) =>
-    request<SpatialExperimentRunSummary>(`/api/cortex/viewspecs/experiments/spatial/runs/${runId}`),
   getSpatialPlaneLayout: (spaceId: string, viewSpecId: string) =>
     request<SpatialPlaneLayoutResponse>(
       `/api/cortex/viewspecs/spatial/layouts/${encodeURIComponent(spaceId)}/${encodeURIComponent(viewSpecId)}`
@@ -292,6 +434,8 @@ export const workbenchApi = {
         body: JSON.stringify(payload)
       }
     ),
+  getSpatialExperimentRun: (runId: string) =>
+    request<SpatialExperimentRunSummary>(`/api/cortex/viewspecs/experiments/spatial/runs/${runId}`),
   exportStewardPacket: (
     payload: DpubStewardPacketExportRequest,
     actorRole: string,
@@ -320,7 +464,7 @@ export const workbenchApi = {
     }),
   getHeapBlocks: (params?: HeapBlocksQueryParams) => {
     const query = new URLSearchParams();
-    if (params?.spaceId) query.set("spaceId", params.spaceId);
+    if (params?.spaceId) query.set("space_id", params.spaceId);
     if (params?.tag) query.set("tag", params.tag);
     if (params?.mention) query.set("mention", params.mention);
     if (params?.pageLink) query.set("pageLink", params.pageLink);
@@ -334,11 +478,18 @@ export const workbenchApi = {
     if (typeof params?.limit === "number") query.set("limit", String(params.limit));
     if (params?.cursor) query.set("cursor", params.cursor);
     const suffix = query.toString();
-    return request<HeapBlocksResponse>(`/api/cortex/studio/heap/blocks${suffix ? `?${suffix}` : ""}`);
+    return request<HeapBlocksResponse>(`/api/cortex/studio/heap/blocks${suffix ? `?${suffix}` : ""}`)
+      .then((response) => shouldExposePreviewFixtures()
+        ? response
+        : {
+            ...response,
+            count: filterPreviewHeapBlocks(response.items).length,
+            items: filterPreviewHeapBlocks(response.items),
+          });
   },
   getHeapChangedBlocks: (params?: HeapBlocksQueryParams) => {
     const query = new URLSearchParams();
-    if (params?.spaceId) query.set("spaceId", params.spaceId);
+    if (params?.spaceId) query.set("space_id", params.spaceId);
     if (params?.tag) query.set("tag", params.tag);
     if (params?.mention) query.set("mention", params.mention);
     if (params?.pageLink) query.set("pageLink", params.pageLink);
@@ -352,7 +503,15 @@ export const workbenchApi = {
     if (typeof params?.limit === "number") query.set("limit", String(params.limit));
     if (params?.cursor) query.set("cursor", params.cursor);
     const suffix = query.toString();
-    return request<HeapChangedBlocksResponse>(`/api/cortex/studio/heap/changed_blocks${suffix ? `?${suffix}` : ""}`);
+    return request<HeapChangedBlocksResponse>(`/api/cortex/studio/heap/changed_blocks${suffix ? `?${suffix}` : ""}`)
+      .then((response) => shouldExposePreviewFixtures()
+        ? response
+        : {
+            ...response,
+            count: filterPreviewHeapBlocks(response.changed).length,
+            changed: filterPreviewHeapBlocks(response.changed),
+            deleted: filterPreviewDeletedBlocks(response.deleted),
+          });
   },
   createHeapContextBundle: (artifactIds: string[]) =>
     request<HeapBlocksContextResponse>(`/api/cortex/studio/heap/blocks/context`, {
@@ -363,6 +522,10 @@ export const workbenchApi = {
       },
       body: JSON.stringify({ block_ids: artifactIds })
     }),
+  listChatConversations: () =>
+    request<ChatConversationSummaryResponse>(`/api/cortex/chat/conversations`),
+  getChatConversation: (threadId: string) =>
+    request<ChatConversationDetail>(`/api/cortex/chat/conversations/${encodeURIComponent(threadId)}`),
   getHeapBlockExport: (artifactId: string, format: "markdown" | "json" = "markdown") =>
     requestTextOrJson(`/api/cortex/studio/heap/blocks/${artifactId}/export?format=${format}`),
   getHeapBlockHistory: (artifactId: string) =>
@@ -383,19 +546,94 @@ export const workbenchApi = {
         "x-cortex-actor": "cortex-web"
       }
     }),
+  uploadHeapFile: (
+    payload: { file: File; spaceId: string; title?: string; sourceAgentId?: string },
+    actorRole = "operator",
+    actorId = "cortex-web"
+  ) => {
+    const formData = new FormData();
+    formData.append("file", payload.file);
+    formData.append("space_id", payload.spaceId);
+    if (payload.title?.trim()) {
+      formData.append("title", payload.title.trim());
+    }
+    formData.append("source_agent_id", payload.sourceAgentId?.trim() || actorId);
+    return requestMultipart<HeapUploadArtifactResponse>(`/api/cortex/studio/uploads`, {
+      method: "POST",
+      headers: {
+        "x-cortex-role": actorRole,
+        "x-cortex-actor": actorId
+      },
+      body: formData
+    });
+  },
+  triggerHeapUploadExtraction: (
+    uploadId: string,
+    parserProfile?: string,
+    actorRole = "operator",
+    actorId = "cortex-web"
+  ) => request<HeapUploadExtractionTriggerResponse>(`/api/cortex/studio/uploads/${encodeURIComponent(uploadId)}/extract`, {
+    method: "POST",
+    headers: {
+      "x-cortex-role": actorRole,
+      "x-cortex-actor": actorId
+    },
+    body: JSON.stringify(parserProfile ? { parser_profile: parserProfile } : {})
+  }),
+  getHeapUploadParserProfiles: (
+    actorRole = "operator",
+    actorId = "cortex-web"
+  ) => request<HeapUploadParserProfilesResponse>(`/api/cortex/studio/uploads/parser-profiles`, {
+    headers: {
+      "x-cortex-role": actorRole,
+      "x-cortex-actor": actorId
+    }
+  }),
+  getHeapUploadExtractionStatus: (
+    uploadId: string,
+    actorRole = "operator",
+    actorId = "cortex-web"
+  ) => request<HeapUploadExtractionStatusResponse>(`/api/cortex/studio/uploads/${encodeURIComponent(uploadId)}/extraction`, {
+    headers: {
+      "x-cortex-role": actorRole,
+      "x-cortex-actor": actorId
+    }
+  }),
+  getHeapUploadExtractionRuns: (
+    uploadId: string,
+    actorRole = "operator",
+    actorId = "cortex-web"
+  ) => request<HeapUploadExtractionRunsResponse>(`/api/cortex/studio/uploads/${encodeURIComponent(uploadId)}/extractions`, {
+    headers: {
+      "x-cortex-role": actorRole,
+      "x-cortex-actor": actorId
+    }
+  }),
+  getHeapUploadExtractionRun: (
+    uploadId: string,
+    jobId: string,
+    actorRole = "operator",
+    actorId = "cortex-web"
+  ) => request<HeapUploadExtractionRunDetail>(`/api/cortex/studio/uploads/${encodeURIComponent(uploadId)}/extractions/${encodeURIComponent(jobId)}`, {
+    headers: {
+      "x-cortex-role": actorRole,
+      "x-cortex-actor": actorId
+    }
+  }),
   emitHeapBlock: (
     payload: EmitHeapBlockRequest,
     actorRole = "operator",
     actorId = "cortex-web"
   ) => {
     assertValidEmitHeapBlockRequest(payload);
+    const normalizedPayload = normalizeEmitHeapBlockRequest(payload);
     return request<{ accepted: boolean; artifactId: string }>(`/api/cortex/studio/heap/emit`, {
       method: "POST",
       headers: {
         "x-cortex-role": actorRole,
         "x-cortex-actor": actorId
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(normalizedPayload)
     });
   },
   emitGateSummaryHeapBlock: (payload: EmitGateSummaryHeapBlockRequest) =>
@@ -442,12 +680,17 @@ export const workbenchApi = {
         body: JSON.stringify(payload)
       }
     ),
-  submitA2UIFeedback: (artifactId: string, payload: A2UISubmitFeedbackRequest["feedbackData"]) =>
-    request<{ accepted: boolean }>(`/api/cortex/studio/heap/blocks/${artifactId}/a2ui/feedback`, {
+  submitA2UIFeedback: (
+    artifactId: string,
+    payload: A2UISubmitFeedbackRequest["feedbackData"],
+    actorRole = "operator",
+    actorId = "cortex-web",
+  ) =>
+    request<A2UISubmitFeedbackResponse>(`/api/cortex/studio/heap/blocks/${artifactId}/a2ui/feedback`, {
       method: "POST",
       headers: {
-        "x-cortex-role": "operator",
-        "x-cortex-actor": "cortex-web"
+        "x-cortex-role": actorRole,
+        "x-cortex-actor": actorId
       },
       body: JSON.stringify(payload)
     }),
@@ -476,6 +719,44 @@ export const workbenchApi = {
     request<WorkflowActiveScopeResponse>(
       `/api/cortex/workflow-definitions/active/${encodeURIComponent(scopeKey)}`
     ),
+  postWorkflowIntent: (payload: WorkflowIntentRequest) =>
+    request<WorkflowIntentResponse>("/api/cortex/workflow-intents", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  postWorkflowCandidates: (payload: WorkflowCandidateRequest) =>
+    request<WorkflowCandidatesResponse>("/api/cortex/workflow-drafts/candidates", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getWorkflowCandidateSet: (candidateSetId: string) =>
+    request<{
+      schemaVersion: string;
+      generatedAt: string;
+      candidateSet: WorkflowCandidateSet;
+    }>(`/api/cortex/workflow-drafts/candidates/${encodeURIComponent(candidateSetId)}`),
+  stageWorkflowCandidate: (
+    candidateSetId: string,
+    payload: WorkflowCandidateStageRequest,
+  ) =>
+    request<WorkflowCandidateStageResponse>(
+      `/api/cortex/workflow-drafts/candidates/${encodeURIComponent(candidateSetId)}/stage`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    ),
+  proposeWorkflowDraft: (
+    workflowDraftId: string,
+    payload: WorkflowProposeRequest,
+  ) =>
+    request<{
+      accepted: boolean;
+      proposal: WorkflowProposalEnvelope;
+    }>(`/api/cortex/workflow-drafts/${encodeURIComponent(workflowDraftId)}/propose`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   getWorkflowInstance: (instanceId: string) =>
     request<WorkflowInstanceResponse>(
       `/api/cortex/workflow-instances/${encodeURIComponent(instanceId)}`
@@ -493,7 +774,75 @@ export const workbenchApi = {
       `/api/cortex/workflow-instances/${encodeURIComponent(instanceId)}/outcome`
     ),
   getBrandPolicy: () => request<BrandPolicyResponse>("/api/system/brand-policy"),
-  getSystemProviders: () => request<SystemProvidersResponse>("/api/system/providers")
+  getSystemProviders: () => request<SystemProvidersResponse>("/api/system/providers"),
+  getSystemProviderInventory: () =>
+    request<OperatorProviderInventoryResponse>("/api/system/provider-inventory"),
+  getSystemRuntimeHosts: () =>
+    request<RuntimeHostInventoryResponse>("/api/system/runtime-hosts"),
+  getSystemAuthBindings: () =>
+    request<AuthBindingInventoryResponse>("/api/system/auth-bindings"),
+  getSystemExecutionBindings: () =>
+    request<ExecutionBindingStatusResponse>("/api/system/execution-bindings"),
+  getSystemProviderDiscovery: () =>
+    request<ProviderDiscoveryInventoryResponse>("/api/system/provider-discovery"),
+  getSystemProviderRuntimeStatus: () => request<SystemProviderRuntimeStatusResponse>("/api/system/provider-runtime/status"),
+  discoverSystemProviders: () =>
+    request<SystemProvidersResponse>("/api/system/providers/discover", {
+      method: "POST",
+    }),
+  validateSystemProvider: (payload: ProviderValidationRequest) =>
+    request<ProviderValidationResponse>("/api/system/providers/validate", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  putSystemProviderBinding: (
+    bindingId: string,
+    payload: {
+      providerType?: string;
+      boundProviderId: string;
+      metadata?: Record<string, string>;
+    },
+  ) =>
+    request<SystemProvidersResponse>(`/api/system/provider-bindings/${encodeURIComponent(bindingId)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  putSystemProvider: (providerId: string, payload: Record<string, unknown>) =>
+    request<SystemProvidersResponse>(`/api/system/providers/${encodeURIComponent(providerId)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  createSystemAuthBinding: (payload: {
+    targetId?: string;
+    targetKind?: "provider" | "host";
+    authType?: "none" | "api_key" | "bearer_token" | "pat" | "ssh_key" | "ssh_password";
+    label: string;
+    apiKey: string;
+    metadata?: Record<string, string>;
+  }) =>
+    request<AuthBindingRecord>("/api/system/auth-bindings", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateSystemAuthBinding: (
+    authBindingId: string,
+    payload: {
+      label?: string;
+      apiKey?: string;
+      source?: string;
+      targetId?: string;
+      targetKind?: "provider" | "host";
+      authType?: "none" | "api_key" | "bearer_token" | "pat" | "ssh_key" | "ssh_password";
+      metadata?: Record<string, string>;
+    },
+  ) =>
+    request<AuthBindingRecord>(
+      `/api/system/auth-bindings/${encodeURIComponent(authBindingId)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      },
+    ),
 };
 
 export async function openGatewayApiArtifact(

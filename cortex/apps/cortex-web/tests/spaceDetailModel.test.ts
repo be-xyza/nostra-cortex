@@ -104,8 +104,8 @@ test("buildAgentExecutionRecentWorkItem turns the latest agent execution into a 
   } satisfies HeapBlockListItem);
 
   assert.deepEqual(item, {
-    label: "Latest Eudaemon update",
-    value: "Eudaemon last reviewed this space on March 20, 2026 and flagged that it needs attention.",
+    label: "Latest benchmark",
+    value: "Eudaemon last benchmarked this space on March 20, 2026 and flagged that it needs attention.",
   });
 });
 

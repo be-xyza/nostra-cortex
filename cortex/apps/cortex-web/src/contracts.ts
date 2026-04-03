@@ -69,6 +69,32 @@ export interface DpubSystemBuildResponse {
   spaceId: string;
 }
 
+export type SpaceSourceMode = "registered" | "observed";
+export type SpaceReadinessStatus = "pass" | "fail" | "in_progress";
+
+export interface SpaceRoleGrant {
+  spaceId: string;
+  roles: string[];
+  claims: string[];
+}
+
+export interface AuthSession {
+  schemaVersion: string;
+  generatedAt: string;
+  principal?: string;
+  sessionId: string;
+  identityVerified: boolean;
+  identitySource: string;
+  authMode: "dev_override" | "principal_binding" | "session_claims" | "read_fallback";
+  grantedRoles: string[];
+  activeRole: string;
+  globalClaims: string[];
+  spaceGrants: SpaceRoleGrant[];
+  allowRoleSwitch: boolean;
+  allowUnverifiedRoleHeader: boolean;
+  expiresAt?: string;
+}
+
 export interface WhoAmIResponse {
   schemaVersion: string;
   generatedAt: string;
@@ -297,6 +323,108 @@ export interface SpaceRegistryRecord {
   owner: string;
   members: string[];
   archetype?: string | null;
+  sourceMode?: SpaceSourceMode;
+  readinessSummary?: SpaceReadinessStatus;
+  readiness?: {
+    registry: SpaceReadinessStatus;
+    navigationPlan: SpaceReadinessStatus;
+    agentRuns: SpaceReadinessStatus;
+    contributionGraphArtifact: SpaceReadinessStatus;
+    contributionGraphRuns: SpaceReadinessStatus;
+    capabilityGraph: SpaceReadinessStatus;
+    summary: SpaceReadinessStatus;
+  };
+}
+
+export interface SpaceRoutingOverrideRecord {
+  agentId?: string | null;
+  adapterSetRef?: string | null;
+  providerId?: string | null;
+  defaultModel?: string | null;
+  authBindingId?: string | null;
+  authMode?: string | null;
+}
+
+export interface SpaceRoutingRecord {
+  adapterSetRef?: string | null;
+  providerId?: string | null;
+  defaultModel?: string | null;
+  authBindingId?: string | null;
+  agentRoutingPolicy?: string | null;
+  agentOverrides: Record<string, SpaceRoutingOverrideRecord>;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
+export interface DecisionSurfaceEnvelope<TPayload = Json> {
+  decisionId: string;
+  workflowId: string;
+  status: string;
+  sourceOfTruth?: string | null;
+  degradedReason?: string | null;
+  payload?: TPayload;
+}
+
+export interface SpaceExecutionProfilePayload {
+  spaceId: string;
+  executionProfile: {
+    executionTopology?: string;
+    consensusMode?: string;
+    trustBoundary?: string;
+    updatedBy?: string;
+    updatedAt?: number | string;
+  };
+}
+
+export interface SpaceAttributionDomainsPayload {
+  spaceId: string;
+  domains: Array<{
+    id: string;
+    attributionMode?: string;
+    reattachmentPolicy?: string;
+    governanceVisibility?: string;
+    auditabilityLevel?: string;
+    weightPolicyRef?: string;
+    updatedBy?: string;
+    updatedAt?: number | string;
+  }>;
+}
+
+export interface SpaceGovernanceScopePayload {
+  spaceId: string;
+  scope: {
+    allowed?: boolean;
+    reason?: string;
+    effectiveWeight?: number;
+    requiresReview?: boolean;
+    gateDecision?: string;
+    requiredActions?: string[];
+    policyRef?: string;
+    policyVersion?: string | number;
+  };
+}
+
+export interface SpaceLineageRecord {
+  promptArtifacts: HeapBlockListItem[];
+  feedbackArtifacts: HeapBlockListItem[];
+  legacyPromptGroups: Array<{
+    title: string;
+    contentHash?: string | null;
+    artifactIds: string[];
+  }>;
+}
+
+export interface SpaceSettingsResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  spaceId: string;
+  routing: SpaceRoutingRecord;
+  executionProfile?: DecisionSurfaceEnvelope<SpaceExecutionProfilePayload>;
+  attributionDomains?: DecisionSurfaceEnvelope<SpaceAttributionDomainsPayload>;
+  governanceScope?: DecisionSurfaceEnvelope<SpaceGovernanceScopePayload>;
+  providers: ProviderRecord[];
+  agentRuns: AgentRunSummary[];
+  lineage: SpaceLineageRecord;
 }
 
 export interface SpacesListResponse {
@@ -449,12 +577,127 @@ export type WorkflowProjectionKind =
   | "normalized_graph_v1"
   | "execution_topology_v1";
 
+export type WorkflowMotifKind =
+  | "sequential"
+  | "parallel_compare"
+  | "repair_loop"
+  | "fan_out_join"
+  | "human_gate";
+
+export type WorkflowGenerationMode = "deterministic_scaffold" | "motif_hybrid";
+
+export interface WorkflowScope {
+  spaceId?: string;
+  routeId?: string;
+  role?: string;
+}
+
+export interface WorkflowConstraintRule {
+  constraintId: string;
+  label: string;
+  expression: string;
+  hard?: boolean;
+  locked?: boolean;
+}
+
 export interface WorkflowDraftEnvelope {
   [key: string]: unknown;
 }
 
 export interface WorkflowProposalEnvelope {
   [key: string]: unknown;
+}
+
+export interface WorkflowIntentEnvelope {
+  [key: string]: unknown;
+}
+
+export interface WorkflowCandidateValidationEnvelope {
+  valid: boolean;
+  errors?: unknown[];
+  warnings?: unknown[];
+}
+
+export interface WorkflowCandidateCompileEnvelope {
+  valid: boolean;
+  digest?: string;
+  warnings?: unknown[];
+  [key: string]: unknown;
+}
+
+export interface WorkflowCandidateEnvelope {
+  candidateId: string;
+  workflowDraft: WorkflowDraftEnvelope;
+  validation: WorkflowCandidateValidationEnvelope;
+  compileResult?: WorkflowCandidateCompileEnvelope | null;
+  generationTrace: Json;
+  inputHash: string;
+}
+
+export interface WorkflowCandidateSet {
+  candidateSetId: string;
+  scopeKey: string;
+  intent: string;
+  motifKind: WorkflowMotifKind;
+  constraints?: WorkflowConstraintRule[];
+  mode: WorkflowGenerationMode;
+  createdBy: string;
+  createdAt: string;
+  candidates: WorkflowCandidateEnvelope[];
+}
+
+export interface WorkflowIntentRequest {
+  intent: string;
+  motifKind: WorkflowMotifKind;
+  scope?: WorkflowScope;
+  constraints?: WorkflowConstraintRule[];
+  authorityCeiling?: string;
+  createdBy?: string;
+  sourceMode?: string;
+}
+
+export interface WorkflowIntentResponse {
+  accepted: boolean;
+  workflowIntent: WorkflowIntentEnvelope;
+}
+
+export interface WorkflowCandidateRequest {
+  intent: string;
+  motifKind: WorkflowMotifKind;
+  scope?: WorkflowScope;
+  generationMode?: WorkflowGenerationMode;
+  candidateSetId?: string;
+  constraints?: WorkflowConstraintRule[];
+  count?: number;
+  createdBy?: string;
+  sourceMode?: string;
+}
+
+export interface WorkflowCandidatesResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  candidateSetId: string;
+  candidates: WorkflowCandidateEnvelope[];
+  blockedCount: number;
+}
+
+export interface WorkflowCandidateStageRequest {
+  candidateId: string;
+  stagedBy: string;
+  rationale: string;
+  expectedInputHash: string;
+}
+
+export interface WorkflowCandidateStageResponse {
+  accepted: boolean;
+  workflowDraftId: string;
+  scopeKey: string;
+  storedAt: string;
+}
+
+export interface WorkflowProposeRequest {
+  proposedBy: string;
+  rationale: string;
 }
 
 export interface WorkflowDefinitionResponse {
@@ -605,10 +848,21 @@ export interface AgentRunRecord {
   workflowId: string;
   spaceId: string;
   contributionId: string;
+  agentId?: string;
   status: string;
   startedAt: string;
   updatedAt: string;
   streamChannel?: string;
+  provider?: string;
+  model?: string;
+  authMode?: string;
+  responseId?: string;
+  promptTemplateArtifactId?: string;
+  promptTemplateRevisionId?: string;
+  promptExecutionArtifactId?: string;
+  parentRunId?: string;
+  childRunIds?: string[];
+  providerTraceSummary?: Json | null;
   simulation?: Record<string, unknown>;
   surfaceUpdate?: Record<string, unknown>;
   authorityOutcome?: Record<string, unknown>;
@@ -645,6 +899,13 @@ export interface AgentRunSummary {
   spaceId: string;
   contributionId: string;
   agentId?: string;
+  provider?: string;
+  model?: string;
+  authMode?: string;
+  promptTemplateArtifactId?: string;
+  promptExecutionArtifactId?: string;
+  parentRunId?: string;
+  childRunIds?: string[];
   status: string;
   startedAt: string;
   updatedAt: string;
@@ -653,6 +914,46 @@ export interface AgentRunSummary {
 }
 
 export type SpatialSurfaceVariant = "linear" | "spatial" | "compare";
+
+export interface SpatialPlaneLayoutPoint {
+  x: number;
+  y: number;
+}
+
+export interface SpatialPlaneLayoutBody {
+  shape_positions: Record<string, SpatialPlaneLayoutPoint>;
+  collapsed_groups: Record<string, boolean>;
+  view_state?: {
+    zoom?: number;
+    pan_x?: number;
+    pan_y?: number;
+  };
+  selected_shape_ids?: string[];
+}
+
+export interface SpatialPlaneLayoutLineage {
+  view_spec_id?: string;
+  workflow_id?: string;
+  graph_hash?: string;
+  space_id?: string;
+  updated_by: string;
+  updated_at: string;
+}
+
+export interface SpatialPlaneLayoutV1 {
+  schema_version: string;
+  plane_id: string;
+  view_spec_id: string;
+  space_id: string;
+  revision: number;
+  layout: SpatialPlaneLayoutBody;
+  lineage: SpatialPlaneLayoutLineage;
+}
+
+export interface SpatialPlaneLayoutResponse {
+  accepted: boolean;
+  layout: SpatialPlaneLayoutV1;
+}
 
 export interface SpatialExperimentEventRequest {
   run_id: string;
@@ -703,48 +1004,6 @@ export interface SpatialExperimentRunSummary {
   verdict_rationale?: string;
   event_count: number;
   event_key: string;
-}
-
-export interface SpatialPlaneLayoutPosition {
-  x: number;
-  y: number;
-}
-
-export interface SpatialPlaneLayoutViewState {
-  zoom?: number;
-  pan_x?: number;
-  pan_y?: number;
-}
-
-export interface SpatialPlaneLayoutState {
-  shape_positions: Record<string, SpatialPlaneLayoutPosition>;
-  collapsed_groups: Record<string, boolean>;
-  view_state?: SpatialPlaneLayoutViewState;
-  selected_shape_ids?: string[];
-}
-
-export interface SpatialPlaneLayoutLineage {
-  view_spec_id?: string;
-  workflow_id?: string;
-  graph_hash?: string;
-  space_id?: string;
-  updated_by: string;
-  updated_at: string;
-}
-
-export interface SpatialPlaneLayoutV1 {
-  schema_version: string;
-  plane_id: string;
-  view_spec_id: string;
-  space_id: string;
-  revision: number;
-  layout: SpatialPlaneLayoutState;
-  lineage: SpatialPlaneLayoutLineage;
-}
-
-export interface SpatialPlaneLayoutResponse {
-  accepted: boolean;
-  layout: SpatialPlaneLayoutV1;
 }
 
 export interface HeapBlockProjection {
@@ -831,6 +1090,84 @@ export interface HeapBlocksContextResponse {
   };
 }
 
+export interface ChatAgentIdentity {
+  id: string;
+  label: string;
+  route: string;
+  mode: string;
+}
+
+export interface ChatConversationAnchorContract {
+  kind: "page" | "view" | "block" | "component";
+  label: string;
+  href: string;
+  routeId?: string;
+  artifactId?: string;
+  viewId?: string;
+  blockId?: string;
+  componentId?: string;
+}
+
+export interface ChatMessageTextPart {
+  type: "text";
+  text: string;
+}
+
+export interface ChatMessageA2uiPart {
+  type: "a2ui";
+  surfaceId: string;
+  title?: string;
+  tree: Json;
+}
+
+export interface ChatMessagePointerPart {
+  type: "pointer";
+  href: string;
+  label: string;
+  artifactId?: string;
+  description?: string;
+}
+
+export type ChatMessagePart =
+  | ChatMessageTextPart
+  | ChatMessageA2uiPart
+  | ChatMessagePointerPart;
+
+export interface ChatConversationMessage {
+  id: string;
+  role: "user" | "agent";
+  timestamp: string;
+  text: string;
+  content: ChatMessagePart[];
+  artifactIds: string[];
+  agent?: ChatAgentIdentity;
+}
+
+export interface ChatConversationSummary {
+  threadId: string;
+  title: string;
+  anchor: ChatConversationAnchorContract | null;
+  messageCount: number;
+  lastMessagePreview: string;
+  createdAt: string;
+  updatedAt: string;
+  recentTurns: Array<{
+    role: "user" | "agent";
+    text: string;
+    timestamp: string;
+  }>;
+}
+
+export interface ChatConversationSummaryResponse {
+  generatedAt: string;
+  count: number;
+  items: ChatConversationSummary[];
+}
+
+export interface ChatConversationDetail extends ChatConversationSummary {
+  messages: ChatConversationMessage[];
+}
+
 export interface HeapBlockHistoryVersion {
   version: number;
   timestamp: string;
@@ -838,10 +1175,124 @@ export interface HeapBlockHistoryVersion {
   actor: string;
 }
 
+export interface HeapArtifactRevisionRecord {
+  revisionId: string;
+  revisionNumber: number;
+  createdAt: string;
+  createdBy: string;
+  parentRevisionId?: string | null;
+  published?: boolean;
+  contentHash?: string | null;
+}
+
+export interface HeapLineageRelationRecord {
+  relation: string;
+  artifactId: string;
+  title?: string;
+  blockType?: string;
+  subtitle?: string;
+}
+
+export interface HeapLegacyDuplicateRecord {
+  title: string;
+  contentHash?: string | null;
+  artifactIds: string[];
+}
+
 export interface HeapBlockHistoryResponse {
   artifact_id: string;
   versions: HeapBlockHistoryVersion[];
+  revisions?: HeapArtifactRevisionRecord[];
+  lineage?: HeapLineageRelationRecord[];
+  uploadExtractionRuns?: HeapUploadExtractionRunRecord[];
+  legacyDuplicates?: HeapLegacyDuplicateRecord[];
 }
+export interface HeapUploadArtifactThumbnail {
+  type: string;
+  size: string;
+  path?: string;
+  width?: number;
+  height?: number;
+}
+
+export interface HeapUploadArtifactResponse {
+  upload_id: string;
+  resource_ref: string;
+  hash: string;
+  name: string;
+  mime_type: string;
+  file_size: number;
+  is_uploaded: boolean;
+  thumbnails: HeapUploadArtifactThumbnail[];
+  extraction_supported: boolean;
+}
+
+export type HeapUploadExtractionStatus = "submitted" | "running" | "completed" | "needs_review" | "failed";
+
+export interface HeapUploadExtractionTriggerResponse {
+  job_id: string;
+  status: "submitted";
+  upload_id: string;
+  requested_parser_profile?: string;
+}
+
+export interface HeapUploadParserProfileRecord {
+  parser_profile: "auto" | "docling" | "liteparse" | "markitdown" | string;
+  configured: boolean;
+  supports_mime: string[];
+  role: "primary" | "fallback" | "normalizer" | string;
+  parser_hint: string;
+}
+
+export interface HeapUploadParserProfilesResponse {
+  generated_at: string;
+  items: HeapUploadParserProfileRecord[];
+}
+
+export interface HeapUploadExtractionStatusResponse {
+  job_id: string;
+  upload_id: string;
+  status: HeapUploadExtractionStatus;
+  created_at?: string;
+  requested_parser_profile?: string;
+  parser_backend?: string;
+  confidence?: number;
+  flags?: string[];
+  result_ref?: string;
+  summary?: string;
+  page_count?: number;
+  block_count?: number;
+  last_updated_at?: string;
+}
+
+export interface HeapUploadExtractionRunRecord extends HeapUploadExtractionStatusResponse {}
+
+export interface HeapUploadExtractionRunsResponse {
+  generated_at: string;
+  upload_id: string;
+  items: HeapUploadExtractionRunRecord[];
+}
+
+export interface HeapUploadExtractionRunDetail {
+  job_id: string;
+  upload_id: string;
+  status: HeapUploadExtractionStatus;
+  created_at?: string;
+  requested_parser_profile?: string;
+  parser_backend?: string;
+  confidence?: number;
+  flags?: string[];
+  result_ref?: string;
+  summary?: string;
+  page_count?: number;
+  block_count?: number;
+  last_updated_at?: string;
+  attempted_backends?: string[];
+  model_id?: string;
+  first_page_preview?: string[];
+  first_page_block_count?: number;
+}
+
 
 export interface CommonsIntegrityViolation {
   rule_id: string;
@@ -852,21 +1303,210 @@ export interface CommonsIntegrityViolation {
 
 export type ProviderType = "Llm" | "Embedding" | "Vector" | "Batch";
 export type LlmProviderType = "OpenAI" | "Anthropic" | "Ollama" | "Ignition" | "OpenRouter" | "DoubleWord" | "Mock";
+export type ProviderLocalityKind = "Local" | "Tunneled" | "Cloud";
+export type ProviderBatchCadenceKind = "Immediate" | "Interval" | "TimeWindow" | "Scoped" | "Manual";
+export type ProviderBatchScopeKind = "ProviderFamily" | "ProviderProfile" | "Space" | "Agent" | "Session" | "RequestGroup";
+export type ProviderBatchFlushPolicy = "OnInterval" | "OnWindowClose" | "OnThreshold" | "OnIdle" | "Manual";
+
+export interface ProviderBatchWindow {
+  intervalSeconds?: number;
+  maxItems?: number;
+  maxAgeSeconds?: number;
+  timezone?: string;
+}
+
+export interface ProviderBatchPolicy {
+  providerFamilyId: string;
+  providerProfileId?: string;
+  cadenceKind: ProviderBatchCadenceKind;
+  scopeKind: ProviderBatchScopeKind;
+  flushPolicy: ProviderBatchFlushPolicy;
+  orderingKey?: string;
+  dedupeKey?: string;
+  batchWindow?: ProviderBatchWindow;
+}
+
+export interface ProviderTopology {
+  familyId: string;
+  profileId?: string;
+  instanceId: string;
+  deviceId?: string;
+  environmentId?: string;
+  localityKind: ProviderLocalityKind;
+  lastSeenAt?: string;
+  discoverySource?: string;
+}
 
 export interface ProviderRecord {
   id: string;
   name: string;
   providerType: ProviderType;
-  llmType?: LlmProviderType;
+  providerFamily?: LlmProviderType | string;
+  hostId: string;
   endpoint: string;
   isActive: boolean;
   priority: number;
+  defaultModel?: string;
+  supportedModels?: string[];
+  failMode?: "fallback" | "fail_closed";
+  adapterHealth?: Json;
+  adapterHealthError?: string;
+  openapiPaths?: string[];
+  upstreamModelsError?: string;
+  authMode?: string;
+  authState?: "not_required" | "linked" | "inherited" | "missing";
+  authSource?: string;
+  authBindingId?: string;
+  authType?: "none" | "api_key" | "bearer_token" | "pat" | "ssh_key" | "ssh_password";
+  bindingIds?: string[];
   configJson?: string;
+  batchPolicy?: ProviderBatchPolicy;
   metadata?: Record<string, string>;
+  topology?: ProviderTopology;
+}
+
+export interface RuntimeHostRecord {
+  hostId: string;
+  name: string;
+  hostKind: "local" | "vps" | "tunnel" | "managed";
+  endpoint: string;
+  localityKind: ProviderLocalityKind | string;
+  deviceId?: string;
+  environmentId?: string;
+  health?: Json;
+  capabilities?: string[];
+  remoteDiscoveryEnabled: boolean;
+  executionRoutable: boolean;
+  updatedAt?: string;
+  metadata?: Record<string, string>;
+}
+
+export interface AuthBindingRecord {
+  authBindingId: string;
+  targetKind: "provider" | "host";
+  targetId: string;
+  providerId?: string;
+  authType: "none" | "api_key" | "bearer_token" | "pat" | "ssh_key" | "ssh_password";
+  label?: string;
+  hasSecret: boolean;
+  source?: string;
+  updatedAt: string;
+  metadata?: Record<string, string>;
+}
+
+export interface ExecutionBindingRecord {
+  bindingId: string;
+  providerType: ProviderType;
+  boundProviderId: string;
+  updatedAt?: string;
+  metadata?: Record<string, string>;
+}
+
+export interface ProviderDiscoveryRecord {
+  providerId: string;
+  providerType: ProviderType;
+  providerKind?: LlmProviderType;
+  endpoint: string;
+  defaultModel?: string;
+  supportedModels?: string[];
+  adapterHealth?: Json;
+  adapterHealthError?: string;
+  openapiPaths?: string[];
+  upstreamModelsError?: string;
+  failMode?: "fallback" | "fail_closed";
+  topology?: ProviderTopology;
+  updatedAt?: string;
+  metadata?: Record<string, string>;
+}
+
+export interface OperatorProviderInventoryResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  providers: ProviderRecord[];
+}
+
+export interface RuntimeHostInventoryResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  runtimeHosts: RuntimeHostRecord[];
+}
+
+export interface AuthBindingInventoryResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  authBindings: AuthBindingRecord[];
+}
+
+export interface ExecutionBindingStatusResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  executionBindings: ExecutionBindingRecord[];
+}
+
+export interface ProviderDiscoveryInventoryResponse {
+  schemaVersion: string;
+  generatedAt: string;
+  discoveryRecords: ProviderDiscoveryRecord[];
 }
 
 export interface SystemProvidersResponse {
   providers: ProviderRecord[];
+  runtimeHosts?: RuntimeHostRecord[];
+  authBindings?: AuthBindingRecord[];
+  executionBindings?: ExecutionBindingRecord[];
+  discoveryRecords?: ProviderDiscoveryRecord[];
+}
+
+export interface SystemProviderRuntimeStatusResponse {
+  enabled: boolean;
+  baseUrl: string;
+  failMode: "fallback" | "fail_closed";
+  model: string;
+  providerId?: string;
+  bindingId?: string;
+  adapterHealth?: Json;
+  adapterHealthError?: string;
+  openapiPaths?: string[];
+  openapiError?: string;
+  upstreamModels?: Json;
+  upstreamModelsError?: string;
+}
+
+export interface ProviderValidationRequest {
+  providerType: ProviderType;
+  providerKind?: LlmProviderType;
+  providerId?: string;
+  authBindingId?: string;
+  useStoredAuth?: boolean;
+  baseUrl: string;
+  defaultModel?: string;
+  apiKey: string;
+  validateKey?: boolean;
+  validateChat?: boolean;
+  validateEmbeddings?: boolean;
+}
+
+export interface ProviderValidationResponse {
+  providerType: ProviderType;
+  providerKind?: LlmProviderType;
+  endpoint: string;
+  canonicalBaseUrl: string;
+  validateKey: boolean;
+  validateChat: boolean;
+  validateEmbeddings: boolean;
+  keyValid: boolean;
+  keyError?: string;
+  keyInfo?: Json;
+  modelsValid: boolean;
+  modelsError?: string;
+  chatValid: boolean;
+  chatError?: string;
+  embeddingsValid: boolean;
+  embeddingsError?: string;
+  supportedModels: string[];
+  selectedModel?: string;
+  valid: boolean;
+  discoveredAt: string;
 }
 
 export interface SuggestedEnrichment {
@@ -933,7 +1573,7 @@ export interface ArtifactPublishRequest {
   stewardGateToken?: string;
 }
 
-export type HeapPayloadType = "a2ui" | "rich_text" | "media" | "structured_data" | "pointer";
+export type HeapPayloadType = "a2ui" | "rich_text" | "media" | "structured_data" | "pointer" | "task";
 
 export interface EmitHeapBlockSource {
   agent_id: string;
@@ -957,6 +1597,7 @@ export interface EmitHeapBlockContent {
     title_doc?: Json;
     text_doc?: Json;
   };
+  task?: string;
   media?: {
     hash: string;
     mime_type: string;
@@ -965,10 +1606,14 @@ export interface EmitHeapBlockContent {
   pointer?: string;
 }
 
-export interface EmitHeapBlockRequest {
+type EmitHeapBlockSpaceSelector =
+  | { space_id: string; workspace_id?: never }
+  | { space_id?: never; workspace_id: string }
+  | { space_id: string; workspace_id: string };
+
+export type EmitHeapBlockRequest = EmitHeapBlockSpaceSelector & {
   schema_version: "1.0.0";
   mode: "heap";
-  space_id: string;
   source: EmitHeapBlockSource;
   block: {
     id?: string;
@@ -1018,7 +1663,7 @@ export interface EmitHeapBlockRequest {
   };
   projection_hints?: Json;
   crdt_projection?: Json;
-}
+};
 
 export type GateSummaryKind = "siq" | "testing";
 
@@ -1032,6 +1677,14 @@ export interface EmitGateSummaryHeapBlockRequest {
 export interface A2UISubmitFeedbackRequest {
   artifactId: string;
   feedbackData: Record<string, unknown>;
+}
+
+export interface A2UISubmitFeedbackResponse {
+  accepted: boolean;
+  artifactId: string;
+  feedbackArtifactId: string;
+  storedAt: string;
+  followUpArtifactId?: string;
 }
 
 export interface EmitGateSummaryHeapBlockResponse {
