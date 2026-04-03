@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { workbenchApi } from "../../api";
 import { A2UIChartRenderer, type A2UIChartData } from "./A2UIChartRenderer";
+import { buildBenchmarkProjection } from "./benchmarkProjection";
 import { buildGateSummaryRenderModel } from "./gateSummary";
 
 /**
@@ -449,6 +450,7 @@ function renderStructuredData(content: PayloadContent) {
         }
         
         if (typedData.type === "agent_execution_record") {
+            const benchmark = buildBenchmarkProjection(typedData.benchmark);
             return (
                 <div className="mt-2 p-3 rounded-lg flex flex-col gap-2 bg-indigo-950/20 border border-indigo-900/50">
                     <div className="flex items-center justify-between">
@@ -468,20 +470,29 @@ function renderStructuredData(content: PayloadContent) {
                         </div>
                     </div>
 
-                    {typedData.benchmark && (
-                        <div className="mt-1 bg-black/20 p-2 rounded-md grid grid-cols-3 gap-2 text-center items-center">
+                    {benchmark && (
+                        <div className="mt-1 bg-black/20 p-2 rounded-md grid grid-cols-2 sm:grid-cols-4 gap-2 text-center items-center">
                             <div className="flex flex-col">
                                 <span className="text-[9px] text-slate-500 uppercase">Grade</span>
-                                <span className={`text-sm font-bold ${typedData.benchmark.overall_grade === "PASS" ? "text-emerald-400" : typedData.benchmark.overall_grade === "FAIL" ? "text-rose-400" : "text-amber-400"}`}>{typedData.benchmark.overall_grade}</span>
+                                <span className={`text-sm font-bold ${benchmark.grade === "PASS" ? "text-emerald-400" : benchmark.grade === "FAIL" ? "text-rose-400" : "text-amber-400"}`}>{benchmark.grade}</span>
                             </div>
                             <div className="flex flex-col border-x border-white/5">
-                                <span className="text-[9px] text-slate-500 uppercase">Latency</span>
-                                <span className="text-xs font-mono text-slate-300">{Math.round(typedData.benchmark.latency_ms || 0)}ms</span>
+                                <span className="text-[9px] text-slate-500 uppercase">Pass Rate</span>
+                                <span className="text-xs font-mono text-slate-300">{benchmark.passRate === null ? "—" : `${Math.round(benchmark.passRate * 100)}%`}</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-[9px] text-slate-500 uppercase">Cost</span>
-                                <span className="text-xs font-mono text-slate-300">${(typedData.benchmark.token_cost || 0).toFixed(4)}</span>
+                                <span className="text-[9px] text-slate-500 uppercase">Latency</span>
+                                <span className="text-xs font-mono text-slate-300">{benchmark.latencyMs === null ? "—" : `${Math.round(benchmark.latencyMs)}ms`}</span>
                             </div>
+                            <div className="flex flex-col border-l border-white/5 sm:border-l-0">
+                                <span className="text-[9px] text-slate-500 uppercase">Tokens</span>
+                                <span className="text-xs font-mono text-slate-300">{benchmark.totalTokens === null ? "—" : benchmark.totalTokens.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    )}
+                    {benchmark && (
+                        <div className="text-[10px] text-slate-400 leading-snug">
+                            {benchmark.summary}
                         </div>
                     )}
                     

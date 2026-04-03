@@ -42,7 +42,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-04-03"
+updated: "2026-03-19"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -50,13 +50,6 @@ updated: "2026-04-03"
 ## Overview
 
 Initiative 132 establishes Eudaemon Alpha as the first institutional research agent aligned to the current Nostra/Cortex runtime stack. The objective is not to invent a new workspace or planning model. The objective is to bind the agent to the primitives already implemented or actively governed in the portfolio.
-
-Current validated reality for this pass:
-- Gateway parity passes locally in this checkout.
-- The root repo is the authoritative source for this planning pass.
-- The companion `eudaemon-alpha/` repo path is absent here and should be treated as unvalidated until it is restored or mirrored.
-- Prompt override remains a target hypothesis, not a validated runtime dependency.
-- Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
 
 ## Phase 6 Runtime Resolution
 
@@ -175,9 +168,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Keep `api_key` provider support deployment-ready for Hetzner.
 - Treat Codex subscription access as an explicit sidecar/profile path rather than a generic API-credit shortcut.
 - Do not require the advisory batch lane for boot-critical steward communication.
-- Treat provider/runtime/auth inventory and runtime status as operator-only Cortex execution infrastructure rather than agent-facing default-readable state.
-- Use split operator inventory/status contracts for steward diagnostics, and preserve `403 -> access_denied` behavior on non-operator paths.
-- Require server-side execution eligibility for any default binding or runtime override so discovered inventory does not become executable implicitly.
 
 ### Phase F: Runtime Migration Readiness
 - Keep external runtime adapters provisional.
@@ -208,7 +198,7 @@ Promote the live LLM path from an activity-side workaround into the canonical pa
 - Support explicit provider boundaries for `api_key` and `codex_subscription` lanes.
 - Do not assume ChatGPT Pro provides transferable generic API billing.
 - Load the system prompt from `config/system_prompt.md`.
-- Prefer `prompt_override` from Heap when present and verified, with local file fallback.
+- Prefer `prompt_override` from Heap when present, with local file fallback.
 - Format the payload as `{"model": route.model, "system": active_prompt, "messages": [{"role": "user", "content": bundle_context + code_context}]}`.
 - Parse `score`, `rationale`, `proposed_nodes`, and `proposed_edges` from the returned JSON.
 - Track actual `latency_ms`, `token_usage`, and `token_cost` in the benchmark path.
@@ -218,12 +208,11 @@ Use canonical heap endpoints and contracts end to end:
 - Query recent blocks via `GET /api/cortex/studio/heap/blocks`.
 - Package selected context via `POST /api/cortex/studio/heap/blocks/context`.
 - Emit proposals and execution records through `POST /api/cortex/studio/heap/emit`.
-- Validate that the agent ingests steward comments and, when verified, prompt overrides from the canonical bundle path.
+- Validate that the agent ingests steward comments and prompt overrides from the canonical bundle path.
 
 ### 6.4 Graph-Native PROMPT Seeding
 - Create the first real `ContributionType.PROMPT` node for the Code Analysis system prompt on the Heap.
-- If a live `prompt_override` path is available, test that `PatternDetector` fetches and uses it instead of `config/system_prompt.md`.
-- Until that path is validated, keep the local file as the fallback and record the override path as unverified.
+- Test that `PatternDetector` correctly fetches and uses `prompt_override` from the Heap instead of the local `config/system_prompt.md`.
 - Validate the agent gracefully falls back to the local file when the PROMPT node is unavailable.
 
 ---
@@ -257,33 +246,6 @@ Implement the self-scaffolding pipeline from the Graph-Native Architecture desig
 - On test pass, the agent packages the scaffold as a `ContributionType.DELIVERABLE` (PR) to the host repo.
 - Human developer merges → container rebuilds → agent awakens with new capability.
 
-### 7.5 Rust-Native Runtime Parity & Protocol Hardening
-Transition the current `eudaemon-alpha` Python worker into a parity-backed `cortex-eudaemon` Rust slice. Validation against the current repo and external pattern sources supports this as a constrained migration program, not a wholesale Phase 7 replatform. This phase mandates:
-- **Parity-Backed Migration**: Preserve the Phase 6 Python worker + Rust gateway deployment model until the Rust slice proves behavioral parity against current heap, lifecycle, workflow, and provider contracts.
-- **Existing Boundary Reuse**: Follow the current workspace seams in `cortex-domain`, `cortex-runtime`, `cortex-ic-adapter`, and `cortex-eudaemon` rather than inventing a new core crate taxonomy.
-- **Strict Payload Boundaries**: Harden external Gateway and A2UI DTOs with discriminated unions where the domain is variant-shaped, consistent `camelCase` serialization, and contract-synchronized TypeScript bindings.
-- **Protocol Fidelity**: Remove ad hoc cross-language payload drift on the highest-risk network boundaries first, while preserving explicitly governed compatibility fields where current contracts still require them.
-- **Measured Extraction Pressure**: Drive crate or module extraction from observed bloat and reuse pressure, not from abstract modularity goals alone.
-
-Immediate Phase 7 seam candidates validated in the current repo:
-1. **Provider Runtime Surface**: isolate provider registry/runtime/client/policy logic so live-provider and batch-audit adapters can evolve without further inflating the main gateway surface.
-2. **ACP / Terminal Execution Surface**: separate ACP protocol, terminal orchestration, permission ledger, and execution-policy enforcement into a narrower execution-control slice.
-3. **Workbench UX / Heap Projection Surface**: extract the large heap/workbench/viewspec projection and UX orchestration logic into a dedicated application slice with clearer projection contracts.
-
-### 7.6 Execution Isolation Hardening
-To safely expand Eudaemon Alpha toward higher-authority execution:
-- **Phase 6 Posture Preservation**: Keep the current Hetzner `systemd` deployment and operator-local SSH promotion model as the Phase 6 baseline. Do not treat Phase 7 as a blanket replacement of that runtime contract.
-- **Immediate Service Hardening**: Tighten service-level restrictions first through host policy, working-directory minimization, repo/state path separation, and operator-only execution-infrastructure visibility.
-- **Executor-Specific Sandbox Trigger**: Require OS-level sandboxing when Eudaemon begins executing untrusted code, generated shell/code evaluation loops, or broader autonomous contribution paths. This control applies to the executor slice that runs those actions, not automatically to the entire gateway/runtime stack.
-- **Privilege Degradation**: Ensure any sandboxed execution path operates with explicit network, filesystem, and capability restrictions plus bounded resource controls before higher-authority automation is enabled.
-- **Infrastructure Protection**: Preserve the runtime host topology boundary by keeping provider/runtime/auth inventory operator-only and by ensuring discovered inventory never becomes executable implicitly.
-
-### 7.7 Validated Phase 7 Sequencing
-The validated progression for Initiative 132 is:
-1. **Contract Hardening Now**: tighten DTOs, payload discriminators, and TypeScript/Rust contract sync on the currently exposed Gateway and A2UI boundaries.
-2. **Parity Slice Next**: port the highest-value Eudaemon loop capabilities into Rust behind existing `cortex-domain` / `cortex-runtime` seams and verify parity before shifting runtime authority.
-3. **Isolation Before Untrusted Execution**: add executor-specific OS-level sandboxing before enabling untrusted code execution or broader autonomous contribution flows.
-
 ---
 
 ### Phase 5.7: Pre-Live Remediation (Gap Analysis — March 2026)
@@ -312,12 +274,12 @@ Critical items identified during Initiative 132 gap analysis that must be resolv
 
 Blocking preflight work before live deployment:
 
-- [x] **Canonical Runtime Split**: Python agent + Rust gateway remains the Phase 6 deployment target, with the companion repo path still unvalidated in this checkout
+- [x] **Canonical Runtime Split**: Python agent + Rust gateway is the Phase 6 deployment target
 - [x] **Canonical Env Contract**: loopback gateway URL, production auth flags, explicit Temporal target
-- [x] **Linux Service Assets**: root repo owns `cortex-gateway.service`; the companion repo service unit is a planned boundary, not a validated checkout fact
+- [x] **Linux Service Assets**: root repo owns `cortex-gateway.service`; companion repo owns `eudaemon-alpha-agent.service`
 - [x] **Hetzner Runbook**: bootstrap script, env template, and SSH guidance added to the repo
 - [x] **Deployment Hygiene**: ignore workstation artifacts (`venv`, `__pycache__`, `.pytest_cache`, `.DS_Store`, `.worktrees`)
-- [x] **Repo Boundary**: Initiative 132 stays in root repo; `eudaemon-alpha/` is the planned companion boundary but is not validated in this checkout
+- [x] **Repo Boundary**: Initiative 132 stays in root repo; `eudaemon-alpha/` becomes a companion implementation repo/submodule
 - [ ] **Live Box Validation**: verify SSH alias/host, install deps on Hetzner, enable services, and complete one end-to-end bootstrap cycle
 
 ### Phase 6.5: Production Identity Enforcement
@@ -362,7 +324,7 @@ To ensure the Eudaemon Alpha loop can be tested end-to-end without mocks before 
 
 ### Manual (Phases 6-7)
 1. SSH login works to the Hetzner host using the documented alias or explicit host and local private key.
-2. If and when the companion repo is restored, `git clone --recurse-submodules` produces the expected deployment workspace shape.
+2. `git clone --recurse-submodules` produces the full deployment workspace shape.
 3. `cortex-gateway.service` and `eudaemon-alpha-agent.service` start cleanly under `systemd`.
 4. The actor registry contains `agent:eudaemon-alpha-01`.
 5. The target Space includes the agent in `members` with the intended `archetype`.

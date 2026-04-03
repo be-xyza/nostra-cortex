@@ -14,7 +14,11 @@ test("parseAgentActivityEvent extracts execution record details", () => {
       provider_kind: "codex_subscription",
       auth_mode: "subscription_profile",
       benchmark: {
-        overall_grade: "PASS",
+        pass_rate: 0.97,
+        latency_ms: 1240,
+        total_tokens: 1422,
+        assertions_passed: 28,
+        assertions_total: 28,
       },
     },
   });
@@ -23,7 +27,8 @@ test("parseAgentActivityEvent extracts execution record details", () => {
   assert.equal(event?.agent, "agent:cortex-worker-01");
   assert.equal(event?.status, "completed");
   assert.match(event?.details ?? "", /analysis/i);
-  assert.match(event?.details ?? "", /PASS/i);
+  assert.match(event?.details ?? "", /97%/i);
+  assert.match(event?.details ?? "", /28 of 28/i);
   assert.match(event?.details ?? "", /provider:codex_subscription/i);
   assert.match(event?.details ?? "", /auth:subscription_profile/i);
 });

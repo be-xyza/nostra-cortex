@@ -27,6 +27,7 @@ pub mod gateway_config;
 #[cfg(feature = "service-scaffolds")]
 pub mod github_mcp_service;
 pub mod governance_client;
+pub mod ic_client;
 pub mod heap_mapper;
 pub mod heap_nesting;
 #[cfg(feature = "service-scaffolds")]
@@ -38,6 +39,8 @@ pub mod local_gateway;
 pub mod local_gateway_bridge;
 #[cfg(feature = "service-scaffolds")]
 pub mod mcp;
+pub mod meta_harness_evaluator;
+pub mod meta_harness_store;
 #[cfg(feature = "service-scaffolds")]
 pub mod motoko_graph_service;
 pub mod ops_agents;

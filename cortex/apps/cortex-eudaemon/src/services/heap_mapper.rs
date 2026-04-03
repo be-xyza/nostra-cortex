@@ -30,6 +30,7 @@ impl HeapMapperError {
 pub struct EmitHeapBlockRequest {
     pub schema_version: String,
     pub mode: String,
+    #[serde(alias = "space_id")]
     pub workspace_id: String,
     pub source: HeapSource,
     pub block: HeapBlock,
@@ -89,6 +90,8 @@ pub struct HeapContent {
     #[serde(default)]
     pub rich_text: Option<HeapRichTextContent>,
     #[serde(default)]
+    pub task: Option<String>,
+    #[serde(default)]
     pub media: Option<HeapMediaContent>,
     #[serde(default)]
     pub structured_data: Option<Value>,
@@ -101,6 +104,7 @@ pub struct HeapContent {
 pub enum HeapPayloadType {
     A2ui,
     RichText,
+    Task,
     Media,
     StructuredData,
     Pointer,
@@ -471,6 +475,21 @@ pub fn validate_emit_heap_block(request: &EmitHeapBlockRequest) -> Result<(), He
                 ));
             }
         }
+        HeapPayloadType::Task => {
+            if request
+                .content
+                .task
+                .as_ref()
+                .map(|value| value.trim().is_empty())
+                .unwrap_or(true)
+            {
+                return Err(HeapMapperError::new(
+                    "HEAP_SCHEMA_INVALID",
+                    "task payload requested but content.task is missing.",
+                    None,
+                ));
+            }
+        }
         HeapPayloadType::Media => {
             if request.content.media.is_none() {
                 return Err(HeapMapperError::new(
@@ -648,7 +667,7 @@ pub fn canonicalize_emit_heap_block(
     })
 }
 
-pub fn map_emit_heap_block_to_agui_mutations(
+pub fn map_emit_heap_block_to_a2ui_mutations(
     request: &EmitHeapBlockRequest,
     canonical: &CanonicalizedHeapBlock,
 ) -> Result<Vec<AguiCrdtMutation>, HeapMapperError> {
@@ -729,6 +748,14 @@ pub fn map_emit_heap_block_to_agui_mutations(
                     Some(json!({ "reason": err.to_string() })),
                 )
             })?,
+        ));
+    }
+
+    if let Some(task) = &request.content.task {
+        entries.push((
+            Some("/heap/content".to_string()),
+            "task".to_string(),
+            Value::String(task.clone()),
         ));
     }
 
@@ -956,6 +983,11 @@ pub fn derive_surface_json(
             .as_ref()
             .map(|rt| rt.plain_text.clone())
             .unwrap_or_else(|| "Empty text block".to_string()),
+        HeapPayloadType::Task => request
+            .content
+            .task
+            .clone()
+            .unwrap_or_else(|| "Task block".to_string()),
         HeapPayloadType::Media => "Media block".to_string(),
         HeapPayloadType::StructuredData => "Structured data block".to_string(),
         HeapPayloadType::Pointer => "Reference pointer block".to_string(),
@@ -989,6 +1021,18 @@ pub fn derive_surface_json(
                 "title": request.block.title,
                 "text": plain_text,
                 "plain_text": plain_text,
+                "meta": meta,
+            });
+        }
+        HeapPayloadType::Task => {
+            let task = request.content.task.clone().unwrap_or_default();
+            return json!({
+                "payload_type": "task",
+                "surfaceId": surface_id,
+                "title": request.block.title,
+                "task": task,
+                "text": task,
+                "plain_text": task,
                 "meta": meta,
             });
         }
@@ -1108,6 +1152,7 @@ mod tests {
                     title_doc: None,
                     text_doc: None,
                 }),
+                task: None,
                 media: None,
                 structured_data: None,
                 pointer: None,
@@ -1152,6 +1197,42 @@ mod tests {
     }
 
     #[test]
+    fn parse_accepts_space_id_alias_and_task_payload() {
+        let payload = json!({
+            "schema_version": "1.0.0",
+            "mode": "heap",
+            "space_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "source": {
+                "agent_id": "cortex-web",
+                "emitted_at": "2026-03-26T00:00:00Z"
+            },
+            "block": {
+                "type": "task",
+                "title": "Initiative 078 Kickoff",
+                "attributes": {
+                    "initiative_id": "initiative-078-kickoff"
+                },
+                "behaviors": ["task"]
+            },
+            "content": {
+                "payload_type": "task",
+                "task": "# Initiative 078 Kickoff\n- [ ] Read the plan"
+            }
+        });
+
+        let parsed = parse_emit_heap_block(payload).expect("parse task kickoff payload");
+        validate_emit_heap_block(&parsed).expect("validate task kickoff payload");
+        let surface = derive_surface_json(&parsed, &[], &[]);
+
+        assert_eq!(parsed.workspace_id, "01ARZ3NDEKTSV4RRFFQ69G5FAV");
+        assert_eq!(surface["payload_type"], "task");
+        assert_eq!(
+            surface["task"],
+            "# Initiative 078 Kickoff\n- [ ] Read the plan"
+        );
+    }
+
+    #[test]
     fn canonicalizes_files_and_mentions() {
         let payload = fixture_payload();
         let canonical = canonicalize_emit_heap_block(&payload).expect("canonical payload");
@@ -1164,8 +1245,8 @@ mod tests {
     fn map_is_deterministic() {
         let payload = fixture_payload();
         let canonical = canonicalize_emit_heap_block(&payload).expect("canonical payload");
-        let first = map_emit_heap_block_to_agui_mutations(&payload, &canonical).expect("first");
-        let second = map_emit_heap_block_to_agui_mutations(&payload, &canonical).expect("second");
+        let first = map_emit_heap_block_to_a2ui_mutations(&payload, &canonical).expect("first");
+        let second = map_emit_heap_block_to_a2ui_mutations(&payload, &canonical).expect("second");
         assert_eq!(first, second);
     }
 }

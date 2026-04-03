@@ -3541,8 +3541,7 @@ impl GatewayService {
             )
             .route(
                 "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id",
-                get(get_cortex_viewspec_spatial_layout)
-                    .post(post_cortex_viewspec_spatial_layout),
+                get(get_cortex_viewspec_spatial_layout).post(post_cortex_viewspec_spatial_layout),
             )
             .route(
                 "/api/cortex/viewspecs/validate",

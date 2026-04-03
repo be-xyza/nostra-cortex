@@ -1,24 +1,29 @@
-use crate::services::agent_service::{AgentService, ChatEvent};
+use crate::services::agent_service::{
+    AgentService, ChatContentPart, ChatContextBlock, ChatEvent, ChatSourceAnchor,
+    RuntimeChatRequest,
+};
 use axum::extract::ws::{Message, WebSocket};
 use chrono::{DateTime, Utc};
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatClientAttachmentDescriptor {
-    pub name: String,
-    pub r#type: String,
-    pub size: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChatClientMessage {
     pub text: String,
-    pub context_refs: Vec<String>,
-    pub attachments: Vec<ChatClientAttachmentDescriptor>,
+    pub context_block_ids: Vec<String>,
+    pub source_anchor: Option<ChatSourceAnchor>,
     pub thread_id: Option<String>,
+    pub space_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatClientContextEnvelope {
+    #[serde(default)]
+    block_ids: Vec<String>,
+    #[serde(default)]
+    source_anchor: Option<ChatSourceAnchor>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -26,13 +31,18 @@ pub struct ChatClientMessage {
 enum ChatClientEnvelope {
     #[serde(rename = "message")]
     Message {
-        text: String,
+        #[serde(default)]
+        text: Option<String>,
+        #[serde(default)]
+        content: Vec<Value>,
         #[serde(rename = "contextRefs", default)]
         context_refs: Vec<String>,
         #[serde(default)]
-        attachments: Vec<ChatClientAttachmentDescriptor>,
+        context: Option<ChatClientContextEnvelope>,
         #[serde(rename = "threadId", default)]
         thread_id: Option<String>,
+        #[serde(rename = "spaceId", default)]
+        space_id: Option<String>,
     },
 }
 
@@ -40,18 +50,24 @@ enum ChatClientEnvelope {
 #[serde(tag = "type", rename_all = "camelCase")]
 enum ChatServerEnvelope<'a> {
     #[serde(rename = "processing")]
-    Processing,
+    Processing {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        agent: Option<&'a crate::services::agent_service::ChatAgentIdentity>,
+    },
     #[serde(rename = "streaming")]
     Streaming {
         id: &'a str,
         delta: &'a str,
         timestamp: String,
+        agent: &'a crate::services::agent_service::ChatAgentIdentity,
     },
     #[serde(rename = "message")]
     Message {
         id: &'a str,
         text: String,
         timestamp: String,
+        content: &'a [ChatContentPart],
+        agent: &'a crate::services::agent_service::ChatAgentIdentity,
     },
     #[serde(rename = "error")]
     Error {
@@ -67,25 +83,67 @@ pub fn decode_chat_client_message(raw: &str) -> Result<ChatClientMessage, String
     match envelope {
         ChatClientEnvelope::Message {
             text,
+            content,
             context_refs,
-            attachments,
+            context,
             thread_id,
+            space_id,
         } => {
-            if text.trim().is_empty() && attachments.is_empty() {
-                return Err("message text or attachments are required".to_string());
+            let extracted_text = extract_text_from_content(&content)
+                .or(text)
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            if extracted_text.is_empty() {
+                return Err("message text is required".to_string());
+            }
+            let mut context_block_ids = context_refs;
+            if let Some(envelope) = context.as_ref() {
+                if envelope.block_ids.is_empty() {
+                    // Preserve legacy grounding when the envelope only carries source metadata.
+                } else {
+                    for block_id in &envelope.block_ids {
+                        if !context_block_ids.iter().any(|existing| existing == block_id) {
+                            context_block_ids.push(block_id.clone());
+                        }
+                    }
+                }
             }
             Ok(ChatClientMessage {
-                text,
-                context_refs,
-                attachments,
+                text: extracted_text,
+                context_block_ids,
+                source_anchor: context.and_then(|entry| entry.source_anchor),
                 thread_id,
+                space_id,
             })
         }
     }
 }
 
-pub fn translate_chat_events(message_id: &str, events: &[ChatEvent]) -> Vec<Value> {
-    let mut frames = vec![json!(ChatServerEnvelope::Processing)];
+fn extract_text_from_content(content: &[Value]) -> Option<String> {
+    let text = content
+        .iter()
+        .filter_map(|part| {
+            let obj = part.as_object()?;
+            if obj.get("type").and_then(|value| value.as_str()) != Some("text") {
+                return None;
+            }
+            obj.get("text")
+                .and_then(|value| value.as_str())
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+pub fn translate_chat_events(events: &[ChatEvent]) -> Vec<Value> {
+    let mut frames = vec![json!(ChatServerEnvelope::Processing { agent: None })];
     if events.is_empty() {
         frames.push(json!(ChatServerEnvelope::Error {
             code: "empty_response",
@@ -94,33 +152,35 @@ pub fn translate_chat_events(message_id: &str, events: &[ChatEvent]) -> Vec<Valu
         return frames;
     }
 
-    if events.len() == 1 {
-        let event = &events[0];
-        frames.push(json!(ChatServerEnvelope::Message {
-            id: message_id,
-            text: event.message.clone(),
-            timestamp: format_chat_timestamp(event.timestamp),
-        }));
-        return frames;
-    }
+    let assistant_message_id = events.iter().find_map(|event| match event {
+        ChatEvent::Completed { response, .. } => Some(response.response_id.as_str()),
+        _ => None,
+    });
 
-    let mut accumulated = String::new();
-    for event in &events[..events.len() - 1] {
-        accumulated.push_str(&event.message);
-        frames.push(json!(ChatServerEnvelope::Streaming {
-            id: message_id,
-            delta: event.message.as_str(),
-            timestamp: format_chat_timestamp(event.timestamp),
-        }));
-    }
-
-    if let Some(last) = events.last() {
-        accumulated.push_str(&last.message);
-        frames.push(json!(ChatServerEnvelope::Message {
-            id: message_id,
-            text: accumulated,
-            timestamp: format_chat_timestamp(last.timestamp),
-        }));
+    for event in events {
+        match event {
+            ChatEvent::TextDelta {
+                message,
+                timestamp,
+                agent,
+                ..
+            } => frames.push(json!(ChatServerEnvelope::Streaming {
+                id: assistant_message_id.unwrap_or("chat-stream"),
+                delta: message.as_str(),
+                timestamp: format_chat_timestamp(*timestamp),
+                agent,
+            })),
+            ChatEvent::Completed {
+                response,
+                timestamp,
+            } => frames.push(json!(ChatServerEnvelope::Message {
+                id: response.response_id.as_str(),
+                text: response.text.clone(),
+                timestamp: format_chat_timestamp(*timestamp),
+                content: response.content.as_slice(),
+                agent: &response.agent,
+            })),
+        }
     }
 
     frames
@@ -160,17 +220,56 @@ async fn handle_chat_text_message(
 
     sender
         .send(Message::Text(
-            json!(ChatServerEnvelope::Processing).to_string().into(),
+            json!(ChatServerEnvelope::Processing { agent: None })
+                .to_string()
+                .into(),
         ))
         .await
         .map_err(|_| ())?;
 
-    let mut stream = match AgentService::send_chat_message(
-        "User".to_string(),
-        build_agent_prompt(&request),
-        None,
-        true,
+    let thread_id = request
+        .thread_id
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| format!("thread-{}", uuid::Uuid::new_v4()));
+    let context_blocks = crate::gateway::server::build_heap_context_bundle_for_block_ids(
+        &request.context_block_ids,
     )
+    .into_iter()
+    .filter_map(|value| serde_json::from_value::<ChatContextBlock>(value).ok())
+    .collect::<Vec<_>>();
+    let history = crate::gateway::server::load_chat_thread_history(&thread_id);
+    let message_id = format!("msg-{}", uuid::Uuid::new_v4());
+    let agent_message_id = format!("msg-{}", uuid::Uuid::new_v4());
+
+    if let Err(err) = crate::gateway::server::persist_chat_message_parts(
+        request
+            .space_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty()),
+        &thread_id,
+        &message_id,
+        "user",
+        request.source_anchor.clone(),
+        &[ChatContentPart::Text {
+            text: request.text.clone(),
+        }],
+        None,
+    ) {
+        send_error_envelope(sender, "persistence_error", err.as_str()).await?;
+        return Ok(());
+    }
+
+    let mut stream = match AgentService::send_chat_message(RuntimeChatRequest {
+        author: "User".to_string(),
+        text: request.text.clone(),
+        space_id: request.space_id.clone(),
+        thread_id: Some(thread_id.clone()),
+        source_anchor: request.source_anchor.clone(),
+        context_blocks,
+        history,
+        streaming: true,
+    })
     .await
     {
         Ok(stream) => stream,
@@ -180,52 +279,67 @@ async fn handle_chat_text_message(
         }
     };
 
-    let message_id = uuid::Uuid::new_v4().to_string();
-    let mut accumulated = String::new();
-    let mut pending: Option<ChatEvent> = None;
-
     while let Some(event) = stream.next().await {
         match event {
-            Ok(next_event) => {
-                if let Some(previous) = pending.replace(next_event) {
-                    accumulated.push_str(&previous.message);
-                    sender
-                        .send(Message::Text(
-                            json!(ChatServerEnvelope::Streaming {
-                                id: message_id.as_str(),
-                                delta: previous.message.as_str(),
-                                timestamp: format_chat_timestamp(previous.timestamp),
-                            })
-                            .to_string()
-                            .into(),
-                        ))
-                        .await
-                        .map_err(|_| ())?;
+            Ok(ChatEvent::TextDelta {
+                message,
+                timestamp,
+                agent,
+                ..
+            }) => {
+                sender
+                    .send(Message::Text(
+                        json!(ChatServerEnvelope::Streaming {
+                            id: agent_message_id.as_str(),
+                            delta: message.as_str(),
+                            timestamp: format_chat_timestamp(timestamp),
+                            agent: &agent,
+                        })
+                        .to_string()
+                        .into(),
+                    ))
+                    .await
+                    .map_err(|_| ())?;
+            }
+            Ok(ChatEvent::Completed {
+                response,
+                timestamp,
+            }) => {
+                if let Err(err) = crate::gateway::server::persist_chat_message_parts(
+                    request
+                        .space_id
+                        .as_deref()
+                        .filter(|value| !value.trim().is_empty()),
+                    &thread_id,
+                    &agent_message_id,
+                    "agent",
+                    request.source_anchor.clone(),
+                    response.content.as_slice(),
+                    Some(response.agent.clone()),
+                ) {
+                    send_error_envelope(sender, "persistence_error", err.as_str()).await?;
+                    return Ok(());
                 }
+                sender
+                    .send(Message::Text(
+                        json!(ChatServerEnvelope::Message {
+                            id: agent_message_id.as_str(),
+                            text: response.text.clone(),
+                            timestamp: format_chat_timestamp(timestamp),
+                            content: response.content.as_slice(),
+                            agent: &response.agent,
+                        })
+                        .to_string()
+                        .into(),
+                    ))
+                    .await
+                    .map_err(|_| ())?;
             }
             Err(err) => {
                 send_error_envelope(sender, "gateway_error", err.as_str()).await?;
                 return Ok(());
             }
         }
-    }
-
-    if let Some(last) = pending {
-        accumulated.push_str(&last.message);
-        sender
-            .send(Message::Text(
-                json!(ChatServerEnvelope::Message {
-                    id: message_id.as_str(),
-                    text: accumulated,
-                    timestamp: format_chat_timestamp(last.timestamp),
-                })
-                .to_string()
-                .into(),
-            ))
-            .await
-            .map_err(|_| ())?;
-    } else {
-        send_error_envelope(sender, "empty_response", "Chat service returned no content.").await?;
     }
 
     Ok(())
@@ -246,33 +360,138 @@ async fn send_error_envelope(
         .map_err(|_| ())
 }
 
-fn build_agent_prompt(request: &ChatClientMessage) -> String {
-    let mut sections = Vec::new();
-
-    if !request.context_refs.is_empty() {
-        sections.push(format!(
-            "Context references: {}",
-            request.context_refs.join(", ")
-        ));
-    }
-
-    if !request.attachments.is_empty() {
-        let attachment_summary = request
-            .attachments
-            .iter()
-            .map(|attachment| format!("{} ({}, {} bytes)", attachment.name, attachment.r#type, attachment.size))
-            .collect::<Vec<_>>()
-            .join("; ");
-        sections.push(format!("Attachments: {attachment_summary}"));
-    }
-
-    sections.push(format!("User request: {}", request.text.trim()));
-
-    sections.join("\n")
-}
-
 fn format_chat_timestamp(timestamp: i64) -> String {
     DateTime::<Utc>::from_timestamp(timestamp, 0)
-        .unwrap_or_else(Utc::now)
-        .to_rfc3339()
+        .map(|value| value.to_rfc3339())
+        .unwrap_or_else(now_iso)
+}
+
+fn now_iso() -> String {
+    Utc::now().to_rfc3339()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chat_socket_request_parser_accepts_message_envelope() {
+        let parsed = decode_chat_client_message(
+            r#"{"type":"message","content":[{"type":"text","text":"Summarize this"}],"context":{"blockIds":["artifact-1"]},"threadId":"thread-1","spaceId":"nostra-space"}"#,
+        )
+        .expect("message envelope");
+
+        assert_eq!(parsed.text, "Summarize this");
+        assert_eq!(parsed.context_block_ids, vec!["artifact-1".to_string()]);
+        assert_eq!(parsed.thread_id.as_deref(), Some("thread-1"));
+        assert_eq!(parsed.space_id.as_deref(), Some("nostra-space"));
+    }
+
+    #[test]
+    fn chat_socket_request_parser_accepts_legacy_text_and_context_refs() {
+        let parsed = decode_chat_client_message(
+            r#"{"type":"message","text":"Legacy message","contextRefs":["artifact-2"],"threadId":"thread-2","context":{"sourceAnchor":{"kind":"view","label":"Explore","href":"/explore","routeId":"/explore"}}}"#,
+        )
+        .expect("legacy envelope");
+
+        assert_eq!(parsed.text, "Legacy message");
+        assert_eq!(parsed.context_block_ids, vec!["artifact-2".to_string()]);
+        assert_eq!(parsed.thread_id.as_deref(), Some("thread-2"));
+        assert_eq!(
+            parsed.source_anchor,
+            Some(ChatSourceAnchor {
+                kind: "view".to_string(),
+                label: "Explore".to_string(),
+                href: "/explore".to_string(),
+                route_id: Some("/explore".to_string()),
+                artifact_id: None,
+                view_id: None,
+                block_id: None,
+                component_id: None,
+            })
+        );
+    }
+
+    #[test]
+    fn chat_socket_request_parser_rejects_blank_message_text() {
+        let error = decode_chat_client_message(
+            r#"{"type":"message","content":[{"type":"text","text":"   "}],"threadId":"thread-blank"}"#,
+        )
+        .expect_err("blank text should fail");
+
+        assert_eq!(error, "message text is required");
+    }
+
+    #[test]
+    fn chat_socket_translator_emits_streaming_and_terminal_message() {
+        let agent = crate::services::agent_service::ChatAgentIdentity {
+            id: "provider".to_string(),
+            label: "Cortex Runtime".to_string(),
+            route: "provider-runtime.responses".to_string(),
+            mode: "runtime".to_string(),
+        };
+        let events = vec![
+            ChatEvent::TextDelta {
+                author: "Cortex Runtime".to_string(),
+                message: "Hello ".to_string(),
+                timestamp: 1,
+                agent: agent.clone(),
+            },
+            ChatEvent::Completed {
+                response: crate::services::agent_service::RuntimeChatResponse {
+                    response_id: "chat-1".to_string(),
+                    text: "Hello world".to_string(),
+                    content: vec![ChatContentPart::Text {
+                        text: "Hello world".to_string(),
+                    }],
+                    agent,
+                },
+                timestamp: 2,
+            },
+        ];
+
+        let frames = translate_chat_events(&events);
+
+        assert_eq!(frames.len(), 3);
+        assert_eq!(frames[0]["type"], "processing");
+        assert_eq!(frames[1]["type"], "streaming");
+        assert_eq!(frames[1]["id"], "chat-1");
+        assert_eq!(frames[1]["delta"], "Hello ");
+        assert_eq!(frames[2]["type"], "message");
+        assert_eq!(frames[2]["id"], "chat-1");
+        assert_eq!(frames[2]["text"], "Hello world");
+    }
+
+    #[test]
+    fn chat_socket_translator_returns_processing_plus_empty_response_error_for_no_events() {
+        let frames = translate_chat_events(&[]);
+
+        assert_eq!(frames.len(), 2);
+        assert_eq!(frames[0]["type"], "processing");
+        assert_eq!(frames[1]["type"], "error");
+        assert_eq!(frames[1]["code"], "empty_response");
+    }
+
+    #[test]
+    fn chat_socket_translator_uses_fallback_stream_id_without_completed_event() {
+        let agent = crate::services::agent_service::ChatAgentIdentity {
+            id: "provider".to_string(),
+            label: "Cortex Runtime".to_string(),
+            route: "provider-runtime.responses".to_string(),
+            mode: "runtime".to_string(),
+        };
+        let events = vec![ChatEvent::TextDelta {
+            author: "Cortex Runtime".to_string(),
+            message: "Partial".to_string(),
+            timestamp: 1,
+            agent,
+        }];
+
+        let frames = translate_chat_events(&events);
+
+        assert_eq!(frames.len(), 2);
+        assert_eq!(frames[1]["type"], "streaming");
+        assert_eq!(frames[1]["id"], "chat-stream");
+        assert_eq!(frames[1]["delta"], "Partial");
+    }
 }

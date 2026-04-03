@@ -270,6 +270,16 @@ mod tests {
             timestamp: "2026-02-24T00:00:00Z".to_string(),
             space_id: Some("space-1".to_string()),
             model_fingerprint: None,
+            provider: None,
+            model: None,
+            auth_mode: None,
+            response_id: None,
+            prompt_template_artifact_id: None,
+            prompt_template_revision_id: None,
+            prompt_execution_artifact_id: None,
+            parent_run_id: None,
+            child_run_ids: Vec::new(),
+            provider_trace_summary: None,
             tool_state_hash: None,
             confidence: None,
             promotion_level: None,
@@ -285,6 +295,20 @@ mod tests {
     #[test]
     fn supports_execution_event_type() {
         assert!(is_supported_event_type("AgentExecutionLifecycle"));
+    }
+
+    #[test]
+    fn execution_record_serializes_with_camel_case_contract_fields() {
+        let value = serde_json::to_value(record()).expect("serialize execution record");
+
+        assert_eq!(value["schemaVersion"], "1.0.0");
+        assert_eq!(value["executionId"], "exec-1");
+        assert_eq!(value["attemptId"], "attempt-1");
+        assert_eq!(value["workflowId"], "wf-1");
+        assert_eq!(value["spaceId"], "space-1");
+        assert!(value.get("schema_version").is_none());
+        assert!(value.get("execution_id").is_none());
+        assert!(value.get("space_id").is_none());
     }
 
     #[tokio::test]
@@ -303,6 +327,11 @@ mod tests {
             .await
             .expect("emit");
         assert!(lifecycle_events_path(temp.as_path()).exists());
+        let body = std::fs::read_to_string(lifecycle_events_path(temp.as_path())).expect("read");
+        let line: Value = serde_json::from_str(body.lines().next().expect("line")).expect("json");
+        assert_eq!(line["schemaVersion"], EVENT_SCHEMA_VERSION);
+        assert_eq!(line["eventType"], AGENT_EXECUTION_EVENT_TYPE);
+        assert_eq!(line["record"]["executionId"], "exec-1");
         let _ = std::fs::remove_dir_all(temp);
     }
 

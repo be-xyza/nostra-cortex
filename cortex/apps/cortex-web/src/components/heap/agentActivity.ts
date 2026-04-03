@@ -1,3 +1,5 @@
+import { buildBenchmarkProjection } from "./benchmarkProjection.ts";
+
 export interface AgentEvent {
   id: string;
   timestamp: string;
@@ -23,7 +25,7 @@ export function parseAgentActivityEvent(data: Record<string, any>): AgentEvent |
   const seq = String(data.sequence || payload.step_id || payload.attempt_id || 0);
   
   const phase = payload.phase ? String(payload.phase) : null;
-  const grade = payload.benchmark?.overall_grade ? String(payload.benchmark.overall_grade) : null;
+  const benchmark = buildBenchmarkProjection(payload.benchmark);
   const providerKind = payload.provider_kind ? String(payload.provider_kind) : null;
   const authMode = payload.auth_mode ? String(payload.auth_mode) : null;
   const actionStr = payload.action ? String(payload.action) : type;
@@ -38,7 +40,7 @@ export function parseAgentActivityEvent(data: Record<string, any>): AgentEvent |
 
   const detailParts = [
     phase,
-    grade,
+    benchmark?.summary ?? null,
     providerKind ? `provider:${providerKind}` : null,
     authMode && authMode !== providerKind ? `auth:${authMode}` : null,
   ].filter(Boolean);
@@ -52,4 +54,3 @@ export function parseAgentActivityEvent(data: Record<string, any>): AgentEvent |
     status: evtStatus,
   };
 }
-

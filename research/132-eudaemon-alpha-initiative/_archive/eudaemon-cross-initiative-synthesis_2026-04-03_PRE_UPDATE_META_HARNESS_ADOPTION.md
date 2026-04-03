@@ -1,8 +1,6 @@
 # Eudaemon Alpha — Cross-Initiative Synthesis
 
 > How Eudaemon Alpha integrates with the current Nostra/Cortex stack after the Phase 6 Hetzner resolution.
->
-> Current validated reality for this pass: gateway parity passes locally, the root repo is authoritative, the `eudaemon-alpha/` companion path is absent/unvalidated here, prompt override remains unverified, and Meta-Harness is recommendation-only.
 
 ---
 
@@ -16,7 +14,6 @@ Eudaemon Alpha is not a standalone VPS experiment anymore. It is now treated as 
 - a **future Rust-native migration path** for Phase 7+
 
 The important synthesis is that Initiative 132 no longer treats the old `ZeroClaw + Hostinger + Docker` framing as current authority.
-For this pass, root-repo validation takes precedence over any companion-repo assumption.
 
 The newer Doubleword transcript also does not change that authority. Its value is narrower: it offers a useful pattern for recommendation-only cognitive audit loops if those loops are routed through the current heap, lifecycle, workflow, and publication surfaces.
 
@@ -131,7 +128,7 @@ Phase 6 still needs a primary live cognition path separate from any later batch 
 Prompting and disclosure remain governed locally:
 
 - local prompt file remains the fallback
-- Heap `prompt_override` remains the intended future override path, but it is not validated in this checkout
+- Heap `prompt_override` remains the primary override path
 - LLM responses must be treated as inputs to governed analysis, not as upstream authority
 
 ## Summary of Alignments
@@ -141,7 +138,7 @@ Prompting and disclosure remain governed locally:
 | Workspace | Heap blocks and context bundles | 124 |
 | Authority | L1 plus production identity enforcement | 126 |
 | Runtime model | Temporal-style workflow plus activity separation | 047 |
-| Hosted runtime | Python worker on Hetzner, Rust gateway local to host; companion path not validated in this checkout | 132 / 122 transition |
+| Hosted runtime | Python worker on Hetzner, Rust gateway local to host | 132 / 122 transition |
 | Memory | Git-backed host-local memory root | 121 |
 | Ingestion | Sandbox-root constrained search and tooling | 127 |
 | Chronicle | Local draft now, governed promotion later | 080 |
