@@ -152,6 +152,141 @@ button:disabled {
   align-content: start;
 }
 
+.provider-dashboard__lead {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.provider-dashboard__lead-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(10, 19, 35, 0.94), rgba(7, 13, 24, 0.92));
+  padding: 1rem 1.05rem;
+  box-shadow:
+    0 18px 50px -34px rgba(2, 6, 23, 0.96),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.provider-dashboard__lead-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.025), transparent 38%);
+  pointer-events: none;
+}
+
+.provider-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.4rem;
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.07), transparent 40%),
+    linear-gradient(180deg, rgba(9, 16, 28, 0.96), rgba(6, 11, 20, 0.96));
+  box-shadow:
+    0 20px 55px -36px rgba(2, 6, 23, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.provider-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.03), transparent 28%),
+    linear-gradient(180deg, transparent 68%, rgba(255, 255, 255, 0.015));
+  pointer-events: none;
+}
+
+.provider-card--selected {
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.16), transparent 38%),
+    linear-gradient(180deg, rgba(8, 18, 35, 0.98), rgba(5, 12, 24, 0.98));
+}
+
+.provider-card__header {
+  position: relative;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.provider-card__eyebrow {
+  font-size: 0.62rem;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.provider-card__title {
+  font-size: 1rem;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.provider-card__subtitle {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
+
+.provider-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.provider-card__stat {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(4, 9, 18, 0.34);
+  padding: 0.7rem 0.7rem 0.62rem;
+}
+
+.provider-card__stat-label {
+  display: block;
+  font-size: 0.58rem;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.provider-card__stat-value {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.provider-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.15rem;
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+}
+
+.provider-card__arrow {
+  font-size: 0.85rem;
+  transition: transform 180ms ease;
+}
+
+.provider-card:hover .provider-card__arrow,
+.provider-card--selected .provider-card__arrow {
+  transform: translateX(3px);
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -345,12 +480,18 @@ button:disabled {
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(9, 26, 50, 0.78), rgba(7, 20, 40, 0.9));
   overflow: hidden;
+  outline: none;
+}
+
+.a2ui-spatial-plane:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 211, 106, 0.55);
 }
 
 .a2ui-spatial-plane__head {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
   padding: 0.45rem 0.55rem;
   font-size: 0.69rem;
   letter-spacing: 0.06em;
@@ -362,12 +503,13 @@ button:disabled {
 
 .a2ui-spatial-plane__svg {
   width: 100%;
-  height: 300px;
+  height: 340px;
   display: block;
+  cursor: default;
 }
 
 .a2ui-spatial-plane__host {
-  height: 320px;
+  height: 340px;
 }
 
 .a2ui-spatial-plane__adapter-note {
@@ -384,6 +526,36 @@ button:disabled {
   cursor: pointer;
 }
 
+.a2ui-spatial-plane__edge {
+  stroke: color-mix(in srgb, var(--accent) 78%, white 12%);
+  stroke-width: 3;
+  opacity: 0.92;
+  cursor: pointer;
+}
+
+.a2ui-spatial-plane__edge--data {
+  stroke-dasharray: none;
+}
+
+.a2ui-spatial-plane__edge--control {
+  stroke: rgba(255, 198, 115, 0.95);
+  stroke-dasharray: 10 6;
+}
+
+.a2ui-spatial-plane__edge--branch {
+  stroke: rgba(173, 149, 255, 0.92);
+  stroke-dasharray: 3 7;
+}
+
+.a2ui-spatial-plane__edge--selected {
+  stroke: #ffd36a;
+}
+
+.a2ui-spatial-plane__edge--preview {
+  stroke-dasharray: 10 7;
+  opacity: 0.7;
+}
+
 .a2ui-spatial-plane__svg marker path {
   fill: var(--accent);
 }
@@ -395,10 +567,143 @@ button:disabled {
   cursor: pointer;
 }
 
+.a2ui-spatial-plane__node {
+  fill: rgba(14, 39, 74, 0.95);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.a2ui-spatial-plane__node--input {
+  stroke: rgba(104, 211, 145, 0.9);
+}
+
+.a2ui-spatial-plane__node--tool {
+  stroke: rgba(97, 190, 255, 0.92);
+}
+
+.a2ui-spatial-plane__node--procedure {
+  stroke: rgba(255, 192, 100, 0.92);
+}
+
+.a2ui-spatial-plane__node--output {
+  stroke: rgba(255, 140, 140, 0.9);
+}
+
+.a2ui-spatial-plane__node-status--running {
+  filter: drop-shadow(0 0 14px rgba(97, 190, 255, 0.24));
+}
+
+.a2ui-spatial-plane__node-status--error {
+  filter: drop-shadow(0 0 14px rgba(255, 120, 120, 0.24));
+}
+
+.a2ui-spatial-plane__group {
+  fill: rgba(15, 24, 44, 0.45);
+  stroke: rgba(163, 198, 255, 0.44);
+  stroke-width: 2;
+  stroke-dasharray: 8 8;
+  cursor: grab;
+}
+
+.a2ui-spatial-plane__group--collapsed {
+  fill: rgba(20, 31, 53, 0.85);
+}
+
+.a2ui-spatial-plane__annotation {
+  fill: rgba(255, 214, 128, 0.12);
+  stroke: rgba(255, 214, 128, 0.85);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.a2ui-spatial-plane__shape--selected rect {
+  stroke: #ffd36a;
+  stroke-width: 2.4;
+}
+
+.a2ui-spatial-plane__label {
+  fill: var(--ink);
+  font-size: 14px;
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  font-weight: 640;
+  pointer-events: none;
+}
+
+.a2ui-spatial-plane__meta {
+  fill: color-mix(in srgb, var(--ink-muted) 80%, white 14%);
+  font-size: 11px;
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 .a2ui-spatial-plane__text {
   fill: var(--ink);
   font-size: 15px;
   font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.a2ui-spatial-plane__edge-label,
+.a2ui-spatial-plane__port-label {
+  fill: color-mix(in srgb, var(--ink-muted) 88%, white 10%);
+  font-size: 10px;
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.a2ui-spatial-plane__port {
+  fill: rgba(5, 16, 32, 0.96);
+  stroke: rgba(97, 190, 255, 0.95);
+  stroke-width: 2;
+  cursor: crosshair;
+}
+
+.a2ui-spatial-plane__port--pending {
+  fill: rgba(255, 211, 106, 0.92);
+  stroke: #ffe79b;
+}
+
+.a2ui-spatial-plane__group-toggle {
+  fill: rgba(5, 16, 32, 0.82);
+  stroke: rgba(163, 198, 255, 0.32);
+  stroke-width: 1.5;
+}
+
+.a2ui-spatial-plane__group-toggle-text {
+  fill: var(--ink);
+  font-size: 10px;
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.a2ui-spatial-plane__toggle {
+  border: 1px solid rgba(163, 198, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(5, 16, 32, 0.7);
+  color: var(--ink);
+  padding: 0.22rem 0.7rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.a2ui-spatial-plane__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.a2ui-spatial-plane__issue-list {
+  margin: 0.55rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: 0.01em;
 }
 
 .a2ui-spatial-plane--disabled,
@@ -664,7 +969,8 @@ button:disabled {
 }
 
 .shell-main--full {
-  padding: 0;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .shell-main__menu-btn {

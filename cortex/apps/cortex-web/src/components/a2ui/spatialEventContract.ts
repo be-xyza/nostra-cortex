@@ -2,6 +2,8 @@ export const A2UI_EVENT_TYPES = [
   "button_click",
   "approval",
   "spatial_shape_click",
+  "spatial_shape_move",
+  "spatial_edge_connect",
   "spatial_adapter_loaded",
   "spatial_adapter_fallback",
   "spatial_adapter_replay",

@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "plane_id": "execution-plane-golden-1",
+  "view_spec_id": "viewspec:golden:spatial-plane",
+  "space_id": "meta",
+  "revision": 3,
+  "layout": {
+    "shape_positions": {
+      "node-input": { "x": 132, "y": 144 },
+      "node-tool": { "x": 458, "y": 132 },
+      "node-output": { "x": 820, "y": 144 }
+    },
+    "collapsed_groups": {
+      "group-lane-1": false
+    },
+    "view_state": {
+      "zoom": 1.08,
+      "pan_x": 12,
+      "pan_y": -6
+    },
+    "selected_shape_ids": ["node-tool"]
+  },
+  "lineage": {
+    "view_spec_id": "viewspec:golden:spatial-plane",
+    "workflow_id": "wf-spatial-1",
+    "graph_hash": "graph-spatial-golden-v1",
+    "space_id": "meta",
+    "updated_by": "fixture",
+    "updated_at": "2026-04-02T00:00:00Z"
+  }
+}

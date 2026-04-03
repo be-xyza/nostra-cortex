@@ -43,7 +43,7 @@ test("getHeapBlocks forwards desktop parity filters and cursor", async () => {
   }
 
   assert.ok(capturedUrl.includes("/api/cortex/studio/heap/blocks?"));
-  assert.ok(capturedUrl.includes("spaceId=space-1"));
+  assert.ok(capturedUrl.includes("space_id=space-1"));
   assert.ok(capturedUrl.includes("tag=tag-1"));
   assert.ok(capturedUrl.includes("mention=mention-1"));
   assert.ok(capturedUrl.includes("pageLink=01ARZ3NDEKTSV4RRFFQ69G5FAZ"));
@@ -90,7 +90,7 @@ test("getHeapChangedBlocks uses canonical delta endpoint and forwards query filt
   }
 
   assert.ok(capturedUrl.includes("/api/cortex/studio/heap/changed_blocks?"));
-  assert.ok(capturedUrl.includes("spaceId=space-1"));
+  assert.ok(capturedUrl.includes("space_id=space-1"));
   assert.ok(capturedUrl.includes("pageLink=01ARZ3NDEKTSV4RRFFQ69G5FAZ"));
   assert.ok(capturedUrl.includes("changedSince=2026-02-01T00%3A00%3A00Z"));
   assert.ok(capturedUrl.includes("includeDeleted=true"));
@@ -211,7 +211,180 @@ test("heap context bundle and history endpoints match canonical desktop paths", 
   assert.ok(calls[1]?.url.endsWith("/api/cortex/studio/heap/blocks/artifact-123/history"));
 });
 
-test("submitA2UIFeedback uses canonical heap feedback endpoint and operator headers", async () => {
+test("chat conversation api wrappers use canonical conversation projection endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    const url = String(input);
+    calls.push({ url, init });
+    if (url.endsWith("/api/cortex/chat/conversations")) {
+      return new Response(
+        JSON.stringify({
+          generatedAt: "2026-03-28T00:00:00Z",
+          count: 1,
+          items: [
+            {
+              threadId: "thread-1",
+              title: "Summarize block set",
+              anchor: {
+                kind: "view",
+                label: "Explore",
+                href: "/explore?thread=thread-1",
+              },
+              messageCount: 2,
+              lastMessagePreview: "Hello world",
+              createdAt: "2026-03-28T00:00:00Z",
+              updatedAt: "2026-03-28T00:00:01Z",
+              recentTurns: [
+                {
+                  role: "user",
+                  text: "Summarize this",
+                  timestamp: "2026-03-28T00:00:00Z",
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        threadId: "thread-1",
+        title: "Summarize block set",
+        anchor: {
+          kind: "view",
+          label: "Explore",
+          href: "/explore?thread=thread-1",
+        },
+        messageCount: 2,
+        lastMessagePreview: "Hello world",
+        createdAt: "2026-03-28T00:00:00Z",
+        updatedAt: "2026-03-28T00:00:01Z",
+        recentTurns: [],
+        messages: [
+          {
+            id: "msg-1",
+            role: "agent",
+            text: "Hello world",
+            timestamp: "2026-03-28T00:00:01Z",
+            artifactIds: ["artifact-1"],
+            content: [
+              { type: "text", text: "Hello world" },
+              {
+                type: "pointer",
+                href: "/explore?artifact_id=artifact-1",
+                label: "artifact-1",
+              },
+            ],
+            agent: {
+              id: "provider",
+              label: "Cortex Runtime",
+              route: "provider-runtime.responses",
+              mode: "runtime",
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }) as typeof fetch;
+
+  try {
+    const summary = await workbenchApi.listChatConversations();
+    const detail = await workbenchApi.getChatConversation("thread-1");
+
+    assert.equal(summary.count, 1);
+    assert.equal(summary.items[0]?.threadId, "thread-1");
+    assert.equal(detail.threadId, "thread-1");
+    assert.equal(detail.messages[0]?.content[1]?.type, "pointer");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls.length, 2);
+  assert.ok(calls[0]?.url.endsWith("/api/cortex/chat/conversations"));
+  assert.ok(calls[1]?.url.endsWith("/api/cortex/chat/conversations/thread-1"));
+  assert.equal(calls[0]?.init?.method, undefined);
+  assert.equal(calls[1]?.init?.method, undefined);
+});
+
+test("spatial layout api wrappers use canonical layout persistence endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    calls.push({ url: String(input), init });
+    return new Response(
+      JSON.stringify({
+        accepted: true,
+        layout: {
+          schema_version: "1.0.0",
+          plane_id: "plane-1",
+          view_spec_id: "viewspec-1",
+          space_id: "space-1",
+          revision: 1,
+          layout: {
+            shape_positions: {
+              "node-1": { x: 120, y: 80 }
+            },
+            collapsed_groups: {},
+            view_state: {
+              zoom: 1.1,
+              pan_x: 24,
+              pan_y: -16
+            },
+            selected_shape_ids: ["node-1"]
+          },
+          lineage: {
+            updated_by: "operator",
+            updated_at: "2026-04-01T00:00:00Z"
+          }
+        }
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    await workbenchApi.getSpatialPlaneLayout("space-1", "viewspec-1");
+    await workbenchApi.saveSpatialPlaneLayout("space-1", "viewspec-1", {
+      schema_version: "1.0.0",
+      plane_id: "plane-1",
+      view_spec_id: "viewspec-1",
+      space_id: "space-1",
+      revision: 1,
+      layout: {
+        shape_positions: {
+          "node-1": { x: 120, y: 80 }
+        },
+        collapsed_groups: {},
+        view_state: {
+          zoom: 1.1,
+          pan_x: 24,
+          pan_y: -16
+        },
+        selected_shape_ids: ["node-1"]
+      },
+      lineage: {
+        updated_by: "operator",
+        updated_at: "2026-04-01T00:00:00Z"
+      }
+    } as any);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls.length, 2);
+  assert.ok(calls[0]?.url.endsWith("/api/cortex/viewspecs/spatial/layouts/space-1/viewspec-1"));
+  assert.equal(calls[0]?.init?.method, undefined);
+  assert.ok(calls[1]?.url.endsWith("/api/cortex/viewspecs/spatial/layouts/space-1/viewspec-1"));
+  assert.equal(calls[1]?.init?.method, "POST");
+  assert.ok(String(calls[1]?.init?.body).includes("\"shape_positions\""));
+  assert.ok(String(calls[1]?.init?.body).includes("\"view_state\""));
+  assert.ok(String(calls[1]?.init?.body).includes("\"selected_shape_ids\""));
+});
+
+test("submitA2UIFeedback uses canonical heap feedback endpoint and explicit caller headers", async () => {
   const originalFetch = globalThis.fetch;
   let capturedUrl = "";
   let capturedInit: RequestInit | undefined;
@@ -228,7 +401,7 @@ test("submitA2UIFeedback uses canonical heap feedback endpoint and operator head
     await workbenchApi.submitA2UIFeedback("artifact-123", {
       decision: "approved",
       feedback: "Proceed with bounded live run."
-    });
+    }, "steward", "systems-steward");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -236,8 +409,8 @@ test("submitA2UIFeedback uses canonical heap feedback endpoint and operator head
   assert.ok(capturedUrl.endsWith("/api/cortex/studio/heap/blocks/artifact-123/a2ui/feedback"));
   assert.equal(capturedInit?.method, "POST");
   const headers = capturedInit?.headers as Record<string, string>;
-  assert.equal(headers["x-cortex-role"], "operator");
-  assert.equal(headers["x-cortex-actor"], "cortex-web");
+  assert.equal(headers["x-cortex-role"], "steward");
+  assert.equal(headers["x-cortex-actor"], "systems-steward");
   assert.match(String(capturedInit?.body), /bounded live run/i);
 });
 
@@ -346,6 +519,50 @@ test("heap emit endpoint uses canonical path, operator headers, and schema paylo
   assert.equal(body["mode"], "heap");
 });
 
+test("heap emit accepts task payloads for kickoff blocks", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedBody: string | null = null;
+  globalThis.fetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? "");
+    return new Response(
+      JSON.stringify({
+        accepted: true,
+        artifactId: "artifact-task-emit-1"
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    await workbenchApi.emitHeapBlock({
+      schema_version: "1.0.0",
+      mode: "heap",
+      space_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      source: {
+        agent_id: "cortex-web",
+        emitted_at: "2026-03-23T00:00:00Z"
+      },
+      block: {
+        type: "task",
+        title: "Initiative 078 Kickoff",
+        attributes: {
+          initiative_id: "initiative-078-kickoff",
+          agent_role: "research-architect"
+        }
+      },
+      content: {
+        payload_type: "task",
+        task: "# Initiative 078 Kickoff\n- [ ] Read the plan"
+      }
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.ok(capturedBody?.includes("\"payload_type\":\"task\""));
+  assert.ok(capturedBody?.includes("\"task\":\"# Initiative 078 Kickoff\\n- [ ] Read the plan\""));
+});
+
 test("heap emit allows explicit steward identity headers when required by the caller", async () => {
   const originalFetch = globalThis.fetch;
   let capturedInit: RequestInit | undefined;
@@ -424,6 +641,255 @@ test("heap emit validation rejects malformed payload before network call", async
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("heap emit canonicalizes legacy workspace_id payloads to space_id before network call", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedBody: Record<string, unknown> | null = null;
+  globalThis.fetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+    capturedBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    return new Response(
+      JSON.stringify({
+        accepted: true,
+        artifactId: "artifact-emit-legacy-space"
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    await workbenchApi.emitHeapBlock({
+      schema_version: "1.0.0",
+      mode: "heap",
+      workspace_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      source: {
+        agent_id: "cortex-web",
+        emitted_at: "2026-03-31T00:00:00Z"
+      },
+      block: {
+        type: "note",
+        title: "Legacy workspace alias"
+      },
+      content: {
+        payload_type: "rich_text",
+        rich_text: {
+          plain_text: "compatibility"
+        }
+      }
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(capturedBody?.["space_id"], "01ARZ3NDEKTSV4RRFFQ69G5FAV");
+  assert.equal("workspace_id" in (capturedBody ?? {}), false);
+});
+
+
+test("heap upload helpers use multipart upload and extraction routes", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    calls.push({ url: String(input), init });
+    const url = String(input);
+    if (url.endsWith("/api/cortex/studio/uploads")) {
+      return new Response(
+        JSON.stringify({
+          upload_id: "upload-123",
+          resource_ref: "resource://uploads/upload-123",
+          hash: "sha256:abc123",
+          name: "paper.pdf",
+          mime_type: "application/pdf",
+          file_size: 42,
+          is_uploaded: true,
+          thumbnails: [{ type: "preview", size: "small", path: "thumb://1" }],
+          extraction_supported: true
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (url.endsWith("/extract")) {
+      return new Response(
+        JSON.stringify({
+          job_id: "job-123",
+          status: "submitted",
+          upload_id: "upload-123",
+          requested_parser_profile: "docling"
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (url.endsWith("/extractions")) {
+      return new Response(
+        JSON.stringify({
+          generated_at: "2026-03-29T00:00:00Z",
+          upload_id: "upload-123",
+          items: [
+            {
+              job_id: "job-123",
+              upload_id: "upload-123",
+              status: "completed",
+              created_at: "2026-03-29T00:00:00Z",
+              requested_parser_profile: "docling",
+              parser_backend: "docling",
+              confidence: 0.91,
+              flags: ["ocr"],
+              result_ref: "artifact-456",
+              summary: "Primary parse",
+              page_count: 9,
+              block_count: 228,
+              last_updated_at: "2026-03-29T00:01:00Z"
+            }
+          ]
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (url.endsWith("/extractions/job-123")) {
+      return new Response(
+        JSON.stringify({
+          job_id: "job-123",
+          upload_id: "upload-123",
+          status: "completed",
+          created_at: "2026-03-29T00:00:00Z",
+          requested_parser_profile: "docling",
+          parser_backend: "docling",
+          confidence: 0.91,
+          flags: ["ocr"],
+          result_ref: "artifact-456",
+          summary: "Primary parse",
+          page_count: 9,
+          block_count: 228,
+          last_updated_at: "2026-03-29T00:01:00Z",
+          attempted_backends: ["docling"],
+          model_id: "docling:python-api:2.82.0",
+          first_page_preview: ["HyEvo", "Self-Evolving", "Hybrid", "Agentic", "Workflows"],
+          first_page_block_count: 31
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        job_id: "job-123",
+        upload_id: "upload-123",
+        status: "completed",
+        created_at: "2026-03-29T00:00:00Z",
+        requested_parser_profile: "docling",
+        parser_backend: "docling",
+        confidence: 0.91,
+        flags: ["ocr"],
+        result_ref: "artifact-456",
+        page_count: 9,
+        block_count: 228
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    const uploaded = await workbenchApi.uploadHeapFile({
+      file: new File(["hello"], "paper.pdf", { type: "application/pdf" }),
+      spaceId: "space-1",
+      title: "Paper Upload",
+      sourceAgentId: "cortex-web"
+    });
+    const queued = await workbenchApi.triggerHeapUploadExtraction(uploaded.upload_id);
+    const status = await workbenchApi.getHeapUploadExtractionStatus(uploaded.upload_id);
+    const runs = await workbenchApi.getHeapUploadExtractionRuns(uploaded.upload_id);
+    const detail = await workbenchApi.getHeapUploadExtractionRun(uploaded.upload_id, "job-123");
+
+    assert.equal(uploaded.resource_ref, "resource://uploads/upload-123");
+    assert.equal(queued.status, "submitted");
+    assert.equal(status.status, "completed");
+    assert.equal(status.parser_backend, "docling");
+    assert.equal(runs.items.length, 1);
+    assert.equal(runs.items[0]?.page_count, 9);
+    assert.equal(detail.model_id, "docling:python-api:2.82.0");
+    assert.equal(detail.first_page_block_count, 31);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls.length, 5);
+  const upload = calls[0];
+  assert.ok(upload?.url.endsWith("/api/cortex/studio/uploads"));
+  assert.equal(upload?.init?.method, "POST");
+  const headers = upload?.init?.headers as Record<string, string>;
+  assert.equal(headers["x-cortex-role"], "operator");
+  assert.equal(headers["x-cortex-actor"], "cortex-web");
+  assert.ok(upload?.init?.body instanceof FormData);
+  const form = upload?.init?.body as FormData;
+  assert.equal(form.get("space_id"), "space-1");
+  assert.equal(form.get("title"), "Paper Upload");
+  assert.equal(form.get("source_agent_id"), "cortex-web");
+  const fileField = form.get("file") as File | FormDataEntryValue | null;
+  assert.equal(typeof fileField === "object" && fileField !== null, true);
+
+  const trigger = calls[1];
+  assert.ok(trigger?.url.endsWith("/api/cortex/studio/uploads/upload-123/extract"));
+  assert.equal(trigger?.init?.method, "POST");
+  const statusCall = calls[2];
+  assert.ok(statusCall?.url.endsWith("/api/cortex/studio/uploads/upload-123/extraction"));
+  const runsCall = calls[3];
+  assert.ok(runsCall?.url.endsWith("/api/cortex/studio/uploads/upload-123/extractions"));
+  const detailCall = calls[4];
+  assert.ok(detailCall?.url.endsWith("/api/cortex/studio/uploads/upload-123/extractions/job-123"));
+});
+
+test("heap emit accepts upload-backed pointer payloads", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedBody: string | null = null;
+  globalThis.fetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? "");
+    return new Response(JSON.stringify({ accepted: true, artifactId: "artifact-upload-1" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    await workbenchApi.emitHeapBlock({
+      schema_version: "1.0.0",
+      mode: "heap",
+      space_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      source: {
+        agent_id: "cortex-web",
+        emitted_at: "2026-03-27T00:00:00Z"
+      },
+      block: {
+        type: "upload",
+        title: "Paper Upload",
+        attributes: {
+          file_name: "paper.pdf",
+          mime_type: "application/pdf",
+          file_size: "42"
+        }
+      },
+      content: {
+        payload_type: "pointer",
+        pointer: "resource://uploads/upload-123"
+      },
+      files: [
+        {
+          hash: "sha256:abc123",
+          file_size: 42,
+          name: "paper.pdf",
+          mime_type: "application/pdf",
+          path: "resource://uploads/upload-123",
+          is_uploaded: true,
+          thumbnails: [{ type: "preview", size: "small", path: "thumb://1" }]
+        }
+      ]
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.ok(capturedBody?.includes('"payload_type":"pointer"'));
+  assert.ok(capturedBody?.includes('"pointer":"resource://uploads/upload-123"'));
+  assert.ok(capturedBody?.includes('"type":"upload"'));
+  assert.ok(capturedBody?.includes('"files"'));
 });
 
 test("steward gate validate and apply use canonical heap endpoints", async () => {
@@ -548,4 +1014,147 @@ test("publishArtifact forwards steward gate token and governance envelope", asyn
   assert.equal(headers["x-cortex-actor"], "cortex-web");
   const body = JSON.parse(String(capturedInit?.body)) as Record<string, unknown>;
   assert.equal(body["stewardGateToken"], "sgt1.payload.sig");
+});
+
+test("workflow draft api wrappers use canonical workflow endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    const url = String(input);
+    calls.push({ url, init });
+
+    if (url.endsWith("/api/cortex/workflow-intents")) {
+      return new Response(
+        JSON.stringify({
+          accepted: true,
+          workflowIntent: {
+            schemaVersion: "1.0.0",
+            workflowIntentId: "workflow_intent_1",
+            scope: { spaceId: "space-1" },
+            intent: "Draft a workflow proposal for review.",
+            motifKind: "parallel_compare",
+            constraints: [],
+            authorityCeiling: "l2",
+            provenance: {
+              createdBy: "cortex-web",
+              createdAt: "2026-03-23T00:00:00Z",
+              sourceMode: "hybrid"
+            }
+          }
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (url.endsWith("/api/cortex/workflow-drafts/candidates")) {
+      return new Response(
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          generatedAt: "2026-03-23T00:00:00Z",
+          candidateSetId: "workflow_set_1",
+          blockedCount: 0,
+          candidates: [
+            {
+              candidateId: "workflow_draft_1",
+              workflowDraft: {
+                workflowDraftId: "workflow_draft_1",
+                scope: { spaceId: "space-1" }
+              },
+              validation: { valid: true, errors: [], warnings: [] },
+              compileResult: { valid: true, warnings: [], digest: "digest-1" },
+              generationTrace: {
+                strategy: "deterministic_scaffold",
+                seedRefs: [],
+                policyFlags: {}
+              },
+              inputHash: "hash-1"
+            }
+          ]
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (url.endsWith("/api/cortex/workflow-drafts/candidates/workflow_set_1/stage")) {
+      return new Response(
+        JSON.stringify({
+          accepted: true,
+          workflowDraftId: "workflow_draft_1",
+          scopeKey: "space:space-1",
+          storedAt: "2026-03-23T00:00:00Z"
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (url.endsWith("/api/cortex/workflow-drafts/workflow_draft_1/propose")) {
+      return new Response(
+        JSON.stringify({
+          accepted: true,
+          proposal: {
+            proposalId: "workflow_proposal_1",
+            workflowDraftId: "workflow_draft_1",
+            definitionId: "workflow_def_1",
+            scopeKey: "space:space-1",
+            proposedBy: "cortex-web",
+            rationale: "Route the task into a governed workflow draft.",
+            createdAt: "2026-03-23T00:00:00Z",
+            status: "staged"
+          }
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    const intent = await workbenchApi.postWorkflowIntent({
+      intent: "Draft a workflow proposal for review.",
+      motifKind: "parallel_compare",
+      scope: { spaceId: "space-1" },
+      authorityCeiling: "l2",
+      createdBy: "cortex-web",
+      sourceMode: "hybrid"
+    });
+    const candidateSet = await workbenchApi.postWorkflowCandidates({
+      intent: "Draft a workflow proposal for review.",
+      motifKind: "parallel_compare",
+      scope: intent.workflowIntent.scope,
+      generationMode: "motif_hybrid",
+      createdBy: "cortex-web",
+      sourceMode: "hybrid",
+      count: 2
+    });
+    const staged = await workbenchApi.stageWorkflowCandidate(candidateSet.candidateSetId, {
+      candidateId: candidateSet.candidates[0]!.candidateId,
+      stagedBy: "cortex-web",
+      rationale: "Use the best-scaffolded workflow draft.",
+      expectedInputHash: candidateSet.candidates[0]!.inputHash
+    });
+    const proposal = await workbenchApi.proposeWorkflowDraft(staged.workflowDraftId, {
+      proposedBy: "cortex-web",
+      rationale: "Route the task into a governed workflow draft."
+    });
+
+    assert.equal(intent.accepted, true);
+    assert.equal(candidateSet.candidateSetId, "workflow_set_1");
+    assert.equal(staged.workflowDraftId, "workflow_draft_1");
+    assert.equal(proposal.proposal.proposalId, "workflow_proposal_1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.ok(calls[0]?.url.endsWith("/api/cortex/workflow-intents"));
+  assert.ok(calls[1]?.url.endsWith("/api/cortex/workflow-drafts/candidates"));
+  assert.ok(calls[2]?.url.endsWith("/api/cortex/workflow-drafts/candidates/workflow_set_1/stage"));
+  assert.ok(calls[3]?.url.endsWith("/api/cortex/workflow-drafts/workflow_draft_1/propose"));
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.equal(calls[1]?.init?.method, "POST");
+  assert.equal(calls[2]?.init?.method, "POST");
+  assert.equal(calls[3]?.init?.method, "POST");
 });

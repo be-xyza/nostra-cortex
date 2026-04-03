@@ -705,6 +705,48 @@ export interface SpatialExperimentRunSummary {
   event_key: string;
 }
 
+export interface SpatialPlaneLayoutPosition {
+  x: number;
+  y: number;
+}
+
+export interface SpatialPlaneLayoutViewState {
+  zoom?: number;
+  pan_x?: number;
+  pan_y?: number;
+}
+
+export interface SpatialPlaneLayoutState {
+  shape_positions: Record<string, SpatialPlaneLayoutPosition>;
+  collapsed_groups: Record<string, boolean>;
+  view_state?: SpatialPlaneLayoutViewState;
+  selected_shape_ids?: string[];
+}
+
+export interface SpatialPlaneLayoutLineage {
+  view_spec_id?: string;
+  workflow_id?: string;
+  graph_hash?: string;
+  space_id?: string;
+  updated_by: string;
+  updated_at: string;
+}
+
+export interface SpatialPlaneLayoutV1 {
+  schema_version: string;
+  plane_id: string;
+  view_spec_id: string;
+  space_id: string;
+  revision: number;
+  layout: SpatialPlaneLayoutState;
+  lineage: SpatialPlaneLayoutLineage;
+}
+
+export interface SpatialPlaneLayoutResponse {
+  accepted: boolean;
+  layout: SpatialPlaneLayoutV1;
+}
+
 export interface HeapBlockProjection {
   artifactId: string;
   spaceId?: string;

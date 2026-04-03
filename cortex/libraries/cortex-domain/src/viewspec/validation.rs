@@ -36,6 +36,7 @@ fn allowed_component_types() -> HashSet<&'static str> {
         "Video",
         "AudioPlayer",
         "Button",
+        "SpatialPlane",
     ]
     .into_iter()
     .collect()
@@ -68,6 +69,126 @@ fn valid_contrast_preference(value: &str) -> bool {
 
 fn valid_source_mode(value: &str) -> bool {
     matches!(value, "human" | "agent" | "hybrid")
+}
+
+fn spatial_command_shape<'a>(command: &'a Value) -> Option<&'a Value> {
+    command.get("shape")
+}
+
+fn spatial_shape_id(shape: &Value) -> Option<&str> {
+    shape.get("id").and_then(Value::as_str)
+}
+
+fn validate_spatial_plane_component(
+    component: &ComponentRef,
+    comp_path: &str,
+    errors: &mut Vec<ViewSpecValidationIssue>,
+) {
+    let Some(commands) = component.props.get("commands").and_then(Value::as_array) else {
+        return;
+    };
+
+    let mut nodes = HashSet::new();
+    let mut groups: Vec<(String, Vec<String>)> = Vec::new();
+    let mut edges: Vec<(String, String, String)> = Vec::new();
+
+    for (command_idx, command) in commands.iter().enumerate() {
+        let Some(op) = command.get("op").and_then(Value::as_str) else {
+            continue;
+        };
+        if !matches!(
+            op,
+            "create_shape" | "update_shape" | "delete_shape" | "focus_bounds" | "set_selection" | "set_view_state"
+        ) {
+            errors.push(ViewSpecValidationIssue {
+                code: "invalid_spatial_plane".to_string(),
+                path: format!("{comp_path}.props.commands[{command_idx}].op"),
+                message: format!("Unsupported SpatialPlane op '{op}'."),
+            });
+        }
+
+        let Some(shape) = spatial_command_shape(command) else {
+            continue;
+        };
+        let Some(kind) = shape.get("kind").and_then(Value::as_str) else {
+            continue;
+        };
+
+        if kind == "node" {
+            if let Some(shape_id) = spatial_shape_id(shape) {
+                nodes.insert(shape_id.to_string());
+            }
+            let mut ports = HashSet::new();
+            if let Some(shape_ports) = shape.get("ports").and_then(Value::as_array) {
+                for port in shape_ports {
+                    if let Some(port_id) = port.get("id").and_then(Value::as_str) {
+                        if !ports.insert(port_id.to_string()) {
+                            errors.push(ViewSpecValidationIssue {
+                                code: "invalid_spatial_plane".to_string(),
+                                path: format!("{comp_path}.props.commands[{command_idx}].shape.ports"),
+                                message: format!("SpatialPlane node has duplicate port id '{port_id}'."),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        if kind == "edge" {
+            let shape_id = spatial_shape_id(shape).unwrap_or("unknown").to_string();
+            let from_id = shape
+                .get("from_shape_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let to_id = shape
+                .get("to_shape_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            edges.push((shape_id, from_id, to_id));
+        }
+
+        if kind == "group" {
+            let shape_id = spatial_shape_id(shape).unwrap_or("unknown").to_string();
+            let members = shape
+                .get("member_ids")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            groups.push((shape_id, members));
+        }
+    }
+
+    for (edge_id, from_id, to_id) in edges {
+        if !nodes.contains(&from_id) || !nodes.contains(&to_id) {
+            errors.push(ViewSpecValidationIssue {
+                code: "invalid_spatial_plane".to_string(),
+                path: format!("{comp_path}.props.commands"),
+                message: format!(
+                    "SpatialPlane edge '{edge_id}' has unknown node reference ('{from_id}' -> '{to_id}')."
+                ),
+            });
+        }
+    }
+
+    for (group_id, members) in groups {
+        for member in members {
+            if !nodes.contains(&member) {
+                errors.push(ViewSpecValidationIssue {
+                    code: "invalid_spatial_plane".to_string(),
+                    path: format!("{comp_path}.props.commands"),
+                    message: format!("SpatialPlane group '{group_id}' has unknown member '{member}'."),
+                });
+            }
+        }
+    }
 }
 
 pub fn validate_viewspec(spec: &ViewSpecV1) -> ViewSpecValidationResult {
@@ -156,6 +277,10 @@ pub fn validate_viewspec(spec: &ViewSpecV1) -> ViewSpecValidationResult {
                         .to_string(),
                 });
             }
+        }
+
+        if component.component_type == "SpatialPlane" {
+            validate_spatial_plane_component(component, &comp_path, &mut errors);
         }
     }
 
@@ -466,4 +591,169 @@ fn layout_from_components(components: &[ComponentRef]) -> LayoutGraph {
     }
 
     LayoutGraph { nodes, edges }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn base_spec(component_refs: Vec<ComponentRef>) -> ViewSpecV1 {
+        ViewSpecV1 {
+            schema_version: VIEW_SPEC_SCHEMA_VERSION.to_string(),
+            view_spec_id: "viewspec_spatial".to_string(),
+            scope: ViewSpecScope {
+                space_id: Some("meta".to_string()),
+                route_id: Some("/labs/spatial".to_string()),
+                role: Some("operator".to_string()),
+            },
+            intent: "Spatial execution".to_string(),
+            constraints: Vec::new(),
+            layout_graph: layout_from_components(&component_refs),
+            style_tokens: BTreeMap::new(),
+            component_refs,
+            confidence: ViewSpecConfidence {
+                score: 0.7,
+                rationale: "test".to_string(),
+            },
+            lineage: Default::default(),
+            policy: default_viewspec_policy(),
+            provenance: ViewSpecProvenance {
+                created_by: "tester".to_string(),
+                created_at: "2026-04-01T00:00:00Z".to_string(),
+                source_mode: "human".to_string(),
+            },
+            lock: None,
+        }
+    }
+
+    #[test]
+    fn validate_viewspec_accepts_spatial_plane_component() {
+        let spec = base_spec(vec![ComponentRef {
+            component_id: "plane".to_string(),
+            component_type: "SpatialPlane".to_string(),
+            props: BTreeMap::from([(
+                "plane_id".to_string(),
+                json!("plane-1"),
+            ), (
+                "surface_class".to_string(),
+                json!("execution"),
+            ), (
+                "commands".to_string(),
+                json!([
+                    {
+                        "op": "create_shape",
+                        "shape": {
+                            "id": "node-1",
+                            "kind": "node",
+                            "node_class": "input",
+                            "status": "idle",
+                            "x": 120,
+                            "y": 80,
+                            "ports": [{ "id": "out", "side": "right", "direction": "out" }]
+                        }
+                    },
+                    {
+                        "op": "create_shape",
+                        "shape": {
+                            "id": "node-2",
+                            "kind": "node",
+                            "node_class": "tool",
+                            "status": "running",
+                            "x": 360,
+                            "y": 80,
+                            "ports": [{ "id": "in", "side": "left", "direction": "in" }]
+                        }
+                    },
+                    {
+                        "op": "create_shape",
+                        "shape": {
+                            "id": "edge-1",
+                            "kind": "edge",
+                            "edge_class": "data",
+                            "x": 240,
+                            "y": 110,
+                            "from_shape_id": "node-1",
+                            "to_shape_id": "node-2",
+                            "from_port_id": "out",
+                            "to_port_id": "in"
+                        }
+                    }
+                ]),
+            )]),
+            a11y: Some(ViewSpecA11y {
+                label: Some("Spatial execution plane".to_string()),
+                ..ViewSpecA11y::default()
+            }),
+            children: Vec::new(),
+        }]);
+
+        let validation = validate_viewspec(&spec);
+        assert!(validation.valid, "{validation:?}");
+
+        let compiled = compile_viewspec_to_render_surface(&spec).expect("compile spatial plane");
+        let components = compiled
+            .get("components")
+            .and_then(Value::as_array)
+            .expect("components array");
+        assert_eq!(components[0].get("type").and_then(Value::as_str), Some("SpatialPlane"));
+    }
+
+    #[test]
+    fn validate_viewspec_rejects_spatial_plane_with_unknown_edge_ref_and_duplicate_ports() {
+        let spec = base_spec(vec![ComponentRef {
+            component_id: "plane".to_string(),
+            component_type: "SpatialPlane".to_string(),
+            props: BTreeMap::from([(
+                "plane_id".to_string(),
+                json!("plane-1"),
+            ), (
+                "surface_class".to_string(),
+                json!("execution"),
+            ), (
+                "commands".to_string(),
+                json!([
+                    {
+                        "op": "create_shape",
+                        "shape": {
+                            "id": "node-1",
+                            "kind": "node",
+                            "node_class": "tool",
+                            "status": "idle",
+                            "x": 120,
+                            "y": 80,
+                            "ports": [
+                                { "id": "dup", "side": "left", "direction": "in" },
+                                { "id": "dup", "side": "right", "direction": "out" }
+                            ]
+                        }
+                    },
+                    {
+                        "op": "create_shape",
+                        "shape": {
+                            "id": "edge-1",
+                            "kind": "edge",
+                            "edge_class": "control",
+                            "x": 240,
+                            "y": 110,
+                            "from_shape_id": "node-1",
+                            "to_shape_id": "missing-node"
+                        }
+                    }
+                ]),
+            )]),
+            a11y: Some(ViewSpecA11y {
+                label: Some("Spatial execution plane".to_string()),
+                ..ViewSpecA11y::default()
+            }),
+            children: Vec::new(),
+        }]);
+
+        let validation = validate_viewspec(&spec);
+        assert!(!validation.valid);
+        assert!(validation
+            .errors
+            .iter()
+            .any(|error| error.code == "invalid_spatial_plane"));
+    }
 }

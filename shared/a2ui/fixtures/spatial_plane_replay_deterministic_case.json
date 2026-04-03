@@ -1,0 +1,108 @@
+{
+  "id": "spatial_plane_replay_deterministic_case_v1",
+  "description": "Deterministic replay case for SpatialPlane command streams.",
+  "input": {
+    "plane_id": "replay-case-1",
+    "surface_class": "execution",
+    "focus_bounds": {
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 520
+    },
+    "commands": [
+      {
+        "op": "create_shape",
+        "shape": {
+          "id": "n1",
+          "kind": "note",
+          "x": 120,
+          "y": 80,
+          "w": 200,
+          "h": 100,
+          "text": "Draft proposal"
+        }
+      },
+      {
+        "op": "create_shape",
+        "shape": {
+          "id": "n2",
+          "kind": "note",
+          "x": 430,
+          "y": 230,
+          "w": 200,
+          "h": 100,
+          "text": "Steward review"
+        }
+      },
+      {
+        "op": "create_shape",
+        "shape": {
+          "id": "a1",
+          "kind": "arrow",
+          "x": 320,
+          "y": 130,
+          "to_x": 430,
+          "to_y": 260
+        }
+      },
+      {
+        "op": "update_shape",
+        "shape": {
+          "id": "n2",
+          "kind": "note",
+          "x": 430,
+          "y": 230,
+          "w": 210,
+          "h": 110,
+          "text": "Steward review (updated)"
+        }
+      },
+      {
+        "op": "delete_shape",
+        "shape_id": "a1"
+      },
+      {
+        "op": "create_shape",
+        "shape": {
+          "id": "n3",
+          "kind": "note",
+          "x": 640,
+          "y": 80,
+          "w": 130,
+          "h": 90,
+          "text": "Ratify"
+        }
+      }
+    ]
+  },
+  "expected_final_shapes": [
+    {
+      "id": "n1",
+      "kind": "note",
+      "x": 120,
+      "y": 80,
+      "w": 200,
+      "h": 100,
+      "text": "Draft proposal"
+    },
+    {
+      "id": "n2",
+      "kind": "note",
+      "x": 430,
+      "y": 230,
+      "w": 210,
+      "h": 110,
+      "text": "Steward review (updated)"
+    },
+    {
+      "id": "n3",
+      "kind": "note",
+      "x": 640,
+      "y": 80,
+      "w": 130,
+      "h": 90,
+      "text": "Ratify"
+    }
+  ]
+}
