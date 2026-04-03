@@ -322,6 +322,10 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/auth-bindings"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/brand-policy"
     },
     {
@@ -351,6 +355,10 @@
     {
       "method": "GET",
       "path": "/api/system/decision/telemetry"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/execution-bindings"
     },
     {
       "method": "GET",
@@ -390,11 +398,31 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/provider-discovery"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/provider-inventory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/provider-runtime/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/providers"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/ready"
     },
     {
       "method": "GET",
       "path": "/api/system/replay-contract/:mutation_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/runtime-hosts"
     },
     {
       "method": "GET",
@@ -802,6 +830,10 @@
     },
     {
       "method": "POST",
+      "path": "/api/system/auth-bindings"
+    },
+    {
+      "method": "POST",
       "path": "/api/system/decision/ack"
     },
     {
@@ -826,6 +858,14 @@
     },
     {
       "method": "POST",
+      "path": "/api/system/providers/discover"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/providers/validate"
+    },
+    {
+      "method": "POST",
       "path": "/api/workflow/read"
     },
     {
@@ -843,6 +883,18 @@
     {
       "method": "PUT",
       "path": "/api/spaces/:space_id/capability-graph"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/auth-bindings/:auth_binding_id"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/provider-bindings/:binding_id"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/providers/:provider_id"
     }
   ]
 }

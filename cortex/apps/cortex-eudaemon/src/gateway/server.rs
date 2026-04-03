@@ -49,6 +49,7 @@ use crate::services::llm_adapter::tool_loop::{builtin_tools, run_responses_tool_
 use crate::services::ops_agents::{AgentContributionApprovalRequest, AgentRunRecord};
 #[cfg(test)]
 use crate::services::ops_flows::{WorkflowAutomationDescriptor, WorkflowCatalogEntry};
+use crate::services::provider_probe::ProviderProbeRequest;
 use crate::services::siq_types::{
     SiqCoverage, SiqDependencyClosure, SiqGateSummary, SiqGraphProjection, SiqHealth,
     SiqRunArtifact,
@@ -143,8 +144,8 @@ use cortex_domain::simulation::session::{
     SimulationAction as DomainSimulationAction, run_deterministic_session as run_domain_session,
 };
 use cortex_domain::ux::{
-    CompilationContext, CompiledActionPlanRequest, CompiledSurfacingPlan,
-    compile_action_plan, compile_navigation_plan,
+    CompilationContext, CompiledActionPlanRequest, CompiledSurfacingPlan, compile_action_plan,
+    compile_navigation_plan,
 };
 use cortex_domain::workflow::{
     WORKFLOW_CANDIDATE_SET_INDEX_KEY, WORKFLOW_INDEX_KEY, WorkflowCandidateEnvelope,
@@ -3078,6 +3079,48 @@ impl GatewayService {
             .route("/api/system/ready", get(get_system_ready))
             .route("/api/system/build", get(get_system_build))
             .route(
+                "/api/system/provider-runtime/status",
+                get(get_system_provider_runtime_status),
+            )
+            .route(
+                "/api/system/provider-inventory",
+                get(get_system_provider_inventory),
+            )
+            .route("/api/system/runtime-hosts", get(get_system_runtime_hosts))
+            .route(
+                "/api/system/execution-bindings",
+                get(get_system_execution_bindings),
+            )
+            .route(
+                "/api/system/provider-discovery",
+                get(get_system_provider_discovery),
+            )
+            .route("/api/system/providers", get(get_system_providers))
+            .route(
+                "/api/system/providers/discover",
+                post(post_system_providers_discover),
+            )
+            .route(
+                "/api/system/providers/validate",
+                post(post_system_provider_validate),
+            )
+            .route(
+                "/api/system/providers/:provider_id",
+                put(put_system_provider),
+            )
+            .route(
+                "/api/system/provider-bindings/:binding_id",
+                put(put_system_provider_binding),
+            )
+            .route(
+                "/api/system/auth-bindings",
+                get(get_system_auth_bindings).post(post_system_auth_binding),
+            )
+            .route(
+                "/api/system/auth-bindings/:auth_binding_id",
+                put(put_system_auth_binding),
+            )
+            .route(
                 "/api/system/llm-adapter/status",
                 get(get_system_llm_adapter_status),
             )
@@ -4783,7 +4826,7 @@ fn closeout_task_is_overdue(task: &CortexCloseoutTaskRecord, as_of: DateTime<Utc
         .unwrap_or(false)
 }
 
-fn cortex_ux_error(
+pub(crate) fn cortex_ux_error(
     status: StatusCode,
     code: &str,
     message: &str,
@@ -4845,7 +4888,7 @@ fn idempotency_key_from_headers(headers: &HeaderMap) -> Option<String> {
 }
 
 #[derive(Debug, Clone)]
-struct ResolvedActorIdentity {
+pub(crate) struct ResolvedActorIdentity {
     principal: Option<String>,
     role: String,
     claims: Vec<String>,
@@ -5033,7 +5076,7 @@ fn resolve_authz_identity(
     })
 }
 
-async fn enforce_role_authorization(
+pub(crate) async fn enforce_role_authorization(
     headers: &HeaderMap,
     endpoint: &str,
     space_id: Option<&str>,
@@ -13959,9 +14002,7 @@ fn maybe_emit_initiative_kickoff_follow_up_task(
         .surface_json
         .get("structured_data")
         .and_then(Value::as_object)?;
-    if structured
-        .get("solicitation_kind")
-        .and_then(Value::as_str)
+    if structured.get("solicitation_kind").and_then(Value::as_str)
         != Some("initiative_kickoff_approval")
     {
         return None;
@@ -14065,13 +14106,9 @@ fn maybe_emit_initiative_kickoff_follow_up_task(
     });
 
     let emit_request = parse_emit_heap_block(payload).ok()?;
-    emit_heap_block_core(
-        emit_request,
-        actor_id.to_string(),
-        actor_role.to_string(),
-    )
-    .ok()
-    .map(|response| response.artifact_id)
+    emit_heap_block_core(emit_request, actor_id.to_string(), actor_role.to_string())
+        .ok()
+        .map(|response| response.artifact_id)
 }
 
 async fn post_cortex_heap_steward_gate_validate(
@@ -18005,7 +18042,7 @@ fn decision_actions_dir() -> PathBuf {
     decision_surface_log_dir().join("actions")
 }
 
-fn sanitize_fs_component(raw: &str) -> String {
+pub(crate) fn sanitize_fs_component(raw: &str) -> String {
     raw.trim()
         .chars()
         .map(|ch| {
@@ -18043,7 +18080,7 @@ fn persist_json(path: &FsPath, value: &Value) -> Result<(), String> {
     fs::write(path, bytes).map_err(|err| err.to_string())
 }
 
-fn now_iso() -> String {
+pub(crate) fn now_iso() -> String {
     Utc::now().to_rfc3339()
 }
 
@@ -21905,7 +21942,11 @@ fn icp_network_healthy() -> bool {
 
 fn ic_cli_version_output() -> String {
     let preferred = preferred_ic_cli_bin();
-    let fallback = if preferred == "icp" { Some("dfx") } else { None };
+    let fallback = if preferred == "icp" {
+        Some("dfx")
+    } else {
+        None
+    };
 
     let mut candidates = vec![preferred];
     if let Some(fallback_bin) = fallback {
@@ -21978,6 +22019,92 @@ async fn get_system_build() -> Json<SystemBuild> {
         gateway_port,
         workspace_root: dpub_workspace_root(None).display().to_string(),
     })
+}
+
+async fn get_system_providers(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_providers(headers).await
+}
+
+async fn post_system_providers_discover(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::post_system_providers_discover(headers).await
+}
+
+async fn post_system_provider_validate(
+    headers: HeaderMap,
+    Json(payload): Json<ProviderProbeRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::post_system_provider_validate(headers, Json(payload))
+        .await
+}
+
+async fn put_system_provider(
+    headers: HeaderMap,
+    Path(provider_id): Path<String>,
+    Json(payload): Json<crate::gateway::provider_admin::contracts::PutSystemProviderRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::put_system_provider(
+        headers,
+        Path(provider_id),
+        Json(payload),
+    )
+    .await
+}
+
+async fn put_system_provider_binding(
+    headers: HeaderMap,
+    Path(binding_id): Path<String>,
+    Json(payload): Json<crate::gateway::provider_admin::contracts::PutSystemProviderBindingRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::put_system_provider_binding(
+        headers,
+        Path(binding_id),
+        Json(payload),
+    )
+    .await
+}
+
+async fn post_system_auth_binding(
+    headers: HeaderMap,
+    Json(payload): Json<crate::gateway::provider_admin::contracts::CreateAuthBindingRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::post_system_auth_binding(headers, Json(payload)).await
+}
+
+async fn put_system_auth_binding(
+    headers: HeaderMap,
+    Path(auth_binding_id): Path<String>,
+    Json(payload): Json<crate::gateway::provider_admin::contracts::UpdateAuthBindingRequest>,
+) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::put_system_auth_binding(
+        headers,
+        Path(auth_binding_id),
+        Json(payload),
+    )
+    .await
+}
+
+async fn get_system_provider_runtime_status(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_provider_runtime_status(headers).await
+}
+
+async fn get_system_provider_inventory(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_provider_inventory(headers).await
+}
+
+async fn get_system_runtime_hosts(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_runtime_hosts(headers).await
+}
+
+async fn get_system_auth_bindings(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_auth_bindings(headers).await
+}
+
+async fn get_system_execution_bindings(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_execution_bindings(headers).await
+}
+
+async fn get_system_provider_discovery(headers: HeaderMap) -> axum::response::Response {
+    crate::gateway::provider_admin::routes::get_system_provider_discovery(headers).await
 }
 
 async fn get_system_llm_adapter_status() -> axum::response::Response {
@@ -23048,7 +23175,11 @@ async fn get_system_capability_graph() -> impl IntoResponse {
             domain: Some("pattern".to_string()),
             locked_reason: locked_reason(required_role.as_deref()),
             visibility_state: Some(visibility_state(required_role.as_deref())),
-            health: Some(if pattern.label.contains("Log") { "warning".to_string() } else { "healthy".to_string() }),
+            health: Some(if pattern.label.contains("Log") {
+                "warning".to_string()
+            } else {
+                "healthy".to_string()
+            }),
             priority: Some("normal".to_string()),
             inspector: Some(SystemCapabilityNodeInspector {
                 route_id: None,
@@ -23451,9 +23582,8 @@ async fn post_create_space(
         .unwrap_or("")
         .trim()
         .to_string();
-    let governance_scope = normalize_space_governance_scope(
-        payload.get("governance_scope").and_then(|v| v.as_str()),
-    );
+    let governance_scope =
+        normalize_space_governance_scope(payload.get("governance_scope").and_then(|v| v.as_str()));
     let owner = payload
         .get("owner")
         .and_then(|v| v.as_str())
@@ -23552,7 +23682,9 @@ async fn post_create_space(
         draft_source_mode,
         lineage_note,
         governance_scope: Some(governance_scope.to_string()),
-        visibility_state: Some(visibility_state_for_space_governance_scope(governance_scope).to_string()),
+        visibility_state: Some(
+            visibility_state_for_space_governance_scope(governance_scope).to_string(),
+        ),
         capability_graph_uri: Some(graph_uri.clone()),
         capability_graph_version: Some(initial_graph.base_catalog_version.clone()),
         capability_graph_hash: Some(graph_hash.clone()),
@@ -25119,9 +25251,7 @@ async fn handle_stream_telemetry_socket(socket: WebSocket) {
         }
     });
 
-    let mut recv_task = tokio::spawn(async move {
-        while let Some(_) = receiver.next().await {}
-    });
+    let mut recv_task = tokio::spawn(async move { while let Some(_) = receiver.next().await {} });
 
     tokio::select! {
         _ = (&mut send_task) => recv_task.abort(),
@@ -32896,10 +33026,15 @@ mod tests {
             status: cortex_domain::spaces::SpaceStatus::Active,
             created_at: "1700000005".to_string(),
             owner: "agent:eudaemon-alpha-01".to_string(),
-            members: vec!["systems-steward".to_string(), "agent:eudaemon-alpha-01".to_string()],
+            members: vec![
+                "systems-steward".to_string(),
+                "agent:eudaemon-alpha-01".to_string(),
+            ],
             archetype: Some("Research".to_string()),
         });
-        registry.save_to_path(&registry_path).expect("save registry");
+        registry
+            .save_to_path(&registry_path)
+            .expect("save registry");
 
         let response = get_spaces().await.into_response();
         assert_eq!(response.status(), StatusCode::OK);
@@ -33861,7 +33996,10 @@ mod tests {
         assert_eq!(query_response.status(), StatusCode::OK);
         let query_body = response_json(query_response).await;
         assert_eq!(query_body["count"], 1);
-        assert_eq!(query_body["items"][0]["projection"]["artifactId"], follow_up_artifact_id);
+        assert_eq!(
+            query_body["items"][0]["projection"]["artifactId"],
+            follow_up_artifact_id
+        );
         assert_eq!(
             query_body["items"][0]["projection"]["attributes"]["kickoff_approval_artifact_id"],
             parent_artifact_id
@@ -33870,7 +34008,10 @@ mod tests {
             query_body["items"][0]["projection"]["attributes"]["kickoff_approved_by"],
             "systems-steward"
         );
-        assert_eq!(query_body["items"][0]["surfaceJson"]["payload_type"], "task");
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["payload_type"],
+            "task"
+        );
         assert_eq!(
             query_body["items"][0]["surfaceJson"]["task"],
             "# Initiative 078 Kickoff\n- [ ] Read the plan."
@@ -34013,7 +34154,10 @@ mod tests {
         assert_eq!(query_response.status(), StatusCode::OK);
         let query_body = response_json(query_response).await;
         assert_eq!(query_body["count"], 1);
-        assert_eq!(query_body["items"][0]["projection"]["artifactId"], follow_up_artifact_id);
+        assert_eq!(
+            query_body["items"][0]["projection"]["artifactId"],
+            follow_up_artifact_id
+        );
     }
 
     #[tokio::test]
@@ -34077,7 +34221,10 @@ mod tests {
         assert_eq!(query_response.status(), StatusCode::OK);
         let query_body = response_json(query_response).await;
         assert_eq!(query_body["count"], 1);
-        assert_eq!(query_body["items"][0]["projection"]["artifactId"], follow_up_artifact_id);
+        assert_eq!(
+            query_body["items"][0]["projection"]["artifactId"],
+            follow_up_artifact_id
+        );
         assert_eq!(
             query_body["items"][0]["projection"]["attributes"]["initiative_id"],
             "132"
@@ -36302,6 +36449,230 @@ mod tests {
             invalid_get_body["errorCode"],
             "INVALID_SPATIAL_EXPERIMENT_RUN_ID"
         );
+    }
+
+    #[tokio::test]
+    async fn system_provider_inventory_requires_operator_and_returns_live_snapshot() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("_system").join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+
+        {
+            let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "0");
+            let _allow_unverified =
+                EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "0");
+            let denied = get_system_provider_inventory(HeaderMap::new()).await;
+            assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+            let denied_body = response_json(denied).await;
+            assert_eq!(
+                denied_body["errorCode"],
+                "SYSTEM_PROVIDER_INVENTORY_READ_FORBIDDEN"
+            );
+        }
+
+        let allowed =
+            get_system_provider_inventory(role_headers("operator", "systems-operator")).await;
+        assert_eq!(allowed.status(), StatusCode::OK);
+        let allowed_body = response_json(allowed).await;
+        assert_eq!(allowed_body["schemaVersion"], "1.0.0");
+        assert!(allowed_body["providers"].is_array());
+    }
+
+    #[tokio::test]
+    async fn system_auth_binding_persists_and_links_provider_state() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("_system").join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+
+        let response = post_system_auth_binding(
+            role_headers("operator", "systems-operator"),
+            Json(
+                crate::gateway::provider_admin::contracts::CreateAuthBindingRequest {
+                    target_id: Some("openai_primary".to_string()),
+                    target_kind: Some("provider".to_string()),
+                    auth_binding_id: Some("auth_openai_primary".to_string()),
+                    auth_type: Some("api_key".to_string()),
+                    label: Some("Primary OpenAI".to_string()),
+                    source: Some("manual".to_string()),
+                    api_key: Some("sk-test".to_string()),
+                    metadata: BTreeMap::new(),
+                },
+            ),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["authBindingId"], "auth_openai_primary");
+        assert_eq!(body["targetId"], "openai_primary");
+        assert_eq!(body["hasSecret"], true);
+
+        let persisted = crate::services::provider_runtime::config::load_provider_registry_state()
+            .expect("provider registry state");
+        assert!(
+            persisted
+                .auth_bindings
+                .iter()
+                .any(|binding| binding.auth_binding_id == "auth_openai_primary")
+        );
+        let linked_provider = persisted
+            .providers
+            .iter()
+            .find(|provider| provider.provider_id == "openai_primary")
+            .expect("linked provider record");
+        assert_eq!(
+            linked_provider.auth_binding_id.as_deref(),
+            Some("auth_openai_primary")
+        );
+
+        let inventory =
+            get_system_auth_bindings(role_headers("operator", "systems-operator")).await;
+        assert_eq!(inventory.status(), StatusCode::OK);
+        let inventory_body = response_json(inventory).await;
+        assert!(
+            inventory_body["authBindings"]
+                .as_array()
+                .expect("auth bindings array")
+                .iter()
+                .any(|binding| binding["authBindingId"] == "auth_openai_primary")
+        );
+    }
+
+    #[tokio::test]
+    async fn system_provider_update_sets_default_execution_binding_and_surfaces_provider() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("_system").join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _api_key_guard = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_API_KEY", "sk-env-provider");
+
+        crate::services::provider_runtime::config::save_provider_registry_state(
+            &crate::services::provider_runtime::config::ProviderRegistryState {
+                providers: Vec::new(),
+                runtime_hosts: vec![
+                    crate::services::provider_runtime::config::RuntimeHostRecord {
+                        host_id: "host.managed.openai_primary".to_string(),
+                        name: "Managed OpenAI".to_string(),
+                        host_kind:
+                            crate::services::provider_runtime::config::RuntimeHostKind::Managed,
+                        endpoint: "https://api.openai.com/v1".to_string(),
+                        locality_kind:
+                            crate::services::provider_runtime::config::ProviderLocalityKind::Cloud,
+                        device_id: None,
+                        environment_id: Some("production".to_string()),
+                        health: None,
+                        capabilities: vec!["provider-runtime".to_string()],
+                        remote_discovery_enabled: false,
+                        execution_routable: true,
+                        updated_at: Some(now_iso()),
+                        metadata: BTreeMap::new(),
+                    },
+                ],
+                auth_bindings: Vec::new(),
+                execution_bindings: Vec::new(),
+                discovery: Vec::new(),
+            },
+        )
+        .expect("seed provider state");
+
+        let response = put_system_provider(
+            role_headers("operator", "systems-operator"),
+            Path("openai_primary".to_string()),
+            Json(
+                crate::gateway::provider_admin::contracts::PutSystemProviderRequest {
+                    name: Some("Primary OpenAI".to_string()),
+                    endpoint: Some("https://api.openai.com/v1".to_string()),
+                    enabled: Some(true),
+                    default_model: Some("gpt-5.4".to_string()),
+                    provider_type: Some("Llm".to_string()),
+                    host_id: Some("host.managed.openai_primary".to_string()),
+                    auth_binding_id: None,
+                    provider_kind: Some("OpenAI".to_string()),
+                    set_as_default_llm: Some(true),
+                    supported_models: vec!["gpt-5.4".to_string()],
+                    metadata: BTreeMap::new(),
+                },
+            ),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let bindings =
+            get_system_execution_bindings(role_headers("operator", "systems-operator")).await;
+        assert_eq!(bindings.status(), StatusCode::OK);
+        let bindings_body = response_json(bindings).await;
+        assert_eq!(
+            bindings_body["executionBindings"]
+                .as_array()
+                .map(|v| v.len()),
+            Some(1)
+        );
+        assert_eq!(
+            bindings_body["executionBindings"][0]["bindingId"],
+            "llm.default"
+        );
+        assert_eq!(
+            bindings_body["executionBindings"][0]["boundProviderId"],
+            "openai_primary"
+        );
+
+        let providers = get_system_providers(role_headers("operator", "systems-operator")).await;
+        assert_eq!(providers.status(), StatusCode::OK);
+        let providers_body = response_json(providers).await;
+        let provider = providers_body["providers"]
+            .as_array()
+            .expect("providers array")
+            .iter()
+            .find(|candidate| candidate["id"] == "openai_primary")
+            .expect("openai provider");
+        assert_eq!(provider["defaultModel"], "gpt-5.4");
+        assert_eq!(provider["endpoint"], "https://api.openai.com/v1");
+        assert!(
+            provider["bindingIds"]
+                .as_array()
+                .expect("binding ids")
+                .iter()
+                .any(|value| value == "llm.default")
+        );
+    }
+
+    #[tokio::test]
+    async fn system_provider_runtime_status_reflects_disabled_runtime_config() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let state_path = temp.path().join("_system").join("providers.json");
+        let _state_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_STATE_PATH",
+            state_path.display().to_string().as_str(),
+        );
+        let _enabled_guard = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_ENABLED", "0");
+        let _url_guard = EnvVarGuard::set(
+            "CORTEX_PROVIDER_RUNTIME_URL",
+            "https://adapter.example.invalid",
+        );
+        let _fail_mode_guard = EnvVarGuard::set("CORTEX_PROVIDER_RUNTIME_FAIL_MODE", "fail_closed");
+        let _model_guard = EnvVarGuard::set("NOSTRA_AGENT_MODEL", "gpt-5.4");
+
+        let response =
+            get_system_provider_runtime_status(role_headers("operator", "systems-operator")).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["enabled"], false);
+        assert_eq!(body["baseUrl"], "https://adapter.example.invalid");
+        assert_eq!(body["bindingId"], "llm.default");
+        assert_eq!(body["failMode"], "fail_closed");
+        assert_eq!(body["model"], "gpt-5.4");
+        assert!(body["providerId"].is_string());
     }
 
     #[test]

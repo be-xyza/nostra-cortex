@@ -1,0 +1,27 @@
+{
+  "case_id": "put_api_system_provider_bindings_param_binding_id",
+  "class": "system",
+  "request": {
+    "method": "PUT",
+    "path": "/api/system/provider-bindings/:binding_id"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "PUT",
+    "path": "/api/system/provider-bindings/:binding_id"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "PUT",
+    "path": "/api/system/provider-bindings/:binding_id"
+  }
+}
