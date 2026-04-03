@@ -34,6 +34,8 @@ import type {
   SpaceCreateRequest,
   SpaceCreateResponse,
   SpacesListResponse,
+  SpatialPlaneLayoutResponse,
+  SpatialPlaneLayoutV1,
   SpatialExperimentEventRequest,
   SpatialExperimentEventResponse,
   SpatialExperimentRunSummary,
@@ -278,6 +280,18 @@ export const workbenchApi = {
     }),
   getSpatialExperimentRun: (runId: string) =>
     request<SpatialExperimentRunSummary>(`/api/cortex/viewspecs/experiments/spatial/runs/${runId}`),
+  getSpatialPlaneLayout: (spaceId: string, viewSpecId: string) =>
+    request<SpatialPlaneLayoutResponse>(
+      `/api/cortex/viewspecs/spatial/layouts/${encodeURIComponent(spaceId)}/${encodeURIComponent(viewSpecId)}`
+    ),
+  saveSpatialPlaneLayout: (spaceId: string, viewSpecId: string, payload: SpatialPlaneLayoutV1) =>
+    request<SpatialPlaneLayoutResponse>(
+      `/api/cortex/viewspecs/spatial/layouts/${encodeURIComponent(spaceId)}/${encodeURIComponent(viewSpecId)}`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload)
+      }
+    ),
   exportStewardPacket: (
     payload: DpubStewardPacketExportRequest,
     actorRole: string,

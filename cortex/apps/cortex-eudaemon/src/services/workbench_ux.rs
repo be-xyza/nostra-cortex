@@ -40,6 +40,7 @@ pub struct WorkbenchQuery {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WorkbenchSurfaceKind {
     Labs,
+    ExecutionCanvas,
     System,
     Siq,
     Testing,
@@ -67,6 +68,11 @@ const WORKBENCH_SURFACE_REGISTRY: &[WorkbenchSurfaceRegistration] = &[
     WorkbenchSurfaceRegistration {
         route_id: "/labs",
         kind: WorkbenchSurfaceKind::Labs,
+        allow_generic_surface: false,
+    },
+    WorkbenchSurfaceRegistration {
+        route_id: "/labs/execution-canvas",
+        kind: WorkbenchSurfaceKind::ExecutionCanvas,
         allow_generic_surface: false,
     },
     WorkbenchSurfaceRegistration {
@@ -491,6 +497,7 @@ async fn render_registered_workbench_surface(
 ) -> ViewSpecV1 {
     match registration.kind {
         WorkbenchSurfaceKind::Labs => generate_labs_directory_viewspec(),
+        WorkbenchSurfaceKind::ExecutionCanvas => generate_execution_canvas_viewspec(space_id),
         WorkbenchSurfaceKind::System => generate_system_viewspec(node_id, intent, density),
         WorkbenchSurfaceKind::Siq => generate_siq_viewspec(space_id, intent, density).await,
         WorkbenchSurfaceKind::Testing => generate_testing_viewspec(space_id, intent, density).await,
@@ -804,7 +811,7 @@ fn generate_labs_directory_viewspec() -> ViewSpecV1 {
             component_type: "Heading".to_string(),
             props: BTreeMap::from([(
                 "text".to_string(),
-                Value::String("UX Labs Directory".to_string()),
+                Value::String("Labs".to_string()),
             )]),
             a11y: None,
             children: vec![],
@@ -815,18 +822,97 @@ fn generate_labs_directory_viewspec() -> ViewSpecV1 {
             props: BTreeMap::from([(
                 "text".to_string(),
                 Value::String(
-                    "Historical Nostra experiments and programmable identity controls.".to_string(),
+                    "Draft and compare execution-oriented surfaces here before they become durable operator tools."
+                        .to_string(),
                 ),
             )]),
             a11y: None,
             children: vec![],
         },
         ComponentRef {
-            component_id: "branding_labs_widget".to_string(),
-            component_type: "Container".to_string(),
+            component_id: "space_studio_heading".to_string(),
+            component_type: "Heading".to_string(),
             props: BTreeMap::from([(
-                "widgetType".to_string(),
-                Value::String("BrandingLabsWidget".to_string()),
+                "text".to_string(),
+                Value::String("Space Studio".to_string()),
+            )]),
+            a11y: None,
+            children: vec![],
+        },
+        ComponentRef {
+            component_id: "space_studio_desc".to_string(),
+            component_type: "Text".to_string(),
+            props: BTreeMap::from([(
+                "text".to_string(),
+                Value::String(
+                    "Draft a new space, test its shape, and decide later whether it should become a live space or a reusable template."
+                        .to_string(),
+                ),
+            )]),
+            a11y: None,
+            children: vec![],
+        },
+        ComponentRef {
+            component_id: "space_studio_open".to_string(),
+            component_type: "Button".to_string(),
+            props: BTreeMap::from([
+                (
+                    "label".to_string(),
+                    Value::String("Open Space Studio".to_string()),
+                ),
+                ("href".to_string(), Value::String("/labs/space-studio".to_string())),
+            ]),
+            a11y: None,
+            children: vec![],
+        },
+        ComponentRef {
+            component_id: "execution_canvas_heading".to_string(),
+            component_type: "Heading".to_string(),
+            props: BTreeMap::from([(
+                "text".to_string(),
+                Value::String("Execution Canvas".to_string()),
+            )]),
+            a11y: None,
+            children: vec![],
+        },
+        ComponentRef {
+            component_id: "execution_canvas_desc".to_string(),
+            component_type: "Text".to_string(),
+            props: BTreeMap::from([(
+                "text".to_string(),
+                Value::String(
+                    "Prototype execution flows on a governed spatial canvas before they become workflow-backed projections."
+                        .to_string(),
+                ),
+            )]),
+            a11y: None,
+            children: vec![],
+        },
+        ComponentRef {
+            component_id: "execution_canvas_open".to_string(),
+            component_type: "Button".to_string(),
+            props: BTreeMap::from([
+                (
+                    "label".to_string(),
+                    Value::String("Open Execution Canvas".to_string()),
+                ),
+                (
+                    "href".to_string(),
+                    Value::String("/labs/execution-canvas".to_string()),
+                ),
+            ]),
+            a11y: None,
+            children: vec![],
+        },
+        ComponentRef {
+            component_id: "labs_promotion".to_string(),
+            component_type: "Text".to_string(),
+            props: BTreeMap::from([(
+                "text".to_string(),
+                Value::String(
+                    "Drafts stay in Labs until a steward promotes the pattern into a broader operating surface."
+                        .to_string(),
+                ),
             )]),
             a11y: None,
             children: vec![],
@@ -848,7 +934,37 @@ fn generate_labs_directory_viewspec() -> ViewSpecV1 {
             LayoutNode {
                 node_id: "node_3".to_string(),
                 role: "content".to_string(),
-                component_ref_id: "branding_labs_widget".to_string(),
+                component_ref_id: "space_studio_heading".to_string(),
+            },
+            LayoutNode {
+                node_id: "node_4".to_string(),
+                role: "content".to_string(),
+                component_ref_id: "space_studio_desc".to_string(),
+            },
+            LayoutNode {
+                node_id: "node_5".to_string(),
+                role: "actions".to_string(),
+                component_ref_id: "space_studio_open".to_string(),
+            },
+            LayoutNode {
+                node_id: "node_6".to_string(),
+                role: "content".to_string(),
+                component_ref_id: "execution_canvas_heading".to_string(),
+            },
+            LayoutNode {
+                node_id: "node_7".to_string(),
+                role: "content".to_string(),
+                component_ref_id: "execution_canvas_desc".to_string(),
+            },
+            LayoutNode {
+                node_id: "node_8".to_string(),
+                role: "actions".to_string(),
+                component_ref_id: "execution_canvas_open".to_string(),
+            },
+            LayoutNode {
+                node_id: "node_9".to_string(),
+                role: "status".to_string(),
+                component_ref_id: "labs_promotion".to_string(),
             },
         ],
         edges: vec![
@@ -860,6 +976,36 @@ fn generate_labs_directory_viewspec() -> ViewSpecV1 {
             LayoutEdge {
                 from: "node_2".to_string(),
                 to: "node_3".to_string(),
+                relation: "flows_to".to_string(),
+            },
+            LayoutEdge {
+                from: "node_3".to_string(),
+                to: "node_4".to_string(),
+                relation: "flows_to".to_string(),
+            },
+            LayoutEdge {
+                from: "node_4".to_string(),
+                to: "node_5".to_string(),
+                relation: "flows_to".to_string(),
+            },
+            LayoutEdge {
+                from: "node_5".to_string(),
+                to: "node_6".to_string(),
+                relation: "flows_to".to_string(),
+            },
+            LayoutEdge {
+                from: "node_6".to_string(),
+                to: "node_7".to_string(),
+                relation: "flows_to".to_string(),
+            },
+            LayoutEdge {
+                from: "node_7".to_string(),
+                to: "node_8".to_string(),
+                relation: "flows_to".to_string(),
+            },
+            LayoutEdge {
+                from: "node_8".to_string(),
+                to: "node_9".to_string(),
                 relation: "flows_to".to_string(),
             },
         ],
@@ -881,6 +1027,270 @@ fn generate_labs_directory_viewspec() -> ViewSpecV1 {
         confidence: ViewSpecConfidence {
             score: 0.95,
             rationale: "Deterministic labs directory layout".to_string(),
+        },
+        lineage: ViewSpecLineage::default(),
+        policy: default_viewspec_policy(),
+        provenance: ViewSpecProvenance {
+            created_by: "cortex-eudaemon".to_string(),
+            created_at: now_iso(),
+            source_mode: "agent".to_string(),
+        },
+        lock: None,
+    }
+}
+
+fn generate_execution_canvas_viewspec(space_id: &str) -> ViewSpecV1 {
+    let mut style_tokens = BTreeMap::new();
+    style_tokens.insert("theme".to_string(), "cortex".to_string());
+    style_tokens.insert("context".to_string(), "workbench".to_string());
+
+    let component_refs = vec![
+        ComponentRef {
+            component_id: "execution_canvas_title".to_string(),
+            component_type: "Heading".to_string(),
+            props: BTreeMap::from([(
+                "text".to_string(),
+                Value::String("Execution Canvas".to_string()),
+            )]),
+            a11y: None,
+            children: vec![],
+        },
+        ComponentRef {
+            component_id: "execution_canvas_desc".to_string(),
+            component_type: "Text".to_string(),
+            props: BTreeMap::from([(
+                "text".to_string(),
+                Value::String(
+                    "Labs-local execution authoring surface with governed spatial primitives and optional workflow lineage."
+                        .to_string(),
+                ),
+            )]),
+            a11y: None,
+            children: vec![],
+        },
+        ComponentRef {
+            component_id: "execution_canvas_plane".to_string(),
+            component_type: "SpatialPlane".to_string(),
+            props: BTreeMap::from([
+                ("plane_id".to_string(), json!("labs-execution-canvas")),
+                ("surface_class".to_string(), json!("execution")),
+                (
+                    "focus_bounds".to_string(),
+                    json!({ "x": 0, "y": 0, "w": 1280, "h": 760 }),
+                ),
+                (
+                    "view_state".to_string(),
+                    json!({ "zoom": 1.0, "pan_x": 0, "pan_y": 0 }),
+                ),
+                (
+                    "commands".to_string(),
+                    json!([
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "lane-labs",
+                                "kind": "group",
+                                "x": 40,
+                                "y": 44,
+                                "w": 1180,
+                                "h": 460,
+                                "label": "Labs flow",
+                                "member_ids": ["node-input", "node-tool", "node-procedure", "node-output"],
+                                "collapsed": false
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "annotation-1",
+                                "kind": "annotation",
+                                "x": 88,
+                                "y": 530,
+                                "w": 360,
+                                "h": 92,
+                                "text": "Use Labs-local canvases for topology experiments. Workflow-backed overlays become read-only topology surfaces."
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "node-input",
+                                "kind": "node",
+                                "node_class": "input",
+                                "status": "done",
+                                "x": 100,
+                                "y": 138,
+                                "w": 220,
+                                "h": 132,
+                                "text": "Intent",
+                                "ports": [
+                                    { "id": "out", "side": "right", "direction": "out", "label": "intent" }
+                                ]
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "node-tool",
+                                "kind": "node",
+                                "node_class": "tool",
+                                "status": "running",
+                                "x": 392,
+                                "y": 138,
+                                "w": 248,
+                                "h": 152,
+                                "text": "Worker Tool",
+                                "ports": [
+                                    { "id": "in", "side": "left", "direction": "in", "label": "context" },
+                                    { "id": "out", "side": "right", "direction": "out", "label": "result" }
+                                ]
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "node-procedure",
+                                "kind": "node",
+                                "node_class": "procedure",
+                                "status": "idle",
+                                "x": 734,
+                                "y": 130,
+                                "w": 248,
+                                "h": 164,
+                                "text": "Procedure",
+                                "ports": [
+                                    { "id": "in", "side": "left", "direction": "in", "label": "input" },
+                                    { "id": "ok", "side": "right", "direction": "out", "label": "success" },
+                                    { "id": "branch", "side": "bottom", "direction": "out", "label": "branch" }
+                                ]
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "node-output",
+                                "kind": "node",
+                                "node_class": "output",
+                                "status": "blocked",
+                                "x": 1028,
+                                "y": 142,
+                                "w": 170,
+                                "h": 132,
+                                "text": "Projection",
+                                "ports": [
+                                    { "id": "in", "side": "left", "direction": "in", "label": "surface" }
+                                ]
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "edge-input-tool",
+                                "kind": "edge",
+                                "edge_class": "data",
+                                "x": 320,
+                                "y": 196,
+                                "from_shape_id": "node-input",
+                                "to_shape_id": "node-tool",
+                                "from_port_id": "out",
+                                "to_port_id": "in",
+                                "text": "Context"
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "edge-tool-procedure",
+                                "kind": "edge",
+                                "edge_class": "control",
+                                "x": 640,
+                                "y": 204,
+                                "from_shape_id": "node-tool",
+                                "to_shape_id": "node-procedure",
+                                "from_port_id": "out",
+                                "to_port_id": "in",
+                                "text": "Invoke"
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "edge-procedure-output",
+                                "kind": "edge",
+                                "edge_class": "branch",
+                                "x": 976,
+                                "y": 210,
+                                "from_shape_id": "node-procedure",
+                                "to_shape_id": "node-output",
+                                "from_port_id": "ok",
+                                "to_port_id": "in",
+                                "text": "Success"
+                            }
+                        },
+                        {
+                            "op": "set_selection",
+                            "shape_ids": ["node-tool"]
+                        }
+                    ]),
+                ),
+            ]),
+            a11y: Some(ViewSpecA11y {
+                label: Some("Execution Canvas".to_string()),
+                ..ViewSpecA11y::default()
+            }),
+            children: vec![],
+        },
+    ];
+
+    let layout_graph = LayoutGraph {
+        nodes: vec![
+            LayoutNode {
+                node_id: "node_1".to_string(),
+                role: "header".to_string(),
+                component_ref_id: "execution_canvas_title".to_string(),
+            },
+            LayoutNode {
+                node_id: "node_2".to_string(),
+                role: "content".to_string(),
+                component_ref_id: "execution_canvas_desc".to_string(),
+            },
+            LayoutNode {
+                node_id: "node_3".to_string(),
+                role: "content".to_string(),
+                component_ref_id: "execution_canvas_plane".to_string(),
+            },
+        ],
+        edges: vec![
+            LayoutEdge {
+                from: "node_1".to_string(),
+                to: "node_2".to_string(),
+                relation: "flows_to".to_string(),
+            },
+            LayoutEdge {
+                from: "node_2".to_string(),
+                to: "node_3".to_string(),
+                relation: "flows_to".to_string(),
+            },
+        ],
+    };
+
+    ViewSpecV1 {
+        schema_version: "1.0.0".to_string(),
+        view_spec_id: "workbench-labs-execution-canvas".to_string(),
+        scope: ViewSpecScope {
+            space_id: Some(space_id.to_string()),
+            route_id: Some("/labs/execution-canvas".to_string()),
+            role: Some("operator".to_string()),
+        },
+        intent: "Display a governed Labs execution canvas using canonical SpatialPlane primitives."
+            .to_string(),
+        constraints: vec![],
+        layout_graph,
+        style_tokens,
+        component_refs,
+        confidence: ViewSpecConfidence {
+            score: 0.98,
+            rationale: "Deterministic Labs execution canvas scaffold".to_string(),
         },
         lineage: ViewSpecLineage::default(),
         policy: default_viewspec_policy(),
@@ -1764,8 +2174,11 @@ fn heading_component(id: &str, text: String) -> ComponentRef {
     ComponentRef {
         component_id: id.to_string(),
         component_type: "Heading".to_string(),
-        props: BTreeMap::from([("text".to_string(), Value::String(text))]),
-        a11y: None,
+        props: BTreeMap::from([("text".to_string(), Value::String(text.clone()))]),
+        a11y: Some(ViewSpecA11y {
+            label: Some(text),
+            ..ViewSpecA11y::default()
+        }),
         children: vec![],
     }
 }
@@ -1785,6 +2198,7 @@ fn button_component(
     label: &str,
     action: Option<String>,
     href: Option<String>,
+    a11y_label: Option<String>,
 ) -> ComponentRef {
     let mut props = BTreeMap::from([("label".to_string(), Value::String(label.to_string()))]);
     if let Some(action) = action {
@@ -1797,7 +2211,14 @@ fn button_component(
         component_id: id.to_string(),
         component_type: "Button".to_string(),
         props,
-        a11y: None,
+        a11y: Some(ViewSpecA11y {
+            label: Some(a11y_label.unwrap_or_else(|| label.to_string())),
+            description: None,
+            role: Some("button".to_string()),
+            live: None,
+            required: None,
+            invalid: None,
+        }),
         children: vec![],
     }
 }
@@ -1814,16 +2235,19 @@ fn metric_card_component(
             Value::String("MetricCard".to_string()),
         ),
         ("label".to_string(), Value::String(label.to_string())),
-        ("value".to_string(), Value::String(value)),
+        ("value".to_string(), Value::String(value.clone())),
     ]);
     if let Some(trend) = trend {
         props.insert("trend".to_string(), Value::String(trend));
     }
     ComponentRef {
         component_id: id.to_string(),
-        component_type: "Container".to_string(),
+        component_type: "Card".to_string(),
         props,
-        a11y: None,
+        a11y: Some(ViewSpecA11y {
+            label: Some(format!("Metric: {} = {}", label, value)),
+            ..ViewSpecA11y::default()
+        }),
         children: vec![],
     }
 }
@@ -1869,7 +2293,10 @@ fn data_table_component_with_options(
         component_id: id.to_string(),
         component_type: "Container".to_string(),
         props,
-        a11y: None,
+        a11y: Some(ViewSpecA11y {
+            label: Some(format!("Data table: {}", id)),
+            ..ViewSpecA11y::default()
+        }),
         children: vec![],
     }
 }
@@ -1887,7 +2314,10 @@ fn alert_banner_component(id: &str, title: &str, severity: &str, message: String
             ("severity".to_string(), Value::String(severity.to_string())),
             ("message".to_string(), Value::String(message)),
         ]),
-        a11y: None,
+        a11y: Some(ViewSpecA11y {
+            label: Some(format!("Alert: {}", title)),
+            ..ViewSpecA11y::default()
+        }),
         children: vec![],
     }
 }
@@ -2019,21 +2449,24 @@ fn workflow_instance_timeline_component(
 }
 
 fn linear_layout(component_refs: &[ComponentRef]) -> LayoutGraph {
+    let ids: Vec<String> = component_refs.iter().map(|c| c.component_id.clone()).collect();
+    linear_layout_from_ids(ids)
+}
+
+fn linear_layout_from_ids(ids: Vec<String>) -> LayoutGraph {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
-    for (index, component) in component_refs.iter().enumerate() {
+    for (index, id) in ids.iter().enumerate() {
         let node_id = format!("node_{}", index + 1);
         let role = if index == 0 {
             "header"
-        } else if component.component_type == "Button" {
-            "actions"
         } else {
             "content"
         };
         nodes.push(LayoutNode {
             node_id: node_id.clone(),
             role: role.to_string(),
-            component_ref_id: component.component_id.clone(),
+            component_ref_id: id.clone(),
         });
         if index > 0 {
             edges.push(LayoutEdge {
@@ -2283,18 +2716,21 @@ async fn generate_gate_viewspec(
                 space_id
             )),
             None,
+            None,
         ),
         button_component(
             &format!("{kind}_open_heap"),
             "Open in Heap",
             None,
             Some(format!("/heap?focus={heap_focus}")),
+            None,
         ),
         button_component(
             &format!("{kind}_open_logs"),
             "Open Logs",
             None,
             Some(format!("/logs?node_id=log_stream:{stream_id}:cursor:0")),
+            None,
         ),
     ];
 
@@ -2493,6 +2929,7 @@ async fn generate_logs_viewspec(
                 "/logs?node_id=log_stream:{}:cursor:{}",
                 selected_stream_id, cursor
             )),
+            None,
         ),
         button_component(
             "logs_next",
@@ -2502,6 +2939,7 @@ async fn generate_logs_viewspec(
                 "/logs?node_id=log_stream:{}:cursor:{}",
                 selected_stream_id, next_cursor
             )),
+            None,
         ),
         button_component(
             "logs_reset",
@@ -2511,6 +2949,7 @@ async fn generate_logs_viewspec(
                 "/logs?node_id=log_stream:{}:cursor:0",
                 selected_stream_id
             )),
+            None,
         ),
     ];
 
@@ -2946,15 +3385,18 @@ async fn generate_contributions_viewspec(
 async fn generate_artifacts_viewspec(
     selected_node_id: Option<&str>,
     intent: &str,
-    density: &str,
+    _density: &str,
 ) -> ViewSpecV1 {
     let mut style_tokens = BTreeMap::new();
     style_tokens.insert("theme".to_string(), "cortex".to_string());
     style_tokens.insert("context".to_string(), "workbench".to_string());
     style_tokens.insert("intent".to_string(), intent.to_string());
-    style_tokens.insert("density".to_string(), density.to_string());
+    style_tokens.insert("density".to_string(), "compact".to_string());
+    style_tokens.insert("padding".to_string(), "0".to_string());
+    style_tokens.insert("spacing".to_string(), "0".to_string());
+    style_tokens.insert("edgeToEdge".to_string(), "true".to_string());
 
-    let (items, degraded_reason) = match crate::services::ops_artifacts::list_artifacts(200) {
+    let (items, _degraded_reason) = match crate::services::ops_artifacts::list_artifacts(200) {
         Ok(value) => (
             value
                 .items
@@ -2967,14 +3409,6 @@ async fn generate_artifacts_viewspec(
     };
 
     let selected_artifact_id = parse_prefixed_node_id(selected_node_id, "artifact:");
-    let selected_artifact = selected_artifact_id.as_ref().and_then(|artifact_id| {
-        items.iter().find(|item| {
-            item.get("artifactId")
-                .and_then(|v| v.as_str())
-                .map(|value| value == artifact_id)
-                .unwrap_or(false)
-        })
-    });
 
     let rows = items
         .iter()
@@ -2983,14 +3417,53 @@ async fn generate_artifacts_viewspec(
                 .get("artifactId")
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown");
+
+            let title = row.get("title").and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
+            let aid = artifact_id.to_lowercase();
+
+            let block_type = row
+                .get("heapBlockType")
+                .or_else(|| row.get("heap_block_type"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| {
+                    let route = row.get("routeId").and_then(|v| v.as_str()).unwrap_or("");
+                    if aid.contains("gate_summary") || title.contains("gate summary") {
+                        "gate_summary".to_string()
+                    } else if aid.ends_with(".pdf") || title.ends_with(".pdf") {
+                        "document".to_string()
+                    } else if route == "/heap" {
+                        "heap_block".to_string()
+                    } else if route == "/contributions" {
+                        "contribution".to_string()
+                    } else if aid.ends_with(".md") || title.ends_with(".md") {
+                        "markdown".to_string()
+                    } else if aid.contains("workflow") {
+                        "workflow".to_string()
+                    } else if aid.contains("plan") {
+                        "plan".to_string()
+                    } else if aid.contains("analysis") {
+                        "analysis".to_string()
+                    } else {
+                        "artifact".to_string()
+                    }
+                });
+
+            let updated_at = row.get("updatedAt").and_then(|v| v.as_str()).unwrap_or("-");
+            let clean_updated = if let Some(idx) = updated_at.find('.') {
+                format!("{}Z", &updated_at[..idx])
+            } else {
+                updated_at.to_string()
+            };
+
             json!({
                 "_row_id": artifact_id,
                 "_href": format!("/artifacts?node_id=artifact:{artifact_id}"),
                 "Artifact ID": artifact_id,
                 "Title": row.get("title").and_then(|v| v.as_str()).unwrap_or("untitled"),
+                "Type": block_type,
                 "Status": row.get("status").and_then(|v| v.as_str()).unwrap_or("unknown"),
-                "Updated At": row.get("updatedAt").and_then(|v| v.as_str()).unwrap_or("-"),
-                "Head Revision": row.get("headRevisionId").and_then(|v| v.as_str()).unwrap_or("-"),
+                "Updated At": clean_updated,
             })
         })
         .collect::<Vec<_>>();
@@ -3005,106 +3478,96 @@ async fn generate_artifacts_viewspec(
         })
         .count();
 
-    let mut component_refs = vec![
+    let component_refs = vec![
         heading_component("artifacts_title", "Artifacts".to_string()),
-        alert_banner_component(
-            "artifacts_status",
-            if degraded_reason.is_some() {
-                "Artifacts degraded"
-            } else {
-                "Artifacts ready"
-            },
-            if degraded_reason.is_some() {
-                "warning"
-            } else {
-                "success"
-            },
-            degraded_reason.unwrap_or_else(|| format!("artifacts_loaded={}", items.len())),
-        ),
-        grid_component(
-            "artifacts_metrics_grid",
-            vec![
-                "artifacts_metric_total",
-                "artifacts_metric_published",
-                "artifacts_metric_selected",
+        ComponentRef {
+            component_id: "artifacts_filter_row".to_string(),
+            component_type: "Container".to_string(),
+            props: BTreeMap::from([
+                ("widgetType".to_string(), Value::String("Row".to_string())),
+            ]),
+            a11y: Some(ViewSpecA11y { label: Some("Filter options".to_string()), ..ViewSpecA11y::default() }),
+            children: vec![
+                "artifacts_filter_all".to_string(),
+                "artifacts_filter_published".to_string(),
+                "artifacts_filter_drafts".to_string(),
+                "artifacts_filter_selected".to_string(),
             ],
-        ),
-        metric_card_component(
-            "artifacts_metric_total",
-            "Total Artifacts",
-            items.len().to_string(),
+        },
+        button_component(
+            "artifacts_filter_all",
+            &format!("All ({})", items.len()),
             None,
+            Some("/artifacts".to_string()),
+            Some("Filter artifacts by all items".to_string()),
         ),
-        metric_card_component(
-            "artifacts_metric_published",
-            "Published",
-            published_count.to_string(),
+        button_component(
+            "artifacts_filter_published",
+            &format!("Published ({})", published_count),
             None,
+            Some("/artifacts?intent=published".to_string()),
+            Some("Filter artifacts by published items".to_string()),
         ),
-        metric_card_component(
-            "artifacts_metric_selected",
-            "Selected Artifact",
-            selected_artifact_id
-                .clone()
-                .unwrap_or_else(|| "none".to_string()),
+        button_component(
+            "artifacts_filter_drafts",
+            &format!("Drafts ({})", items.len() - published_count),
             None,
+            Some("/artifacts?intent=draft".to_string()),
+            Some("Filter artifacts by draft items".to_string()),
+        ),
+        button_component(
+            "artifacts_filter_selected",
+            &format!("Selected: {}", selected_artifact_id.as_deref().unwrap_or("none")),
+            None,
+            None,
+            Some("Show selected artifact details".to_string()),
         ),
         data_table_component_with_options(
             "artifacts_table",
             vec![
                 "Artifact ID",
                 "Title",
+                "Type",
                 "Status",
                 "Updated At",
-                "Head Revision",
             ],
             rows,
-            Some(vec!["_row_id", "_href"]),
+            Some(vec!["_row_id", "_href", "Artifact ID"]), // pass Artifact ID as a hidden option so WidgetRegistry can render it under Title without its own column
         ),
     ];
 
-    if let Some(selected) = selected_artifact {
-        let artifact_id = selected
-            .get("artifactId")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown");
-        component_refs.push(heading_component(
-            "artifacts_selected_heading",
-            "Selected Artifact Detail".to_string(),
-        ));
-        component_refs.push(data_table_component(
-            "artifacts_selected_table",
-            vec!["Field", "Value"],
-            vec![
-                json!({"Field": "Artifact ID", "Value": artifact_id}),
-                json!({"Field": "Title", "Value": selected.get("title").and_then(|v| v.as_str()).unwrap_or("-")}),
-                json!({"Field": "Status", "Value": selected.get("status").and_then(|v| v.as_str()).unwrap_or("-")}),
-                json!({"Field": "Source Of Truth", "Value": selected.get("sourceOfTruth").and_then(|v| v.as_str()).unwrap_or("-")}),
-                json!({"Field": "Updated At", "Value": selected.get("updatedAt").and_then(|v| v.as_str()).unwrap_or("-")}),
-                json!({"Field": "Head Revision", "Value": selected.get("headRevisionId").and_then(|v| v.as_str()).unwrap_or("-")}),
-            ],
-        ));
-        component_refs.push(button_component(
-            "artifacts_open_studio",
-            "Open in Studio",
-            None,
-            Some(format!("/studio?artifactId={artifact_id}")),
-        ));
-    } else {
-        component_refs.push(text_component(
-            "artifacts_selection_hint",
-            "Select an artifact using node_id=artifact:<artifactId> to inspect detail.".to_string(),
-        ));
-    }
+    let layout_graph = linear_layout_from_ids(vec![
+        "artifacts_title".to_string(),
+        "artifacts_filter_row".to_string(),
+        "artifacts_table".to_string(),
+    ]);
 
-    make_workbench_viewspec(
-        "workbench-artifacts",
-        "/artifacts",
-        "operator",
-        "Artifact inventory with deterministic selection drill-ins.".to_string(),
+    ViewSpecV1 {
+        schema_version: "1.0.0".to_string(),
+        view_spec_id: "workbench-artifacts".to_string(),
+        scope: ViewSpecScope {
+            space_id: Some("cortex-web".to_string()),
+            route_id: Some("/artifacts".to_string()),
+            role: Some("operator".to_string()),
+        },
+        intent: "Artifact inventory with deterministic selection drill-ins.".to_string(),
+        constraints: vec![],
+        layout_graph,
         style_tokens,
         component_refs,
-    )
+        confidence: ViewSpecConfidence {
+            score: 0.95,
+            rationale: "Live operational workbench projection".to_string(),
+        },
+        lineage: ViewSpecLineage::default(),
+        policy: default_viewspec_policy(),
+        provenance: ViewSpecProvenance {
+            created_by: "cortex-eudaemon".to_string(),
+            created_at: now_iso(),
+            source_mode: "agent".to_string(),
+        },
+        lock: None,
+    }
 }
 
 async fn generate_flows_viewspec(
@@ -3640,6 +4103,7 @@ async fn generate_flows_viewspec(
                     "/api/cortex/workflow-drafts/proposals/{}/replay",
                     proposal.proposal_id
                 )),
+                None,
             ));
             component_refs.push(button_component(
                 "flows_selected_proposal_digest",
@@ -3649,6 +4113,7 @@ async fn generate_flows_viewspec(
                     "/api/cortex/workflow-drafts/proposals/{}/digest",
                     proposal.proposal_id
                 )),
+                None,
             ));
         }
     } else if let Some(definition_id) = selected_workflow_definition_id.as_ref() {
@@ -3719,6 +4184,7 @@ async fn generate_flows_viewspec(
                     "/api/cortex/workflow-definitions/{}/projections/flow_graph_v1",
                     artifact.definition.definition_id
                 )),
+                None,
             ));
             component_refs.push(button_component(
                 "flows_selected_definition_a2ui",
@@ -3728,6 +4194,7 @@ async fn generate_flows_viewspec(
                     "/api/cortex/workflow-definitions/{}/projections/a2ui_surface_v1",
                     artifact.definition.definition_id
                 )),
+                None,
             ));
         }
     } else if let Some(scope_key) = selected_workflow_active_scope.as_ref() {
@@ -3808,6 +4275,7 @@ async fn generate_flows_viewspec(
                     "/api/cortex/workflow-instances/{}/trace",
                     snapshot.instance.instance_id
                 )),
+                None,
             ));
             component_refs.push(button_component(
                 "flows_selected_instance_checkpoints",
@@ -3817,6 +4285,7 @@ async fn generate_flows_viewspec(
                     "/api/cortex/workflow-instances/{}/checkpoints",
                     snapshot.instance.instance_id
                 )),
+                None,
             ));
             component_refs.push(button_component(
                 "flows_selected_instance_outcome",
@@ -3826,6 +4295,7 @@ async fn generate_flows_viewspec(
                     "/api/cortex/workflow-instances/{}/outcome",
                     snapshot.instance.instance_id
                 )),
+                None,
             ));
         }
     } else {
@@ -4581,6 +5051,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn artifacts_viewspec_selected_artifact_compiles_with_accessible_action() {
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        write_artifacts_fixture(temp.path());
+
+        let view_spec =
+            generate_artifacts_viewspec(Some("artifact:artifact-alpha"), "navigate", "comfortable")
+                .await;
+        let compile = compile_viewspec_to_render_surface(&view_spec);
+        assert!(compile.is_ok(), "selected artifact surface must compile");
+
+        let button = component(&view_spec, "artifacts_open_studio");
+        let label = button
+            .a11y
+            .as_ref()
+            .and_then(|a11y| a11y.label.as_deref())
+            .expect("artifacts button a11y label");
+        assert_eq!(label, "Open selected artifact in Studio");
+    }
+
+    #[tokio::test]
     async fn flows_viewspec_rows_include_href_metadata() {
         let temp_ux = TestTempDir::new();
         let temp_decision = TestTempDir::new();
@@ -4817,6 +5311,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn execution_canvas_route_renders_spatial_plane_surface() {
+        let view_spec = render_registered_route("/labs/execution-canvas").await;
+        assert_eq!(view_spec.view_spec_id, "workbench-labs-execution-canvas");
+        let plane = component(&view_spec, "execution_canvas_plane");
+        assert_eq!(plane.component_type, "SpatialPlane");
+        assert_eq!(
+            plane.props.get("surface_class").and_then(Value::as_str),
+            Some("execution")
+        );
+    }
+
+    #[tokio::test]
     async fn registered_non_generic_surfaces_use_only_allowlisted_widget_types() {
         let allowed_component_types = [
             "Heading",
@@ -4825,6 +5331,7 @@ mod tests {
             "Container",
             "Card",
             "Markdown",
+            "SpatialPlane",
             "TextField",
             "Tabs",
         ];

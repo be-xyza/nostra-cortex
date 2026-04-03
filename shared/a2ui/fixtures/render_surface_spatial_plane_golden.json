@@ -1,0 +1,202 @@
+{
+  "type": "RenderSurface",
+  "surfaceId": "golden_surface_spatial_plane_1",
+  "title": "Golden Spatial Plane Surface",
+  "root": "root",
+  "meta": {
+    "theme": "cortex",
+    "context": "decision-surface",
+    "priority": "p1",
+    "tone": "informational",
+    "density": "comfortable",
+    "intent": "analysis",
+    "token_version": "1.0.0",
+    "motion_policy": "reduced",
+    "safe_mode": true,
+    "theme_allowlist_id": "trusted-core",
+    "contrast_preference": "more",
+    "workflow_id": "wf-spatial-1",
+    "mutation_id": "mut-spatial-1",
+    "source": "fixture",
+    "surface_class": "execution"
+  },
+  "components": [
+    {
+      "id": "root",
+      "type": "Container",
+      "props": {
+        "description": "root container"
+      },
+      "children": ["title", "plane"]
+    },
+    {
+      "id": "title",
+      "type": "Heading",
+      "props": {
+        "text": "Spatial Plane Preview"
+      }
+    },
+    {
+      "id": "plane",
+      "type": "SpatialPlane",
+      "props": {
+        "plane_id": "execution-plane-golden-1",
+        "surface_class": "execution",
+        "focus_bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 700
+        },
+        "layout_ref": {
+          "space_id": "meta",
+          "view_spec_id": "viewspec:golden:spatial-plane",
+          "workflow_id": "wf-spatial-1",
+          "graph_hash": "graph-spatial-golden-v1"
+        },
+        "commands": [
+          {
+            "op": "create_shape",
+            "shape": {
+              "id": "group-lane-1",
+              "kind": "group",
+              "x": 60,
+              "y": 56,
+              "w": 1040,
+              "h": 320,
+              "label": "Execution lane",
+              "member_ids": ["node-input", "node-tool", "node-output"],
+              "collapsed": false
+            }
+          },
+          {
+            "op": "create_shape",
+            "shape": {
+              "id": "node-input",
+              "kind": "node",
+              "node_class": "input",
+              "status": "idle",
+              "x": 120,
+              "y": 132,
+              "w": 220,
+              "h": 140,
+              "text": "Prompt",
+              "ports": [
+                {
+                  "id": "out",
+                  "side": "right",
+                  "direction": "out",
+                  "label": "prompt"
+                }
+              ]
+            }
+          },
+          {
+            "op": "create_shape",
+            "shape": {
+              "id": "node-tool",
+              "kind": "node",
+              "node_class": "tool",
+              "status": "running",
+              "x": 444,
+              "y": 122,
+              "w": 250,
+              "h": 150,
+              "text": "Cortex worker",
+              "ports": [
+                {
+                  "id": "in",
+                  "side": "left",
+                  "direction": "in",
+                  "label": "input"
+                },
+                {
+                  "id": "out",
+                  "side": "right",
+                  "direction": "out",
+                  "label": "result"
+                }
+              ]
+            }
+          },
+          {
+            "op": "create_shape",
+            "shape": {
+              "id": "node-output",
+              "kind": "node",
+              "node_class": "output",
+              "status": "done",
+              "x": 808,
+              "y": 132,
+              "w": 220,
+              "h": 140,
+              "text": "Rendered surface",
+              "ports": [
+                {
+                  "id": "in",
+                  "side": "left",
+                  "direction": "in",
+                  "label": "render"
+                }
+              ]
+            }
+          },
+          {
+            "op": "create_shape",
+            "shape": {
+              "id": "edge-input-tool",
+              "kind": "edge",
+              "edge_class": "data",
+              "x": 340,
+              "y": 192,
+              "from_shape_id": "node-input",
+              "to_shape_id": "node-tool",
+              "from_port_id": "out",
+              "to_port_id": "in",
+              "text": "prompt flow"
+            }
+          },
+          {
+            "op": "create_shape",
+            "shape": {
+              "id": "edge-tool-output",
+              "kind": "edge",
+              "edge_class": "control",
+              "x": 694,
+              "y": 192,
+              "from_shape_id": "node-tool",
+              "to_shape_id": "node-output",
+              "from_port_id": "out",
+              "to_port_id": "in",
+              "text": "render signal"
+            }
+          },
+          {
+            "op": "create_shape",
+            "shape": {
+              "id": "annotation-note-1",
+              "kind": "annotation",
+              "x": 180,
+              "y": 420,
+              "w": 240,
+              "h": 92,
+              "text": "Saved layout overrides positions only; workflow topology remains authoritative."
+            }
+          },
+          {
+            "op": "set_selection",
+            "shape_ids": ["node-tool"]
+          },
+          {
+            "op": "set_view_state",
+            "view_state": {
+              "zoom": 1.08,
+              "pan_x": 12,
+              "pan_y": -6
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

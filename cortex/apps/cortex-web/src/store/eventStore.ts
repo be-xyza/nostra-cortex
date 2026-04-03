@@ -1,5 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { SEED_EVENTS, INTRO_SPACE_ID, MOCK_WHOAMI, MOCK_LAYOUT_SPEC, MOCK_NAVIGATION_PLAN, MOCK_UX_WORKBENCH_MAIN, MOCK_UX_WORKBENCH_LABS, MOCK_UX_WORKBENCH_SYSTEM, MOCK_UX_WORKBENCH_SPACES, MOCK_UX_WORKBENCH_HEAP, MOCK_UX_WORKBENCH_STUDIO } from './seedData';
+import { SEED_EVENTS, INTRO_SPACE_ID, MOCK_WHOAMI, MOCK_LAYOUT_SPEC, MOCK_NAVIGATION_PLAN, MOCK_UX_WORKBENCH_MAIN, MOCK_UX_WORKBENCH_LABS, MOCK_UX_WORKBENCH_EXECUTION_CANVAS, MOCK_UX_WORKBENCH_SYSTEM, MOCK_UX_WORKBENCH_SPACES, MOCK_UX_WORKBENCH_HEAP, MOCK_UX_WORKBENCH_STUDIO } from './seedData';
 
 export interface GlobalEvent {
   id: string;
@@ -163,6 +163,7 @@ export async function initSystemSnapshotsIfNeeded(): Promise<void> {
   const workbenches = [
     { id: "system:ux:workbench", state: MOCK_UX_WORKBENCH_MAIN },
     { id: "system:ux:workbench:/labs", state: MOCK_UX_WORKBENCH_LABS },
+    { id: "system:ux:workbench:/labs/execution-canvas", state: MOCK_UX_WORKBENCH_EXECUTION_CANVAS },
     { id: "system:ux:workbench:/system", state: MOCK_UX_WORKBENCH_SYSTEM },
     { id: "system:ux:workbench:/spaces", state: MOCK_UX_WORKBENCH_SPACES },
     { id: "system:ux:workbench:/heap", state: MOCK_UX_WORKBENCH_HEAP },

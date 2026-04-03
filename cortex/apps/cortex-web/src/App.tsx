@@ -8,8 +8,9 @@ import { WorkflowWorkbenchHost } from "./components/workflows/WorkflowWorkbenchH
 import { HeapBlockGrid } from "./components/heap/HeapBlockGrid";
 import { SpacesPage } from "./components/spaces/SpacesPage";
 import { SpaceDetailPage } from "./components/spaces/SpaceDetailPage";
+import { ExecutionCanvasPage } from "./components/spaces/ExecutionCanvasPage";
 import { SpaceStudioPage } from "./components/spaces/SpaceStudioPage";
-import { SPACE_STUDIO_ROUTE } from "./components/spaces/spaceStudioRoutes";
+import { EXECUTION_CANVAS_ROUTE, SPACE_STUDIO_ROUTE } from "./components/spaces/spaceStudioRoutes";
 import { ContributionsWorkbenchHost } from "./components/contributions/ContributionsWorkbenchHost";
 import { LogsPage } from "./components/live/LogsPage";
 import { ProviderDashboard } from "./components/system/ProviderDashboard";
@@ -53,6 +54,11 @@ export function App() {
             <Route path={SPACE_STUDIO_ROUTE} element={
               <ExecutionContainmentHeader surfaceName="Space Studio">
                 <SpaceStudioPage />
+              </ExecutionContainmentHeader>
+            } />
+            <Route path={EXECUTION_CANVAS_ROUTE} element={
+              <ExecutionContainmentHeader surfaceName="Execution Canvas">
+                <ExecutionCanvasPage />
               </ExecutionContainmentHeader>
             } />
             <Route path="/labs/*" element={
