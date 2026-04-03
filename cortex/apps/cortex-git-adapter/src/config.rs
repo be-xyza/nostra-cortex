@@ -26,9 +26,9 @@ pub struct AppConfig {
     pub nostra_ic_host: String,
     pub nostra_kip_canister_id: Option<String>,
     pub kip_method: String,
-    pub use_dfx: bool,
-    pub dfx_canister_name: String,
-    pub dfx_project_root: Option<PathBuf>,
+    pub use_icp_cli: bool,
+    pub icp_canister_name: String,
+    pub icp_project_root: Option<PathBuf>,
 }
 
 impl AppConfig {
@@ -115,12 +115,12 @@ impl AppConfig {
         let kip_method = std::env::var("CORTEX_GIT_ADAPTER_KIP_METHOD")
             .unwrap_or_else(|_| "execute_kip_mutation".to_string());
 
-        let use_dfx = std::env::var("CORTEX_GIT_ADAPTER_USE_DFX")
+        let use_icp_cli = std::env::var("CORTEX_GIT_ADAPTER_USE_ICP")
             .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"))
             .unwrap_or(false);
-        let dfx_canister_name = std::env::var("CORTEX_GIT_ADAPTER_DFX_CANISTER")
+        let icp_canister_name = std::env::var("CORTEX_GIT_ADAPTER_ICP_CANISTER")
             .unwrap_or_else(|_| "nostra_backend".to_string());
-        let dfx_project_root = std::env::var("CORTEX_GIT_ADAPTER_DFX_PROJECT_ROOT")
+        let icp_project_root = std::env::var("CORTEX_GIT_ADAPTER_ICP_PROJECT_ROOT")
             .ok()
             .map(PathBuf::from);
 
@@ -146,9 +146,9 @@ impl AppConfig {
             nostra_ic_host,
             nostra_kip_canister_id: nostra_kip_canister_id.or_else(|| nostra_backend_canister_id.clone()),
             kip_method,
-            use_dfx,
-            dfx_canister_name,
-            dfx_project_root,
+            use_icp_cli,
+            icp_canister_name,
+            icp_project_root,
         })
     }
 
@@ -188,8 +188,8 @@ impl AppConfig {
     }
 
     pub fn nostra_sink_is_configured(&self) -> bool {
-        if self.use_dfx {
-            return self.dfx_project_root.is_some();
+        if self.use_icp_cli {
+            return self.icp_project_root.is_some();
         }
         self.nostra_kip_canister_id
             .as_deref()

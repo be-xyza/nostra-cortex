@@ -178,7 +178,7 @@ mod tests {
 
     fn base_config(state_dir: std::path::PathBuf, secret: &str) -> AppConfig {
         let registry_path = state_dir.join("registry.toml");
-        let dfx_project_root = state_dir.join("nostra");
+        let icp_project_root = state_dir.join("nostra");
         AppConfig {
             bind: "127.0.0.1".to_string(),
             port: 8787,
@@ -201,9 +201,9 @@ mod tests {
             nostra_ic_host: "http://127.0.0.1:4943".to_string(),
             nostra_kip_canister_id: None,
             kip_method: "execute_kip_mutation".to_string(),
-            use_dfx: true,
-            dfx_canister_name: "backend".to_string(),
-            dfx_project_root: Some(dfx_project_root),
+            use_icp_cli: true,
+            icp_canister_name: "backend".to_string(),
+            icp_project_root: Some(icp_project_root),
         }
     }
 

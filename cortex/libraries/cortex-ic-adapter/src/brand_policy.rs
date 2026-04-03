@@ -1,4 +1,4 @@
-use crate::dfx::resolve_canister_id_any;
+use crate::ic::resolve_canister_id_any;
 use candid::{CandidType, Decode, Principal};
 use cortex_domain::brand::policy::{
     BrandHostDefaultsPolicy, BrandKernelPolicy, BrandModeBaselinesPolicy, BrandMotionPolicy,

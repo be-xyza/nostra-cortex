@@ -69,12 +69,12 @@ path_scopes = [
 failure_class = "hardcoded_gateway_url"
 
 [[governed_values]]
-id = "provider_runtime_url"
-required_source = "CORTEX_PROVIDER_RUNTIME_URL_or_CORTEX_PROVIDER_RUNTIME_PORT"
+id = "llm_adapter_url"
+required_source = "CORTEX_LLM_ADAPTER_URL_or_CORTEX_LLM_ADAPTER_PORT"
 approved_access_patterns = [
-  "CORTEX_PROVIDER_RUNTIME_URL",
-  "CORTEX_PROVIDER_RUNTIME_HOST",
-  "CORTEX_PROVIDER_RUNTIME_PORT",
+  "CORTEX_LLM_ADAPTER_URL",
+  "CORTEX_LLM_ADAPTER_HOST",
+  "CORTEX_LLM_ADAPTER_PORT",
 ]
 forbidden_literal_patterns = [
   "http://127\\.0\\.0\\.1:8080",
