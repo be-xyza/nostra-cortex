@@ -55,6 +55,7 @@ use crate::services::ops_agents::{AgentContributionApprovalRequest, AgentRunReco
 #[cfg(test)]
 use crate::services::ops_flows::{WorkflowAutomationDescriptor, WorkflowCatalogEntry};
 use crate::services::provider_probe::ProviderProbeRequest;
+use crate::services::llm_adapter::config::{llm_adapter_config_from_env, LlmAdapterFailMode};
 use crate::services::provider_runtime::client::{
     ProviderRuntimeClient, ProviderRuntimeStreamEvent,
 };
@@ -24863,21 +24864,19 @@ async fn get_system_provider_discovery(headers: HeaderMap) -> axum::response::Re
 
 async fn get_system_llm_adapter_status() -> axum::response::Response {
     let cfg = llm_adapter_config_from_env();
-    if !cfg.enabled {
-        return (
-            StatusCode::OK,
-            Json(json!({
-                "enabled": false,
-                "baseUrl": cfg.base_url,
-                "failMode": match cfg.fail_mode {
-                    LlmAdapterFailMode::Fallback => "fallback",
-                    LlmAdapterFailMode::FailClosed => "fail_closed",
-                },
-                "model": cfg.default_model,
-            })),
-        )
-            .into_response();
-    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "enabled": cfg.enabled,
+            "baseUrl": cfg.base_url,
+            "failMode": match cfg.fail_mode {
+                LlmAdapterFailMode::Fallback => "fallback",
+                LlmAdapterFailMode::FailClosed => "fail_closed",
+            },
+            "model": cfg.default_model,
+        })),
+    )
+        .into_response()
 }
 
 type SystemProviderRecord = crate::gateway::provider_admin::contracts::SystemProviderRecord;
@@ -24890,92 +24889,6 @@ type UpdateAuthBindingRequest = crate::gateway::provider_admin::contracts::Updat
 
 async fn build_system_provider_records() -> SystemProvidersResponse {
     crate::gateway::provider_admin::service::build_system_providers_response().await
-}
-
-async fn get_system_providers(headers: HeaderMap) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::get_system_providers(headers).await
-}
-
-async fn post_system_providers_discover(headers: HeaderMap) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::post_system_providers_discover(headers).await
-}
-
-async fn post_system_provider_validate(
-    headers: HeaderMap,
-    Json(payload): Json<ProviderProbeRequest>,
-) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::post_system_provider_validate(headers, Json(payload))
-        .await
-}
-
-async fn put_system_provider(
-    headers: HeaderMap,
-    Path(provider_id): Path<String>,
-    Json(payload): Json<PutSystemProviderRequest>,
-) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::put_system_provider(
-        headers,
-        Path(provider_id),
-        Json(payload),
-    )
-    .await
-}
-
-async fn put_system_provider_binding(
-    headers: HeaderMap,
-    Path(binding_id): Path<String>,
-    Json(payload): Json<PutSystemProviderBindingRequest>,
-) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::put_system_provider_binding(
-        headers,
-        Path(binding_id),
-        Json(payload),
-    )
-    .await
-}
-
-async fn post_system_auth_binding(
-    headers: HeaderMap,
-    Json(payload): Json<CreateAuthBindingRequest>,
-) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::post_system_auth_binding(headers, Json(payload)).await
-}
-
-async fn put_system_auth_binding(
-    headers: HeaderMap,
-    Path(auth_binding_id): Path<String>,
-    Json(payload): Json<UpdateAuthBindingRequest>,
-) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::put_system_auth_binding(
-        headers,
-        Path(auth_binding_id),
-        Json(payload),
-    )
-    .await
-}
-
-async fn get_system_provider_runtime_status(headers: HeaderMap) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::get_system_provider_runtime_status(headers).await
-}
-
-async fn get_system_provider_inventory(headers: HeaderMap) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::get_system_provider_inventory(headers).await
-}
-
-async fn get_system_runtime_hosts(headers: HeaderMap) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::get_system_runtime_hosts(headers).await
-}
-
-async fn get_system_auth_bindings(headers: HeaderMap) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::get_system_auth_bindings(headers).await
-}
-
-async fn get_system_execution_bindings(headers: HeaderMap) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::get_system_execution_bindings(headers).await
-}
-
-async fn get_system_provider_discovery(headers: HeaderMap) -> axum::response::Response {
-    crate::gateway::provider_admin::routes::get_system_provider_discovery(headers).await
 }
 
 fn route_node_id(route_id: &str) -> String {
