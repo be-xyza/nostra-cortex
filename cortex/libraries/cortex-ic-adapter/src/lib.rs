@@ -1,5 +1,6 @@
 pub mod brand_policy;
 pub mod ic;
+pub use ic as dfx;
 pub mod governance;
 pub mod ic_cli;
 pub mod streaming;
