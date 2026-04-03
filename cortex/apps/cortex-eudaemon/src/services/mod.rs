@@ -44,6 +44,8 @@ pub mod ops_agents;
 pub mod ops_artifacts;
 pub mod ops_flows;
 pub mod ops_gates;
+pub mod provider_probe;
+pub mod provider_runtime;
 pub mod resilience_service;
 #[cfg(feature = "siq-service-client")]
 pub mod siq_service;
