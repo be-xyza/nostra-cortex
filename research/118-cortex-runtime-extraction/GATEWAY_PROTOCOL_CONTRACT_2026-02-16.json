@@ -5,21 +5,21 @@
   "title": "Gateway Protocol Contract",
   "generated_at": "2026-02-24T07:43:53Z",
   "inventory_source": "cortex/apps/cortex-eudaemon/tests/fixtures/gateway_baseline/endpoint_inventory.tsv",
-  "endpoint_count": 211,
+  "endpoint_count": 224,
   "method_counts": {
-    "GET": 119,
-    "POST": 90,
-    "PUT": 2
+    "GET": 126,
+    "POST": 93,
+    "PUT": 5
   },
   "endpoint_class_counts": {
     "acp": 8,
     "cortex": 113,
     "kg": 26,
     "metrics": 3,
-    "other": 7,
-    "system": 42,
+    "other": 4,
+    "system": 57,
     "testing": 5,
-    "workflow": 3,
+    "workflow": 5,
     "ws": 3
   },
   "required_fields": [
@@ -3288,6 +3288,52 @@
     },
     {
       "method": "GET",
+      "path_template": "/api/spaces",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "host_managed",
+      "idempotency_semantics": {
+        "mode": "optional_header",
+        "header": "X-Idempotency-Key",
+        "dedupe_key": "method:path:header",
+        "replay_behavior": "last_success_response_replay"
+      }
+    },
+    {
+      "method": "GET",
       "path_template": "/api/spaces/:space_id/capability-graph",
       "endpoint_class": "system",
       "request_schema": {
@@ -3465,6 +3511,50 @@
     {
       "method": "GET",
       "path_template": "/api/system/attribution-domains/:space_id",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/system/auth-bindings",
       "endpoint_class": "system",
       "request_schema": {
         "path_params": "templated path params are required when present",
@@ -3860,6 +3950,50 @@
     },
     {
       "method": "GET",
+      "path_template": "/api/system/execution-bindings",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
       "path_template": "/api/system/execution-profile/:space_id",
       "endpoint_class": "system",
       "request_schema": {
@@ -4080,6 +4214,52 @@
     },
     {
       "method": "GET",
+      "path_template": "/api/system/logs/stream",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "host_managed",
+      "idempotency_semantics": {
+        "mode": "optional_header",
+        "header": "X-Idempotency-Key",
+        "dedupe_key": "method:path:header",
+        "replay_behavior": "last_success_response_replay"
+      }
+    },
+    {
+      "method": "GET",
       "path_template": "/api/system/logs/streams",
       "endpoint_class": "system",
       "request_schema": {
@@ -4212,6 +4392,182 @@
     },
     {
       "method": "GET",
+      "path_template": "/api/system/provider-discovery",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/system/provider-inventory",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/system/provider-runtime/status",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/system/providers",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
       "path_template": "/api/system/ready",
       "endpoint_class": "system",
       "request_schema": {
@@ -4257,6 +4613,50 @@
     {
       "method": "GET",
       "path_template": "/api/system/replay-contract/:mutation_id",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/system/runtime-hosts",
       "endpoint_class": "system",
       "request_schema": {
         "path_params": "templated path params are required when present",
@@ -5085,6 +5485,50 @@
         "nostra.gateway.websocket.connected"
       ],
       "transaction_boundary": "streaming_session",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/ws/chat",
+      "endpoint_class": "ws",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
       "idempotency_semantics": {
         "mode": "not_applicable",
         "header": null,
@@ -8832,6 +9276,52 @@
     },
     {
       "method": "POST",
+      "path_template": "/api/system/auth-bindings",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "host_managed",
+      "idempotency_semantics": {
+        "mode": "optional_header",
+        "header": "X-Idempotency-Key",
+        "dedupe_key": "method:path:header",
+        "replay_behavior": "last_success_response_replay"
+      }
+    },
+    {
+      "method": "POST",
       "path_template": "/api/system/decision/ack",
       "endpoint_class": "system",
       "request_schema": {
@@ -9114,6 +9604,96 @@
     },
     {
       "method": "POST",
+      "path_template": "/api/system/providers/discover",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "host_managed",
+      "idempotency_semantics": {
+        "mode": "optional_header",
+        "header": "X-Idempotency-Key",
+        "dedupe_key": "method:path:header",
+        "replay_behavior": "last_success_response_replay"
+      }
+    },
+    {
+      "method": "POST",
+      "path_template": "/api/system/providers/validate",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "POST",
       "path_template": "/api/workflow/read",
       "endpoint_class": "workflow",
       "request_schema": {
@@ -9343,8 +9923,8 @@
       }
     },
     {
-      "method": "GET",
-      "path_template": "/api/spaces",
+      "method": "PUT",
+      "path_template": "/api/system/auth-bindings/:auth_binding_id",
       "endpoint_class": "system",
       "request_schema": {
         "path_params": "templated path params are required when present",
@@ -9389,8 +9969,8 @@
       }
     },
     {
-      "method": "GET",
-      "path_template": "/api/system/logs/stream",
+      "method": "PUT",
+      "path_template": "/api/system/provider-bindings/:binding_id",
       "endpoint_class": "system",
       "request_schema": {
         "path_params": "templated path params are required when present",
@@ -9435,9 +10015,9 @@
       }
     },
     {
-      "method": "GET",
-      "path_template": "/ws/chat",
-      "endpoint_class": "ws",
+      "method": "PUT",
+      "path_template": "/api/system/providers/:provider_id",
+      "endpoint_class": "system",
       "request_schema": {
         "path_params": "templated path params are required when present",
         "query": "endpoint-specific query parameters",
@@ -9445,7 +10025,7 @@
           "content-type": "application/json for JSON payload endpoints",
           "x-idempotency-key": "used per idempotency_semantics"
         },
-        "body": "none"
+        "body": "json object"
       },
       "response_schema": {
         "status_code": "http status code",
@@ -9469,13 +10049,15 @@
         "authz_status": 403,
         "not_found_status": 404
       },
-      "event_emissions": [],
-      "transaction_boundary": "read_only",
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "host_managed",
       "idempotency_semantics": {
-        "mode": "not_applicable",
-        "header": null,
-        "dedupe_key": null,
-        "replay_behavior": "none"
+        "mode": "optional_header",
+        "header": "X-Idempotency-Key",
+        "dedupe_key": "method:path:header",
+        "replay_behavior": "last_success_response_replay"
       }
     }
   ]
