@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_provider_discovery",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/provider-discovery"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/provider-discovery"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/provider-discovery"
+  }
+}

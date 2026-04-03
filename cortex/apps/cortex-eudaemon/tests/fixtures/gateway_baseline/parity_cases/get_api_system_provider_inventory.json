@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_system_provider_inventory",
+  "class": "system",
+  "request": {
+    "method": "GET",
+    "path": "/api/system/provider-inventory"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/provider-inventory"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "GET",
+    "path": "/api/system/provider-inventory"
+  }
+}

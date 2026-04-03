@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_system_providers_discover",
+  "class": "system",
+  "request": {
+    "method": "POST",
+    "path": "/api/system/providers/discover"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/system/providers/discover"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/system/providers/discover"
+  }
+}

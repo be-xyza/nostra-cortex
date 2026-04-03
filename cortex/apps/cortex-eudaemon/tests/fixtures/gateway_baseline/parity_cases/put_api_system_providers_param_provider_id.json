@@ -1,0 +1,27 @@
+{
+  "case_id": "put_api_system_providers_param_provider_id",
+  "class": "system",
+  "request": {
+    "method": "PUT",
+    "path": "/api/system/providers/:provider_id"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "PUT",
+    "path": "/api/system/providers/:provider_id"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "PUT",
+    "path": "/api/system/providers/:provider_id"
+  }
+}
