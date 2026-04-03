@@ -101,7 +101,6 @@ Phase F turns the ratified commons contracts and bounded pilot into an operation
    - no new graph source of truth for `136`
    - no mutation semantics
 5. Use the Phase F evidence lane to compare graph-only, vector-only, and hybrid retrieval against the current `037` benchmark baseline before any broader rollout decision.
-6. Close `078` with a fixed benchmark suite, a case-aligned `037` shared evaluation report, a strengthened Explore topology handoff, and an explicit graph-promotion policy that defers new graph-native evidence classes.
 
 ### Milestones
 
@@ -136,14 +135,10 @@ Phase F turns the ratified commons contracts and bounded pilot into an operation
 
 #### M25: Graph RAG Implementation
 - [x] Gate implementation on successful M21-M24 validation
-- [x] Implement a bounded multi-case retrieval pipeline (Embed -> Find -> Extract -> Reason) for controlled graph evaluation
+- [ ] Implement multi-hop semantic traversal pipeline (Embed -> Find -> Extract -> Reason)
 - [x] Integrate **Hybrid Similarity Scoring** (RRF + Schema Planning) from `042` in the bounded pilot
 - [x] Prototype in `cortex-eudaemon` for graph-grounded agent chat
 - [x] Benchmark against pure-vector RAG performance
-- [x] Add fixed benchmark coverage for relation-traversal, scope-constrained, provenance-sensitive, and evidence-support cases
-- [x] Add a case-aligned shared evaluation report against the current `037` knowledge path
-- [x] Validate the Explore handoff against both research-space and agent-scope topology fixtures
-- [x] Define graph-promotion criteria and defer new graph-native evidence classes until later evidence justifies them
 - [x] Start with curated corpora and controlled evaluation, not open-ended general retrieval
 
 ### Verification
@@ -154,8 +149,7 @@ Phase F turns the ratified commons contracts and bounded pilot into an operation
 - Query interface: an internal adapter can answer structured knowledge questions via S-P-O over both fixture-backed and runtime-backed graph projections; public surfacing remains deferred
 - Graph retrieval pilot: graph-only, vector-only, and hybrid evaluation exists with citation-bearing output and curated benchmark coverage
 - Graph operationalization: an internal runner emits benchmark, comparison, and topology artifacts under `logs/knowledge/` without widening the network surface
-- Explore handoff: a derived topology read-model exists for `136` without introducing a new graph source of truth, and is validated against research-space plus agent-scope fixtures
-- Graph promotion: policy now exists to decide when supporting evidence should become graph-native, and the default remains defer-until-justified
+- Explore handoff: a derived topology read-model exists for `136` without introducing a new graph source of truth
 
 ---
 
@@ -178,7 +172,6 @@ Phase F turns the ratified commons contracts and bounded pilot into an operation
 - [Standards Registry Validator](../../scripts/validate_standards_registry.py) — Cross-standards registry and delegated discovery gate
 - [Freeze Readiness Report](./FREEZE_READINESS.md) — Human-readable ratification summary for M22-M24
 - [Phase E Consumer Handoffs](./PHASE_E_CONSUMER_HANDOFFS.md) — Implementation note for `037`, `042`, `051`, and `136`
-- [Graph Promotion Criteria](./GRAPH_PROMOTION_CRITERIA.md) — Policy for future graph-native evidence promotion
 - [082-Graphiti Integration](../082-graphiti-integration-analysis/) — Related graph integration analysis
 - [130-Space Capability Graph](../130-space-capability-graph-governance/) — Related capability graph governance
 

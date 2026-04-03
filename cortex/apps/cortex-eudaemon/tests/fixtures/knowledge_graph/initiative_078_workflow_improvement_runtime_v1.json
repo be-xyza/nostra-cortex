@@ -1,0 +1,14 @@
+[
+  {
+    "event_id": "evt-research-hypothesis-brief-evidence",
+    "source_ref": "nostra://doc/research/hypothesis-brief",
+    "source": {
+      "kind": "actor",
+      "scope_ref": "nostra://actor/did:nostra:research-steward"
+    },
+    "subject": "nostra://contribution/hypothesis-brief",
+    "predicate": "research:evidences",
+    "object": "nostra://contribution/hyp-001",
+    "confidence": 0.91
+  }
+]

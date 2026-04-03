@@ -1,0 +1,182 @@
+{
+  "schema_version": "1.0.0",
+  "space_id": "research",
+  "generated_from": "nostra://graph/research/topology/phase-f",
+  "ordering_strategy": "canonical",
+  "nodes": [
+    {
+      "node_id": "nostra://capability/graph-query",
+      "label": "graph-query",
+      "node_kind": "capability",
+      "graph_scopes": [
+        "system"
+      ],
+      "source_refs": [
+        "nostra://event/system/capability-graph-query"
+      ]
+    },
+    {
+      "node_id": "nostra://contribution/agent-task-001",
+      "label": "agent-task-001",
+      "node_kind": "contribution",
+      "graph_scopes": [
+        "agent"
+      ],
+      "source_refs": [
+        "nostra://event/agent/agent-task-001"
+      ]
+    },
+    {
+      "node_id": "nostra://contribution/exp-run-001",
+      "label": "exp-run-001",
+      "node_kind": "contribution",
+      "graph_scopes": [
+        "actor",
+        "agent"
+      ],
+      "source_refs": [
+        "nostra://event/agent/agent-task-001",
+        "nostra://event/agent/exp-run-001-shadow",
+        "nostra://event/research/exp-run-001"
+      ]
+    },
+    {
+      "node_id": "nostra://contribution/hyp-001",
+      "label": "hyp-001",
+      "node_kind": "contribution",
+      "graph_scopes": [
+        "actor",
+        "agent",
+        "system"
+      ],
+      "source_refs": [
+        "nostra://event/agent/exp-run-001-shadow",
+        "nostra://event/research/exp-run-001",
+        "nostra://event/research/hyp-001",
+        "nostra://event/research/report-001",
+        "nostra://event/system/hyp-001"
+      ]
+    },
+    {
+      "node_id": "nostra://contribution/report-001",
+      "label": "report-001",
+      "node_kind": "contribution",
+      "graph_scopes": [
+        "actor",
+        "agent"
+      ],
+      "source_refs": [
+        "nostra://event/agent/report-001",
+        "nostra://event/research/hyp-001",
+        "nostra://event/research/report-001"
+      ]
+    },
+    {
+      "node_id": "nostra://contribution/runbook-001",
+      "label": "runbook-001",
+      "node_kind": "contribution",
+      "graph_scopes": [
+        "agent"
+      ],
+      "source_refs": [
+        "nostra://event/agent/report-001"
+      ]
+    },
+    {
+      "node_id": "nostra://contribution/source-manifest-001",
+      "label": "source-manifest-001",
+      "node_kind": "contribution",
+      "graph_scopes": [
+        "system"
+      ],
+      "source_refs": [
+        "nostra://event/system/hyp-001"
+      ]
+    },
+    {
+      "node_id": "nostra://space/research",
+      "label": "research",
+      "node_kind": "space",
+      "graph_scopes": [
+        "system"
+      ],
+      "source_refs": [
+        "nostra://event/system/capability-graph-query"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "actor|nostra://contribution/exp-run-001|research:tests_hypothesis|nostra://contribution/hyp-001|nostra://event/research/exp-run-001",
+      "source_node_id": "nostra://contribution/exp-run-001",
+      "target_node_id": "nostra://contribution/hyp-001",
+      "predicate": "research:tests_hypothesis",
+      "graph_scope": "actor",
+      "provenance_scope": "actor",
+      "source_ref": "nostra://event/research/exp-run-001"
+    },
+    {
+      "edge_id": "actor|nostra://contribution/hyp-001|relates_to|nostra://contribution/report-001|nostra://event/research/hyp-001",
+      "source_node_id": "nostra://contribution/hyp-001",
+      "target_node_id": "nostra://contribution/report-001",
+      "predicate": "relates_to",
+      "graph_scope": "actor",
+      "provenance_scope": "actor",
+      "source_ref": "nostra://event/research/hyp-001"
+    },
+    {
+      "edge_id": "actor|nostra://contribution/report-001|research:evidences|nostra://contribution/hyp-001|nostra://event/research/report-001",
+      "source_node_id": "nostra://contribution/report-001",
+      "target_node_id": "nostra://contribution/hyp-001",
+      "predicate": "research:evidences",
+      "graph_scope": "actor",
+      "provenance_scope": "actor",
+      "source_ref": "nostra://event/research/report-001"
+    },
+    {
+      "edge_id": "agent|nostra://contribution/agent-task-001|relates_to|nostra://contribution/exp-run-001|nostra://event/agent/agent-task-001",
+      "source_node_id": "nostra://contribution/agent-task-001",
+      "target_node_id": "nostra://contribution/exp-run-001",
+      "predicate": "relates_to",
+      "graph_scope": "agent",
+      "provenance_scope": "agent",
+      "source_ref": "nostra://event/agent/agent-task-001"
+    },
+    {
+      "edge_id": "agent|nostra://contribution/exp-run-001|research:tests_hypothesis|nostra://contribution/hyp-001|nostra://event/agent/exp-run-001-shadow",
+      "source_node_id": "nostra://contribution/exp-run-001",
+      "target_node_id": "nostra://contribution/hyp-001",
+      "predicate": "research:tests_hypothesis",
+      "graph_scope": "agent",
+      "provenance_scope": "agent",
+      "source_ref": "nostra://event/agent/exp-run-001-shadow"
+    },
+    {
+      "edge_id": "agent|nostra://contribution/report-001|relates_to|nostra://contribution/runbook-001|nostra://event/agent/report-001",
+      "source_node_id": "nostra://contribution/report-001",
+      "target_node_id": "nostra://contribution/runbook-001",
+      "predicate": "relates_to",
+      "graph_scope": "agent",
+      "provenance_scope": "agent",
+      "source_ref": "nostra://event/agent/report-001"
+    },
+    {
+      "edge_id": "system|nostra://contribution/hyp-001|relates_to|nostra://contribution/source-manifest-001|nostra://event/system/hyp-001",
+      "source_node_id": "nostra://contribution/hyp-001",
+      "target_node_id": "nostra://contribution/source-manifest-001",
+      "predicate": "relates_to",
+      "graph_scope": "system",
+      "provenance_scope": "system",
+      "source_ref": "nostra://event/system/hyp-001"
+    },
+    {
+      "edge_id": "system|nostra://space/research|has_capability|nostra://capability/graph-query|nostra://event/system/capability-graph-query",
+      "source_node_id": "nostra://space/research",
+      "target_node_id": "nostra://capability/graph-query",
+      "predicate": "has_capability",
+      "graph_scope": "system",
+      "provenance_scope": "system",
+      "source_ref": "nostra://event/system/capability-graph-query"
+    }
+  ]
+}

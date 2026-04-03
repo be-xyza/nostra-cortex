@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-04-03T20:24:42.783417+00:00",
+  "datasetRef": "nostra://benchmark/initiative-078/phase-f-graph-pilot",
+  "cases": [
+    {
+      "caseId": "multi_hop_research_evidence",
+      "queryId": "benchmark-multi-hop-research-evidence",
+      "queryText": "What evidence supports hypothesis hyp-001?",
+      "relevantSourceRefs": [
+        "nostra://event/research/exp-run-001",
+        "nostra://event/research/report-001",
+        "nostra://doc/research/hypothesis-brief"
+      ],
+      "results": [
+        {
+          "retrievalMode": "graph_only",
+          "recallScore": 0.6666666666666666,
+          "latencyMs": 0,
+          "citationSourceRefs": [
+            "nostra://event/research/exp-run-001",
+            "nostra://event/research/report-001"
+          ],
+          "citationCount": 2,
+          "provenanceSatisfied": true
+        },
+        {
+          "retrievalMode": "vector_only",
+          "recallScore": 1.0,
+          "latencyMs": 0,
+          "citationSourceRefs": [
+            "nostra://event/research/exp-run-001",
+            "nostra://event/research/report-001",
+            "nostra://doc/research/hypothesis-brief"
+          ],
+          "citationCount": 3,
+          "provenanceSatisfied": true
+        },
+        {
+          "retrievalMode": "hybrid_graph_embedding",
+          "recallScore": 1.0,
+          "latencyMs": 0,
+          "citationSourceRefs": [
+            "nostra://event/research/exp-run-001",
+            "nostra://event/research/report-001",
+            "nostra://doc/research/hypothesis-brief"
+          ],
+          "citationCount": 3,
+          "provenanceSatisfied": true
+        }
+      ]
+    }
+  ],
+  "summaries": [
+    {
+      "retrievalMode": "graph_only",
+      "cases": 1,
+      "averageRecallScore": 0.6666666666666666,
+      "averageLatencyMs": 0.0,
+      "provenancePassRate": 1.0
+    },
+    {
+      "retrievalMode": "hybrid_graph_embedding",
+      "cases": 1,
+      "averageRecallScore": 1.0,
+      "averageLatencyMs": 0.0,
+      "provenancePassRate": 1.0
+    },
+    {
+      "retrievalMode": "vector_only",
+      "cases": 1,
+      "averageRecallScore": 1.0,
+      "averageLatencyMs": 0.0,
+      "provenancePassRate": 1.0
+    }
+  ]
+}

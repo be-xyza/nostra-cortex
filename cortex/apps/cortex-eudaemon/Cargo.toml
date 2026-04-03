@@ -8,6 +8,7 @@ autotests = false
 [features]
 default = ["service-scaffolds"]
 cortex_runtime_v0 = []
+knowledge-graph-tests = []
 service-scaffolds = []
 siq-service-client = []
 temporal-sdk-native = [
@@ -18,7 +19,7 @@ temporal-sdk-native = [
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
-axum = { version = "0.7", features = ["ws"] }
+axum = { version = "0.7", features = ["ws", "multipart"] }
 candid = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
 casbin = { version = "2.18.1", default-features = false, features = ["runtime-tokio", "incremental"] }
@@ -51,10 +52,17 @@ squads-temporal-sdk-core-protos = { version = "0.3.1", optional = true }
 [[bin]]
 name = "cortex_eudaemon"
 path = "src/main.rs"
+required-features = ["service-scaffolds"]
 
 [[bin]]
 name = "gateway_server"
 path = "src/bin/gateway_server.rs"
+required-features = ["service-scaffolds"]
+
+[[bin]]
+name = "knowledge_graph_pilot_runner"
+path = "src/bin/knowledge_graph_pilot_runner.rs"
+required-features = ["knowledge-graph-tests"]
 
 [[test]]
 name = "gateway_parity"
@@ -67,3 +75,11 @@ path = "tests/acp_gateway_integration.rs"
 [[test]]
 name = "acp_staging_operationalization"
 path = "tests/acp_staging_operationalization.rs"
+
+[[test]]
+name = "knowledge_graph_query_adapter"
+path = "tests/knowledge_graph_query_adapter.rs"
+
+[[test]]
+name = "knowledge_graph_phase_e"
+path = "tests/knowledge_graph_phase_e.rs"

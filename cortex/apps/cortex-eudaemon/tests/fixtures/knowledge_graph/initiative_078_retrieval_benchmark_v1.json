@@ -1,0 +1,172 @@
+{
+  "vector_hits": [
+    {
+      "id": "doc-report-001",
+      "source_ref": "nostra://event/research/report-001",
+      "content": "Report 001 provides direct evidence for hypothesis hyp-001 after the experiment run completed.",
+      "score": 0.82,
+      "metadata": {
+        "space_id": "research",
+        "source_type": "report"
+      }
+    },
+    {
+      "id": "doc-exp-run-001",
+      "source_ref": "nostra://event/research/exp-run-001",
+      "content": "Experiment run 001 directly supports hypothesis hyp-001 through the recorded evidence chain.",
+      "score": 0.84,
+      "metadata": {
+        "space_id": "research",
+        "source_type": "experiment"
+      }
+    },
+    {
+      "id": "doc-hypothesis-brief",
+      "source_ref": "nostra://doc/research/hypothesis-brief",
+      "content": "Hypothesis hyp-001 explores whether graph retrieval improves multi-hop grounding quality.",
+      "score": 0.79,
+      "metadata": {
+        "space_id": "research",
+        "source_type": "brief"
+      }
+    },
+    {
+      "id": "doc-runbook-001",
+      "source_ref": "nostra://doc/operations/runbook-001",
+      "content": "Runbook 001 captures operational mitigation paths and is not directly relevant to hyp-001.",
+      "score": 0.61,
+      "metadata": {
+        "space_id": "operations",
+        "source_type": "runbook"
+      }
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "multi_hop_research_evidence",
+      "query_class": "evidence_support",
+      "request": {
+        "query_id": "benchmark-multi-hop-research-evidence",
+        "query_text": "What evidence supports hypothesis hyp-001?",
+        "retrieval_mode": "hybrid_graph_embedding",
+        "triple_request": {
+          "schema_version": "1.0.0",
+          "query_id": "benchmark-multi-hop-research-evidence-triples",
+          "ordering_strategy": "canonical",
+          "scope": {
+            "named_graph_scope": "actor",
+            "scope_ref": "nostra://actor/did:nostra:research-steward"
+          },
+          "filters": {
+            "subject": null,
+            "predicate": null,
+            "object": "nostra://contribution/hyp-001",
+            "include_provenance": true,
+            "limit": 8,
+            "offset": 0
+          }
+        },
+        "graph_limit": 8,
+        "vector_limit": 3
+      },
+      "relevant_source_refs": [
+        "nostra://event/research/exp-run-001",
+        "nostra://event/research/report-001",
+        "nostra://doc/research/hypothesis-brief"
+      ]
+    },
+    {
+      "case_id": "relation_traversal_runbook_dependency",
+      "query_class": "graph_relation_traversal",
+      "request": {
+        "query_id": "benchmark-relation-traversal-runbook",
+        "query_text": "Which operational source is linked from report-001 in the agent graph?",
+        "retrieval_mode": "hybrid_graph_embedding",
+        "triple_request": {
+          "schema_version": "1.0.0",
+          "query_id": "benchmark-relation-traversal-runbook-triples",
+          "ordering_strategy": "canonical",
+          "scope": {
+            "named_graph_scope": "agent",
+            "scope_ref": "nostra://agent/did:nostra:planner-7"
+          },
+          "filters": {
+            "subject": "nostra://contribution/report-001",
+            "predicate": "relates_to",
+            "object": null,
+            "include_provenance": true,
+            "limit": 4,
+            "offset": 0
+          }
+        },
+        "graph_limit": 4,
+        "vector_limit": 3
+      },
+      "relevant_source_refs": [
+        "nostra://event/agent/report-001"
+      ]
+    },
+    {
+      "case_id": "system_scope_capability_visibility",
+      "query_class": "scope_constrained",
+      "request": {
+        "query_id": "benchmark-system-scope-capability",
+        "query_text": "Which system capability is attached to the research Space?",
+        "retrieval_mode": "hybrid_graph_embedding",
+        "triple_request": {
+          "schema_version": "1.0.0",
+          "query_id": "benchmark-system-scope-capability-triples",
+          "ordering_strategy": "canonical",
+          "scope": {
+            "named_graph_scope": "system",
+            "scope_ref": null
+          },
+          "filters": {
+            "subject": "nostra://space/research",
+            "predicate": "has_capability",
+            "object": null,
+            "include_provenance": true,
+            "limit": 4,
+            "offset": 0
+          }
+        },
+        "graph_limit": 4,
+        "vector_limit": 3
+      },
+      "relevant_source_refs": [
+        "nostra://event/system/capability-graph-query"
+      ]
+    },
+    {
+      "case_id": "provenance_sensitive_system_manifest",
+      "query_class": "provenance_sensitive",
+      "request": {
+        "query_id": "benchmark-provenance-system-manifest",
+        "query_text": "Which system source records the manifest relation for hyp-001?",
+        "retrieval_mode": "hybrid_graph_embedding",
+        "triple_request": {
+          "schema_version": "1.0.0",
+          "query_id": "benchmark-provenance-system-manifest-triples",
+          "ordering_strategy": "canonical",
+          "scope": {
+            "named_graph_scope": "system",
+            "scope_ref": null
+          },
+          "filters": {
+            "subject": "nostra://contribution/hyp-001",
+            "predicate": "relates_to",
+            "object": "nostra://contribution/source-manifest-001",
+            "include_provenance": true,
+            "limit": 4,
+            "offset": 0
+          }
+        },
+        "graph_limit": 4,
+        "vector_limit": 3
+      },
+      "relevant_source_refs": [
+        "nostra://event/system/hyp-001"
+      ]
+    }
+  ]
+}

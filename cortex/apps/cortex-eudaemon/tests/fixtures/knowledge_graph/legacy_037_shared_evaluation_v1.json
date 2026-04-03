@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-04-03T21:45:00Z",
+  "baselineSourceRef": "nostra://fixtures/knowledge/legacy_037_shared_evaluation_v1.json",
+  "cases": [
+    {
+      "caseId": "multi_hop_research_evidence",
+      "queryClass": "evidence_support",
+      "queryId": "benchmark-multi-hop-research-evidence",
+      "queryText": "What evidence supports hypothesis hyp-001?",
+      "mode": "037_current_hybrid_retrieval",
+      "relevantSourceRefs": [
+        "nostra://event/research/exp-run-001",
+        "nostra://event/research/report-001",
+        "nostra://doc/research/hypothesis-brief"
+      ],
+      "citationSourceRefs": [
+        "nostra://event/research/exp-run-001",
+        "nostra://event/research/report-001"
+      ],
+      "citationCount": 2,
+      "recallScore": 0.6666666666666666,
+      "latencyMs": 126,
+      "provenanceSatisfied": true
+    },
+    {
+      "caseId": "relation_traversal_runbook_dependency",
+      "queryClass": "graph_relation_traversal",
+      "queryId": "benchmark-relation-traversal-runbook",
+      "queryText": "Which operational source is linked from report-001 in the agent graph?",
+      "mode": "037_current_hybrid_retrieval",
+      "relevantSourceRefs": [
+        "nostra://event/agent/report-001"
+      ],
+      "citationSourceRefs": [
+        "nostra://doc/operations/runbook-001"
+      ],
+      "citationCount": 1,
+      "recallScore": 0.0,
+      "latencyMs": 131,
+      "provenanceSatisfied": false
+    },
+    {
+      "caseId": "system_scope_capability_visibility",
+      "queryClass": "scope_constrained",
+      "queryId": "benchmark-system-scope-capability",
+      "queryText": "Which system capability is attached to the research Space?",
+      "mode": "037_current_hybrid_retrieval",
+      "relevantSourceRefs": [
+        "nostra://event/system/capability-graph-query"
+      ],
+      "citationSourceRefs": [],
+      "citationCount": 0,
+      "recallScore": 0.0,
+      "latencyMs": 118,
+      "provenanceSatisfied": false
+    },
+    {
+      "caseId": "provenance_sensitive_system_manifest",
+      "queryClass": "provenance_sensitive",
+      "queryId": "benchmark-provenance-system-manifest",
+      "queryText": "Which system source records the manifest relation for hyp-001?",
+      "mode": "037_current_hybrid_retrieval",
+      "relevantSourceRefs": [
+        "nostra://event/system/hyp-001"
+      ],
+      "citationSourceRefs": [
+        "nostra://doc/research/hypothesis-brief"
+      ],
+      "citationCount": 1,
+      "recallScore": 0.0,
+      "latencyMs": 119,
+      "provenanceSatisfied": false
+    }
+  ]
+}
