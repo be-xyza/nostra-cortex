@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_studio_uploads_param_upload_id_blob",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/studio/uploads/:upload_id/blob"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/studio/uploads/:upload_id/blob"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/studio/uploads/:upload_id/blob"
+  }
+}

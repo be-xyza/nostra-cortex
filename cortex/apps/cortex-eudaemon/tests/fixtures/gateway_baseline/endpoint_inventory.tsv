@@ -1,4 +1,6 @@
 GET	/api/canisters
+GET	/api/cortex/chat/conversations
+GET	/api/cortex/chat/conversations/:thread_id
 GET	/api/cortex/feedback/promotions/history
 GET	/api/cortex/feedback/ux
 GET	/api/cortex/feedback/ux/overdue
@@ -27,6 +29,11 @@ GET	/api/cortex/studio/heap/blocks
 GET	/api/cortex/studio/heap/blocks/:artifact_id/export
 GET	/api/cortex/studio/heap/blocks/:artifact_id/history
 GET	/api/cortex/studio/heap/changed_blocks
+GET	/api/cortex/studio/uploads/:upload_id/blob
+GET	/api/cortex/studio/uploads/:upload_id/extraction
+GET	/api/cortex/studio/uploads/:upload_id/extractions
+GET	/api/cortex/studio/uploads/:upload_id/extractions/:job_id
+GET	/api/cortex/studio/uploads/parser-profiles
 GET	/api/cortex/views/capability-matrix
 GET	/api/cortex/viewspecs/:view_spec_id
 GET	/api/cortex/viewspecs/active
@@ -37,6 +44,7 @@ GET	/api/cortex/viewspecs/proposals
 GET	/api/cortex/viewspecs/proposals/:proposal_id
 GET	/api/cortex/viewspecs/proposals/:proposal_id/digest
 GET	/api/cortex/viewspecs/proposals/:proposal_id/replay
+GET	/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id
 GET	/api/cortex/workflow-definitions/:definition_id
 GET	/api/cortex/workflow-definitions/:definition_id/projections/:projection_kind
 GET	/api/cortex/workflow-definitions/active/:scope_key
@@ -75,6 +83,8 @@ GET	/api/metrics/resilience
 GET	/api/spaces
 GET	/api/spaces/:space_id/capability-graph
 GET	/api/spaces/:space_id/navigation-plan
+GET	/api/spaces/:space_id/readiness
+GET	/api/spaces/:space_id/settings
 GET	/api/system/agents/runs
 GET	/api/system/agents/runs/:space_id/:run_id
 GET	/api/system/attribution-domains/:space_id
@@ -104,6 +114,7 @@ GET	/api/system/providers
 GET	/api/system/ready
 GET	/api/system/replay-contract/:mutation_id
 GET	/api/system/runtime-hosts
+GET	/api/system/session
 GET	/api/system/siq/coverage
 GET	/api/system/siq/dependency-closure
 GET	/api/system/siq/gates/latest
@@ -165,6 +176,8 @@ POST	/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/apply
 POST	/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/validate
 POST	/api/cortex/studio/heap/blocks/context
 POST	/api/cortex/studio/heap/emit
+POST	/api/cortex/studio/uploads
+POST	/api/cortex/studio/uploads/:upload_id/extract
 POST	/api/cortex/viewspecs/:view_spec_id/confidence/recompute
 POST	/api/cortex/viewspecs/:view_spec_id/fork
 POST	/api/cortex/viewspecs/:view_spec_id/propose
@@ -181,6 +194,7 @@ POST	/api/cortex/viewspecs/proposals/:proposal_id/ratify
 POST	/api/cortex/viewspecs/proposals/:proposal_id/reject
 POST	/api/cortex/viewspecs/proposals/:proposal_id/review
 POST	/api/cortex/viewspecs/validate
+POST	/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id
 POST	/api/cortex/workflow-drafts/:workflow_draft_id/propose
 POST	/api/cortex/workflow-drafts/candidates
 POST	/api/cortex/workflow-drafts/candidates/:candidate_set_id/stage
@@ -214,11 +228,14 @@ POST	/api/system/local-gateway/queue/:mutation_id/fork
 POST	/api/system/local-gateway/queue/:mutation_id/retry
 POST	/api/system/providers/discover
 POST	/api/system/providers/validate
+POST	/api/system/session/active-role
 POST	/api/workflow/read
 POST	/api/workflow/run
 POST	/api/workflow/save
 PUT	/api/cortex/preferences/theme-policy
 PUT	/api/spaces/:space_id/capability-graph
+PUT	/api/spaces/:space_id/agents/:agent_id/routing
+PUT	/api/spaces/:space_id/routing
 PUT	/api/system/auth-bindings/:auth_binding_id
 PUT	/api/system/provider-bindings/:binding_id
 PUT	/api/system/providers/:provider_id

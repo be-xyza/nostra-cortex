@@ -6,6 +6,14 @@
     },
     {
       "method": "GET",
+      "path": "/api/cortex/chat/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/chat/conversations/:thread_id"
+    },
+    {
+      "method": "GET",
       "path": "/api/cortex/feedback/promotions/history"
     },
     {
@@ -15,6 +23,10 @@
     {
       "method": "GET",
       "path": "/api/cortex/feedback/ux/overdue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/layout/discovery"
     },
     {
       "method": "GET",
@@ -47,6 +59,10 @@
     {
       "method": "GET",
       "path": "/api/cortex/runtime/sync-status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/artifacts"
     },
     {
       "method": "GET",
@@ -94,6 +110,42 @@
     },
     {
       "method": "GET",
+      "path": "/api/cortex/studio/heap/blocks"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/export"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/heap/changed_blocks"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/uploads/:upload_id/blob"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/uploads/:upload_id/extraction"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/uploads/:upload_id/extractions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/uploads/:upload_id/extractions/:job_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/uploads/parser-profiles"
+    },
+    {
+      "method": "GET",
       "path": "/api/cortex/views/capability-matrix"
     },
     {
@@ -107,6 +159,10 @@
     {
       "method": "GET",
       "path": "/api/cortex/viewspecs/candidates/:candidate_set_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/experiments/spatial/runs/:run_id"
     },
     {
       "method": "GET",
@@ -127,6 +183,58 @@
     {
       "method": "GET",
       "path": "/api/cortex/viewspecs/proposals/:proposal_id/replay"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-definitions/:definition_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-definitions/:definition_id/projections/:projection_kind"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-definitions/active/:scope_key"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/candidates/:candidate_set_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/proposals"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/digest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/replay"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-instances/:instance_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-instances/:instance_id/checkpoints"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-instances/:instance_id/outcome"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/workflow-instances/:instance_id/trace"
     },
     {
       "method": "GET",
@@ -154,7 +262,67 @@
     },
     {
       "method": "GET",
+      "path": "/api/kg/spaces/:space_id/agents/contributions/:run_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/blast-radius"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/doctor"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/edition-diff"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/edition-trends"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/editions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/graph"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/lens-summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/path-assessment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/runs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/runs/:run_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/simulations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/violations/by-node"
+    },
+    {
+      "method": "GET",
       "path": "/api/metrics/acp"
+    },
+    {
+      "method": "GET",
+      "path": "/api/metrics/authz"
     },
     {
       "method": "GET",
@@ -162,7 +330,55 @@
     },
     {
       "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/:space_id/capability-graph"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/:space_id/navigation-plan"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/:space_id/readiness"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/:space_id/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/agents/runs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/agents/runs/:space_id/:run_id"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/attribution-domains/:space_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/auth-bindings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/brand-policy"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/build"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/capability-catalog"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/capability-graph"
     },
     {
       "method": "GET",
@@ -182,11 +398,19 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/execution-bindings"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/execution-profile/:space_id"
     },
     {
       "method": "GET",
       "path": "/api/system/governance-scope/:space_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/llm-adapter/status"
     },
     {
       "method": "GET",
@@ -198,7 +422,35 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/logs/stream"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/logs/streams"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/logs/streams/:stream_id/tail"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/mutation-gates/:space_id/:mutation_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/provider-discovery"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/provider-inventory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/provider-runtime/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/providers"
     },
     {
       "method": "GET",
@@ -210,7 +462,51 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/runtime-hosts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/siq/coverage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/siq/dependency-closure"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/siq/gates/latest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/siq/graph-projection"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/siq/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/siq/runs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/siq/runs/:run_id"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/ux/workbench"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/whoami"
     },
     {
       "method": "GET",
@@ -243,6 +539,10 @@
     {
       "method": "GET",
       "path": "/ws"
+    },
+    {
+      "method": "GET",
+      "path": "/ws/chat"
     },
     {
       "method": "GET",
@@ -386,6 +686,42 @@
     },
     {
       "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/a2ui/feedback"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/delete"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/pin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/apply"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/validate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/heap/blocks/context"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/heap/emit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/uploads"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/uploads/:upload_id/extract"
+    },
+    {
+      "method": "POST",
       "path": "/api/cortex/viewspecs/:view_spec_id/confidence/recompute"
     },
     {
@@ -407,6 +743,10 @@
     {
       "method": "POST",
       "path": "/api/cortex/viewspecs/compile"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/viewspecs/experiments/spatial/events"
     },
     {
       "method": "POST",
@@ -446,6 +786,62 @@
     },
     {
       "method": "POST",
+      "path": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/:workflow_draft_id/propose"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/candidates"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/candidates/:candidate_set_id/stage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/compile"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/ratify"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/reject"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/proposals/:proposal_id/review"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-drafts/validate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-instances"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-instances/:instance_id/cancel"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-instances/:instance_id/pause"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-instances/:instance_id/signals"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/workflow-intents"
+    },
+    {
+      "method": "POST",
       "path": "/api/ingest"
     },
     {
@@ -454,7 +850,43 @@
     },
     {
       "method": "POST",
+      "path": "/api/kg/spaces/:space_id/agents/contributions"
+    },
+    {
+      "method": "POST",
+      "path": "/api/kg/spaces/:space_id/agents/contributions/:run_id/approval"
+    },
+    {
+      "method": "POST",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/lens/evaluate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/pipeline/query"
+    },
+    {
+      "method": "POST",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/pipeline/run"
+    },
+    {
+      "method": "POST",
+      "path": "/api/kg/spaces/:space_id/contribution-graph/steward-packet/export"
+    },
+    {
+      "method": "POST",
       "path": "/api/search"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/:space_id/action-plan"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spaces/create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/auth-bindings"
     },
     {
       "method": "POST",
@@ -463,6 +895,10 @@
     {
       "method": "POST",
       "path": "/api/system/decision/escalate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/gates/emit-heap-block"
     },
     {
       "method": "POST",
@@ -475,6 +911,18 @@
     {
       "method": "POST",
       "path": "/api/system/local-gateway/queue/:mutation_id/retry"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/providers/discover"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/providers/validate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/session/active-role"
     },
     {
       "method": "POST",
@@ -491,6 +939,30 @@
     {
       "method": "PUT",
       "path": "/api/cortex/preferences/theme-policy"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/spaces/:space_id/capability-graph"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/spaces/:space_id/agents/:agent_id/routing"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/spaces/:space_id/routing"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/auth-bindings/:auth_binding_id"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/provider-bindings/:binding_id"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/providers/:provider_id"
     }
   ]
 }

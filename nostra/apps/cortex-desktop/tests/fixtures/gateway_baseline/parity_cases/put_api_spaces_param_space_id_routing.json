@@ -1,0 +1,27 @@
+{
+  "case_id": "put_api_spaces_param_space_id_routing",
+  "class": "system",
+  "request": {
+    "method": "PUT",
+    "path": "/api/spaces/:space_id/routing"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "PUT",
+    "path": "/api/spaces/:space_id/routing"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "PUT",
+    "path": "/api/spaces/:space_id/routing"
+  }
+}

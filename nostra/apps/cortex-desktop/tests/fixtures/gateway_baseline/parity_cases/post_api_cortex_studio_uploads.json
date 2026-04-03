@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_studio_uploads",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/studio/uploads"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/studio/uploads"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/studio/uploads"
+  }
+}
