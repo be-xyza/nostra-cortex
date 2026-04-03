@@ -24,7 +24,12 @@ import {
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { workbenchApi } from "../../api";
-import { useSpaceRegistrySnapshot, type Space } from "../../store/spacesRegistry";
+import {
+  describeSpaceSourceMode,
+  partitionSpacesBySource,
+  useSpaceRegistrySnapshot,
+  type Space
+} from "../../store/spacesRegistry";
 import { useUiStore } from "../../store/uiStore";
 import { useUserPreferences } from "../../store/userPreferences";
 import { useNavigate } from "react-router-dom";
@@ -115,9 +120,10 @@ function getSpaceSiq(space: Space): SpaceSiqStatus {
 interface SpaceActionsMenuProps {
   space: Space;
   onOpenDetails: (id: string) => void;
+  onOpenSettings?: (id: string) => void;
 }
 
-const SpaceActionsMenu: React.FC<SpaceActionsMenuProps> = ({ space, onOpenDetails }) => {
+const SpaceActionsMenu: React.FC<SpaceActionsMenuProps> = ({ space, onOpenDetails, onOpenSettings }) => {
   const [copied, setCopied] = useState(false);
   const actions = space.config?.actions || ['details', 'copy_id'];
 
@@ -178,6 +184,7 @@ const SpaceActionsMenu: React.FC<SpaceActionsMenuProps> = ({ space, onOpenDetail
           {actions.includes('settings') && (
             <DropdownMenu.Item
               className="flex items-center gap-2 px-2.5 py-2 text-[11px] text-white/70 hover:text-white hover:bg-white/5 rounded-md cursor-pointer outline-none transition-colors"
+              onClick={() => (onOpenSettings ? onOpenSettings(space.id) : onOpenDetails(space.id))}
             >
               <Settings className="w-3.5 h-3.5" />
               <span>Space Settings</span>
@@ -209,9 +216,10 @@ interface SpaceCardProps {
   isSelected: boolean;
   onSelect: (id: string, event: React.MouseEvent) => void;
   onOpenDetails: (id: string) => void;
+  onOpenSettings?: (id: string) => void;
 }
 
-const SpaceCard: React.FC<SpaceCardProps> = ({ space, reviewCount, isSelected, onSelect, onOpenDetails }) => {
+const SpaceCard: React.FC<SpaceCardProps> = ({ space, reviewCount, isSelected, onSelect, onOpenDetails, onOpenSettings }) => {
   const visuals = getVisuals(space);
   const siq = getSpaceSiq(space);
   const profiles = useEnforcementProfiles();
@@ -252,10 +260,26 @@ const SpaceCard: React.FC<SpaceCardProps> = ({ space, reviewCount, isSelected, o
             <span className="text-[8px] uppercase tracking-wider text-indigo-400/50 font-medium">
               {space.type}
             </span>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-wider text-white/50">
+                {describeSpaceSourceMode(space)}
+              </span>
+              {space.readinessSummary && (
+                <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-wider ${
+                  space.readinessSummary === "pass"
+                    ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                    : space.readinessSummary === "fail"
+                      ? "border-red-400/20 bg-red-400/10 text-red-100"
+                      : "border-amber-400/20 bg-amber-400/10 text-amber-100"
+                }`}>
+                  {space.readinessSummary.replace("_", " ")}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
-        <SpaceActionsMenu space={space} onOpenDetails={onOpenDetails} />
+        <SpaceActionsMenu space={space} onOpenDetails={onOpenDetails} onOpenSettings={onOpenSettings} />
       </div>
 
       {/* BODY — Enforcement + Stats + Rich Data */}
@@ -337,9 +361,10 @@ interface WorkbenchCardProps {
   isSelected: boolean;
   onSelect: (id: string, event: React.MouseEvent) => void;
   onOpenDetails: (id: string) => void;
+  onOpenSettings?: (id: string) => void;
 }
 
-const WorkbenchCard: React.FC<WorkbenchCardProps> = ({ space, memberSpaces, isSelected, onSelect, onOpenDetails }) => {
+const WorkbenchCard: React.FC<WorkbenchCardProps> = ({ space, memberSpaces, isSelected, onSelect, onOpenDetails, onOpenSettings }) => {
   const visuals = getVisuals(space);
   const stats = space.stats || {
     objectCount: memberSpaces.length * 1500,
@@ -376,7 +401,7 @@ const WorkbenchCard: React.FC<WorkbenchCardProps> = ({ space, memberSpaces, isSe
           </div>
         </div>
         
-        <SpaceActionsMenu space={space} onOpenDetails={onOpenDetails} />
+        <SpaceActionsMenu space={space} onOpenDetails={onOpenDetails} onOpenSettings={onOpenSettings} />
       </div>
 
       {/* BODY — Space Membership Avatars */}
@@ -495,7 +520,7 @@ const NewWorkbenchCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 /* ─────────────────────── SpacesPage Component ─────────────────────── */
 
 export const SpacesPage: React.FC = () => {
-  const { spaces, registryResolved } = useSpaceRegistrySnapshot();
+  const { spaces, registryResolved, registryDegraded } = useSpaceRegistrySnapshot();
   const profiles = useEnforcementProfiles();
   const activeSpaceIds = useUiStore((state) => state.activeSpaceIds);
   const setActiveSpaceIds = useUiStore((state) => state.setActiveSpaceIds);
@@ -514,6 +539,10 @@ export const SpacesPage: React.FC = () => {
       s.type.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [spaces, searchQuery]);
+  const sovereignSpacesBySource = useMemo(
+    () => partitionSpacesBySource(sovereignSpaces),
+    [sovereignSpaces],
+  );
 
   const {
     selectedIds,
@@ -534,10 +563,31 @@ export const SpacesPage: React.FC = () => {
   const handleOpenDetails = (id: string) => {
     navigate(`/spaces/${id}`);
   };
+  const handleOpenSettings = (id: string) => {
+    navigate(`/spaces/${id}?tab=routing`);
+  };
 
   // Summary stats
   const totalSpaces = sovereignSpaces.length;
-  const readyCount = sovereignSpaces.filter((s: Space) => getSpaceSiq(s).verdict === "ready").length;
+  const readyCount = sovereignSpaces.filter((s: Space) => s.readinessSummary === "pass").length;
+  const sourceCounts = useMemo(() => {
+    return sovereignSpaces.reduce(
+      (acc, space) => {
+        const mode = space.sourceMode ?? "registered";
+        if (mode === "observed") {
+          acc.observed += 1;
+        } else if (mode === "preview") {
+          acc.preview += 1;
+        } else if (mode === "draft") {
+          acc.draft += 1;
+        } else {
+          acc.registered += 1;
+        }
+        return acc;
+      },
+      { registered: 0, observed: 0, preview: 0, draft: 0 },
+    );
+  }, [sovereignSpaces]);
 
   useEffect(() => {
     let cancelled = false;
@@ -577,7 +627,9 @@ export const SpacesPage: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white/90 tracking-tight">Spaces</h1>
-            <p className="text-xs text-white/35">Integrity Grid · {totalSpaces} spaces · {readyCount} ready</p>
+            <p className="text-xs text-white/35">
+              Integrity Grid · {totalSpaces} spaces · {readyCount} ready · {sourceCounts.registered} registered · {sourceCounts.observed} observed · {sourceCounts.preview} preview · {sourceCounts.draft} draft
+            </p>
           </div>
         </div>
       </div>
@@ -612,11 +664,11 @@ export const SpacesPage: React.FC = () => {
               </DropdownMenu.Label>
               <DropdownMenu.Item
                 className="flex items-center justify-between px-2 py-2 rounded-lg outline-none cursor-default hover:bg-white/10 focus:bg-white/10 group transition-colors"
-                onClick={() => setRegistryMode(registryMode === 'preview' ? 'auto' : 'preview')}
+                onClick={() => setRegistryMode(registryMode === 'preview' ? 'live' : 'preview')}
               >
                 <span className="flex items-center gap-2 text-white/80 group-hover:text-white">
                   <Database className="w-4 h-4 text-white/50 group-hover:text-blue-400 transition-colors" />
-                  Preview Mode
+                  Preview Fixtures
                 </span>
                 <div className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 flex items-center ${registryMode === 'preview' ? 'bg-blue-500 justify-end' : 'bg-white/10 group-hover:bg-white/20 justify-start'}`}>
                   <div className={`w-3 h-3 bg-white rounded-full shadow-sm`} />
@@ -664,6 +716,7 @@ export const SpacesPage: React.FC = () => {
               isSelected={selectedIds.includes(space.id)}
               onSelect={handleSelect}
               onOpenDetails={handleOpenDetails}
+              onOpenSettings={handleOpenSettings}
             />
           ))}
           <NewWorkbenchCard onClick={() => navigate("/spaces#new-workbench")} />
@@ -679,27 +732,60 @@ export const SpacesPage: React.FC = () => {
         </h2>
         {!registryResolved && sovereignSpaces.length === 0 && (
           <div className="mb-3 rounded-xl border border-white/6 bg-white/2 px-4 py-3 text-xs text-white/45">
-            Discovering live Spaces from the registry…
+            Discovering registered and observed live Spaces…
+          </div>
+        )}
+        {registryDegraded && sovereignSpaces.length > 0 && (
+          <div className="mb-3 rounded-xl border border-amber-400/15 bg-amber-400/8 px-4 py-3 text-xs text-amber-100/80">
+            Gateway unavailable. Showing the last known live Space registry while the connection recovers.
           </div>
         )}
         {registryResolved && sovereignSpaces.length === 0 && (
           <div className="mb-3 rounded-xl border border-white/6 bg-white/2 px-4 py-3 text-xs text-white/45">
-            No live spaces are available yet. Switch to preview mode only when you intentionally want demo spaces.
+            No registered or observed live Spaces are available yet. Preview fixtures are still available in the settings menu when you intentionally want demo content.
           </div>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {sovereignSpaces.map((space) => (
-            <SpaceCard
-              key={space.id}
-              space={space}
-              reviewCount={reviewCounts[space.id] ?? 0}
-              isSelected={selectedIds.includes(space.id)}
-              onSelect={handleSelect}
-              onOpenDetails={handleOpenDetails}
-            />
-          ))}
-          <NewSpaceCard onClick={() => navigate(SPACE_STUDIO_ROUTE)} />
-        </div>
+        {([
+          ["registered", "Registered Spaces"],
+          ["observed", "Observed Live Evidence"],
+          ["draft", "Draft Spaces"],
+          ["preview", "Preview Spaces"],
+        ] as const).map(([bucket, label]) => {
+          const entries = sovereignSpacesBySource[bucket];
+          if (entries.length === 0) {
+            return null;
+          }
+          return (
+            <div key={bucket} className="mb-6">
+              <div className="mb-3 flex items-center gap-3">
+                <h3 className="text-[9px] uppercase tracking-[0.22em] font-black text-white/25">
+                  {label}
+                </h3>
+                <div className="h-px flex-1 bg-white/5" />
+                <span className="text-[9px] text-white/20">{entries.length}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {entries.map((space) => (
+                  <SpaceCard
+                    key={space.id}
+                    space={space}
+                    reviewCount={reviewCounts[space.id] ?? 0}
+                    isSelected={selectedIds.includes(space.id)}
+                    onSelect={handleSelect}
+                    onOpenDetails={handleOpenDetails}
+                    onOpenSettings={handleOpenSettings}
+                  />
+                ))}
+                {bucket === "draft" && <NewSpaceCard onClick={() => navigate(SPACE_STUDIO_ROUTE)} />}
+              </div>
+            </div>
+          );
+        })}
+        {sovereignSpacesBySource.draft.length === 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <NewSpaceCard onClick={() => navigate(SPACE_STUDIO_ROUTE)} />
+          </div>
+        )}
       </div>
     </div>
   );
