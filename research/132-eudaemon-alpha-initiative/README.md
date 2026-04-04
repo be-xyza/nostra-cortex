@@ -2,19 +2,19 @@
 
 **Status**: Active  
 **Created**: 2026-03-07  
-**Updated**: 2026-04-01
+**Updated**: 2026-04-03
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
 
-Initiative 132 establishes Eudaemon Alpha as the first institutional research agent aligned to the current Nostra/Cortex runtime stack. For Phase 6, the canonical deployment target is now:
+Initiative 132 establishes Eudaemon Alpha as the first institutional research agent aligned to the current Nostra/Cortex runtime stack. For this pass, the root repo is the authoritative planning source, and the currently validated runtime facts are:
 
 - **Host**: Hetzner VPS
 - **Gateway**: Rust `cortex-gateway` on the same host, bound to `127.0.0.1:3000`
-- **Agent loop**: Python Eudaemon Alpha worker in `/Users/xaoj/ICP/eudaemon-alpha/agent`
+- **Agent loop**: Python Eudaemon Alpha worker in `/Users/xaoj/ICP/eudaemon-alpha/agent` is the historical Phase 6 target, but this checkout does not validate that companion repo path
 - **Runtime posture**: Linux `systemd` services, production auth enabled, no Docker assumption
 
-This initiative no longer treats Hostinger or Docker as the active deployment path, and it no longer treats the Rust-native `cortex-eudaemon` runtime as the Phase 6 primary implementation. The Rust-native path remains the migration target for Phase 7+.
+Gateway parity passes locally in this checkout. The companion `eudaemon-alpha/` path is absent here and should be treated as unvalidated until it is restored or mirrored. Prompt override also remains unverified in this checkout, so it should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
@@ -116,7 +116,7 @@ Current stage evidence now shows Batch 1 materially advanced on the provider-run
 - Production gateway launcher: [`run_cortex_gateway_production.sh`](/Users/xaoj/ICP/scripts/run_cortex_gateway_production.sh)
 - Companion repo agent launcher: [`run_eudaemon_alpha_agent.sh`](/Users/xaoj/ICP/eudaemon-alpha/scripts/run_eudaemon_alpha_agent.sh)
 
-The `eudaemon-alpha/` path is a companion implementation repo attached to the root repo as a submodule. Initiative 132 remains authoritative in the root repo.
+Older deployment notes reference an `eudaemon-alpha/` companion implementation repo, but that path is absent from this checkout and should be treated as unvalidated for this pass. Initiative 132 remains authoritative in the root repo.
 
 ## References
 

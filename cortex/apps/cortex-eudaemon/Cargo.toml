@@ -18,7 +18,7 @@ temporal-sdk-native = [
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
-axum = { version = "0.7", features = ["ws"] }
+axum = { version = "0.7", features = ["ws", "multipart"] }
 candid = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
 casbin = { version = "2.18.1", default-features = false, features = ["runtime-tokio", "incremental"] }

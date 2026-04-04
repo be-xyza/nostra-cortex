@@ -1083,6 +1083,13 @@ fn generate_execution_canvas_viewspec(space_id: &str) -> ViewSpecV1 {
                     json!({ "zoom": 1.0, "pan_x": 0, "pan_y": 0 }),
                 ),
                 (
+                    "layout_ref".to_string(),
+                    json!({
+                        "space_id": space_id,
+                        "view_spec_id": "workbench-labs-execution-canvas",
+                    }),
+                ),
+                (
                     "commands".to_string(),
                     json!([
                         {
@@ -4528,6 +4535,16 @@ mod tests {
                 started_at: "2026-03-10T00:00:00Z".to_string(),
                 updated_at: "2026-03-10T00:05:00Z".to_string(),
                 stream_channel: None,
+                provider: None,
+                model: None,
+                auth_mode: None,
+                response_id: None,
+                prompt_template_artifact_id: None,
+                prompt_template_revision_id: None,
+                prompt_execution_artifact_id: None,
+                parent_run_id: None,
+                child_run_ids: Vec::new(),
+                provider_trace_summary: None,
                 simulation: None,
                 surface_update: None,
                 authority_outcome: None,
@@ -4891,6 +4908,16 @@ mod tests {
             simulation: None,
             surface_update: None,
             authority_outcome: None,
+            provider: None,
+            model: None,
+            auth_mode: None,
+            response_id: None,
+            prompt_template_artifact_id: None,
+            prompt_template_revision_id: None,
+            prompt_execution_artifact_id: None,
+            parent_run_id: None,
+            child_run_ids: Vec::new(),
+            provider_trace_summary: None,
             provider_trace: None,
             approval_timeout_seconds: 1800,
             terminal: false,
@@ -5316,9 +5343,14 @@ mod tests {
         assert_eq!(view_spec.view_spec_id, "workbench-labs-execution-canvas");
         let plane = component(&view_spec, "execution_canvas_plane");
         assert_eq!(plane.component_type, "SpatialPlane");
+        assert_eq!(plane.props.get("surface_class").and_then(Value::as_str), Some("execution"));
         assert_eq!(
-            plane.props.get("surface_class").and_then(Value::as_str),
-            Some("execution")
+            plane.props
+                .get("layout_ref")
+                .and_then(Value::as_object)
+                .and_then(|layout| layout.get("view_spec_id"))
+                .and_then(Value::as_str),
+            Some("workbench-labs-execution-canvas")
         );
     }
 

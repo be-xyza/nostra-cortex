@@ -1,0 +1,27 @@
+{
+  "case_id": "get_api_cortex_chat_conversations_param_thread_id",
+  "class": "cortex",
+  "request": {
+    "method": "GET",
+    "path": "/api/cortex/chat/conversations/:thread_id"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/chat/conversations/:thread_id"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "GET",
+    "path": "/api/cortex/chat/conversations/:thread_id"
+  }
+}

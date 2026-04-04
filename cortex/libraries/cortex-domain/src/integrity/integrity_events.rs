@@ -1,4 +1,6 @@
-use super::invariant::{InvariantViolation, SystemIntegrityQuality};
+use super::invariant::SystemIntegrityQuality;
+#[cfg(test)]
+use super::invariant::InvariantViolation;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

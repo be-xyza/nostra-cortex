@@ -5,19 +5,19 @@
   "title": "Gateway Protocol Contract",
   "generated_at": "2026-02-24T07:43:53Z",
   "inventory_source": "cortex/apps/cortex-eudaemon/tests/fixtures/gateway_baseline/endpoint_inventory.tsv",
-  "endpoint_count": 224,
+  "endpoint_count": 241,
   "method_counts": {
-    "GET": 126,
-    "POST": 93,
-    "PUT": 5
+    "GET": 137,
+    "POST": 97,
+    "PUT": 7
   },
   "endpoint_class_counts": {
     "acp": 8,
-    "cortex": 113,
+    "cortex": 124,
     "kg": 26,
     "metrics": 3,
     "other": 4,
-    "system": 57,
+    "system": 63,
     "testing": 5,
     "workflow": 5,
     "ws": 3
@@ -10058,6 +10058,766 @@
         "header": "X-Idempotency-Key",
         "dedupe_key": "method:path:header",
         "replay_behavior": "last_success_response_replay"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/cortex/chat/conversations",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/cortex/chat/conversations/:thread_id",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/cortex/studio/uploads/:upload_id/blob",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/cortex/studio/uploads/:upload_id/extraction",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/cortex/studio/uploads/:upload_id/extractions",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/cortex/studio/uploads/:upload_id/extractions/:job_id",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/cortex/studio/uploads/parser-profiles",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/spaces/:space_id/readiness",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/spaces/:space_id/settings",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
+      "path_template": "/api/system/session",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "POST",
+      "path_template": "/api/cortex/studio/uploads",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "single_request_mutation",
+      "idempotency_semantics": {
+        "mode": "required_header",
+        "header": "x-idempotency-key",
+        "dedupe_key": null,
+        "replay_behavior": "reject_duplicate"
+      }
+    },
+    {
+      "method": "POST",
+      "path_template": "/api/cortex/studio/uploads/:upload_id/extract",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "single_request_mutation",
+      "idempotency_semantics": {
+        "mode": "required_header",
+        "header": "x-idempotency-key",
+        "dedupe_key": null,
+        "replay_behavior": "reject_duplicate"
+      }
+    },
+    {
+      "method": "POST",
+      "path_template": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id",
+      "endpoint_class": "cortex",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "single_request_mutation",
+      "idempotency_semantics": {
+        "mode": "required_header",
+        "header": "x-idempotency-key",
+        "dedupe_key": null,
+        "replay_behavior": "reject_duplicate"
+      }
+    },
+    {
+      "method": "POST",
+      "path_template": "/api/system/session/active-role",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "single_request_mutation",
+      "idempotency_semantics": {
+        "mode": "required_header",
+        "header": "x-idempotency-key",
+        "dedupe_key": null,
+        "replay_behavior": "reject_duplicate"
+      }
+    },
+    {
+      "method": "PUT",
+      "path_template": "/api/spaces/:space_id/agents/:agent_id/routing",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "single_request_mutation",
+      "idempotency_semantics": {
+        "mode": "required_header",
+        "header": "x-idempotency-key",
+        "dedupe_key": null,
+        "replay_behavior": "reject_duplicate"
+      }
+    },
+    {
+      "method": "PUT",
+      "path_template": "/api/spaces/:space_id/routing",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "single_request_mutation",
+      "idempotency_semantics": {
+        "mode": "required_header",
+        "header": "x-idempotency-key",
+        "dedupe_key": null,
+        "replay_behavior": "reject_duplicate"
       }
     }
   ]

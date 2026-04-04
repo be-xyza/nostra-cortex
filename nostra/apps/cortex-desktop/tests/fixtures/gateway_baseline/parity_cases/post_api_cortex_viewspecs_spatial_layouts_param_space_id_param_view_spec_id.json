@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_cortex_viewspecs_spatial_layouts_param_space_id_param_view_spec_id",
+  "class": "cortex",
+  "request": {
+    "method": "POST",
+    "path": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "cortex",
+    "method": "POST",
+    "path": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id"
+  }
+}

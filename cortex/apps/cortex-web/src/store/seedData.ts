@@ -1,4 +1,4 @@
-import type { GlobalEvent } from './eventStore';
+import type { GlobalEvent } from './eventStore.ts';
 import {
   buildExecutionCanvasRoute,
   buildSpaceStudioRoute,
@@ -583,7 +583,7 @@ export const MOCK_CONTRIBUTION_GRAPH = {
     cgNode("109", "Cortex Desktop UX System", "Systems", "active", "anchor", "research"),
     cgNode("118", "Cortex Runtime Extraction", "Systems", "active", "anchor", "research"),
     cgNode("123", "Cortex Web Architecture", "Cortex", "active", "anchor", "research"),
-    cgNode("124", "AGUI Heap Mode", "Cortex", "active", "anchor", "research"),
+    cgNode("124", "Polymorphic Heap Mode", "Cortex", "active", "anchor", "research"),
     cgNode("125", "System Integrity Quality", "Systems", "active", "anchor", "research"),
     cgNode("132", "Eudaemon Alpha Initiative", "Cortex", "active", "anchor", "research"),
     cgNode("135", "Nostra Contribution Protocol", "protocol", "active", "anchor", "research"),
@@ -647,7 +647,16 @@ export const MOCK_UX_WORKBENCH_LABS = {
       id: "root",
       type: "Column",
       props: { gap: "6", padding: "6" },
-      children: ["title", "desc", "schema-designer-card", "lineage-card", "space-studio-card", "execution-canvas-card", "promotion-card", "action-grid"]
+      children: [
+        "title",
+        "desc",
+        "schema-designer-card",
+        "lineage-card",
+        "space-studio-card",
+        "execution-canvas-card",
+        "promotion-card",
+        "action-grid"
+      ]
     },
     {
       id: "title",
@@ -766,6 +775,10 @@ export const MOCK_UX_WORKBENCH_EXECUTION_CANVAS = {
         plane_id: "execution-canvas-preview",
         surface_class: "execution",
         focus_bounds: { x: 0, y: 0, w: 1200, h: 720 },
+        layout_ref: {
+          space_id: INTRO_SPACE_ID,
+          view_spec_id: "workbench-labs-execution-canvas"
+        },
         commands: [
           {
             op: "create_shape",

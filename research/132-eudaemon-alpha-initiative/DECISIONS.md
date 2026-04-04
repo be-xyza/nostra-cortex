@@ -1,5 +1,23 @@
 # Initiative 132 Decisions
 
+## 2026-04-03 — Meta-Harness Intake Reality Sync
+
+**Decision**
+
+Adopt the Meta-Harness findings for Initiative 132 as recommendation-only planning inputs, while treating gateway parity as locally passing, the root repo as authoritative for this pass, the `eudaemon-alpha/` companion path as absent/unvalidated in this checkout, and prompt override as unverified until a live path is demonstrated.
+
+**Why**
+
+- The current checkout can validate the root Cortex/Nostra surfaces directly, but it does not contain a validated companion `eudaemon-alpha/` implementation repo.
+- Meta-Harness is useful as a harness-evaluation pattern, not as a license to bypass governance, workflow authority, or steward review.
+- The planning docs need to distinguish current evidence from future migration assumptions so later work does not inherit stale certainty.
+
+**Consequences**
+
+- Initiative 132 planning must label prompt-override behavior as unverified until a live path exists.
+- Any Meta-Harness-derived optimization remains advisory until steward-reviewed and cannot self-apply changes.
+- Docs that refer to the `eudaemon-alpha/` companion boundary should treat it as planned or historical, not as currently validated in this checkout.
+
 ## 2026-03-18 — Phase 6 Hetzner Runtime Resolution
 
 **Decision**
@@ -23,19 +41,19 @@ Phase 6 deploys Eudaemon Alpha as a Python worker on a Hetzner VPS with the Rust
 
 **Decision**
 
-Initiative 132 remains authoritative in the root ICP repo, while the Python Eudaemon Alpha worker moves into a companion implementation repo attached back to the root repo as the `eudaemon-alpha` submodule.
+Initiative 132 remains authoritative in the root ICP repo. The Python Eudaemon Alpha worker was planned as a companion implementation repo boundary, but this checkout does not validate the `eudaemon-alpha/` path as present or live.
 
 **Why**
 
 - The root repo should remain the governance and architecture source of truth.
 - The Python worker is transitional implementation surface, not the long-term platform authority.
-- A submodule preserves a pinned revision from the root repo while keeping the implementation boundary clean.
+- Earlier deployment notes used a submodule pattern to describe the boundary, but that boundary is not validated in the current checkout.
 
 **Consequences**
 
-- Root docs and Hetzner guidance must refer to `eudaemon-alpha/` as a submodule-owned path.
-- Agent-owned service units and bootstrap tooling move under the companion repo.
-- Root deployment flows must use `git clone --recurse-submodules`.
+- Root docs and Hetzner guidance should treat `eudaemon-alpha/` references as planned or historical until the path is restored and validated.
+- Agent-owned service units and bootstrap tooling remain contingent on that companion boundary being present.
+- Root deployment flows only need `git clone --recurse-submodules` if the companion repo is actually present.
 
 ## 2026-03-19 — Doubleword Batch Cognition Is Advisory and Eudaemon Is the Synthesizer
 
