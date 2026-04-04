@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-any-scope-hypothesis-links",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "any"
+  },
+  "result_count": 2,
+  "triples": [
+    {
+      "ordinal": 0,
+      "subject": "nostra://contribution/hyp-001",
+      "predicate": "relates_to",
+      "object": "nostra://contribution/source-manifest-001",
+      "graph_scope": "system",
+      "provenance_scope": "system",
+      "source_ref": "nostra://event/system/hyp-001",
+      "confidence": 0.92
+    },
+    {
+      "ordinal": 1,
+      "subject": "nostra://contribution/hyp-001",
+      "predicate": "relates_to",
+      "object": "nostra://contribution/report-001",
+      "graph_scope": "actor",
+      "provenance_scope": "actor",
+      "source_ref": "nostra://event/research/hyp-001",
+      "confidence": 0.87
+    }
+  ]
+}

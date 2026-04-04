@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-provenance-disabled",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "actor",
+    "scope_ref": "nostra://actor/did:nostra:research-steward"
+  },
+  "result_count": 1,
+  "triples": [
+    {
+      "ordinal": 0,
+      "subject": "nostra://contribution/report-001",
+      "predicate": "research:evidences",
+      "object": "nostra://contribution/hyp-001",
+      "graph_scope": "actor",
+      "provenance_scope": "actor",
+      "source_ref": "nostra://event/research/report-001"
+    }
+  ]
+}

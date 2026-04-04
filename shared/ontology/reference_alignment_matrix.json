@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0.0",
+  "comparators": [
+    {
+      "id": "trustgraph",
+      "role": "pattern_reference",
+      "status": "reviewed",
+      "freeze_outcome": "pass",
+      "evidence_refs": [
+        "research/reference/analysis/trustgraph.md",
+        "shared/ontology/freeze_readiness_report.json"
+      ],
+      "validated_decisions": [
+        "three_tier_commons_split",
+        "bundle_by_reference",
+        "read_only_query_facade"
+      ]
+    },
+    {
+      "id": "json_ld_1_1",
+      "role": "exchange_comparator",
+      "status": "reviewed",
+      "freeze_outcome": "pass",
+      "evidence_refs": [
+        "research/reference/analysis/json-ld-1-1.md",
+        "shared/ontology/core_ontology_v1.experimental.jsonld",
+        "shared/ontology/freeze_readiness_report.json"
+      ],
+      "validated_decisions": [
+        "json_first_interop_projection",
+        "custom_manifest_remains_canonical"
+      ]
+    },
+    {
+      "id": "shacl_core",
+      "role": "constraint_comparator",
+      "status": "reviewed",
+      "freeze_outcome": "pass",
+      "evidence_refs": [
+        "research/reference/analysis/shacl.md",
+        "shared/ontology/shacl_core_validation_checklist.json",
+        "shared/ontology/freeze_readiness_report.json"
+      ],
+      "validated_decisions": [
+        "native_semantic_checks_cover_minimum_constraint_surface"
+      ]
+    },
+    {
+      "id": "owlish",
+      "role": "rust_authoring_probe",
+      "status": "reviewed",
+      "freeze_outcome": "pass",
+      "evidence_refs": [
+        "research/reference/analysis/owlish.md",
+        "shared/ontology/owlish_prototype_note.md",
+        "shared/ontology/freeze_readiness_report.json"
+      ],
+      "validated_decisions": [
+        "rust_first_authoring_lane_only",
+        "not_contract_authority"
+      ]
+    },
+    {
+      "id": "horned_owl",
+      "role": "semantic_oracle",
+      "status": "reviewed",
+      "freeze_outcome": "pass",
+      "evidence_refs": [
+        "research/reference/analysis/horned-owl.md",
+        "shared/ontology/core_ontology_v1.experimental.jsonld",
+        "shared/ontology/freeze_readiness_report.json"
+      ],
+      "validated_decisions": [
+        "offline_comparator_only",
+        "not_runtime_dependency"
+      ]
+    },
+    {
+      "id": "sparql_1_1",
+      "role": "query_semantics_comparator",
+      "status": "reviewed",
+      "freeze_outcome": "pass",
+      "evidence_refs": [
+        "research/reference/analysis/sparql-1-1-overview.md",
+        "shared/standards/knowledge_graphs/sparql_query_facade_matrix.json",
+        "shared/ontology/freeze_readiness_report.json"
+      ],
+      "validated_decisions": [
+        "triple_pattern_filtering",
+        "named_graph_scoping",
+        "update_semantics_out_of_scope"
+      ]
+    }
+  ]
+}

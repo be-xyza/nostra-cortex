@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Explore Topology View",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "space_id",
+    "generated_from",
+    "ordering_strategy",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "space_id": { "type": "string" },
+    "generated_from": { "type": "string" },
+    "ordering_strategy": { "type": "string", "enum": ["canonical"] },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["node_id", "label", "node_kind", "graph_scopes", "source_refs"],
+        "properties": {
+          "node_id": { "type": "string" },
+          "label": { "type": "string" },
+          "node_kind": { "type": "string" },
+          "graph_scopes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "source_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "edge_id",
+          "source_node_id",
+          "target_node_id",
+          "predicate",
+          "graph_scope",
+          "provenance_scope",
+          "source_ref"
+        ],
+        "properties": {
+          "edge_id": { "type": "string" },
+          "source_node_id": { "type": "string" },
+          "target_node_id": { "type": "string" },
+          "predicate": { "type": "string" },
+          "graph_scope": { "type": "string" },
+          "provenance_scope": { "type": "string" },
+          "source_ref": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

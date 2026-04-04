@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/knowledge_graphs/motoko_graph_monitoring_trend.schema.json",
+  "title": "Motoko Graph Monitoring Trend",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "windows",
+    "latest",
+    "next_action",
+    "advisory_recommendation"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "windows": {
+      "type": "object",
+      "required": ["7d", "30d"],
+      "properties": {
+        "7d": { "$ref": "#/$defs/windowSummary" },
+        "30d": { "$ref": "#/$defs/windowSummary" }
+      }
+    },
+    "latest": {
+      "type": "object",
+      "required": [
+        "run_id",
+        "overall_status",
+        "required_failures",
+        "warnings",
+        "duration_seconds",
+        "started_at",
+        "finished_at"
+      ],
+      "properties": {
+        "run_id": { "type": "string", "minLength": 1 },
+        "overall_status": { "type": "string", "enum": ["pass", "warn", "fail"] },
+        "required_failures": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "duration_seconds": { "type": "number", "minimum": 0 },
+        "started_at": { "type": "string", "minLength": 1 },
+        "finished_at": { "type": "string", "minLength": 1 }
+      }
+    },
+    "last_applied_decision_event_id": {
+      "type": ["string", "null"]
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "NO_ACTION",
+        "START_GATEWAY",
+        "REVIEW_CONTRACT_FAILURE",
+        "ESCALATE_SYNC_MISMATCH"
+      ]
+    },
+    "advisory_recommendation": {
+      "type": "string",
+      "enum": [
+        "Hold Deferred",
+        "Conditional Progression",
+        "Request Additional Evidence"
+      ]
+    }
+  },
+  "$defs": {
+    "windowSummary": {
+      "type": "object",
+      "required": [
+        "total_runs",
+        "pass_runs",
+        "warn_runs",
+        "fail_runs",
+        "reliability_percent",
+        "warning_rate_percent",
+        "required_failure_rate_percent",
+        "gateway_warning_rate_percent",
+        "mean_duration_seconds",
+        "p95_duration_seconds",
+        "last_success_at"
+      ],
+      "properties": {
+        "total_runs": { "type": "integer", "minimum": 0 },
+        "pass_runs": { "type": "integer", "minimum": 0 },
+        "warn_runs": { "type": "integer", "minimum": 0 },
+        "fail_runs": { "type": "integer", "minimum": 0 },
+        "reliability_percent": { "type": "number", "minimum": 0 },
+        "warning_rate_percent": { "type": "number", "minimum": 0 },
+        "required_failure_rate_percent": { "type": "number", "minimum": 0 },
+        "gateway_warning_rate_percent": { "type": "number", "minimum": 0 },
+        "mean_duration_seconds": { "type": "number", "minimum": 0 },
+        "p95_duration_seconds": { "type": "number", "minimum": 0 },
+        "last_success_at": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

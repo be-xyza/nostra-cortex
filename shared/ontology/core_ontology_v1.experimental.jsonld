@@ -1,0 +1,230 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "nostra": "https://nostra.dev/ontology/core#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "label": "rdfs:label",
+    "description": "rdfs:comment",
+    "Ontology": "nostra:Ontology",
+    "Class": "nostra:Class",
+    "Relation": "nostra:Relation",
+    "Property": "nostra:Property",
+    "CompatibilityPolicy": "nostra:CompatibilityPolicy",
+    "id": "@id",
+    "type": "@type",
+    "ontologyId": "nostra:ontologyId",
+    "schemaVersion": "nostra:schemaVersion",
+    "version": "nostra:version",
+    "classes": {
+      "@id": "nostra:classes",
+      "@container": "@set"
+    },
+    "relations": {
+      "@id": "nostra:relations",
+      "@container": "@set"
+    },
+    "properties": {
+      "@id": "nostra:properties",
+      "@container": "@set"
+    },
+    "extensionRules": {
+      "@id": "nostra:extensionRules",
+      "@container": "@set"
+    },
+    "compatibility": "nostra:compatibility",
+    "source": {
+      "@id": "nostra:source",
+      "@type": "@id"
+    },
+    "target": {
+      "@id": "nostra:target",
+      "@type": "@id"
+    },
+    "appliesTo": {
+      "@id": "nostra:appliesTo",
+      "@container": "@set"
+    },
+    "valueType": "nostra:valueType",
+    "cardinality": "nostra:cardinality",
+    "mode": "nostra:mode",
+    "breakingChangePolicy": "nostra:breakingChangePolicy",
+    "spaceExtensionPolicy": "nostra:spaceExtensionPolicy"
+  },
+  "id": "https://nostra.dev/ontology/core/v1",
+  "type": "Ontology",
+  "ontologyId": "nostra.core.knowledge_graph.v1",
+  "schemaVersion": "1.0.0",
+  "label": "Nostra Core Knowledge Graph Ontology",
+  "version": "1.0.0",
+  "description": "Experimental JSON-LD projection of the canonical core_ontology_v1.json manifest. This file is a prototype interoperability artifact, not the canonical ontology contract.",
+  "classes": [
+    {
+      "id": "nostra:Space",
+      "type": "Class",
+      "label": "Space",
+      "description": "Sovereign container for policies, contributions, and knowledge bundles."
+    },
+    {
+      "id": "nostra:Contribution",
+      "type": "Class",
+      "label": "Contribution",
+      "description": "Governed unit of knowledge, work, or evidence that can be linked and versioned."
+    },
+    {
+      "id": "nostra:Relation",
+      "type": "Class",
+      "label": "Relation",
+      "description": "Typed link between two governed graph subjects."
+    },
+    {
+      "id": "nostra:Capability",
+      "type": "Class",
+      "label": "Capability",
+      "description": "A declared ability or feature exposed by a Space or contribution surface."
+    },
+    {
+      "id": "nostra:ProvenanceScope",
+      "type": "Class",
+      "label": "ProvenanceScope",
+      "description": "Named graph scope used to partition evidence and traversal."
+    }
+  ],
+  "relations": [
+    {
+      "id": "nostra:contains",
+      "type": "Relation",
+      "label": "contains",
+      "description": "A Space contains Contributions.",
+      "source": "nostra:Space",
+      "target": "nostra:Contribution"
+    },
+    {
+      "id": "nostra:relates_to",
+      "type": "Relation",
+      "label": "relates_to",
+      "description": "A Contribution relates to another Contribution.",
+      "source": "nostra:Contribution",
+      "target": "nostra:Contribution"
+    },
+    {
+      "id": "nostra:has_capability",
+      "type": "Relation",
+      "label": "has_capability",
+      "description": "A Space advertises a Capability.",
+      "source": "nostra:Space",
+      "target": "nostra:Capability"
+    },
+    {
+      "id": "nostra:scoped_by",
+      "type": "Relation",
+      "label": "scoped_by",
+      "description": "A Contribution is scoped by a ProvenanceScope.",
+      "source": "nostra:Contribution",
+      "target": "nostra:ProvenanceScope"
+    }
+  ],
+  "properties": [
+    {
+      "id": "nostra:label",
+      "type": "Property",
+      "label": "label",
+      "description": "Human-readable label.",
+      "appliesTo": [
+        "nostra:Space",
+        "nostra:Contribution",
+        "nostra:Capability",
+        "nostra:Relation"
+      ],
+      "valueType": "nostra:Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "nostra:description",
+      "type": "Property",
+      "label": "description",
+      "description": "Short explanatory text.",
+      "appliesTo": [
+        "nostra:Space",
+        "nostra:Contribution",
+        "nostra:Capability",
+        "nostra:Relation"
+      ],
+      "valueType": "nostra:Text",
+      "cardinality": "optional"
+    },
+    {
+      "id": "nostra:resource_ref",
+      "type": "Property",
+      "label": "resource_ref",
+      "description": "Canonical portable identifier for a graph subject or relation.",
+      "appliesTo": [
+        "nostra:Space",
+        "nostra:Contribution",
+        "nostra:Capability",
+        "nostra:Relation"
+      ],
+      "valueType": "nostra:ResourceRef",
+      "cardinality": "single"
+    },
+    {
+      "id": "nostra:space_id",
+      "type": "Property",
+      "label": "space_id",
+      "description": "Stable Space identifier.",
+      "appliesTo": [
+        "nostra:Space",
+        "nostra:Contribution"
+      ],
+      "valueType": "nostra:Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "nostra:authority_mode",
+      "type": "Property",
+      "label": "authority_mode",
+      "description": "Authority ceiling for a bundled artifact or query.",
+      "appliesTo": [
+        "nostra:Contribution",
+        "nostra:Relation"
+      ],
+      "valueType": "nostra:Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "nostra:provenance_scope",
+      "type": "Property",
+      "label": "provenance_scope",
+      "description": "Closed core provenance scope value.",
+      "appliesTo": [
+        "nostra:Contribution",
+        "nostra:Relation"
+      ],
+      "valueType": "nostra:ProvenanceScope",
+      "cardinality": "single"
+    },
+    {
+      "id": "nostra:scope_ref",
+      "type": "Property",
+      "label": "scope_ref",
+      "description": "Optional scope-specific reference required operationally for actor and agent scopes.",
+      "appliesTo": [
+        "nostra:Contribution",
+        "nostra:Relation"
+      ],
+      "valueType": "nostra:ResourceRef",
+      "cardinality": "optional"
+    }
+  ],
+  "extensionRules": [
+    "Space-local vocabularies must use a namespace prefix and may add only additive terms.",
+    "Core terms are immutable without steward-approved breaking-change review.",
+    "A custom Space vocabulary must not redefine the semantics of Space, Contribution, Relation, Capability, or ProvenanceScope.",
+    "ProvenanceScope remains a closed core set aligned to system, actor, and agent."
+  ],
+  "compatibility": {
+    "type": "CompatibilityPolicy",
+    "mode": "additive",
+    "breakingChangePolicy": "steward approval required",
+    "spaceExtensionPolicy": "namespace-prefixed additions only"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "bundle_id": "space-incompatible-ontology-version-bundle-v1",
+  "bundle_kind": "space_knowledge_bundle",
+  "space_id": "research",
+  "ontology_ref": "nostra://ontology/research-space/v1",
+  "graph_snapshot_ref": "nostra://graph/research/snapshot/2026-04-03T000000Z",
+  "embeddings_manifest_ref": "nostra://embeddings/research/manifest/v1",
+  "provenance_root": "nostra://contribution/research/provenance-root/v1",
+  "retrieval_policy": {
+    "retrieval_mode": "hybrid_graph_embedding",
+    "max_hops": 2,
+    "authority_weights": [
+      {
+        "scope": "system",
+        "weight": 1.0
+      }
+    ],
+    "freshness_window_seconds": 60,
+    "allowed_predicates": [
+      "relates_to"
+    ],
+    "named_graph_scopes": [
+      "system"
+    ],
+    "citation_required": true
+  },
+  "compatibility": {
+    "ontology_version": "2.0.0",
+    "bundle_version": "1.0.0",
+    "breaking_change_policy": "reject breaking changes by default"
+  },
+  "transport": {
+    "interactive_protocol": "json",
+    "bulk_protocol": "msgpack"
+  },
+  "generated_at": "2026-04-03T00:00:00Z",
+  "notes": "Negative fixture with incompatible ontology version."
+}

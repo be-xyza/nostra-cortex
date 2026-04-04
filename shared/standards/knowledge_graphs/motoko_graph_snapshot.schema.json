@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/knowledge_graphs/motoko_graph_snapshot.schema.json",
+  "title": "Motoko Graph Operational Snapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "contribution_id",
+    "status",
+    "workloads",
+    "stability",
+    "workflow_stages",
+    "evidence",
+    "history_event_id"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "contribution_id": { "type": "string", "const": "078" },
+    "status": {
+      "type": "object",
+      "required": ["gate_result", "posture", "authority_mode", "runtime_dependency_promotion"],
+      "properties": {
+        "gate_result": { "type": "string", "enum": ["G2_DUAL_PATH_PASS", "M16_BLOCKED"] },
+        "posture": { "type": "string" },
+        "authority_mode": { "type": "string" },
+        "runtime_dependency_promotion": { "type": "string", "enum": ["deferred", "conditional", "approved"] }
+      }
+    },
+    "workloads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "workload",
+          "edge_workload",
+          "seconds_per_edge",
+          "cycles_per_edge",
+          "memory_per_edge_bytes",
+          "walk_count"
+        ],
+        "properties": {
+          "path": { "type": "string", "enum": ["vessel", "mops"] },
+          "workload": { "type": "integer", "minimum": 1 },
+          "edge_workload": { "type": "integer", "minimum": 1 },
+          "seconds_per_edge": { "type": "number" },
+          "cycles_per_edge": { "type": "number" },
+          "memory_per_edge_bytes": { "type": "number" },
+          "walk_count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "stability": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "steps_total",
+          "steps_pass",
+          "steps_blocked",
+          "first_attempt_pass",
+          "retries_consumed",
+          "port_conflicts",
+          "reliability_percent"
+        ],
+        "properties": {
+          "path": { "type": "string", "enum": ["vessel", "mops"] },
+          "steps_total": { "type": "integer", "minimum": 0 },
+          "steps_pass": { "type": "integer", "minimum": 0 },
+          "steps_blocked": { "type": "integer", "minimum": 0 },
+          "first_attempt_pass": { "type": "integer", "minimum": 0 },
+          "retries_consumed": { "type": "integer", "minimum": 0 },
+          "port_conflicts": { "type": "integer", "minimum": 0 },
+          "reliability_percent": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "workflow_stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["stage", "status", "evidence"],
+        "properties": {
+          "stage": { "type": "string" },
+          "status": { "type": "string", "enum": ["pass", "pending", "blocked"] },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["gate_file", "m4_metrics_file", "m8_metrics_file", "stability_file", "analysis_file"],
+      "properties": {
+        "gate_file": { "type": "string" },
+        "m4_metrics_file": { "type": "string" },
+        "m8_metrics_file": { "type": "string" },
+        "stability_file": { "type": "string" },
+        "analysis_file": { "type": "string" }
+      }
+    },
+    "history_event_id": { "type": "string", "minLength": 1 }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-research-hypothesis-lineage",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "actor",
+    "scope_ref": "nostra://actor/did:nostra:research-steward"
+  },
+  "result_count": 1,
+  "triples": [
+    {
+      "ordinal": 0,
+      "subject": "nostra://contribution/exp-run-001",
+      "predicate": "research:tests_hypothesis",
+      "object": "nostra://contribution/hyp-001",
+      "graph_scope": "actor",
+      "provenance_scope": "actor",
+      "source_ref": "nostra://event/research/exp-run-001",
+      "confidence": 0.93
+    }
+  ]
+}

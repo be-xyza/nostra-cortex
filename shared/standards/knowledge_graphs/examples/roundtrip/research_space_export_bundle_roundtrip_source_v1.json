@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0.0",
+  "bundle_id": "space-research-core-bundle-export-v1",
+  "bundle_kind": "space_knowledge_bundle",
+  "space_id": "research",
+  "ontology_ref": "nostra://ontology/research-space/v1",
+  "graph_snapshot_ref": "nostra://graph/research/snapshot/2026-04-03T000000Z",
+  "embeddings_manifest_ref": "nostra://embeddings/research/manifest/v1",
+  "provenance_root": "nostra://contribution/research/provenance-root/v1",
+  "retrieval_policy": {
+    "retrieval_mode": "hybrid_graph_embedding",
+    "max_hops": 3,
+    "authority_weights": [
+      {
+        "scope": "agent",
+        "weight": 0.6
+      },
+      {
+        "scope": "system",
+        "weight": 1.0
+      },
+      {
+        "scope": "actor",
+        "weight": 0.8
+      }
+    ],
+    "freshness_window_seconds": 2592000,
+    "allowed_predicates": [
+      "research:tests_hypothesis",
+      "relates_to",
+      "research:evidences"
+    ],
+    "named_graph_scopes": [
+      "agent",
+      "system",
+      "actor"
+    ],
+    "citation_required": true
+  },
+  "compatibility": {
+    "ontology_version": "1.0.0",
+    "bundle_version": "1.0.0",
+    "breaking_change_policy": "reject breaking changes by default"
+  },
+  "transport": {
+    "interactive_protocol": "json",
+    "bulk_protocol": "msgpack"
+  },
+  "generated_at": "2026-04-03T00:00:00Z",
+  "notes": "Deliberately unsorted source fixture used to prove round-trip normalization."
+}

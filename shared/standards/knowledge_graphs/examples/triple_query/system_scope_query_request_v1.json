@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-system-capability-surface",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "system"
+  },
+  "filters": {
+    "subject": "nostra://space/research",
+    "predicate": "has_capability",
+    "object": "nostra://capability/graph-query",
+    "include_provenance": true,
+    "limit": 10,
+    "offset": 0
+  }
+}

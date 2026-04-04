@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0.0",
+  "initiative_ref": "078-knowledge-graphs",
+  "assessed_at": "2026-04-03",
+  "decision": "freeze",
+  "recommendation": "ratify_v1",
+  "contracts": {
+    "ontology_manifest": "shared/ontology/core_ontology_v1.json",
+    "bundle_schema": "shared/standards/knowledge_graphs/knowledge_bundle.schema.json",
+    "triple_query_request_schema": "shared/standards/knowledge_graphs/triple_query_request.schema.json",
+    "triple_query_response_schema": "shared/standards/knowledge_graphs/triple_query_response.schema.json"
+  },
+  "frozen_surfaces": {
+    "core_relations": [
+      "contains",
+      "relates_to",
+      "has_capability",
+      "scoped_by"
+    ],
+    "provenance_scopes": [
+      "system",
+      "actor",
+      "agent"
+    ]
+  },
+  "validation_gates": {
+    "ontology_examples": "pass",
+    "json_ld_parity": "pass",
+    "shacl_core_checklist": "pass",
+    "bundle_roundtrip": "pass",
+    "bundle_negative_fixtures": "pass",
+    "triple_query_fixture_matrix": "pass",
+    "runtime_adapter": "pass"
+  },
+  "comparators": [
+    {
+      "id": "trustgraph",
+      "outcome": "pass",
+      "notes": "Confirmed the three-tier commons split, by-reference bundle posture, and narrower read-only query facade.",
+      "evidence_refs": [
+        "research/reference/analysis/trustgraph.md",
+        "shared/ontology/reference_alignment_matrix.json"
+      ]
+    },
+    {
+      "id": "json_ld_1_1",
+      "outcome": "pass",
+      "notes": "JSON-LD remains an interoperability projection; the custom manifest remains canonical.",
+      "evidence_refs": [
+        "research/reference/analysis/json-ld-1-1.md",
+        "shared/ontology/core_ontology_v1.experimental.jsonld"
+      ]
+    },
+    {
+      "id": "shacl_core",
+      "outcome": "pass",
+      "notes": "Native semantic validation covers the required constraint surface without adopting SHACL wholesale.",
+      "evidence_refs": [
+        "research/reference/analysis/shacl.md",
+        "shared/ontology/shacl_core_validation_checklist.json"
+      ]
+    },
+    {
+      "id": "owlish",
+      "outcome": "pass",
+      "notes": "Owlish remains a practical Rust-first authoring and serialization comparator, not the contract authority.",
+      "evidence_refs": [
+        "research/reference/analysis/owlish.md",
+        "shared/ontology/owlish_prototype_note.md"
+      ]
+    },
+    {
+      "id": "horned_owl",
+      "outcome": "pass",
+      "notes": "Horned OWL remains an offline semantic oracle and drift check reference, not a runtime dependency.",
+      "evidence_refs": [
+        "research/reference/analysis/horned-owl.md",
+        "shared/ontology/core_ontology_v1.experimental.jsonld"
+      ]
+    },
+    {
+      "id": "sparql_1_1",
+      "outcome": "pass",
+      "notes": "The query facade remains SPARQL-informed for triple filtering and graph scoping while staying explicitly read-only.",
+      "evidence_refs": [
+        "research/reference/analysis/sparql-1-1-overview.md",
+        "shared/standards/knowledge_graphs/sparql_query_facade_matrix.json"
+      ]
+    }
+  ],
+  "semantic_exceptions": [],
+  "notes": [
+    "Ratification applies to the canonical custom ontology manifest and related bundle/query contracts.",
+    "JSON-LD remains derived-only in this phase.",
+    "Runtime authority remains in Cortex for execution, but semantic authority stays in Nostra."
+  ]
+}

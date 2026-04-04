@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/knowledge_graphs/motoko_graph_monitoring_run.schema.json",
+  "title": "Motoko Graph Monitoring Run",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "started_at",
+    "finished_at",
+    "gateway_base",
+    "overall_status",
+    "required_failures",
+    "warnings",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "started_at": { "type": "string", "minLength": 1 },
+    "finished_at": { "type": "string", "minLength": 1 },
+    "gateway_base": { "type": "string", "minLength": 1 },
+    "overall_status": { "type": "string", "enum": ["pass", "warn", "fail"] },
+    "required_failures": { "type": "integer", "minimum": 0 },
+    "warnings": { "type": "integer", "minimum": 0 },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "required", "status", "details"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "required": { "type": "boolean" },
+          "status": { "type": "string", "enum": ["pass", "fail", "warn"] },
+          "details": { "type": "string" }
+        }
+      }
+    }
+  }
+}

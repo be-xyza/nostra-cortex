@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.dev/schemas/testing/test_catalog.schema.json",
+  "title": "Nostra Test Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "tests"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestCatalogEntry"
+      }
+    }
+  },
+  "$defs": {
+    "TestCatalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_id",
+        "name",
+        "layer",
+        "stack",
+        "owner",
+        "path",
+        "command",
+        "artifacts",
+        "gate_level",
+        "destructive",
+        "tags",
+        "last_seen_commit",
+        "updated_at"
+      ],
+      "properties": {
+        "test_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "layer": {
+          "type": "string",
+          "enum": [
+            "L1_UNIT",
+            "L2_INTEGRATION",
+            "L3_E2E",
+            "L4_BENCHMARK",
+            "L5_DRILL"
+          ]
+        },
+        "stack": {
+          "type": "string",
+          "enum": [
+            "rust",
+            "motoko",
+            "ts",
+            "mixed"
+          ]
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "gate_level": {
+          "type": "string",
+          "enum": [
+            "informational",
+            "release_blocker"
+          ]
+        },
+        "destructive": {
+          "type": "boolean"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "last_seen_commit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

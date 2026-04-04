@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/knowledge_graphs/motoko_graph_decision_event.schema.json",
+  "title": "Motoko Graph Decision Event",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "decision_event_id",
+    "captured_at",
+    "contribution",
+    "decision_date",
+    "selected_option",
+    "rationale",
+    "posture_before",
+    "posture_after",
+    "authority_mode",
+    "evidence_refs",
+    "steward",
+    "owner",
+    "follow_up_actions",
+    "source"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "decision_event_id": { "type": "string", "minLength": 1 },
+    "captured_at": { "type": "string", "minLength": 1 },
+    "contribution": { "type": "string", "const": "078" },
+    "decision_date": { "type": "string", "minLength": 1 },
+    "selected_option": {
+      "type": "string",
+      "enum": ["Hold Deferred", "Conditional Progression", "Request Additional Evidence"]
+    },
+    "rationale": { "type": "string", "minLength": 1 },
+    "posture_before": { "type": "string", "minLength": 1 },
+    "posture_after": { "type": "string", "minLength": 1 },
+    "authority_mode": { "type": "string", "minLength": 1 },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "steward": { "type": "string", "minLength": 1 },
+    "owner": { "type": "string", "minLength": 1 },
+    "follow_up_actions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "source": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["pending", "applied", "rejected"] },
+    "applied_at": { "type": "string" }
+  }
+}

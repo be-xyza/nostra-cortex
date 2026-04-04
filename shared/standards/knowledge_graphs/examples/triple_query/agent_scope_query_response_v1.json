@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-agent-related-exp-run",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "agent",
+    "scope_ref": "nostra://agent/did:nostra:planner-7"
+  },
+  "result_count": 1,
+  "triples": [
+    {
+      "ordinal": 0,
+      "subject": "nostra://contribution/agent-task-001",
+      "predicate": "relates_to",
+      "object": "nostra://contribution/exp-run-001",
+      "graph_scope": "agent",
+      "provenance_scope": "agent",
+      "source_ref": "nostra://event/agent/agent-task-001",
+      "confidence": 0.76
+    }
+  ]
+}

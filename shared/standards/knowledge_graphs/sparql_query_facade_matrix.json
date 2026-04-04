@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "comparisons": [
+    {
+      "concept": "triple_pattern_filtering",
+      "support": "supported",
+      "notes": "Subject, predicate, and object filters are supported directly."
+    },
+    {
+      "concept": "named_graph_scoping",
+      "support": "supported",
+      "notes": "System, actor, agent, and any scope semantics are represented explicitly."
+    },
+    {
+      "concept": "deterministic_ordering",
+      "support": "supported",
+      "notes": "Canonical tuple ordering is part of the contract."
+    },
+    {
+      "concept": "sparql_update_semantics",
+      "support": "out_of_scope",
+      "notes": "The Phase D facade is read-only and does not promise SPARQL update support."
+    }
+  ]
+}

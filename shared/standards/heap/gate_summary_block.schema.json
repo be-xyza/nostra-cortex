@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nostra.heap.block.gate_summary.v1",
+  "title": "Heap Gate Summary Block (v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "generated_at",
+    "latest_run_id",
+    "overall_verdict",
+    "required_gates_pass",
+    "counts",
+    "failures"
+  ],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "nostra.heap.block.gate_summary.v1",
+      "description": "Canonical schema identifier for this block payload."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["siq", "testing"],
+      "description": "Which gate system produced this summary."
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "RFC3339 timestamp when the summary was generated."
+    },
+    "overall_verdict": {
+      "type": "string",
+      "description": "Overall verdict, typically pass/fail/unknown or a governed enum."
+    },
+    "required_gates_pass": {
+      "type": "boolean",
+      "description": "Whether all required gates passed."
+    },
+    "latest_run_id": {
+      "type": "string",
+      "description": "Latest run identifier (SIQ run_id / testing run_id)."
+    },
+    "counts": {
+      "type": "object",
+      "description": "Gate/test counts as a small, renderable object (shape may vary by kind).",
+      "additionalProperties": true
+    },
+    "failures": {
+      "type": "array",
+      "description": "Condensed failure list suitable for rendering in a Heap card.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "severity": { "type": "string" },
+          "policy_ref": { "type": "string" },
+          "resource_ref": { "type": "string" }
+        }
+      }
+    },
+    "render_hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary_route": {
+          "type": "string",
+          "description": "Recommended Workbench route for full drill-in (e.g. /testing or /system/siq)."
+        },
+        "log_stream_id": {
+          "type": "string",
+          "description": "Recommended /logs stream id for tailing (e.g. testing_gate_summary)."
+        }
+      }
+    },
+    "raw": {
+      "type": "object",
+      "description": "Optional full raw gate artifact for audit/debug. Renderers should collapse by default."
+    }
+  }
+}

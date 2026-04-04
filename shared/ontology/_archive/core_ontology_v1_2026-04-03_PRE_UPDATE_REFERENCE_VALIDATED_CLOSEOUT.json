@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0.0",
+  "ontology_id": "nostra.core.knowledge_graph.v1",
+  "title": "Nostra Core Knowledge Graph Ontology",
+  "version": "1.0.0",
+  "description": "Minimal Nostra-native ontology for graph semantics, provenance scopes, and Space-local extension control.",
+  "classes": [
+    {
+      "id": "Space",
+      "description": "Sovereign container for policies, contributions, and knowledge bundles."
+    },
+    {
+      "id": "Contribution",
+      "description": "Governed unit of knowledge, work, or evidence that can be linked and versioned."
+    },
+    {
+      "id": "Relation",
+      "description": "Typed link between two governed graph subjects."
+    },
+    {
+      "id": "Capability",
+      "description": "A declared ability or feature exposed by a Space or contribution surface."
+    },
+    {
+      "id": "ProvenanceScope",
+      "description": "Named graph scope used to partition evidence and traversal."
+    }
+  ],
+  "relations": [
+    {
+      "id": "contains",
+      "description": "A Space contains Contributions.",
+      "source": "Space",
+      "target": "Contribution"
+    },
+    {
+      "id": "relates_to",
+      "description": "A Contribution relates to another Contribution.",
+      "source": "Contribution",
+      "target": "Contribution"
+    },
+    {
+      "id": "has_capability",
+      "description": "A Space advertises a Capability.",
+      "source": "Space",
+      "target": "Capability"
+    },
+    {
+      "id": "scoped_by",
+      "description": "A Contribution is scoped by a ProvenanceScope.",
+      "source": "Contribution",
+      "target": "ProvenanceScope"
+    }
+  ],
+  "properties": [
+    {
+      "id": "label",
+      "description": "Human-readable label.",
+      "applies_to": ["Space", "Contribution", "Capability"],
+      "value_type": "Text"
+    },
+    {
+      "id": "description",
+      "description": "Short explanatory text.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text"
+    },
+    {
+      "id": "space_id",
+      "description": "Stable Space identifier.",
+      "applies_to": ["Space", "Contribution"],
+      "value_type": "Text"
+    },
+    {
+      "id": "authority_mode",
+      "description": "Authority ceiling for a bundled artifact or query.",
+      "applies_to": ["Contribution"],
+      "value_type": "Text"
+    }
+  ],
+  "extension_rules": [
+    "Space-local vocabularies must use a namespace prefix and may add only additive terms.",
+    "Core terms are immutable without steward-approved breaking-change review.",
+    "A custom Space vocabulary must not redefine the semantics of Space, Contribution, Relation, Capability, or ProvenanceScope."
+  ],
+  "compatibility": {
+    "mode": "additive",
+    "breaking_change_policy": "steward approval required",
+    "space_extension_policy": "namespace-prefixed additions only"
+  }
+}

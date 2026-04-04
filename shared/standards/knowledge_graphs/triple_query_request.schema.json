@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.dev/schemas/knowledge_graphs/triple_query_request.schema.json",
+  "title": "Nostra Triple Query Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "query_id",
+    "ordering_strategy",
+    "scope",
+    "filters"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "query_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ordering_strategy": {
+      "type": "string",
+      "enum": ["canonical"]
+    },
+    "scope": {
+      "$ref": "#/$defs/QueryScope"
+    },
+    "filters": {
+      "$ref": "#/$defs/QueryFilters"
+    }
+  },
+  "$defs": {
+    "QueryScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "named_graph_scope"
+      ],
+      "properties": {
+        "named_graph_scope": {
+          "type": "string",
+          "enum": ["system", "actor", "agent", "any"]
+        },
+        "scope_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "QueryFilters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "include_provenance",
+        "limit",
+        "offset"
+      ],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "predicate": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object": {
+          "type": "string",
+          "minLength": 1
+        },
+        "include_provenance": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

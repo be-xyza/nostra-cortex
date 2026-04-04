@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "items": [
+    {
+      "id": "relation_endpoint_targets",
+      "status": "covered",
+      "covered_by": ["ontology_semantic_validator"]
+    },
+    {
+      "id": "core_term_redefinition",
+      "status": "covered",
+      "covered_by": ["ontology_semantic_validator"]
+    },
+    {
+      "id": "core_property_requiredness",
+      "status": "covered",
+      "covered_by": ["ontology_semantic_validator"]
+    },
+    {
+      "id": "closed_provenance_scope",
+      "status": "covered",
+      "covered_by": [
+        "ontology_semantic_validator",
+        "bundle_semantic_validator",
+        "query_fixture_semantic_validator"
+      ]
+    }
+  ]
+}
