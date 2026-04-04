@@ -10,7 +10,7 @@ interface RoleProfileSelectorProps {
     isCentered?: boolean;
 }
 
-const ROLE_CONFIG: Record<string, {${session.allowRoleSwitch ? "hover:bg-white/5" : "cursor-default"}
+const ROLE_CONFIG: Record<string, {
     icon: React.ReactNode, 
     color: string, 
     ringColor: string, 
