@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0.0",
+  "bundle_id": "space-operations-core-bundle-v1",
+  "bundle_kind": "space_knowledge_bundle",
+  "space_id": "operations",
+  "ontology_ref": "nostra://ontology/operations-space/v1",
+  "graph_snapshot_ref": "nostra://graph/operations/snapshot/latest",
+  "embeddings_manifest_ref": "nostra://embeddings/operations/manifest/latest",
+  "provenance_root": "nostra://contribution/operations/provenance-root",
+  "retrieval_policy": {
+    "retrieval_mode": "hybrid_graph_embedding",
+    "max_hops": 2,
+    "authority_weights": [
+      {
+        "scope": "system",
+        "weight": 1.0
+      },
+      {
+        "scope": "actor",
+        "weight": 0.7
+      },
+      {
+        "scope": "agent",
+        "weight": 0.5
+      }
+    ],
+    "freshness_window_seconds": 604800,
+    "allowed_predicates": [
+      "relates_to",
+      "ops:mitigated_by",
+      "ops:escalates_to"
+    ],
+    "named_graph_scopes": [
+      "system",
+      "actor",
+      "agent"
+    ],
+    "citation_required": true
+  },
+  "compatibility": {
+    "ontology_version": "1.0.0",
+    "bundle_version": "1.0.0",
+    "breaking_change_policy": "reject breaking changes by default"
+  },
+  "transport": {
+    "interactive_protocol": "json",
+    "bulk_protocol": "msgpack"
+  },
+  "generated_at": "2026-04-03T00:00:00Z",
+  "notes": "Dev/example bundle fixture for the operations Space using floating refs for local iteration; export-grade fixtures use immutable refs instead."
+}

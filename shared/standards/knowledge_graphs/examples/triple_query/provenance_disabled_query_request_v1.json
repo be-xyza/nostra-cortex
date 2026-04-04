@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-provenance-disabled",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "actor",
+    "scope_ref": "nostra://actor/did:nostra:research-steward"
+  },
+  "filters": {
+    "subject": "nostra://contribution/report-001",
+    "predicate": "research:evidences",
+    "object": "nostra://contribution/hyp-001",
+    "include_provenance": false,
+    "limit": 10,
+    "offset": 0
+  }
+}

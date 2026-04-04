@@ -1,0 +1,145 @@
+{
+  "schema_version": "1.0.0",
+  "ontology_id": "nostra.space.cross_domain_adversarial.v1",
+  "title": "Nostra Cross-Domain Adversarial Extension Ontology",
+  "version": "1.0.0",
+  "description": "A deliberately adversarial but valid additive ontology used to prove that cross-domain Space-local terms can extend core graph semantics without redefining them.",
+  "classes": [
+    {
+      "id": "Space",
+      "description": "Sovereign container for policies, contributions, and knowledge bundles."
+    },
+    {
+      "id": "Contribution",
+      "description": "Governed unit of knowledge, work, or evidence that can be linked and versioned."
+    },
+    {
+      "id": "Relation",
+      "description": "Typed link between two governed graph subjects."
+    },
+    {
+      "id": "Capability",
+      "description": "A declared ability or feature exposed by a Space or contribution surface."
+    },
+    {
+      "id": "ProvenanceScope",
+      "description": "Named graph scope used to partition evidence and traversal."
+    },
+    {
+      "id": "bridge:PortableFinding",
+      "description": "A cross-space governed finding meant to survive research-to-operations handoff.",
+      "extends": ["Contribution"]
+    },
+    {
+      "id": "bridge:OperationalContext",
+      "description": "An operational context record that can receive additive findings.",
+      "extends": ["Contribution"]
+    }
+  ],
+  "relations": [
+    {
+      "id": "contains",
+      "description": "A Space contains Contributions.",
+      "source": "Space",
+      "target": "Contribution"
+    },
+    {
+      "id": "relates_to",
+      "description": "A Contribution relates to another Contribution.",
+      "source": "Contribution",
+      "target": "Contribution"
+    },
+    {
+      "id": "has_capability",
+      "description": "A Space advertises a Capability.",
+      "source": "Space",
+      "target": "Capability"
+    },
+    {
+      "id": "scoped_by",
+      "description": "A Contribution is scoped by a ProvenanceScope.",
+      "source": "Contribution",
+      "target": "ProvenanceScope"
+    },
+    {
+      "id": "bridge:promotes_to",
+      "description": "A portable finding is promoted into an operational context without redefining either side's core semantics.",
+      "source": "bridge:PortableFinding",
+      "target": "bridge:OperationalContext"
+    },
+    {
+      "id": "bridge:validated_against",
+      "description": "A portable finding may be validated against a core contribution.",
+      "source": "bridge:PortableFinding",
+      "target": "Contribution"
+    }
+  ],
+  "properties": [
+    {
+      "id": "label",
+      "description": "Human-readable label.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "description",
+      "description": "Short explanatory text.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text",
+      "cardinality": "optional"
+    },
+    {
+      "id": "resource_ref",
+      "description": "Canonical portable identifier for a graph subject or relation.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "ResourceRef",
+      "cardinality": "single"
+    },
+    {
+      "id": "space_id",
+      "description": "Stable Space identifier.",
+      "applies_to": ["Space", "Contribution"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "authority_mode",
+      "description": "Authority ceiling for a bundled artifact or query.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "provenance_scope",
+      "description": "Closed core provenance scope value.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "ProvenanceScope",
+      "cardinality": "single"
+    },
+    {
+      "id": "scope_ref",
+      "description": "Optional scope-specific reference required operationally for actor and agent scopes.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "ResourceRef",
+      "cardinality": "optional"
+    },
+    {
+      "id": "bridge:handoff_state",
+      "description": "A small additive state label for portable cross-space handoffs.",
+      "applies_to": ["bridge:PortableFinding", "bridge:OperationalContext"],
+      "value_type": "Text",
+      "cardinality": "single"
+    }
+  ],
+  "extension_rules": [
+    "Adversarial extension terms must remain namespace-prefixed under bridge: and additive to the core ontology.",
+    "Cross-domain additive terms may target core terms, but must not redefine their semantics.",
+    "The closed provenance-scope core set remains system, actor, and agent only."
+  ],
+  "compatibility": {
+    "mode": "additive",
+    "breaking_change_policy": "steward approval required",
+    "space_extension_policy": "namespace-prefixed additions only"
+  }
+}

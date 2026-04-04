@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "space_id": "research-agent",
+  "generated_from": "nostra://graph/research/topology/agent-scope",
+  "ordering_strategy": "canonical",
+  "nodes": [
+    {
+      "node_id": "nostra://contribution/agent-task-001",
+      "label": "agent-task-001",
+      "node_kind": "contribution",
+      "graph_scopes": [
+        "agent"
+      ],
+      "source_refs": [
+        "nostra://event/agent/agent-task-001"
+      ]
+    },
+    {
+      "node_id": "nostra://contribution/exp-run-001",
+      "label": "exp-run-001",
+      "node_kind": "contribution",
+      "graph_scopes": [
+        "agent"
+      ],
+      "source_refs": [
+        "nostra://event/agent/agent-task-001"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "agent|nostra://contribution/agent-task-001|relates_to|nostra://contribution/exp-run-001|nostra://event/agent/agent-task-001",
+      "source_node_id": "nostra://contribution/agent-task-001",
+      "target_node_id": "nostra://contribution/exp-run-001",
+      "predicate": "relates_to",
+      "graph_scope": "agent",
+      "provenance_scope": "agent",
+      "source_ref": "nostra://event/agent/agent-task-001"
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.dev/schemas/siq/siq_governance_gate.schema.json",
+  "title": "System Integrity + Quality Gate Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "mode",
+    "latest_run_id",
+    "overall_verdict",
+    "required_gates_pass",
+    "counts",
+    "failures"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "observe",
+        "softgate",
+        "hardgate"
+      ]
+    },
+    "latest_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overall_verdict": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "not-ready"
+      ]
+    },
+    "required_gates_pass": {
+      "type": "boolean"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pass",
+        "fail"
+      ],
+      "properties": {
+        "pass": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fail": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Failure"
+      }
+    }
+  },
+  "$defs": {
+    "Failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "severity",
+        "class",
+        "message"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "P0",
+            "P1",
+            "P2"
+          ]
+        },
+        "class": {
+          "type": "string",
+          "enum": [
+            "missing_gate_evidence",
+            "parity_contract_drift",
+            "governance_contract_mismatch"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contribution_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

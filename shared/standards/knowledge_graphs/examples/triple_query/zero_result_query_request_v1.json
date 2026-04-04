@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-zero-result",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "any"
+  },
+  "filters": {
+    "subject": "nostra://contribution/missing",
+    "include_provenance": true,
+    "limit": 10,
+    "offset": 0
+  }
+}

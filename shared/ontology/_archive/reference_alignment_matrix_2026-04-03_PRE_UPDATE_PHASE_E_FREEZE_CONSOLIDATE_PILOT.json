@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0.0",
+  "comparators": [
+    {
+      "id": "trustgraph",
+      "role": "pattern_reference",
+      "status": "aligned",
+      "validated_decisions": [
+        "three_tier_commons_split",
+        "bundle_by_reference",
+        "read_only_query_facade"
+      ]
+    },
+    {
+      "id": "json_ld_1_1",
+      "role": "exchange_comparator",
+      "status": "aligned",
+      "validated_decisions": [
+        "json_first_interop_projection",
+        "custom_manifest_remains_canonical"
+      ]
+    },
+    {
+      "id": "shacl_core",
+      "role": "constraint_comparator",
+      "status": "aligned",
+      "validated_decisions": [
+        "native_semantic_checks_cover_minimum_constraint_surface"
+      ]
+    },
+    {
+      "id": "owlish",
+      "role": "rust_authoring_probe",
+      "status": "planned",
+      "validated_decisions": [
+        "rust_first_authoring_lane_only",
+        "not_contract_authority"
+      ]
+    },
+    {
+      "id": "horned_owl",
+      "role": "semantic_oracle",
+      "status": "planned",
+      "validated_decisions": [
+        "offline_comparator_only",
+        "not_runtime_dependency"
+      ]
+    },
+    {
+      "id": "sparql_1_1",
+      "role": "query_semantics_comparator",
+      "status": "aligned",
+      "validated_decisions": [
+        "triple_pattern_filtering",
+        "named_graph_scoping",
+        "update_semantics_out_of_scope"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "schema_version": "1.0.0",
+  "ontology_id": "nostra.space.research.v1",
+  "title": "Nostra Research Space Ontology",
+  "version": "1.0.0",
+  "description": "Example Space-local ontology for research planning, hypotheses, and experiment evidence.",
+  "classes": [
+    {
+      "id": "Space",
+      "description": "Sovereign container for policies, contributions, and knowledge bundles."
+    },
+    {
+      "id": "Contribution",
+      "description": "Governed unit of knowledge, work, or evidence that can be linked and versioned."
+    },
+    {
+      "id": "Relation",
+      "description": "Typed link between two governed graph subjects."
+    },
+    {
+      "id": "Capability",
+      "description": "A declared ability or feature exposed by a Space or contribution surface."
+    },
+    {
+      "id": "ProvenanceScope",
+      "description": "Named graph scope used to partition evidence and traversal."
+    },
+    {
+      "id": "research:Hypothesis",
+      "description": "A research claim or question that can be tested and refined.",
+      "extends": ["Contribution"],
+      "notes": "Space-local additive extension for research programs."
+    },
+    {
+      "id": "research:ExperimentRun",
+      "description": "A concrete execution of a research method that produces evidence.",
+      "extends": ["Contribution"],
+      "notes": "Represents a governed experiment pass or evaluation run."
+    }
+  ],
+  "relations": [
+    {
+      "id": "contains",
+      "description": "A Space contains Contributions.",
+      "source": "Space",
+      "target": "Contribution"
+    },
+    {
+      "id": "relates_to",
+      "description": "A Contribution relates to another Contribution.",
+      "source": "Contribution",
+      "target": "Contribution"
+    },
+    {
+      "id": "has_capability",
+      "description": "A Space advertises a Capability.",
+      "source": "Space",
+      "target": "Capability"
+    },
+    {
+      "id": "scoped_by",
+      "description": "A Contribution is scoped by a ProvenanceScope.",
+      "source": "Contribution",
+      "target": "ProvenanceScope"
+    },
+    {
+      "id": "research:tests_hypothesis",
+      "description": "An experiment run tests a research hypothesis.",
+      "source": "research:ExperimentRun",
+      "target": "research:Hypothesis",
+      "notes": "Space-local relation layered on top of the core graph."
+    },
+    {
+      "id": "research:evidences",
+      "description": "A contribution provides evidence for a hypothesis.",
+      "source": "Contribution",
+      "target": "research:Hypothesis"
+    }
+  ],
+  "properties": [
+    {
+      "id": "label",
+      "description": "Human-readable label.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "description",
+      "description": "Short explanatory text.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text",
+      "cardinality": "optional"
+    },
+    {
+      "id": "resource_ref",
+      "description": "Canonical portable identifier for a graph subject or relation.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "ResourceRef",
+      "cardinality": "single"
+    },
+    {
+      "id": "space_id",
+      "description": "Stable Space identifier.",
+      "applies_to": ["Space", "Contribution"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "authority_mode",
+      "description": "Authority ceiling for a bundled artifact or query.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "provenance_scope",
+      "description": "Closed core provenance scope value.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "ProvenanceScope",
+      "cardinality": "single"
+    },
+    {
+      "id": "scope_ref",
+      "description": "Optional scope-specific reference required operationally for actor and agent scopes.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "ResourceRef",
+      "cardinality": "optional"
+    },
+    {
+      "id": "research:confidence_score",
+      "description": "A bounded confidence score attached to a hypothesis or experiment result.",
+      "applies_to": ["research:Hypothesis", "research:ExperimentRun"],
+      "value_type": "Number",
+      "cardinality": "optional"
+    },
+    {
+      "id": "research:method",
+      "description": "The research method or protocol used by an experiment run.",
+      "applies_to": ["research:ExperimentRun"],
+      "value_type": "Text",
+      "cardinality": "single"
+    }
+  ],
+  "extension_rules": [
+    "Research Space terms must remain namespace-prefixed under research: and additive to the core ontology.",
+    "Research Space extensions must not redefine Space, Contribution, Relation, Capability, or ProvenanceScope.",
+    "Breaking changes to research-space semantics require steward review and an explicit compatibility note.",
+    "Research Space extensions must not add new provenance scope classes or values."
+  ],
+  "compatibility": {
+    "mode": "additive",
+    "breaking_change_policy": "steward approval required",
+    "space_extension_policy": "namespace-prefixed additions only"
+  }
+}

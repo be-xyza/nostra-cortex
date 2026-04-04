@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.dev/schemas/testing/test_run.schema.json",
+  "title": "Nostra Test Run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "started_at",
+    "finished_at",
+    "agent_id",
+    "environment",
+    "git_commit",
+    "results",
+    "artifacts",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "local_ide",
+        "ci"
+      ]
+    },
+    "git_commit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestResult"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "TestResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_id",
+        "status",
+        "duration_ms",
+        "error_summary"
+      ],
+      "properties": {
+        "test_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "warn",
+            "pending"
+          ]
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error_summary": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

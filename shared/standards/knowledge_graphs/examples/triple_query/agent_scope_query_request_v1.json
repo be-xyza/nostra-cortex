@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-agent-related-exp-run",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "agent",
+    "scope_ref": "nostra://agent/did:nostra:planner-7"
+  },
+  "filters": {
+    "subject": "nostra://contribution/agent-task-001",
+    "predicate": "relates_to",
+    "object": "nostra://contribution/exp-run-001",
+    "include_provenance": true,
+    "limit": 10,
+    "offset": 0
+  }
+}

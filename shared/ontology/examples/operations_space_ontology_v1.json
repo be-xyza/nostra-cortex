@@ -1,0 +1,155 @@
+{
+  "schema_version": "1.0.0",
+  "ontology_id": "nostra.space.operations.v1",
+  "title": "Nostra Operations Space Ontology",
+  "version": "1.0.0",
+  "description": "Example Space-local ontology for incidents, runbooks, and operational mitigations.",
+  "classes": [
+    {
+      "id": "Space",
+      "description": "Sovereign container for policies, contributions, and knowledge bundles."
+    },
+    {
+      "id": "Contribution",
+      "description": "Governed unit of knowledge, work, or evidence that can be linked and versioned."
+    },
+    {
+      "id": "Relation",
+      "description": "Typed link between two governed graph subjects."
+    },
+    {
+      "id": "Capability",
+      "description": "A declared ability or feature exposed by a Space or contribution surface."
+    },
+    {
+      "id": "ProvenanceScope",
+      "description": "Named graph scope used to partition evidence and traversal."
+    },
+    {
+      "id": "ops:Incident",
+      "description": "An operational event that requires investigation, mitigation, or escalation.",
+      "extends": ["Contribution"],
+      "notes": "Space-local additive extension for operations tracking."
+    },
+    {
+      "id": "ops:Runbook",
+      "description": "A governed remediation or recovery procedure for an operational scenario.",
+      "extends": ["Contribution"],
+      "notes": "Represents procedural guidance bound to operational capability surfaces."
+    }
+  ],
+  "relations": [
+    {
+      "id": "contains",
+      "description": "A Space contains Contributions.",
+      "source": "Space",
+      "target": "Contribution"
+    },
+    {
+      "id": "relates_to",
+      "description": "A Contribution relates to another Contribution.",
+      "source": "Contribution",
+      "target": "Contribution"
+    },
+    {
+      "id": "has_capability",
+      "description": "A Space advertises a Capability.",
+      "source": "Space",
+      "target": "Capability"
+    },
+    {
+      "id": "scoped_by",
+      "description": "A Contribution is scoped by a ProvenanceScope.",
+      "source": "Contribution",
+      "target": "ProvenanceScope"
+    },
+    {
+      "id": "ops:mitigated_by",
+      "description": "An incident is mitigated by a runbook.",
+      "source": "ops:Incident",
+      "target": "ops:Runbook"
+    },
+    {
+      "id": "ops:escalates_to",
+      "description": "An incident escalates to another operational contribution.",
+      "source": "ops:Incident",
+      "target": "Contribution"
+    }
+  ],
+  "properties": [
+    {
+      "id": "label",
+      "description": "Human-readable label.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "description",
+      "description": "Short explanatory text.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text",
+      "cardinality": "optional"
+    },
+    {
+      "id": "resource_ref",
+      "description": "Canonical portable identifier for a graph subject or relation.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "ResourceRef",
+      "cardinality": "single"
+    },
+    {
+      "id": "space_id",
+      "description": "Stable Space identifier.",
+      "applies_to": ["Space", "Contribution"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "authority_mode",
+      "description": "Authority ceiling for a bundled artifact or query.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "provenance_scope",
+      "description": "Closed core provenance scope value.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "ProvenanceScope",
+      "cardinality": "single"
+    },
+    {
+      "id": "scope_ref",
+      "description": "Optional scope-specific reference required operationally for actor and agent scopes.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "ResourceRef",
+      "cardinality": "optional"
+    },
+    {
+      "id": "ops:severity",
+      "description": "The operational severity attached to an incident.",
+      "applies_to": ["ops:Incident"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "ops:recovery_target",
+      "description": "The recovery target or service restored by a runbook.",
+      "applies_to": ["ops:Runbook"],
+      "value_type": "Text",
+      "cardinality": "optional"
+    }
+  ],
+  "extension_rules": [
+    "Operations Space terms must remain namespace-prefixed under ops: and additive to the core ontology.",
+    "Operations Space extensions must not redefine Space, Contribution, Relation, Capability, or ProvenanceScope.",
+    "Breaking changes to operations-space semantics require steward review and an explicit compatibility note.",
+    "Operations Space extensions must not add new provenance scope classes or values."
+  ],
+  "compatibility": {
+    "mode": "additive",
+    "breaking_change_policy": "steward approval required",
+    "space_extension_policy": "namespace-prefixed additions only"
+  }
+}

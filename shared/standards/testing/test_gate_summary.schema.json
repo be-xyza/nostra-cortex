@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.dev/schemas/testing/test_gate_summary.schema.json",
+  "title": "Nostra Test Gate Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "mode",
+    "catalog_valid",
+    "run_artifacts_valid",
+    "required_blockers_pass",
+    "overall_verdict",
+    "failures",
+    "counts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "advisory",
+        "blocking"
+      ]
+    },
+    "catalog_valid": {
+      "type": "boolean"
+    },
+    "run_artifacts_valid": {
+      "type": "boolean"
+    },
+    "required_blockers_pass": {
+      "type": "boolean"
+    },
+    "overall_verdict": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "not-ready"
+      ]
+    },
+    "latest_run_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Failure"
+      }
+    },
+    "counts": {
+      "$ref": "#/$defs/StatusCounts"
+    }
+  },
+  "$defs": {
+    "Failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "StatusCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pass",
+        "fail",
+        "warn",
+        "pending"
+      ],
+      "properties": {
+        "pass": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fail": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

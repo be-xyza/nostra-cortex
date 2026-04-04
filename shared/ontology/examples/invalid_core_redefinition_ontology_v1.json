@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0.0",
+  "ontology_id": "nostra.space.invalid_core_redefinition.v1",
+  "title": "Invalid Core Redefinition Ontology",
+  "version": "1.0.0",
+  "description": "Negative fixture that intentionally redefines a core term.",
+  "classes": [
+    {
+      "id": "Space",
+      "description": "Ephemeral execution sandbox for transient tasks."
+    },
+    {
+      "id": "Contribution",
+      "description": "Governed unit of knowledge, work, or evidence that can be linked and versioned."
+    },
+    {
+      "id": "Relation",
+      "description": "Typed link between two governed graph subjects."
+    },
+    {
+      "id": "Capability",
+      "description": "A declared ability or feature exposed by a Space or contribution surface."
+    },
+    {
+      "id": "ProvenanceScope",
+      "description": "Named graph scope used to partition evidence and traversal."
+    }
+  ],
+  "relations": [
+    {
+      "id": "contains",
+      "description": "A Space contains Contributions.",
+      "source": "Space",
+      "target": "Contribution"
+    },
+    {
+      "id": "relates_to",
+      "description": "A Contribution relates to another Contribution.",
+      "source": "Contribution",
+      "target": "Contribution"
+    },
+    {
+      "id": "has_capability",
+      "description": "A Space advertises a Capability.",
+      "source": "Space",
+      "target": "Capability"
+    },
+    {
+      "id": "scoped_by",
+      "description": "A Contribution is scoped by a ProvenanceScope.",
+      "source": "Contribution",
+      "target": "ProvenanceScope"
+    }
+  ],
+  "properties": [
+    {
+      "id": "label",
+      "description": "Human-readable label.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "description",
+      "description": "Short explanatory text.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "Text",
+      "cardinality": "optional"
+    },
+    {
+      "id": "resource_ref",
+      "description": "Canonical portable identifier for a graph subject or relation.",
+      "applies_to": ["Space", "Contribution", "Capability", "Relation"],
+      "value_type": "ResourceRef",
+      "cardinality": "single"
+    },
+    {
+      "id": "space_id",
+      "description": "Stable Space identifier.",
+      "applies_to": ["Space", "Contribution"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "authority_mode",
+      "description": "Authority ceiling for a bundled artifact or query.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "Text",
+      "cardinality": "single"
+    },
+    {
+      "id": "provenance_scope",
+      "description": "Closed core provenance scope value.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "ProvenanceScope",
+      "cardinality": "single"
+    },
+    {
+      "id": "scope_ref",
+      "description": "Optional scope-specific reference required operationally for actor and agent scopes.",
+      "applies_to": ["Contribution", "Relation"],
+      "value_type": "ResourceRef",
+      "cardinality": "optional"
+    }
+  ],
+  "extension_rules": [
+    "Negative fixture only.",
+    "Core terms must not be redefined.",
+    "Used to verify semantic validation catches drift."
+  ],
+  "compatibility": {
+    "mode": "additive",
+    "breaking_change_policy": "steward approval required",
+    "space_extension_policy": "namespace-prefixed additions only"
+  }
+}

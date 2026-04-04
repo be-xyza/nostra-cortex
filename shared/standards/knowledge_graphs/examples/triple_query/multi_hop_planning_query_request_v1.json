@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "query_id": "query-multi-hop-planning",
+  "ordering_strategy": "canonical",
+  "scope": {
+    "named_graph_scope": "any"
+  },
+  "filters": {
+    "predicate": "relates_to",
+    "include_provenance": true,
+    "limit": 10,
+    "offset": 0
+  }
+}

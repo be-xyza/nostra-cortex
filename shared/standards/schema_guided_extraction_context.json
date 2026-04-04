@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "contexts": [
+    {
+      "id": "knowledge_graph_commons",
+      "initiative_refs": [
+        "051-rag-ingestion-pipeline",
+        "078-knowledge-graphs"
+      ],
+      "artifact_patterns": [
+        "shared/ontology/*.json",
+        "shared/ontology/examples/*.json",
+        "shared/standards/knowledge_graphs/examples/**/*.json"
+      ],
+      "schema_ids": [
+        "nostra.knowledge_graphs.ontology_manifest.v1",
+        "nostra.knowledge_graphs.space_knowledge_bundle.v1",
+        "nostra.knowledge_graphs.triple_query_request.v1",
+        "nostra.knowledge_graphs.triple_query_response.v1",
+        "nostra.knowledge_graphs.explore_topology_view.v1"
+      ],
+      "notes": "Use ontology manifest semantics for class/relation/property validation, then select bundle, triple-query, or topology schemas according to the artifact family."
+    }
+  ]
+}

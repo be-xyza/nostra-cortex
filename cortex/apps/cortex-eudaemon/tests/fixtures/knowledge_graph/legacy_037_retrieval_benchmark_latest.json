@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-02-08T19:16:22.163599+00:00",
+  "provider": "ollama",
+  "backend": "elna",
+  "embedding_model": "ollama/qwen3-embedding:0.6b",
+  "total_documents": 10,
+  "total_queries": 50,
+  "lexical": {
+    "mode": "lexical",
+    "queries": 50,
+    "recall_at_10": 0.52,
+    "ndcg_at_10": 0.44905463,
+    "p50_latency_ms": 0.0,
+    "p95_latency_ms": 0.0
+  },
+  "hybrid": {
+    "mode": "hybrid",
+    "queries": 50,
+    "recall_at_10": 0.52,
+    "ndcg_at_10": 0.4242652,
+    "p50_latency_ms": 126.0,
+    "p95_latency_ms": 184.0
+  },
+  "metadata_filter_queries": 0,
+  "delta_recall_at_10": 0.0,
+  "delta_ndcg_at_10": -0.024789423,
+  "shadow": {
+    "enabled": true,
+    "searches": 50,
+    "overlap_total": 101,
+    "union_total": 500,
+    "average_parity": 0.202,
+    "last_parity": 0.0
+  }
+}
