@@ -127,6 +127,7 @@ pub struct GraphPilotComparisonEntry {
     pub recall_delta: f64,
     pub baseline_latency_ms: f64,
     pub pilot_latency_ms: f64,
+    pub latency_comparable: bool,
     pub citation_ready: bool,
     pub beats_baseline: bool,
 }
@@ -273,7 +274,9 @@ impl KnowledgeGraphService {
                 recall_delta: summary.average_recall_score - baseline.hybrid.recall_at_10,
                 baseline_latency_ms: baseline.hybrid.p50_latency_ms,
                 pilot_latency_ms: summary.average_latency_ms,
-                citation_ready: summary.provenance_pass_rate >= 1.0,
+                latency_comparable: false,
+                citation_ready: summary.retrieval_mode != "vector_only"
+                    && summary.provenance_pass_rate >= 1.0,
                 beats_baseline: summary.average_recall_score >= baseline.hybrid.recall_at_10,
             })
             .collect::<Vec<_>>();
@@ -404,6 +407,10 @@ fn recall_score(citation_source_refs: &[String], relevant_source_refs: &[String]
 }
 
 fn provenance_satisfied(response: &GraphRetrievalResponse) -> bool {
+    if response.graph_matches.is_empty() {
+        return false;
+    }
+
     if response
         .citations
         .iter()

@@ -155,7 +155,14 @@ fn graph_service_benchmark_summarizes_modes_and_comparison() {
         .iter()
         .find(|item| item.pilot_mode == "hybrid_graph_embedding")
         .expect("hybrid comparison");
+    let vector_entry = comparison
+        .entries
+        .iter()
+        .find(|item| item.pilot_mode == "vector_only")
+        .expect("vector comparison");
     assert!(hybrid_entry.citation_ready);
+    assert!(!vector_entry.citation_ready);
+    assert!(!hybrid_entry.latency_comparable);
     assert!(hybrid_entry.beats_baseline);
 }
 

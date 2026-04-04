@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-04-03T23:50:08.689737+00:00",
+  "generatedAt": "2026-04-04T00:16:09.834438+00:00",
   "baselineSourceRef": "nostra://logs/knowledge/retrieval_benchmark_latest.json",
   "graphDatasetRef": "nostra://benchmark/initiative-078/phase-f-graph-pilot",
   "entries": [
@@ -12,6 +12,7 @@
       "recallDelta": 0.3966666666666666,
       "baselineLatencyMs": 126.0,
       "pilotLatencyMs": 1.0,
+      "latencyComparable": false,
       "citationReady": true,
       "beatsBaseline": true
     },
@@ -23,6 +24,7 @@
       "recallDelta": 0.48,
       "baselineLatencyMs": 126.0,
       "pilotLatencyMs": 1.0,
+      "latencyComparable": false,
       "citationReady": true,
       "beatsBaseline": true
     },
@@ -34,7 +36,8 @@
       "recallDelta": -0.27,
       "baselineLatencyMs": 126.0,
       "pilotLatencyMs": 1.0,
-      "citationReady": true,
+      "latencyComparable": false,
+      "citationReady": false,
       "beatsBaseline": false
     }
   ]

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-04-03T23:50:08.689728+00:00",
+  "generatedAt": "2026-04-04T00:16:09.834418+00:00",
   "datasetRef": "nostra://benchmark/initiative-078/phase-f-graph-pilot",
   "cases": [
     {
@@ -35,7 +35,7 @@
             "nostra://doc/research/hypothesis-brief"
           ],
           "citationCount": 3,
-          "provenanceSatisfied": true
+          "provenanceSatisfied": false
         },
         {
           "retrievalMode": "hybrid_graph_embedding",
@@ -80,7 +80,7 @@
             "nostra://doc/research/hypothesis-brief"
           ],
           "citationCount": 3,
-          "provenanceSatisfied": true
+          "provenanceSatisfied": false
         },
         {
           "retrievalMode": "hybrid_graph_embedding",
@@ -126,7 +126,7 @@
             "nostra://doc/research/hypothesis-brief"
           ],
           "citationCount": 3,
-          "provenanceSatisfied": true
+          "provenanceSatisfied": false
         },
         {
           "retrievalMode": "hybrid_graph_embedding",
@@ -172,7 +172,7 @@
             "nostra://doc/research/hypothesis-brief"
           ],
           "citationCount": 3,
-          "provenanceSatisfied": true
+          "provenanceSatisfied": false
         },
         {
           "retrievalMode": "hybrid_graph_embedding",
@@ -210,7 +210,7 @@
       "cases": 4,
       "averageRecallScore": 0.25,
       "averageLatencyMs": 1.0,
-      "provenancePassRate": 1.0
+      "provenancePassRate": 0.0
     }
   ]
 }

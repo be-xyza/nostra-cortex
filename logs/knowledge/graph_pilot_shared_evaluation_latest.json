@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-04-03T23:50:08.689749+00:00",
+  "generatedAt": "2026-04-04T00:16:09.834464+00:00",
   "baselineSourceRef": "nostra://fixtures/knowledge/legacy_037_shared_evaluation_v1.json",
   "graphDatasetRef": "nostra://benchmark/initiative-078/phase-f-graph-pilot",
   "entries": [
@@ -63,7 +63,7 @@
       "citationCount": 3,
       "recallScore": 1.0,
       "latencyMs": 1,
-      "provenanceSatisfied": true
+      "provenanceSatisfied": false
     },
     {
       "caseId": "multi_hop_research_evidence",
@@ -137,7 +137,7 @@
       "citationCount": 3,
       "recallScore": 0.0,
       "latencyMs": 1,
-      "provenanceSatisfied": true
+      "provenanceSatisfied": false
     },
     {
       "caseId": "relation_traversal_runbook_dependency",
@@ -208,7 +208,7 @@
       "citationCount": 3,
       "recallScore": 0.0,
       "latencyMs": 1,
-      "provenanceSatisfied": true
+      "provenanceSatisfied": false
     },
     {
       "caseId": "system_scope_capability_visibility",
@@ -281,7 +281,7 @@
       "citationCount": 3,
       "recallScore": 0.0,
       "latencyMs": 1,
-      "provenanceSatisfied": true
+      "provenanceSatisfied": false
     },
     {
       "caseId": "provenance_sensitive_system_manifest",

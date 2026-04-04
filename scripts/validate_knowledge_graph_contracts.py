@@ -108,6 +108,12 @@ TOPOLOGY_EXAMPLES = [
     "shared/standards/knowledge_graphs/examples/explore/research_space_topology_view_v1.json",
     "shared/standards/knowledge_graphs/examples/explore/research_agent_topology_view_v1.json",
 ]
+BENCHMARK_FIXTURE = (
+    "cortex/apps/cortex-eudaemon/tests/fixtures/knowledge_graph/initiative_078_retrieval_benchmark_v1.json"
+)
+LEGACY_SHARED_EVAL_FIXTURE = (
+    "cortex/apps/cortex-eudaemon/tests/fixtures/knowledge_graph/legacy_037_shared_evaluation_v1.json"
+)
 FREEZE_REPORT = "shared/ontology/freeze_readiness_report.json"
 EXPECTED_CORE_PROPERTIES = {
     "label": {
@@ -596,6 +602,89 @@ def validate_topology_view(root: Path) -> list[str]:
     return failures
 
 
+def validate_benchmark_fixture(root: Path) -> list[str]:
+    request_schema = load_json(
+        root / "shared/standards/knowledge_graphs/triple_query_request.schema.json"
+    )
+    fixture = load_json(root / BENCHMARK_FIXTURE)
+    failures: list[str] = []
+    case_ids: set[str] = set()
+
+    for case in fixture.get("cases", []):
+        case_id = case["case_id"]
+        if case_id in case_ids:
+            failures.append(f"{BENCHMARK_FIXTURE}: duplicate case_id {case_id}")
+        case_ids.add(case_id)
+        triple_request = case["request"].get("triple_request")
+        if triple_request is None:
+            failures.append(f"{BENCHMARK_FIXTURE}: {case_id} missing triple_request")
+            continue
+        failures.extend(
+            validate_schema(
+                triple_request,
+                request_schema,
+                f"{BENCHMARK_FIXTURE}:{case_id}:triple_request",
+            )
+        )
+        failures.extend(
+            f"{BENCHMARK_FIXTURE}:{case_id}: {msg}"
+            for msg in validate_scope_rule(triple_request["scope"])
+        )
+
+    return failures
+
+
+def validate_legacy_shared_evaluation(root: Path) -> list[str]:
+    fixture = load_json(root / LEGACY_SHARED_EVAL_FIXTURE)
+    benchmark = load_json(root / BENCHMARK_FIXTURE)
+    failures: list[str] = []
+    benchmark_cases = {case["case_id"]: case for case in benchmark.get("cases", [])}
+    legacy_cases = fixture.get("cases", [])
+    seen: set[str] = set()
+
+    for case in legacy_cases:
+        case_id = case["caseId"]
+        if case_id in seen:
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: duplicate caseId {case_id}")
+        seen.add(case_id)
+        if case.get("mode") != "037_current_hybrid_retrieval":
+            failures.append(
+                f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} mode must stay 037_current_hybrid_retrieval"
+            )
+        benchmark_case = benchmark_cases.get(case_id)
+        if benchmark_case is None:
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: unknown caseId {case_id}")
+            continue
+        if case["queryClass"] != benchmark_case["query_class"]:
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} queryClass mismatch")
+        if case["queryId"] != benchmark_case["request"]["query_id"]:
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} queryId mismatch")
+        if case["queryText"] != benchmark_case["request"]["query_text"]:
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} queryText mismatch")
+        if case["relevantSourceRefs"] != benchmark_case["relevant_source_refs"]:
+            failures.append(
+                f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} relevantSourceRefs mismatch"
+            )
+        if case["citationCount"] != len(case["citationSourceRefs"]):
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} citationCount mismatch")
+        relevant = set(case["relevantSourceRefs"])
+        matched = sum(1 for ref in case["citationSourceRefs"] if ref in relevant)
+        expected_recall = 0.0 if not relevant else matched / len(relevant)
+        if abs(case["recallScore"] - expected_recall) > 1e-9:
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} recallScore mismatch")
+        if case["latencyMs"] < 0:
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} latencyMs must be >= 0")
+
+    if set(benchmark_cases) != seen:
+        missing = sorted(set(benchmark_cases) - seen)
+        if missing:
+            failures.append(
+                f"{LEGACY_SHARED_EVAL_FIXTURE}: missing benchmark-aligned cases: {', '.join(missing)}"
+            )
+
+    return failures
+
+
 def validate_freeze_report(root: Path) -> list[str]:
     report = load_json(root / FREEZE_REPORT)
     failures: list[str] = []
@@ -637,6 +726,8 @@ def build_validation_report(root: Path) -> dict[str, Any]:
     return {
         "ontology": ontology_report,
         "query": query_report,
+        "benchmark_fixture_failures": validate_benchmark_fixture(root),
+        "legacy_shared_evaluation_failures": validate_legacy_shared_evaluation(root),
         "reference_alignment": load_reference_alignment_matrix(root),
         "freeze_report": load_json(root / FREEZE_REPORT),
     }
@@ -709,6 +800,8 @@ def validate_all(root: Path) -> list[str]:
     failures.extend(validate_jsonld_projection(root, core_ontology))
     failures.extend(validate_shacl_checklist(root))
     failures.extend(validate_sparql_matrix(root))
+    failures.extend(validate_benchmark_fixture(root))
+    failures.extend(validate_legacy_shared_evaluation(root))
     failures.extend(validate_topology_view(root))
     failures.extend(validate_freeze_report(root))
     try:

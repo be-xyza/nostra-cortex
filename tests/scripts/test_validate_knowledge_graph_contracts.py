@@ -25,20 +25,21 @@ class KnowledgeGraphContractValidationTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.validator = load_module()
 
-    def test_semantic_validator_accepts_positive_ontology_examples(self) -> None:
-        report = self.validator.build_validation_report(ROOT)
-        self.assertIn(
-            "shared/ontology/examples/research_space_ontology_v1.json",
-            report["ontology"]["positive_examples"],
+    def test_positive_ontology_examples_validate_cleanly(self) -> None:
+        ontology_schema = self.validator.load_json(
+            ROOT / "shared/standards/knowledge_graphs/ontology_manifest.schema.json"
         )
-        self.assertIn(
-            "shared/ontology/examples/operations_space_ontology_v1.json",
-            report["ontology"]["positive_examples"],
-        )
-        self.assertIn(
-            "shared/ontology/examples/adversarial_extension_ontology_v1.json",
-            report["ontology"]["positive_examples"],
-        )
+        core_ontology = self.validator.load_json(ROOT / "shared/ontology/core_ontology_v1.json")
+        for path_str in self.validator.POSITIVE_ONTOLOGY_EXAMPLES:
+            ontology = self.validator.load_json(ROOT / path_str)
+            self.assertEqual(
+                self.validator.validate_schema(ontology, ontology_schema, path_str),
+                [],
+            )
+            self.assertEqual(
+                self.validator.validate_ontology_semantics(ontology, core_ontology),
+                [],
+            )
 
     def test_semantic_validator_rejects_invalid_ontology_examples(self) -> None:
         report = self.validator.build_validation_report(ROOT)
@@ -99,6 +100,7 @@ class KnowledgeGraphContractValidationTests(unittest.TestCase):
 
     def test_query_fixture_matrix_is_semantically_complete(self) -> None:
         matrix = self.validator.validate_query_fixture_matrix(ROOT)
+        self.assertEqual(matrix["failures"], [])
         self.assertEqual(
             matrix["covered_cases"],
             {
@@ -134,6 +136,10 @@ class KnowledgeGraphContractValidationTests(unittest.TestCase):
     def test_topology_examples_are_registered_and_canonical(self) -> None:
         failures = self.validator.validate_topology_view(ROOT)
         self.assertEqual(failures, [])
+
+    def test_benchmark_fixture_and_legacy_baseline_validate_cleanly(self) -> None:
+        self.assertEqual(self.validator.validate_benchmark_fixture(ROOT), [])
+        self.assertEqual(self.validator.validate_legacy_shared_evaluation(ROOT), [])
 
     def test_freeze_readiness_report_is_decision_complete(self) -> None:
         failures = self.validator.validate_freeze_report(ROOT)
