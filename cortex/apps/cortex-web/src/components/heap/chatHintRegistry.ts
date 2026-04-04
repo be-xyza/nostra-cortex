@@ -1,3 +1,5 @@
+import type { HeapViewContextSnapshot } from "./heapViewRegistry.ts";
+
 /**
  * chatHintRegistry.ts
  *
@@ -143,8 +145,9 @@ export function getChatHints(): ChatHint[] {
 export function resolveChatHints(
     viewMode: string,
     selectionCount: number,
+    heapViewContext?: HeapViewContextSnapshot | null,
 ): ChatHint[] {
-    return getChatHints()
+    const hints = getChatHints()
         .filter((hint) => {
             // View mode filter
             if (hint.viewModes && hint.viewModes.length > 0 && !hint.viewModes.includes(viewMode)) {
@@ -159,6 +162,36 @@ export function resolveChatHints(
             }
             return true;
         })
+        .sort((a, b) => a.priority - b.priority);
+
+    if (heapViewContext?.signals?.length) {
+        for (const signal of heapViewContext.signals) {
+            hints.push({
+                id: `view-context-${heapViewContext.viewId}-${signal.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+                label: signal.summary,
+                prompt: signal.prompt,
+                viewModes: [heapViewContext.viewLabel],
+                maxSelection: 0,
+                priority: 5,
+            });
+        }
+    }
+
+    return dedupeChatHints(hints)
         .sort((a, b) => a.priority - b.priority)
         .slice(0, 4); // Show at most 4 hints
+}
+
+function dedupeChatHints(hints: ChatHint[]): ChatHint[] {
+    const seen = new Set<string>();
+    const deduped: ChatHint[] = [];
+    for (const hint of hints) {
+        const key = `${hint.label}::${hint.prompt ?? ""}`;
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        deduped.push(hint);
+    }
+    return deduped;
 }
