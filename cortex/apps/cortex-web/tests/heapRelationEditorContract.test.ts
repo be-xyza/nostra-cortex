@@ -53,7 +53,7 @@ test("buildHeapRelationUpsertRequest preserves heap identity and maps relation e
     agentId: "cortex-web.relations",
   });
 
-  assert.equal(request.workspace_id, "space-alpha");
+  assert.equal(request.space_id, "space-alpha");
   assert.equal(request.block.id, "block-alpha");
   assert.equal(request.block.type, "note");
   assert.equal(request.block.title, "Alpha Block");
@@ -119,7 +119,7 @@ test("buildMinimalHeapBlockRequest constructs a placeholder block request", () =
 
   assert.equal(request.schema_version, "1.0.0");
   assert.equal(request.mode, "heap");
-  assert.equal(request.workspace_id, "test-workspace");
+  assert.equal(request.space_id, "test-workspace");
   assert.equal(request.source.agent_id, "test-agent");
   assert.equal(request.source.emitted_at, "2026-03-12T12:00:00Z");
   assert.equal(request.block.type, "note");

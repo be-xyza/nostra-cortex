@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { HeapBlockListItem, ActionSelectionContext } from "../../contracts";
+import type {
+    HeapBlockListItem,
+    ActionSelectionContext,
+    HeapUploadExtractionRunDetail,
+    HeapUploadExtractionRunRecord,
+    HeapUploadExtractionStatusResponse,
+    HeapUploadParserProfileRecord,
+} from "../../contracts";
 import { workbenchApi } from "../../api";
 import { PayloadRenderer, PayloadContent } from './PayloadRenderer';
 import { NdlMetadataBlock } from '../ndl/NdlMetadataBlock';
@@ -16,31 +23,122 @@ import {
 } from "./heapRelationEditor";
 import { useUiStore } from "../../store/uiStore";
 import { useAvailableSpaces, useActiveSpaceContext } from "../../store/spacesRegistry";
-import { useLayoutPreferences, applyOrder } from "../../store/layoutPreferences";
-import { GripVertical } from "lucide-react";
+import { useLayoutPreferences, applyOrder, EMPTY_PREFS } from "../../store/layoutPreferences";
+import { ChevronLeft, GripVertical } from "lucide-react";
 import { AmbientGraphBackground } from "./AmbientGraphBackground";
+import { createHeapDetailActionHandlers } from "./heapDetailActions";
+import { describeHeapRelation, type HeapRelationItem } from "./heapRelations";
+import { TaskRoutingDecisionCard } from "./TaskRoutingDecisionCard";
+import type { TaskRouteDecision, TaskRouteId } from "./taskRouting.ts";
+import type { TaskRoutingContext } from "./initiativeKickoffTemplates.ts";
+import { TaskRouteLineageCard } from "./TaskRouteLineageCard";
+import { buildTaskRouteLineageSnapshot } from "./taskRouting.ts";
 // Removed local WorkbenchNamingModal import, using global one in ShellLayout
 
 type TabType = 'preview' | 'attributes' | 'relations' | 'code';
+type ParserComparisonDecision = "structure" | "layout" | "needs_rerun";
+
+function parserProfileLabel(profile: string): string {
+    switch (profile) {
+        case "docling":
+            return "Docling";
+        case "liteparse":
+            return "LiteParse";
+        case "markitdown":
+            return "MarkItDown";
+        case "auto":
+        default:
+            return "Auto";
+    }
+}
+
+function parserProfileTone(profile: string): string {
+    switch (profile) {
+        case "docling":
+            return "border-cyan-300/20 bg-cyan-300/10 text-cyan-100";
+        case "liteparse":
+            return "border-violet-300/20 bg-violet-300/10 text-violet-100";
+        case "markitdown":
+            return "border-emerald-300/20 bg-emerald-300/10 text-emerald-100";
+        case "auto":
+        default:
+            return "border-white/10 bg-white/[0.04] text-white/75";
+    }
+}
+
+function statusTone(status: string): string {
+    switch (status) {
+        case "completed":
+        case "indexed":
+            return "border-emerald-300/20 bg-emerald-300/10 text-emerald-100";
+        case "needs_review":
+            return "border-amber-300/20 bg-amber-300/10 text-amber-100";
+        case "failed":
+            return "border-rose-300/20 bg-rose-300/10 text-rose-100";
+        case "running":
+        case "extracting":
+            return "border-indigo-300/20 bg-indigo-300/10 text-indigo-100";
+        case "uploaded":
+        case "submitted":
+        default:
+            return "border-blue-300/20 bg-blue-300/10 text-blue-100";
+    }
+}
+
+function resolveMetricCardClassName(tone: "cyan" | "violet" | "emerald" | "amber" | "rose" | "slate" = "slate"): string {
+    switch (tone) {
+        case "cyan":
+            return "border-cyan-400/18 bg-cyan-500/10 text-cyan-100";
+        case "violet":
+            return "border-violet-400/18 bg-violet-500/10 text-violet-100";
+        case "emerald":
+            return "border-emerald-400/18 bg-emerald-500/10 text-emerald-100";
+        case "amber":
+            return "border-amber-400/18 bg-amber-500/10 text-amber-100";
+        case "rose":
+            return "border-rose-400/18 bg-rose-500/10 text-rose-100";
+        case "slate":
+        default:
+            return "border-white/8 bg-white/[0.04] text-white/85";
+    }
+}
+
+function prettifyUploadState(value: string): string {
+    return value.replace(/_/g, " ");
+}
 
 interface HeapDetailModalProps {
     block: HeapBlockListItem;
     allBlocks: HeapBlockListItem[];
     onClose: () => void;
+    onUploadExtractionUpdated?: (message: string) => void;
     onViewDiscussion: (artifactId: string) => void;
-    onNavigateToBlock: (artifactId: string) => void;
+    onNavigateToBlock: (artifactId: string, context?: { relation?: string; title?: string }) => void;
     onRelationSaved: (artifactId: string) => void;
+    onRegenerate?: (selection: ActionSelectionContext) => void;
+    onTaskRouteSelected?: (
+        routeId: TaskRouteId,
+        context: TaskRoutingContext,
+        decision: TaskRouteDecision,
+    ) => void;
     ambientGraphVariant?: string;
+    navigationTrail?: Array<{ artifactId: string; title: string; relation?: string }>;
+    onNavigateBack?: () => void;
 }
 
 export function HeapDetailModal({
     block,
     allBlocks,
     onClose,
+    onUploadExtractionUpdated,
     onViewDiscussion,
     onNavigateToBlock,
     onRelationSaved,
+    onRegenerate,
+    onTaskRouteSelected,
     ambientGraphVariant,
+    navigationTrail = [],
+    onNavigateBack,
 }: HeapDetailModalProps) {
     const { projection, surfaceJson } = block;
     const surface = (surfaceJson as Record<string, unknown>) || {};
@@ -48,7 +146,7 @@ export function HeapDetailModal({
     const availableSpaces = useAvailableSpaces();
     const activeSpaceId = useActiveSpaceContext();
     const [relationLoading, setRelationLoading] = useState(false);
-    const layoutPrefs = useLayoutPreferences((s) => s.cache[activeSpaceId] ?? {});
+    const layoutPrefs = useLayoutPreferences((s) => s.cache[activeSpaceId] ?? EMPTY_PREFS);
     const stageChange = useLayoutPreferences((s) => s.stageChange);
     const [previewTabOrder, setPreviewTabOrder] = useState<string[] | null>(null);
     const [draggedTab, setDraggedTab] = useState<string | null>(null);
@@ -75,6 +173,21 @@ export function HeapDetailModal({
     const [tagInput, setTagInput] = useState("");
     const [mentionInput, setMentionInput] = useState("");
     const [pageLinkInput, setPageLinkInput] = useState("");
+    const [uploadParserProfiles, setUploadParserProfiles] = useState<HeapUploadParserProfileRecord[]>([]);
+    const [uploadExtractionStatus, setUploadExtractionStatus] = useState<HeapUploadExtractionStatusResponse | null>(null);
+    const [uploadExtractionRuns, setUploadExtractionRuns] = useState<HeapUploadExtractionRunRecord[]>([]);
+    const [selectedRunJobId, setSelectedRunJobId] = useState<string | null>(null);
+    const [compareRunJobId, setCompareRunJobId] = useState<string | null>(null);
+    const [selectedRunDetail, setSelectedRunDetail] = useState<HeapUploadExtractionRunDetail | null>(null);
+    const [compareRunDetail, setCompareRunDetail] = useState<HeapUploadExtractionRunDetail | null>(null);
+    const [uploadExtractionError, setUploadExtractionError] = useState<string | null>(null);
+    const [selectedParserProfile, setSelectedParserProfile] = useState<string>("auto");
+    const [rerunSubmitting, setRerunSubmitting] = useState(false);
+    const [comparisonDecision, setComparisonDecision] = useState<ParserComparisonDecision>("structure");
+    const [comparisonNotes, setComparisonNotes] = useState("");
+    const [comparisonSaving, setComparisonSaving] = useState(false);
+    const [comparisonMessage, setComparisonMessage] = useState<string | null>(null);
+    const [comparisonError, setComparisonError] = useState<string | null>(null);
     const wasWorkbenchNamedManually = useUiStore((s) => s.wasWorkbenchNamedManually);
     const activeSpaceIds = useUiStore((s) => s.activeSpaceIds);
     const setNamingModalOpen = useUiStore((s) => s.setNamingModalOpen);
@@ -94,6 +207,15 @@ export function HeapDetailModal({
         zones: ["heap_detail_header", "heap_detail_footer"],
         selection: selectionContext
     });
+    const uploadId = typeof projection.attributes?.upload_id === "string" ? projection.attributes.upload_id : null;
+    const requestedParserProfileAttribute =
+        typeof projection.attributes?.requested_parser_profile === "string"
+            ? projection.attributes.requested_parser_profile
+            : null;
+    const resolvedParserBackendAttribute =
+        typeof projection.attributes?.parser_backend === "string"
+            ? projection.attributes.parser_backend
+            : null;
 
     useEffect(() => {
         const nextDraft = createInitialHeapRelationDraft(block);
@@ -109,15 +231,143 @@ export function HeapDetailModal({
         setPageLinkInput("");
     }, [block]);
 
-    const actionHandlers: ActionHandlers = {
-        onRegenerate: () => console.log("Regenerate inside modal for", block.projection.artifactId),
-        onDeselect: () => onClose(),
-        onOpenDiscussion: () => onViewDiscussion(projection.artifactId),
-        onEdit: () => {
+    useEffect(() => {
+        if (!uploadId) {
+            setUploadParserProfiles([]);
+            setUploadExtractionStatus(null);
+            setUploadExtractionRuns([]);
+            setSelectedRunJobId(null);
+            setCompareRunJobId(null);
+            setSelectedRunDetail(null);
+            setCompareRunDetail(null);
+            setUploadExtractionError(null);
+            setSelectedParserProfile("auto");
+            return;
+        }
+        const actorRole = sessionUser?.role || "operator";
+        const actorId = sessionUser?.actorId || "cortex-web";
+        let cancelled = false;
+        void workbenchApi
+            .getHeapUploadParserProfiles(actorRole, actorId)
+            .then((response) => {
+                if (cancelled) {
+                    return;
+                }
+                setUploadParserProfiles(response.items || []);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setUploadParserProfiles([]);
+                }
+            });
+        void workbenchApi
+            .getHeapUploadExtractionStatus(uploadId, actorRole, actorId)
+            .then((response) => {
+                if (cancelled) {
+                    return;
+                }
+                setUploadExtractionStatus(response);
+                setUploadExtractionError(null);
+                setSelectedParserProfile(response.requested_parser_profile || "auto");
+            })
+            .catch((err) => {
+                if (cancelled) {
+                    return;
+                }
+                setUploadExtractionStatus(null);
+                setUploadExtractionError(err instanceof Error ? err.message : String(err));
+                setSelectedParserProfile(requestedParserProfileAttribute || "auto");
+            });
+        void workbenchApi
+            .getHeapUploadExtractionRuns(uploadId, actorRole, actorId)
+            .then((response) => {
+                if (cancelled) {
+                    return;
+                }
+                const items = response.items || [];
+                setUploadExtractionRuns(items);
+                setSelectedRunJobId((current) => current || items[0]?.job_id || null);
+                setCompareRunJobId((current) => {
+                    if (current) {
+                        return current;
+                    }
+                    if (items.length > 1) {
+                        return items[1].job_id;
+                    }
+                    return null;
+                });
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setUploadExtractionRuns([]);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [requestedParserProfileAttribute, sessionUser?.actorId, sessionUser?.role, uploadId]);
+
+    useEffect(() => {
+        if (!uploadId || !selectedRunJobId) {
+            setSelectedRunDetail(null);
+            return;
+        }
+        const actorRole = sessionUser?.role || "operator";
+        const actorId = sessionUser?.actorId || "cortex-web";
+        let cancelled = false;
+        void workbenchApi
+            .getHeapUploadExtractionRun(uploadId, selectedRunJobId, actorRole, actorId)
+            .then((response) => {
+                if (!cancelled) {
+                    setSelectedRunDetail(response);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setSelectedRunDetail(null);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedRunJobId, sessionUser?.actorId, sessionUser?.role, uploadId]);
+
+    useEffect(() => {
+        if (!uploadId || !compareRunJobId) {
+            setCompareRunDetail(null);
+            return;
+        }
+        const actorRole = sessionUser?.role || "operator";
+        const actorId = sessionUser?.actorId || "cortex-web";
+        let cancelled = false;
+        void workbenchApi
+            .getHeapUploadExtractionRun(uploadId, compareRunJobId, actorRole, actorId)
+            .then((response) => {
+                if (!cancelled) {
+                    setCompareRunDetail(response);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setCompareRunDetail(null);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [compareRunJobId, sessionUser?.actorId, sessionUser?.role, uploadId]);
+
+    const actionHandlers: ActionHandlers = createHeapDetailActionHandlers({
+        artifactId: projection.artifactId,
+        blockType: projection.blockType,
+        onClose,
+        onViewDiscussion,
+        onRegenerate,
+        onToggleRelations: () => {
             setRelationEditorOpen((open) => !open);
             setActiveTab("relations");
         },
-    };
+    });
 
     const headerZonePlan = actionPlan?.zones.find(z => z.zone === "heap_detail_header");
     const footerZonePlan = actionPlan?.zones.find(z => z.zone === "heap_detail_footer");
@@ -144,13 +394,28 @@ export function HeapDetailModal({
         () => buildHeapRelationIndex(block, allBlocks),
         [allBlocks, block],
     );
+    const routeLineage = useMemo(
+        () => buildTaskRouteLineageSnapshot(block, relationIndex),
+        [block, relationIndex],
+    );
     const outboundLinks = relationIndex.outboundLinks;
     const outboundMentions = relationIndex.outboundMentions;
     const backlinks = relationIndex.backlinks;
     const tagNeighbors = relationIndex.tagNeighbors;
+    const semanticLineage = relationIndex.semanticLineage;
     const plainText = extractPlainText(payloadContent);
     const wordCount = plainText.trim().length ? plainText.trim().split(/\s+/).length : 0;
     const characterCount = plainText.length;
+    const resolvedSpaceId = useMemo(() => {
+        const surfaceData = surface as Record<string, unknown>;
+        const structured = (
+            (surfaceData.structured_data as Record<string, unknown> | undefined)
+            ?? (surfaceData.data as Record<string, unknown> | undefined)
+            ?? surfaceData
+        );
+        const spaceValue = structured.space_id ?? structured.spaceId ?? surfaceData.space_id;
+        return typeof spaceValue === "string" && spaceValue.trim().length > 0 ? spaceValue : "unknown";
+    }, [surface]);
     const relationDraftDirty = useMemo(
         () => serializeRelationDraft(relationDraft) !== serializeRelationDraft(relationBaseline),
         [relationBaseline, relationDraft],
@@ -187,6 +452,46 @@ export function HeapDetailModal({
         () => knownTagIds.filter((tag) => !relationDraft.tags.includes(tag)).slice(0, 6),
         [knownTagIds, relationDraft.tags],
     );
+    const currentTrailEntry = navigationTrail[navigationTrail.length - 1] ?? null;
+    const effectiveUploadExtractionStatus = uploadExtractionStatus ?? (uploadId ? {
+        job_id: "",
+        upload_id: uploadId,
+        status:
+            typeof projection.attributes?.extraction_status === "string"
+                ? (projection.attributes.extraction_status as HeapUploadExtractionStatusResponse["status"])
+                : "submitted",
+        requested_parser_profile: requestedParserProfileAttribute ?? undefined,
+        parser_backend: resolvedParserBackendAttribute ?? undefined,
+        confidence:
+            typeof projection.attributes?.extraction_confidence === "string"
+                ? Number(projection.attributes.extraction_confidence)
+                : undefined,
+        flags:
+            typeof projection.attributes?.extraction_flags === "string"
+                ? projection.attributes.extraction_flags.split(",").map((flag) => flag.trim()).filter(Boolean)
+                : undefined,
+        result_ref:
+            typeof projection.attributes?.extraction_result_ref === "string"
+                ? projection.attributes.extraction_result_ref
+                : undefined,
+        summary:
+            typeof projection.attributes?.extraction_summary === "string"
+                ? projection.attributes.extraction_summary
+                : undefined,
+        page_count:
+            typeof projection.attributes?.extraction_page_count === "string"
+                ? Number(projection.attributes.extraction_page_count)
+                : undefined,
+        block_count:
+            typeof projection.attributes?.extraction_block_count === "string"
+                ? Number(projection.attributes.extraction_block_count)
+                : undefined,
+        last_updated_at: undefined,
+    } : null);
+    const selectableCompareRuns = useMemo(
+        () => uploadExtractionRuns.filter((run) => run.job_id !== selectedRunJobId),
+        [selectedRunJobId, uploadExtractionRuns],
+    );
 
     const formatJsonWithHighlighting = (json: any) => {
         const str = JSON.stringify(json, null, 2);
@@ -210,11 +515,12 @@ export function HeapDetailModal({
         });
     };
 
-    const navigateRelation = (artifactId: string) => {
-        if (!resolveHeapRelationBlock(artifactId, allBlocks)) {
+    const navigateRelation = (item: HeapRelationItem) => {
+        const relation = item.relations?.[0];
+        if (!resolveHeapRelationBlock(item.id, allBlocks)) {
             return;
         }
-        onNavigateToBlock(artifactId);
+        onNavigateToBlock(item.id, { relation, title: item.title });
         setActiveTab("relations");
     };
 
@@ -362,6 +668,137 @@ export function HeapDetailModal({
         }
     };
 
+    const rerunUploadExtraction = async () => {
+        if (!uploadId) {
+            return;
+        }
+        const actorRole = sessionUser?.role || "operator";
+        const actorId = sessionUser?.actorId || "cortex-web";
+        const requestedProfile = selectedParserProfile.trim() || "auto";
+        const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+        try {
+            setRerunSubmitting(true);
+            setUploadExtractionError(null);
+            const queued = await workbenchApi.triggerHeapUploadExtraction(
+                uploadId,
+                requestedProfile,
+                actorRole,
+                actorId,
+            );
+            setUploadExtractionStatus({
+                job_id: queued.job_id,
+                upload_id: queued.upload_id,
+                status: queued.status,
+                requested_parser_profile: queued.requested_parser_profile,
+            });
+            let currentStatus = await workbenchApi.getHeapUploadExtractionStatus(uploadId, actorRole, actorId);
+            let attempts = 0;
+            while (!["completed", "needs_review", "failed"].includes(currentStatus.status) && attempts < 10) {
+                await sleep(750);
+                currentStatus = await workbenchApi.getHeapUploadExtractionStatus(uploadId, actorRole, actorId);
+                attempts += 1;
+            }
+            setUploadExtractionStatus(currentStatus);
+            const runsResponse = await workbenchApi.getHeapUploadExtractionRuns(uploadId, actorRole, actorId);
+            setUploadExtractionRuns(runsResponse.items || []);
+            setSelectedRunJobId(currentStatus.job_id || runsResponse.items?.[0]?.job_id || null);
+            setCompareRunJobId((current) => {
+                if (current && runsResponse.items.some((item) => item.job_id === current)) {
+                    return current;
+                }
+                return runsResponse.items.find((item) => item.job_id !== (currentStatus.job_id || runsResponse.items?.[0]?.job_id))?.job_id || null;
+            });
+            const message = `Extraction rerun finished with ${prettifyUploadState(currentStatus.status)} using ${parserProfileLabel(currentStatus.parser_backend || requestedProfile)}.`;
+            onUploadExtractionUpdated?.(message);
+        } catch (err) {
+            setUploadExtractionError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setRerunSubmitting(false);
+        }
+    };
+
+    const saveComparisonFinding = async () => {
+        if (!uploadId || !selectedRunDetail || !compareRunDetail) {
+            return;
+        }
+        const actorRole = sessionUser?.role || "operator";
+        const actorId = sessionUser?.actorId || "cortex-web";
+        const preferredLabel =
+            comparisonDecision === "structure"
+                ? "better for structure"
+                : comparisonDecision === "layout"
+                    ? "better for layout"
+                    : "needs rerun";
+        const primaryParser = parserProfileLabel(
+            selectedRunDetail.parser_backend || selectedRunDetail.requested_parser_profile || "unknown",
+        );
+        const compareParser = parserProfileLabel(
+            compareRunDetail.parser_backend || compareRunDetail.requested_parser_profile || "unknown",
+        );
+        const lines = [
+            `Parser comparison finding for ${projection.title || projection.artifactId}`,
+            "",
+            `Upload: ${uploadId}`,
+            `Primary run: ${selectedRunDetail.job_id} (${primaryParser})`,
+            `Compare run: ${compareRunDetail.job_id} (${compareParser})`,
+            `Decision: ${preferredLabel}`,
+            "",
+            `${primaryParser}: ${summarizeRunDetail(selectedRunDetail)}`,
+            `${compareParser}: ${summarizeRunDetail(compareRunDetail)}`,
+        ];
+        if (comparisonNotes.trim()) {
+            lines.push("", "Reviewer notes:", comparisonNotes.trim());
+        }
+
+        try {
+            setComparisonSaving(true);
+            setComparisonError(null);
+            setComparisonMessage(null);
+            await workbenchApi.emitHeapBlock(
+                {
+                    schema_version: "1.0.0",
+                    mode: "heap",
+                    space_id: resolvedSpaceId,
+                    source: {
+                        agent_id: "cortex-web.parser-compare",
+                        emitted_at: new Date().toISOString(),
+                    },
+                    block: {
+                        type: "note",
+                        title: `Parser comparison: ${projection.title || projection.artifactId}`,
+                        attributes: {
+                            origin: "parser_comparison_finding",
+                            upload_id: uploadId,
+                            primary_job_id: selectedRunDetail.job_id,
+                            compare_job_id: compareRunDetail.job_id,
+                            preferred_for: comparisonDecision,
+                            primary_parser: selectedRunDetail.parser_backend || selectedRunDetail.requested_parser_profile || "unknown",
+                            compare_parser: compareRunDetail.parser_backend || compareRunDetail.requested_parser_profile || "unknown",
+                        },
+                    },
+                    content: {
+                        payload_type: "rich_text",
+                        rich_text: {
+                            plain_text: lines.join("\n"),
+                        },
+                    },
+                    relations: {
+                        page_links: [{ to_block_id: projection.artifactId }],
+                    },
+                },
+                actorRole,
+                actorId,
+            );
+            setComparisonMessage("Comparison finding saved into the heap.");
+            setComparisonNotes("");
+            onRelationSaved(projection.artifactId);
+        } catch (err) {
+            setComparisonError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setComparisonSaving(false);
+        }
+    };
+
     const handleTabDragStart = (tab: string, e: React.DragEvent) => {
         setDraggedTab(tab);
         e.dataTransfer.effectAllowed = "move";
@@ -398,11 +835,14 @@ export function HeapDetailModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-            <div className="heap-modal-content relative w-full max-w-6xl max-h-[92vh] flex flex-col bg-slate-900 border border-white/5 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/88 backdrop-blur-md animate-fade-in" onClick={onClose}>
+            <div
+                className="heap-modal-content relative flex max-h-[92vh] w-full max-w-[min(96vw,96rem)] flex-col overflow-hidden rounded-[1.9rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.95))] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_32px_100px_-42px_rgba(0,0,0,0.95)] animate-slide-up"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* Soft Background Layer */}
-                <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-40">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.12),transparent_70%)]" />
+                <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-55">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.14),transparent_40%),radial-gradient(circle_at_95%_8%,rgba(168,85,247,0.10),transparent_26%),radial-gradient(circle_at_0%_20%,rgba(59,130,246,0.08),transparent_25%)]" />
                     {ambientGraphVariant && ambientGraphVariant !== "off" && (
                         <AmbientGraphBackground 
                             visible={true} 
@@ -413,36 +853,83 @@ export function HeapDetailModal({
                 </div>
 
                 {/* Header */}
-                <div className="relative z-10 flex items-start justify-between p-6 border-b border-white/5 bg-slate-900/50 backdrop-blur-md">
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                            <NdlMetadataBlock
-                                typeIndicator={projection.blockType?.toUpperCase() || "NOTE"}
-                                versionChain={String(surface.version || "0.8")}
-                                phase={String(surface.phase || "Alpha")}
-                                confidence={typeof surface.confidence === "number" ? surface.confidence : 85}
-                                authorityScope={String(surface.authority_scope || "Local")}
-                                compact
-                            />
-                            <span className="text-slate-700 text-[10px]">•</span>
-                            <p className="text-[10px] font-mono text-slate-500">
-                                {projection.artifactId}
-                            </p>
+                <div className="relative z-10 border-b border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(15,23,42,0.54))] backdrop-blur-xl">
+                    <div className="flex items-start justify-between gap-4 px-6 py-5">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100">
+                                    Artifact detail
+                                </span>
+                                <NdlMetadataBlock
+                                    typeIndicator={projection.blockType?.toUpperCase() || "NOTE"}
+                                    versionChain={String(surface.version || "0.8")}
+                                    phase={String(surface.phase || "Alpha")}
+                                    confidence={typeof surface.confidence === "number" ? surface.confidence : 85}
+                                    authorityScope={String(surface.authority_scope || "Local")}
+                                    compact
+                                />
+                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-mono tracking-[0.18em] text-white/60">
+                                    {projection.artifactId}
+                                </span>
+                                {uploadId && (
+                                    <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-100">
+                                        Upload-backed
+                                    </span>
+                                )}
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-300/70">
+                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-white/80">
+                                    {projection.blockType || "note"}
+                                </span>
+                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-white/70">
+                                    Space {resolvedSpaceId}
+                                </span>
+                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-white/70">
+                                    Emitted {new Date(projection.emittedAt || projection.updatedAt).toLocaleString()}
+                                </span>
+                                {currentTrailEntry && (
+                                    <>
+                                        {onNavigateBack && (
+                                            <button
+                                                type="button"
+                                                onClick={onNavigateBack}
+                                                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                                            >
+                                                <ChevronLeft className="h-3.5 w-3.5" />
+                                                Back
+                                            </button>
+                                        )}
+                                        <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 uppercase tracking-[0.18em] text-white/45">
+                                            Opened from
+                                        </span>
+                                        <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 font-medium text-white/82">
+                                            {currentTrailEntry.title}
+                                        </span>
+                                        {currentTrailEntry.relation && (
+                                            <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1.5 font-medium text-violet-100">
+                                                via {describeHeapRelation(currentTrailEntry.relation)}
+                                            </span>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-100 mb-1 tracking-tight">{projection.title || "Untitled Block"}</h2>
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-                            Emitted: {new Date(projection.emittedAt || projection.updatedAt).toLocaleString()}
-                        </p>
-                    </div>
-                    <div className="ml-4 flex items-center gap-3">
-                        {headerZonePlan && (
-                            <ActionZoneRenderer
-                                actions={headerZonePlan.actions}
-                                layoutHint={headerZonePlan.layoutHint}
-                                onActionClick={(action) => executeHeapAction(action, selectionContext, actionHandlers)}
-                            />
-                        )}
-                        <button className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-all hover:rotate-90" onClick={onClose}>✕</button>
+                        <div className="ml-4 flex shrink-0 items-start gap-3">
+                            {headerZonePlan && (
+                                <ActionZoneRenderer
+                                    actions={headerZonePlan.actions}
+                                    layoutHint={headerZonePlan.layoutHint}
+                                    onActionClick={(action) => executeHeapAction(action, selectionContext, actionHandlers)}
+                                />
+                            )}
+                            <button
+                                className="rounded-full border border-white/10 bg-white/[0.04] p-2 text-slate-400 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white hover:rotate-90"
+                                onClick={onClose}
+                                aria-label="Close artifact detail"
+                            >
+                                ✕
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -464,9 +951,63 @@ export function HeapDetailModal({
                                 </div>
                             )}
 
+                            <section className="mb-6 overflow-hidden rounded-[1.6rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.82))] p-5 shadow-[0_24px_80px_-46px_rgba(0,0,0,0.88)]">
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">
+                                            Artifact dossier
+                                        </div>
+                                        <h3 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                                            {projection.title || "Untitled Block"}
+                                        </h3>
+                                        <p className="mt-2 max-w-3xl text-sm leading-6 text-white/62">
+                                            {plainText.slice(0, 220) || "No preview text is available yet. Use the detail tabs to inspect relations, provenance, or raw surface data."}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap justify-end gap-2 text-[10px] uppercase tracking-[0.2em] text-white/50">
+                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-white/75">
+                                            {projection.blockType || "note"}
+                                        </span>
+                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-white/75">
+                                            {resolvedSpaceId}
+                                        </span>
+                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-white/75">
+                                            {wordCount} words
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                    <DetailMetricCard
+                                        label="Artifact ID"
+                                        value={projection.artifactId.slice(0, 12)}
+                                        subtitle="Canonical heap identity"
+                                        tone="cyan"
+                                    />
+                                    <DetailMetricCard
+                                        label="Payload"
+                                        value={payloadContent.payload_type || block.projection.blockType || "n/a"}
+                                        subtitle="Surface payload type"
+                                        tone="slate"
+                                    />
+                                    <DetailMetricCard
+                                        label="Links"
+                                        value={String(outboundLinks.length + outboundMentions.length + backlinks.length)}
+                                        subtitle="Graph context and lineage"
+                                        tone="violet"
+                                    />
+                                    <DetailMetricCard
+                                        label="Updated"
+                                        value={new Date(projection.updatedAt).toLocaleDateString()}
+                                        subtitle="Last synchronized surface"
+                                        tone="emerald"
+                                    />
+                                </div>
+                            </section>
+
                             {/* Tabs Navigation */}
                             <div 
-                                className="flex gap-2 mb-6 bg-white/5 p-1.5 rounded-xl border border-white/5 shadow-inner w-fit"
+                                className="mb-6 flex w-fit gap-2 rounded-2xl border border-white/8 bg-white/[0.05] p-1.5 shadow-inner"
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={handleTabDrop}
                             >
@@ -484,12 +1025,12 @@ export function HeapDetailModal({
                                                 setPreviewTabOrder(null);
                                             }}
                                             onClick={() => setActiveTab(tab)}
-                                            className={`group flex items-center gap-2 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 rounded-lg select-none ${isActive
-                                                ? 'bg-blue-500/10 text-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.1)] border border-blue-500/20 ring-1 ring-blue-500/10'
-                                                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                                            className={`group flex items-center gap-2 rounded-xl px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] transition-all duration-300 select-none ${isActive
+                                                ? 'border border-cyan-400/20 bg-cyan-500/12 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.08)]'
+                                                : 'text-slate-500 hover:bg-white/[0.05] hover:text-slate-200'
                                                 } ${draggedTab === tab ? 'opacity-40 scale-95' : ''}`}
                                         >
-                                            <GripVertical className={`w-3 h-3 transition-opacity duration-200 ${isActive ? 'opacity-40' : 'opacity-0 group-hover:opacity-40'} cursor-grab active:cursor-grabbing shrink-0`} />
+                                            <GripVertical className={`w-3 h-3 transition-opacity duration-200 ${isActive ? 'opacity-45' : 'opacity-0 group-hover:opacity-40'} cursor-grab active:cursor-grabbing shrink-0`} />
                                             <span className={isActive ? 'drop-shadow-[0_0_5px_rgba(96,165,250,0.5)]' : ''}>{tab}</span>
                                         </button>
                                     );
@@ -501,9 +1042,9 @@ export function HeapDetailModal({
                                 {activeTab === 'relations' && (
                                     <div className="animate-in fade-in duration-300 space-y-8">
                                 <section className="rounded-2xl border border-white/5 bg-slate-950/40 p-6">
-                                    <h4 className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-4">Networked Context</h4>
+                                    <h4 className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-4">Historical Context</h4>
                                     <p className="text-sm leading-7 text-slate-300">
-                                        This block sits inside a graph of mentions, page links, and tag neighbors. Treat this surface as the place to sort it into the heap, not just inspect its payload.
+                                        Follow the record across time: what it references, what points back to it, and which templates or runs shaped the current state.
                                     </p>
                                     <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
                                         <span className="rounded-full border border-white/5 bg-slate-900/60 px-3 py-1">
@@ -539,12 +1080,243 @@ export function HeapDetailModal({
                                             emptyLabel="No mentions yet."
                                             onSelect={navigateRelation}
                                         />
+                                        <RelationSection
+                                            title={`History (${semanticLineage.length})`}
+                                            accent="violet"
+                                            items={semanticLineage}
+                                            emptyLabel="No historical links yet."
+                                            onSelect={navigateRelation}
+                                        />
                                     </div>
                                 )}
 
                                 {activeTab === 'preview' && (
                                     <div className="animate-in fade-in duration-300 space-y-8">
-                                        <div className="bg-slate-950/40 rounded-2xl border border-white/5 p-6 shadow-inner ring-1 ring-white/5">
+                                        {routeLineage && (
+                                            <TaskRouteLineageCard
+                                                lineage={routeLineage}
+                                                onOpenArtifact={onNavigateToBlock}
+                                            />
+                                        )}
+                                        {projection.blockType === "task" && (
+                                            <TaskRoutingDecisionCard
+                                                attributes={projection.attributes}
+                                                onRouteSelected={onTaskRouteSelected}
+                                            />
+                                        )}
+                                        {uploadId && (
+                                            <section className="overflow-hidden rounded-[1.6rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(2,6,23,0.84))] p-5 shadow-[0_24px_70px_-42px_rgba(0,0,0,0.9)]">
+                                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                                    <div className="min-w-0">
+                                                        <h4 className="text-[10px] uppercase font-black tracking-[0.32em] text-cortex-500">
+                                                            Extraction dossier
+                                                        </h4>
+                                                        <p className="mt-2 text-sm leading-6 text-slate-200">
+                                                            Requested {parserProfileLabel(effectiveUploadExtractionStatus?.requested_parser_profile || selectedParserProfile)}
+                                                            {" · "}
+                                                            Resolved {parserProfileLabel(effectiveUploadExtractionStatus?.parser_backend || resolvedParserBackendAttribute || "unknown")}
+                                                        </p>
+                                                        <p className="mt-1 text-xs text-slate-400">
+                                                            Status {prettifyUploadState(effectiveUploadExtractionStatus?.status || "uploaded")}
+                                                            {uploadExtractionRuns.length > 0 ? ` · ${uploadExtractionRuns.length} parser view${uploadExtractionRuns.length === 1 ? "" : "s"}` : ""}
+                                                        </p>
+                                                        <div className="mt-4 flex flex-wrap gap-2">
+                                                            <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${statusTone(effectiveUploadExtractionStatus?.status || "uploaded")}`}>
+                                                                {prettifyUploadState(effectiveUploadExtractionStatus?.status || "uploaded")}
+                                                            </span>
+                                                            <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${parserProfileTone(effectiveUploadExtractionStatus?.requested_parser_profile || selectedParserProfile)}`}>
+                                                                requested {parserProfileLabel(effectiveUploadExtractionStatus?.requested_parser_profile || selectedParserProfile)}
+                                                            </span>
+                                                            <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${parserProfileTone(effectiveUploadExtractionStatus?.parser_backend || resolvedParserBackendAttribute || "auto")}`}>
+                                                                resolved {parserProfileLabel(effectiveUploadExtractionStatus?.parser_backend || resolvedParserBackendAttribute || "unknown")}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="min-w-[240px] rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4">
+                                                        <label className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/45 mb-2">
+                                                            Rerun with
+                                                        </label>
+                                                        <select
+                                                            className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-500/30"
+                                                            value={selectedParserProfile}
+                                                            onChange={(event) => setSelectedParserProfile(event.target.value)}
+                                                            disabled={rerunSubmitting}
+                                                        >
+                                                            {(uploadParserProfiles.length > 0
+                                                                ? uploadParserProfiles.filter((profile) => profile.parser_profile === "auto" || profile.configured)
+                                                                : [{ parser_profile: "auto", configured: true, supports_mime: [], role: "primary", parser_hint: "auto" }]
+                                                            ).map((profile) => (
+                                                                <option key={profile.parser_profile} value={profile.parser_profile}>
+                                                                    {parserProfileLabel(profile.parser_profile)} · {profile.role}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void rerunUploadExtraction()}
+                                                            disabled={rerunSubmitting}
+                                                            className="mt-3 inline-flex items-center rounded-full border border-cyan-300/25 bg-cyan-300/12 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {rerunSubmitting ? "Running..." : "Rerun extraction"}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                                    <DetailMetricCard
+                                                        label="Confidence"
+                                                        value={effectiveUploadExtractionStatus?.confidence !== undefined ? effectiveUploadExtractionStatus.confidence.toFixed(2) : "n/a"}
+                                                        tone="cyan"
+                                                    />
+                                                    <DetailMetricCard
+                                                        label="Pages"
+                                                        value={effectiveUploadExtractionStatus?.page_count !== undefined ? String(effectiveUploadExtractionStatus.page_count) : "n/a"}
+                                                        tone="violet"
+                                                    />
+                                                    <DetailMetricCard
+                                                        label="Blocks"
+                                                        value={effectiveUploadExtractionStatus?.block_count !== undefined ? String(effectiveUploadExtractionStatus.block_count) : "n/a"}
+                                                        tone="emerald"
+                                                    />
+                                                    <DetailMetricCard
+                                                        label="Preview state"
+                                                        value={prettifyUploadState(effectiveUploadExtractionStatus?.status || "uploaded")}
+                                                        tone="amber"
+                                                    />
+                                                </div>
+
+                                                {effectiveUploadExtractionStatus?.flags?.length ? (
+                                                    <div className="mt-4 flex flex-wrap gap-2">
+                                                        {effectiveUploadExtractionStatus.flags.map((flag) => (
+                                                            <span key={flag} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-mono text-slate-300">
+                                                                {flag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                                {effectiveUploadExtractionStatus?.summary && (
+                                                    <p className="mt-4 max-w-4xl text-sm leading-6 text-slate-300">{effectiveUploadExtractionStatus.summary}</p>
+                                                )}
+                                                {uploadExtractionRuns.length > 0 && (
+                                                    <div className="mt-6 space-y-5">
+                                                        <div>
+                                                            <div className="text-[10px] uppercase font-black tracking-[0.32em] text-slate-500">Parser views</div>
+                                                            <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                                                                {uploadExtractionRuns.map((run) => {
+                                                                    const isSelected = run.job_id === selectedRunJobId;
+                                                                    return (
+                                                                        <button
+                                                                            key={run.job_id}
+                                                                            type="button"
+                                                                            onClick={() => setSelectedRunJobId(run.job_id)}
+                                                                            className={`group rounded-[1.35rem] border p-4 text-left transition-all duration-200 ${
+                                                                                isSelected
+                                                                                    ? "border-cyan-300/35 bg-cyan-300/10 shadow-[0_18px_45px_-35px_rgba(34,211,238,0.55)]"
+                                                                                    : "border-white/8 bg-white/[0.03] hover:border-white/16 hover:bg-white/[0.06]"
+                                                                            }`}
+                                                                        >
+                                                                            <div className="flex items-start justify-between gap-3">
+                                                                                <div className="min-w-0">
+                                                                                    <div className="text-[10px] uppercase tracking-[0.26em] text-slate-500">
+                                                                                        {run.status}
+                                                                                    </div>
+                                                                                    <div className="mt-2 text-sm font-semibold text-slate-100">
+                                                                                        {parserProfileLabel(run.parser_backend || run.requested_parser_profile || "auto")}
+                                                                                    </div>
+                                                                                    <div className="mt-1 text-xs text-slate-400">
+                                                                                        Requested {parserProfileLabel(run.requested_parser_profile || "auto")}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono text-white/65">
+                                                                                    {run.job_id.slice(0, 10)}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-mono text-slate-400">
+                                                                                {run.confidence !== undefined && <span>conf {run.confidence.toFixed(2)}</span>}
+                                                                                {run.page_count !== undefined && <span>pages {run.page_count}</span>}
+                                                                                {run.block_count !== undefined && <span>blocks {run.block_count}</span>}
+                                                                            </div>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                        {selectedRunDetail && (
+                                                            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+                                                                <ParserRunDetailCard title="Selected parser view" detail={selectedRunDetail} />
+                                                                <section className="overflow-hidden rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(2,6,23,0.84))] p-4">
+                                                                    <div className="text-[10px] uppercase font-black tracking-[0.32em] text-slate-500">Compare against</div>
+                                                                    <select
+                                                                        className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-500/30"
+                                                                        value={compareRunJobId || ""}
+                                                                        onChange={(event) => setCompareRunJobId(event.target.value || null)}
+                                                                    >
+                                                                        <option value="">Select another run</option>
+                                                                        {selectableCompareRuns.map((run) => (
+                                                                            <option key={run.job_id} value={run.job_id}>
+                                                                                {parserProfileLabel(run.parser_backend || run.requested_parser_profile || "auto")} · {prettifyUploadState(run.status)}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                    {compareRunDetail ? (
+                                                                        <div className="mt-4 space-y-4">
+                                                                            <ParserRunDetailCard title="Comparison view" detail={compareRunDetail} compact />
+                                                                            <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4">
+                                                                                <div className="text-[10px] uppercase font-black tracking-[0.32em] text-slate-500">Human review</div>
+                                                                                <div className="mt-3 flex flex-wrap gap-2">
+                                                                                    {([
+                                                                                        { value: "structure", label: "Better for structure" },
+                                                                                        { value: "layout", label: "Better for layout" },
+                                                                                        { value: "needs_rerun", label: "Needs rerun" },
+                                                                                    ] as const).map((option) => (
+                                                                                        <button
+                                                                                            key={option.value}
+                                                                                            type="button"
+                                                                                            onClick={() => setComparisonDecision(option.value)}
+                                                                                            className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                                                                                                comparisonDecision === option.value
+                                                                                                    ? "border-violet-300/35 bg-violet-300/12 text-violet-100"
+                                                                                                    : "border-white/10 bg-white/[0.04] text-white/70 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                                                                                            }`}
+                                                                                        >
+                                                                                            {option.label}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                                <textarea
+                                                                                    className="mt-3 min-h-[108px] w-full rounded-2xl border border-white/10 bg-slate-950/90 px-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 outline-none focus:border-violet-300/40 focus:ring-2 focus:ring-violet-500/30"
+                                                                                    value={comparisonNotes}
+                                                                                    onChange={(event) => setComparisonNotes(event.target.value)}
+                                                                                    placeholder="Capture layout fidelity, structure quality, OCR concerns, or why this run should be trusted."
+                                                                                />
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => void saveComparisonFinding()}
+                                                                                    disabled={comparisonSaving}
+                                                                                    className="mt-3 inline-flex items-center rounded-full border border-violet-300/25 bg-violet-300/12 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-violet-100 transition hover:bg-violet-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                                >
+                                                                                    {comparisonSaving ? "Saving..." : "Save comparison finding"}
+                                                                                </button>
+                                                                                {comparisonMessage && <p className="mt-3 text-xs text-emerald-300">{comparisonMessage}</p>}
+                                                                                {comparisonError && <p className="mt-3 text-xs text-rose-300">{comparisonError}</p>}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p className="mt-4 text-xs text-slate-500">
+                                                                            Pick another parser run to compare structure, layout, and confidence side by side.
+                                                                        </p>
+                                                                    )}
+                                                                </section>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {uploadExtractionError && (
+                                                    <p className="mt-3 text-xs text-rose-300">{uploadExtractionError}</p>
+                                                )}
+                                            </section>
+                                        )}
+                                        <div className="overflow-hidden rounded-[1.6rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.86),rgba(2,6,23,0.8))] p-6 shadow-[0_24px_80px_-46px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
                                             <PayloadRenderer content={payloadContent} expanded artifactId={projection.artifactId} />
                                         </div>
                                     </div>
@@ -552,14 +1324,27 @@ export function HeapDetailModal({
 
                                 {activeTab === 'attributes' && (
                                     <div className="animate-in fade-in duration-300 space-y-6">
-                                        <h4 className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-4">Structural Attributes</h4>
+                                        <h4 className="mb-4 text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">Structural Attributes</h4>
+                                        {uploadId && effectiveUploadExtractionStatus && (
+                                            <div className="rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.82))] p-4 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)]">
+                                                <div className="text-[10px] uppercase font-black tracking-[0.32em] text-cortex-500">Extraction status</div>
+                                                <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                                                    <AttributeRow label="requested_parser_profile" value={effectiveUploadExtractionStatus.requested_parser_profile || "auto"} />
+                                                    <AttributeRow label="parser_backend" value={effectiveUploadExtractionStatus.parser_backend || "unknown"} />
+                                                    <AttributeRow label="status" value={effectiveUploadExtractionStatus.status} />
+                                                    <AttributeRow label="confidence" value={effectiveUploadExtractionStatus.confidence?.toFixed(2) || "n/a"} />
+                                                    <AttributeRow label="page_count" value={String(effectiveUploadExtractionStatus.page_count ?? "n/a")} />
+                                                    <AttributeRow label="block_count" value={String(effectiveUploadExtractionStatus.block_count ?? "n/a")} />
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="grid grid-cols-1 gap-2">
                                             {Object.entries(projection).map(([k, v]) => {
                                                 if (typeof v !== 'object' && v !== undefined && v !== null) {
                                                     return (
-                                                        <div key={k} className="flex items-center justify-between bg-slate-950/40 border border-white/5 rounded-xl px-4 py-2.5 hover:bg-slate-950/60 transition-colors">
-                                                            <span className="text-xs text-slate-500 font-medium">{k}</span>
-                                                            <span className="text-xs font-mono text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-white/5">{String(v)}</span>
+                                                        <div key={k} className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-2.5 transition-colors hover:border-white/16 hover:bg-white/[0.05]">
+                                                            <span className="text-xs font-medium text-white/50">{k}</span>
+                                                            <span className="rounded-full border border-white/10 bg-slate-950/70 px-2 py-0.5 text-xs font-mono text-slate-200">{String(v)}</span>
                                                         </div>
                                                     );
                                                 }
@@ -579,19 +1364,19 @@ export function HeapDetailModal({
 
                                         <div className="space-y-6">
                                             <div>
-                                                <h4 className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-3 flex items-center gap-2">
+                                                <h4 className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Projection
                                                 </h4>
-                                                <div className="bg-slate-950/80 rounded-xl border border-white/5 p-4 overflow-x-auto shadow-inner custom-scrollbar text-[10px] leading-relaxed font-mono">
+                                                <div className="overflow-x-auto rounded-[1.35rem] border border-white/8 bg-slate-950/80 p-4 shadow-inner custom-scrollbar text-[10px] leading-relaxed font-mono">
                                                     {formatJsonWithHighlighting(block.projection)}
                                                 </div>
                                             </div>
 
                                             <div>
-                                                <h4 className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-3 flex items-center gap-2">
+                                                <h4 className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Surface JSON
                                                 </h4>
-                                                <div className="bg-slate-950/80 rounded-xl border border-white/5 p-4 overflow-x-auto shadow-inner custom-scrollbar text-[10px] leading-relaxed font-mono">
+                                                <div className="overflow-x-auto rounded-[1.35rem] border border-white/8 bg-slate-950/80 p-4 shadow-inner custom-scrollbar text-[10px] leading-relaxed font-mono">
                                                     {formatJsonWithHighlighting(block.surfaceJson)}
                                                 </div>
                                             </div>
@@ -601,11 +1386,11 @@ export function HeapDetailModal({
                             </div>
                         </div>
 
-                        <aside className="border-t border-white/5 bg-slate-950/55 p-6 xl:border-l xl:border-t-0">
+                        <aside className="border-t border-white/8 bg-[linear-gradient(180deg,rgba(2,6,23,0.9),rgba(15,23,42,0.7))] p-6 xl:border-l xl:border-t-0 xl:border-white/8">
                             <div className="sticky top-0 space-y-6">
-                                <section className="rounded-2xl border border-white/5 bg-slate-900/70 p-5">
-                                    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">Current Block</div>
-                                    <div className="mt-3 text-lg font-bold text-slate-100">{projection.title || "Untitled Block"}</div>
+                                <section className="rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(2,6,23,0.82))] p-5 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)]">
+                                    <div className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">Artifact synopsis</div>
+                                    <div className="mt-3 text-lg font-semibold tracking-tight text-white">{projection.title || "Untitled Block"}</div>
                                     <div className="mt-1 text-xs leading-6 text-slate-400">
                                         {plainText.slice(0, 180) || "No plain-text preview available."}
                                     </div>
@@ -651,9 +1436,16 @@ export function HeapDetailModal({
                                     emptyLabel="No neighboring tagged blocks."
                                     onSelect={navigateRelation}
                                 />
+                                <RelationSection
+                                    title={`History (${semanticLineage.length})`}
+                                    accent="cyan"
+                                    items={semanticLineage}
+                                    emptyLabel="No historical links yet."
+                                    onSelect={navigateRelation}
+                                />
 
-                                <section className="rounded-2xl border border-white/5 bg-slate-900/70 p-5">
-                                    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">Block Stats</div>
+                                <section className="rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.82))] p-5 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)]">
+                                    <div className="text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">Block Stats</div>
                                     <div className="mt-4 grid grid-cols-2 gap-3">
                                         <StatCard label="Words" value={wordCount} />
                                         <StatCard label="Characters" value={characterCount} />
@@ -664,18 +1456,18 @@ export function HeapDetailModal({
                                         Updated {new Date(projection.updatedAt).toLocaleString()}
                                     </div>
                                 </section>
-                                <section className="rounded-2xl border border-white/5 bg-slate-900/70 p-5">
-                                    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">IDs & Export Surface</div>
+                                <section className="rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.82))] p-5 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)]">
+                                    <div className="text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">IDs & Export Surface</div>
                                     <div className="mt-3 space-y-3 text-[11px]">
-                                        <div className="rounded-xl border border-white/5 bg-slate-950/70 p-3">
+                                        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
                                             <div className="text-slate-500">Block ID</div>
-                                            <div className="mt-1 font-mono text-slate-200 break-all">{projection.artifactId}</div>
+                                            <div className="mt-1 font-mono text-slate-100 break-all">{projection.artifactId}</div>
                                         </div>
-                                        <div className="rounded-xl border border-white/5 bg-slate-950/70 p-3">
+                                        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
                                             <div className="text-slate-500">Space</div>
-                                            <div className="mt-1 font-mono text-slate-200 break-all">{String(surface.space_id || "unknown")}</div>
+                                            <div className="mt-1 font-mono text-slate-100 break-all">{resolvedSpaceId}</div>
                                         </div>
-                                        <div className="rounded-xl border border-white/5 bg-slate-950/70 p-3 text-slate-400">
+                                        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3 text-slate-400">
                                             Export and compaction surfaces stay accessible through compiled actions and the raw block inspector below.
                                         </div>
                                     </div>
@@ -723,6 +1515,98 @@ function extractPlainText(content: PayloadContent): string {
     return "";
 }
 
+function AttributeRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-2.75 transition-colors hover:border-white/16 hover:bg-white/[0.05]">
+            <span className="text-xs font-medium text-white/50">{label}</span>
+            <span className="rounded-full border border-white/10 bg-slate-950/70 px-2.5 py-1 text-xs font-mono text-slate-200">{value}</span>
+        </div>
+    );
+}
+
+function summarizeRunDetail(detail: HeapUploadExtractionRunDetail): string {
+    const parts: string[] = [
+        `${prettifyUploadState(detail.status)}`,
+        `${detail.page_count ?? 0} pages`,
+        `${detail.block_count ?? 0} blocks`,
+    ];
+    if (detail.confidence !== undefined) {
+        parts.push(`confidence ${detail.confidence.toFixed(2)}`);
+    }
+    return parts.join(" · ");
+}
+
+function ParserRunDetailCard({
+    title,
+    detail,
+    compact = false,
+}: {
+    title: string;
+    detail: HeapUploadExtractionRunDetail;
+    compact?: boolean;
+}) {
+    return (
+        <section className="overflow-hidden rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.86))] p-4 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)]">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <div className="text-[10px] uppercase font-black tracking-[0.32em] text-cortex-500">{title}</div>
+                    <div className="mt-2 text-sm font-semibold text-white">
+                        {parserProfileLabel(detail.parser_backend || detail.requested_parser_profile || "unknown")}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400">
+                        Requested {parserProfileLabel(detail.requested_parser_profile || "auto")} · Status {prettifyUploadState(detail.status)}
+                    </div>
+                </div>
+                <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-mono text-white/65">
+                    {detail.job_id}
+                </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+                <AttributeRow label="created_at" value={detail.created_at || "n/a"} />
+                <AttributeRow label="last_updated_at" value={detail.last_updated_at || "n/a"} />
+                <AttributeRow label="confidence" value={detail.confidence?.toFixed(2) || "n/a"} />
+                <AttributeRow label="page_count" value={String(detail.page_count ?? "n/a")} />
+                <AttributeRow label="block_count" value={String(detail.block_count ?? "n/a")} />
+                <AttributeRow label="model_id" value={detail.model_id || "n/a"} />
+            </div>
+            {detail.attempted_backends?.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                    {detail.attempted_backends.map((backend) => (
+                        <span key={backend} className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[10px] font-mono text-cyan-100/85">
+                            {backend}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
+            {detail.flags?.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                    {detail.flags.map((flag) => (
+                        <span key={flag} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-mono text-slate-300">
+                            {flag}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
+            {detail.summary ? (
+                <p className="mt-3 text-sm leading-6 text-slate-300">{detail.summary}</p>
+            ) : null}
+            {detail.first_page_preview?.length ? (
+                <div className="mt-4 rounded-[1.25rem] border border-white/8 bg-white/[0.03] p-4">
+                    <div className="text-[10px] uppercase font-black tracking-[0.32em] text-slate-500">Preview</div>
+                    <div className="mt-2 text-sm leading-6 text-slate-300">
+                        {detail.first_page_preview.join(" ")}
+                    </div>
+                    {detail.first_page_block_count !== undefined && !compact ? (
+                        <div className="mt-2 text-[11px] text-slate-500">
+                            First page blocks: {detail.first_page_block_count}
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
+        </section>
+    );
+}
+
 function RelationSection({
     title,
     items,
@@ -731,10 +1615,10 @@ function RelationSection({
     onSelect,
 }: {
     title: string;
-    items: Array<{ id: string; title: string; subtitle?: string; isNavigable?: boolean }>;
+    items: HeapRelationItem[];
     emptyLabel: string;
     accent: "blue" | "cyan" | "indigo" | "violet";
-    onSelect?: (artifactId: string) => void;
+    onSelect?: (item: HeapRelationItem) => void;
 }) {
     const accentClass = accent === "cyan"
         ? "bg-cyan-500"
@@ -745,8 +1629,8 @@ function RelationSection({
                 : "bg-blue-500";
 
     return (
-        <section className="rounded-2xl border border-white/5 bg-slate-950/35 p-5">
-            <h4 className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-4 flex items-center gap-2">
+        <section className="rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(2,6,23,0.76))] p-5 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)]">
+            <h4 className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">
                 <span className={`h-3 w-1 rounded-full ${accentClass}`}></span>
                 {title}
             </h4>
@@ -758,13 +1642,25 @@ function RelationSection({
                         <button
                             key={`${title}-${item.id}`}
                             type="button"
-                            onClick={() => item.isNavigable && onSelect?.(item.id)}
+                            onClick={() => item.isNavigable && onSelect?.(item)}
                             disabled={!item.isNavigable}
-                            className={`w-full rounded-xl border border-white/5 bg-slate-900/70 p-3 text-left ${
-                                item.isNavigable ? "transition-colors hover:border-slate-600 hover:bg-slate-900" : "cursor-default"
+                            className={`w-full rounded-2xl border border-white/8 bg-white/[0.03] p-3 text-left ${
+                                item.isNavigable ? "transition-colors hover:border-white/16 hover:bg-white/[0.06]" : "cursor-default"
                             }`}
                         >
-                            <div className="text-sm font-semibold text-slate-100">{item.title || item.id}</div>
+                            {item.relations?.length ? (
+                                <div className="mb-2 flex flex-wrap gap-1.5">
+                                    {item.relations.map((relation) => (
+                                        <span
+                                            key={relation}
+                                            className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-white/55"
+                                        >
+                                            {describeHeapRelation(relation)}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : null}
+                            <div className="text-sm font-semibold text-white">{item.title || item.id}</div>
                             <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-slate-500">
                                 {item.subtitle}
                             </div>
@@ -777,12 +1673,29 @@ function RelationSection({
     );
 }
 
+function DetailMetricCard({
+    label,
+    value,
+    tone = "slate",
+    subtitle,
+}: {
+    label: string;
+    value: string | number;
+    tone?: "cyan" | "violet" | "emerald" | "amber" | "rose" | "slate";
+    subtitle?: string;
+}) {
+    return (
+        <div className={`rounded-2xl border p-4 shadow-[0_18px_45px_-35px_rgba(0,0,0,0.9)] ${resolveMetricCardClassName(tone)}`}>
+            <div className="text-[10px] uppercase tracking-[0.24em] text-white/45">{label}</div>
+            <div className="mt-2 text-2xl font-black tracking-tight text-white">{value}</div>
+            {subtitle ? <div className="mt-1 text-[11px] leading-5 text-white/58">{subtitle}</div> : null}
+        </div>
+    );
+}
+
 function StatCard({ label, value }: { label: string; value: number }) {
     return (
-        <div className="rounded-xl border border-white/5 bg-slate-950/70 p-3">
-            <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">{label}</div>
-            <div className="mt-2 text-xl font-black text-slate-100">{value}</div>
-        </div>
+        <DetailMetricCard label={label} value={value} />
     );
 }
 
