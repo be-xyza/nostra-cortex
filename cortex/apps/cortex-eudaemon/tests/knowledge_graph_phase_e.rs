@@ -250,18 +250,37 @@ fn graph_service_shared_eval_links_graph_pilot_to_037_cases() {
     );
 
     assert_eq!(shared_eval.entries.len(), fixture.cases.len() * 4);
-    assert!(
-        shared_eval
+    for case in &fixture.cases {
+        let case_entries: Vec<_> = shared_eval
             .entries
             .iter()
-            .any(|entry| entry.mode == "037_current_hybrid_retrieval")
-    );
-    assert!(
-        shared_eval
-            .entries
-            .iter()
-            .any(|entry| entry.query_class == "graph_relation_traversal" && entry.mode == "hybrid_graph_embedding")
-    );
+            .filter(|entry| entry.case_id == case.case_id)
+            .collect();
+        assert_eq!(case_entries.len(), 4, "{}", case.case_id);
+        assert_eq!(
+            case_entries
+                .iter()
+                .filter(|entry| entry.mode == "037_current_hybrid_retrieval")
+                .count(),
+            1,
+            "{}",
+            case.case_id
+        );
+        assert_eq!(
+            case_entries
+                .iter()
+                .filter(|entry| entry.mode != "037_current_hybrid_retrieval")
+                .count(),
+            3,
+            "{}",
+            case.case_id
+        );
+        for entry in case_entries {
+            assert_eq!(entry.query_class, case.query_class, "{}", case.case_id);
+            assert_eq!(entry.query_id, case.request.query_id, "{}", case.case_id);
+            assert_eq!(entry.query_text, case.request.query_text, "{}", case.case_id);
+        }
+    }
 }
 
 #[test]

@@ -42,20 +42,20 @@ class KnowledgeGraphContractValidationTests(unittest.TestCase):
             )
 
     def test_semantic_validator_rejects_invalid_ontology_examples(self) -> None:
-        report = self.validator.build_validation_report(ROOT)
-        failure_ids = {item["fixture"] for item in report["ontology"]["negative_examples"]}
-        self.assertIn(
-            "shared/ontology/examples/invalid_core_redefinition_ontology_v1.json",
-            failure_ids,
+        ontology_schema = self.validator.load_json(
+            ROOT / "shared/standards/knowledge_graphs/ontology_manifest.schema.json"
         )
-        self.assertIn(
-            "shared/ontology/examples/invalid_relation_endpoint_ontology_v1.json",
-            failure_ids,
-        )
-        self.assertIn(
-            "shared/ontology/examples/invalid_provenance_extension_ontology_v1.json",
-            failure_ids,
-        )
+        core_ontology = self.validator.load_json(ROOT / "shared/ontology/core_ontology_v1.json")
+        for path_str, expected_reason in self.validator.NEGATIVE_ONTOLOGY_EXAMPLES.items():
+            ontology = self.validator.load_json(ROOT / path_str)
+            messages = self.validator.validate_schema(ontology, ontology_schema, path_str)
+            messages.extend(self.validator.validate_ontology_semantics(ontology, core_ontology))
+            self.assertNotEqual(messages, [], path_str)
+            self.assertEqual(
+                self.validator.ontology_failure_reason(messages),
+                expected_reason,
+                path_str,
+            )
 
     def test_bundle_normalization_is_idempotent(self) -> None:
         roundtrip_report = self.validator.validate_bundle_roundtrip(

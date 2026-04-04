@@ -609,12 +609,44 @@ def validate_benchmark_fixture(root: Path) -> list[str]:
     fixture = load_json(root / BENCHMARK_FIXTURE)
     failures: list[str] = []
     case_ids: set[str] = set()
+    query_ids: set[str] = set()
+    vector_hit_ids: set[str] = set()
+    vector_hit_refs: set[str] = set()
+
+    for hit in fixture.get("vector_hits", []):
+        hit_id = hit.get("id")
+        source_ref = hit.get("source_ref")
+        if not hit_id:
+            failures.append(f"{BENCHMARK_FIXTURE}: vector hit missing id")
+        elif hit_id in vector_hit_ids:
+            failures.append(f"{BENCHMARK_FIXTURE}: duplicate vector hit id {hit_id}")
+        else:
+            vector_hit_ids.add(hit_id)
+        if not source_ref:
+            failures.append(f"{BENCHMARK_FIXTURE}: vector hit {hit_id or '<unknown>'} missing source_ref")
+        elif source_ref in vector_hit_refs:
+            failures.append(f"{BENCHMARK_FIXTURE}: duplicate vector hit source_ref {source_ref}")
+        else:
+            vector_hit_refs.add(source_ref)
 
     for case in fixture.get("cases", []):
         case_id = case["case_id"]
         if case_id in case_ids:
             failures.append(f"{BENCHMARK_FIXTURE}: duplicate case_id {case_id}")
         case_ids.add(case_id)
+        request = case.get("request", {})
+        query_id = request.get("query_id")
+        if not query_id:
+            failures.append(f"{BENCHMARK_FIXTURE}: {case_id} missing request.query_id")
+        elif query_id in query_ids:
+            failures.append(f"{BENCHMARK_FIXTURE}: duplicate request.query_id {query_id}")
+        else:
+            query_ids.add(query_id)
+        relevant_refs = case.get("relevant_source_refs", [])
+        if not relevant_refs:
+            failures.append(f"{BENCHMARK_FIXTURE}: {case_id} missing relevant_source_refs")
+        elif len(relevant_refs) != len(set(relevant_refs)):
+            failures.append(f"{BENCHMARK_FIXTURE}: {case_id} duplicate relevant_source_refs")
         triple_request = case["request"].get("triple_request")
         if triple_request is None:
             failures.append(f"{BENCHMARK_FIXTURE}: {case_id} missing triple_request")
@@ -668,7 +700,10 @@ def validate_legacy_shared_evaluation(root: Path) -> list[str]:
         if case["citationCount"] != len(case["citationSourceRefs"]):
             failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} citationCount mismatch")
         relevant = set(case["relevantSourceRefs"])
-        matched = sum(1 for ref in case["citationSourceRefs"] if ref in relevant)
+        citations = case["citationSourceRefs"]
+        if len(citations) != len(set(citations)):
+            failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} duplicate citationSourceRefs")
+        matched = len(set(citations) & relevant)
         expected_recall = 0.0 if not relevant else matched / len(relevant)
         if abs(case["recallScore"] - expected_recall) > 1e-9:
             failures.append(f"{LEGACY_SHARED_EVAL_FIXTURE}: {case_id} recallScore mismatch")
