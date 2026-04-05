@@ -98,19 +98,14 @@ test("buildAgentExecutionRecentWorkItem turns the latest agent execution into a 
     surfaceJson: {
       agent_id: "agent:cortex-worker-01",
       benchmark: {
-        pass_rate: 0.12,
-        latency_ms: 4725,
-        total_tokens: 2140,
-        assertions_passed: 3,
-        assertions_total: 18,
+        overall_grade: "FAIL",
       },
     },
   } satisfies HeapBlockListItem);
 
   assert.deepEqual(item, {
-    label: "Latest Eudaemon update",
-    value:
-      "Eudaemon last reviewed this space on March 20, 2026 and flagged that it needs attention. 12% pass rate • 3 of 18 assertions passed • 4725ms latency • 2140 tokens.",
+    label: "Latest benchmark",
+    value: "Eudaemon last benchmarked this space on March 20, 2026 and flagged that it needs attention.",
   });
 });
 

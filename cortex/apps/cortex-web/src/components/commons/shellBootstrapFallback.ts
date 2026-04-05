@@ -78,14 +78,14 @@ const FALLBACK_SESSION: AuthSession = {
   principal: "local-user",
   sessionId: "fallback-session",
   identityVerified: false,
-  identitySource: "read_fallback_shell",
+  identitySource: "read_fallback_viewer",
   authMode: "read_fallback",
-  grantedRoles: ["operator"],
-  activeRole: "operator",
+  grantedRoles: ["viewer"],
+  activeRole: "viewer",
   globalClaims: [],
   spaceGrants: [],
   allowRoleSwitch: false,
-  allowUnverifiedRoleHeader: true,
+  allowUnverifiedRoleHeader: false,
 };
 
 const FALLBACK_WHOAMI: WhoAmIResponse = {
@@ -139,22 +139,18 @@ export function buildFallbackWhoami(
     principal: session.principal,
     requestedRole: normalizeRole(actorRole),
     effectiveRole: session.activeRole,
-    allowUnverifiedRoleHeader: true,
   };
 }
 
 export function buildFallbackAuthSession(
   actorId?: string,
-  actorRole?: string,
+  _actorRole?: string,
   generatedAt = new Date().toISOString(),
 ): AuthSession {
-  const effectiveRole = normalizeRole(actorRole);
   return {
     ...FALLBACK_SESSION,
     generatedAt,
     principal: normalizeActorId(actorId),
-    grantedRoles: [effectiveRole],
-    activeRole: effectiveRole,
   };
 }
 
@@ -168,7 +164,7 @@ export function formatShellBootstrapWarning(
     : "";
   const prefix =
     context === "layout"
-      ? "Gateway unavailable. Using local preview shell."
-      : "Identity endpoint unavailable. Using local preview role.";
+      ? "Gateway unavailable. Using local fallback shell."
+      : "Identity endpoint unavailable. Using local fallback role.";
   return `${prefix}${targetSuffix} ${error}`.trim();
 }

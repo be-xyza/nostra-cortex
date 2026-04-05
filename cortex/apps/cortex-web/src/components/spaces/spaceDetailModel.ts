@@ -1,6 +1,5 @@
 import type { HeapBlockListItem } from "../../contracts.ts";
 import { buildHeapArtifactHref } from "../heap/heapArtifactRouting.ts";
-import { buildBenchmarkProjection } from "../heap/benchmarkProjection.ts";
 import type { Space } from "../../store/spacesRegistry.ts";
 
 export interface SpaceDetailRow {
@@ -98,16 +97,19 @@ export function buildAgentExecutionRecentWorkItem(
   const createdAt = formatSpaceCreatedAt(
     executionRecord.projection.emittedAt || executionRecord.projection.updatedAt,
   );
-  const benchmark = buildBenchmarkProjection(
-    (executionRecord.surfaceJson as { benchmark?: Record<string, unknown> } | undefined)?.benchmark,
-  );
+  const benchmark = (
+    executionRecord.surfaceJson as {
+      benchmark?: {
+        overall_grade?: string;
+      };
+    }
+  ).benchmark;
+  const grade = String(benchmark?.overall_grade ?? "").trim().toUpperCase();
 
   const value =
-    benchmark?.grade === "FAIL"
-      ? `Eudaemon last reviewed this space on ${createdAt} and flagged that it needs attention. ${benchmark.summary}.`
-      : benchmark
-        ? `Eudaemon last reviewed this space on ${createdAt} and shared a new update. ${benchmark.summary}.`
-        : `Eudaemon last reviewed this space on ${createdAt} and shared a new update.`;
+    grade === "FAIL"
+      ? `Eudaemon last benchmarked this space on ${createdAt} and flagged that it needs attention.`
+      : `Eudaemon last benchmarked this space on ${createdAt} and shared a new result.`;
 
   return {
     label: "Latest benchmark",

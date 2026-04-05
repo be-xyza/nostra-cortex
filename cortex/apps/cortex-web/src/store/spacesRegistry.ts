@@ -218,10 +218,7 @@ export function resolveSpaceRegistryMode(value?: string): SpaceRegistryMode {
 }
 
 export function getRegistryFallbackSpaces(mode: SpaceRegistryMode): Space[] {
-    if (mode === 'live') {
-        return [META_SPACE];
-    }
-    if (mode === 'preview' || mode === 'auto') {
+    if (mode === 'preview') {
         return [META_SPACE, ...PREVIEW_SPACES];
     }
     return [META_SPACE];
@@ -437,17 +434,14 @@ export function useSpaceRegistrySnapshot() {
 
 function useAvailableSpacesState() {
     const storeRegistryMode = useUserPreferences((state) => state.registryMode);
-    const registryMode = resolveSpaceRegistryMode(storeRegistryMode);
-    const cachedLiveSpaces = registryMode === 'live' ? readCachedLiveSpaces() : [];
+    const registryMode = resolveSpaceRegistryMode(storeRegistryMode) === 'preview' ? 'preview' : 'live';
 
     const [spaces, setSpaces] = useState<Space[]>(() => {
         if (registryMode === 'preview') {
             return getRegistryBootstrapSpaces(registryMode);
         }
-        if (registryMode === 'live' && cachedLiveSpaces.length > 0) {
-            return [META_SPACE, ...cachedLiveSpaces];
-        }
-        return getRegistryBootstrapSpaces(registryMode);
+        const cachedLiveSpaces = readCachedLiveSpaces();
+        return cachedLiveSpaces.length > 0 ? [META_SPACE, ...cachedLiveSpaces] : getRegistryBootstrapSpaces(registryMode);
     });
     const [registryResolved, setRegistryResolved] = useState<boolean>(registryMode === 'preview');
     const [registryDegraded, setRegistryDegraded] = useState<boolean>(false);
@@ -482,8 +476,8 @@ function useAvailableSpacesState() {
                 if (cancelled) {
                     return;
                 }
-        setSpaces((currentSpaces) =>
-                    resolveRegistryFailureSpaces(registryMode, currentSpaces, readCachedLiveSpaces()),
+                setSpaces((currentSpaces) =>
+                    resolveRegistryFailureSpaces('live', currentSpaces, readCachedLiveSpaces()),
                 );
                 setRegistryResolved(true);
                 setRegistryDegraded(true);
