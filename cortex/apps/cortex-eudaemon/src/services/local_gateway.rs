@@ -1,5 +1,5 @@
 use crate::services::acp_metrics::{record_fallback_flush, record_fallback_queued};
-use crate::services::dfx_client::DfxClient;
+use crate::services::ic_client::IcClient;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -371,7 +371,7 @@ impl LocalGateway {
     }
 
     async fn replay_mutation(&self, mutation: &Mutation) -> ReplayResult {
-        let client = DfxClient::new(None);
+        let client = IcClient::new(None);
         let arg = format!("(\"{}\")", mutation.kip_command.replace("\"", "\\\""));
         match client
             .call_canister("workflow-engine", "execute_script", Some(&arg))
@@ -452,7 +452,7 @@ impl LocalGateway {
     fn send_conflict_task(&self, mutation: &Mutation, kind: &str, err: &str) {
         let payload = self.conflict_payload(mutation, kind, err, None);
         tokio::spawn(async move {
-            let client = DfxClient::new(None);
+            let client = IcClient::new(None);
             let template_arg = format!("(\"{}\")", "offline_conflict");
             let workflow_id = client
                 .call_canister("workflow-engine", "start_workflow", Some(&template_arg))
@@ -488,7 +488,7 @@ impl LocalGateway {
         .to_string();
 
         tokio::spawn(async move {
-            let client = DfxClient::new(None);
+            let client = IcClient::new(None);
             let arg = format!("(\"{}\")", payload.replace("\"", "\\\""));
             let _ = client
                 .call_canister("workflow-engine", "process_message", Some(&arg))

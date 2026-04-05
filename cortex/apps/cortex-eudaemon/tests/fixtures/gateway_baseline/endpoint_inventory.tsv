@@ -100,7 +100,6 @@ GET	/api/system/decision/telemetry
 GET	/api/system/execution-bindings
 GET	/api/system/execution-profile/:space_id
 GET	/api/system/governance-scope/:space_id
-GET	/api/system/llm-adapter/status
 GET	/api/system/local-gateway/queue
 GET	/api/system/local-gateway/queue/export
 GET	/api/system/logs/stream

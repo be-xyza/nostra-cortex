@@ -938,7 +938,7 @@ where
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SessionNewParams {
     cwd: Option<String>,
     session_id: Option<String>,
