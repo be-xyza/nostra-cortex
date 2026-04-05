@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildFallbackAuthSession,
   buildFallbackShellLayoutSpec,
   buildFallbackWhoami,
   formatShellBootstrapWarning,
@@ -29,9 +30,19 @@ test("buildFallbackWhoami preserves the requested local identity context", () =>
 
   assert.equal(whoami.principal, "operator.jo");
   assert.equal(whoami.requestedRole, "operator");
-  assert.equal(whoami.effectiveRole, "operator");
-  assert.equal(whoami.allowUnverifiedRoleHeader, true);
+  assert.equal(whoami.effectiveRole, "viewer");
+  assert.equal(whoami.allowUnverifiedRoleHeader, false);
   assert.equal(whoami.generatedAt, "2026-03-20T09:40:00.000Z");
+});
+
+test("buildFallbackAuthSession is explicitly degraded instead of optimistic operator auth", () => {
+  const session = buildFallbackAuthSession("operator.jo", "operator", "2026-03-20T09:40:00.000Z");
+
+  assert.equal(session.principal, "operator.jo");
+  assert.equal(session.activeRole, "viewer");
+  assert.equal(session.authMode, "read_fallback");
+  assert.equal(session.allowRoleSwitch, false);
+  assert.deepEqual(session.grantedRoles, ["viewer"]);
 });
 
 test("formatShellBootstrapWarning keeps fallback messaging explicit", () => {
@@ -41,7 +52,7 @@ test("formatShellBootstrapWarning keeps fallback messaging explicit", () => {
       "503 Service Unavailable",
       "http://127.0.0.1:3001",
     ),
-    /local preview shell/i,
+    /local fallback shell/i,
   );
   assert.match(
     formatShellBootstrapWarning(
@@ -53,6 +64,6 @@ test("formatShellBootstrapWarning keeps fallback messaging explicit", () => {
   );
   assert.match(
     formatShellBootstrapWarning("identity", "connection reset"),
-    /local preview role/i,
+    /local fallback role/i,
   );
 });
