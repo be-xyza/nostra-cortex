@@ -37,8 +37,6 @@ pub mod cortex_ux;
 #[cfg(not(feature = "knowledge-graph-tests"))]
 pub mod cortex_ux_store;
 #[cfg(not(feature = "knowledge-graph-tests"))]
-pub mod dfx_client;
-#[cfg(not(feature = "knowledge-graph-tests"))]
 pub mod dpub_workbench_service;
 #[cfg(not(feature = "knowledge-graph-tests"))]
 pub mod file_system_service;
@@ -61,8 +59,6 @@ pub mod knowledge_graph_service;
 pub mod knowledge_graph_topology;
 #[cfg(all(not(feature = "knowledge-graph-tests"), feature = "service-scaffolds"))]
 pub mod lint_service;
-#[cfg(not(feature = "knowledge-graph-tests"))]
-pub mod llm_adapter;
 #[cfg(all(not(feature = "knowledge-graph-tests"), feature = "service-scaffolds"))]
 pub mod local_connection;
 #[cfg(not(feature = "knowledge-graph-tests"))]

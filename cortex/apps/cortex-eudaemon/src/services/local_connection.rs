@@ -1,4 +1,4 @@
-use crate::services::dfx_client::LocalIcClient;
+use crate::services::ic_client::LocalIcClient;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NetworkContext {
@@ -30,35 +30,18 @@ impl LocalConnection {
     }
     pub async fn connect(&self) -> Result<ConnectionStatus, String> {
         if !LocalIcClient::is_installed() {
-            let tool = if std::env::var("CORTEX_IC_CLI").as_deref() == Ok("icp") {
-                "icp-cli"
-            } else {
-                "dfx"
-            };
             return Ok(ConnectionStatus {
                 context: NetworkContext::Disconnected,
-                message: format!("{tool} not installed"),
+                message: "icp-cli not installed".to_string(),
             });
         }
 
-        let version = {
-            // Extracting version via the same backend logic
-            if std::env::var("CORTEX_IC_CLI").as_deref() == Ok("icp") {
-                std::process::Command::new("icp")
-                    .arg("--version")
-                    .output()
-                    .ok()
-                    .and_then(|o| String::from_utf8(o.stdout).ok())
-                    .map(|s| s.trim().to_string())
-            } else {
-                std::process::Command::new("dfx")
-                    .arg("--version")
-                    .output()
-                    .ok()
-                    .and_then(|o| String::from_utf8(o.stdout).ok())
-                    .map(|s| s.trim().to_string())
-            }
-        };
+        let version = std::process::Command::new("icp")
+            .arg("--version")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string());
 
         if self.client.is_replica_running().await {
             let message = version

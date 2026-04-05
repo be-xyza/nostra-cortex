@@ -410,10 +410,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/system/llm-adapter/status"
-    },
-    {
-      "method": "GET",
       "path": "/api/system/local-gateway/queue"
     },
     {

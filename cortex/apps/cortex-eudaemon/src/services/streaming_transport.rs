@@ -1113,7 +1113,7 @@ impl StreamingTransportManager {
 }
 
 async fn resolve_canister_id(env_keys: &[&str], canister_name: &str) -> Result<Principal, String> {
-    let id_str = cortex_ic_adapter::dfx::resolve_canister_id_any(env_keys, canister_name).await?;
+    let id_str = cortex_ic_adapter::ic::resolve_canister_id_any(env_keys, canister_name).await?;
     Principal::from_text(id_str.as_str())
         .map_err(|err| format!("invalid principal {id_str}: {err}"))
 }

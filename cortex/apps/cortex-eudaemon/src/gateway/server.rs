@@ -55,7 +55,6 @@ use crate::services::ops_agents::{AgentContributionApprovalRequest, AgentRunReco
 #[cfg(test)]
 use crate::services::ops_flows::{WorkflowAutomationDescriptor, WorkflowCatalogEntry};
 use crate::services::provider_probe::ProviderProbeRequest;
-use crate::services::llm_adapter::config::{llm_adapter_config_from_env, LlmAdapterFailMode};
 use crate::services::provider_runtime::client::{
     ProviderRuntimeClient, ProviderRuntimeStreamEvent,
 };
@@ -3352,10 +3351,6 @@ impl GatewayService {
             .route(
                 "/api/system/auth-bindings/:auth_binding_id",
                 put(put_system_auth_binding),
-            )
-            .route(
-                "/api/system/llm-adapter/status",
-                get(get_system_llm_adapter_status),
             )
             .route("/api/system/logs/stream", get(stream_telemetry_ws))
             .route("/api/system/brand-policy", get(get_system_brand_policy))
@@ -24860,23 +24855,6 @@ async fn get_system_execution_bindings(headers: HeaderMap) -> axum::response::Re
 
 async fn get_system_provider_discovery(headers: HeaderMap) -> axum::response::Response {
     crate::gateway::provider_admin::routes::get_system_provider_discovery(headers).await
-}
-
-async fn get_system_llm_adapter_status() -> axum::response::Response {
-    let cfg = llm_adapter_config_from_env();
-    (
-        StatusCode::OK,
-        Json(json!({
-            "enabled": cfg.enabled,
-            "baseUrl": cfg.base_url,
-            "failMode": match cfg.fail_mode {
-                LlmAdapterFailMode::Fallback => "fallback",
-                LlmAdapterFailMode::FailClosed => "fail_closed",
-            },
-            "model": cfg.default_model,
-        })),
-    )
-        .into_response()
 }
 
 async fn build_system_provider_records() -> crate::gateway::provider_admin::contracts::SystemProvidersResponse {
