@@ -23,9 +23,35 @@ target
 # Local worktree and workstation artifacts
 .worktrees/
 .DS_Store
+.agent/
+.cargo/
+.cargo-target/
+.claude/
+.codex/
+.dfx-config/
+.gemini/
+.ignore/
+.opencode/
 
 # Python local environments and caches
 **/__pycache__/
 **/.pytest_cache/
 **/venv/
 **/.venv/
+
+# Frontend/build/runtime artifacts
+**/dist/
+**/node_modules/
+**/.vite/
+**/test-results/
+**/playwright-report/
+tmp/
+
+# Runtime logs stay local; promote immutable evidence into governed docs/research.
+logs/**/*.json
+logs/**/*.jsonl
+logs/**/*.log
+logs/**/*.png
+logs/**/*.jpg
+logs/**/*.jpeg
+logs/**/*.webp
