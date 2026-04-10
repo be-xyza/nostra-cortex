@@ -69,12 +69,12 @@ path_scopes = [
 failure_class = "hardcoded_gateway_url"
 
 [[governed_values]]
-id = "llm_adapter_url"
-required_source = "CORTEX_LLM_ADAPTER_URL_or_CORTEX_LLM_ADAPTER_PORT"
+id = "provider_runtime_url"
+required_source = "CORTEX_PROVIDER_RUNTIME_URL_or_CORTEX_PROVIDER_RUNTIME_PORT"
 approved_access_patterns = [
-  "CORTEX_LLM_ADAPTER_URL",
-  "CORTEX_LLM_ADAPTER_HOST",
-  "CORTEX_LLM_ADAPTER_PORT",
+  "CORTEX_PROVIDER_RUNTIME_URL",
+  "CORTEX_PROVIDER_RUNTIME_HOST",
+  "CORTEX_PROVIDER_RUNTIME_PORT",
 ]
 forbidden_literal_patterns = [
   "http://127\\.0\\.0\\.1:8080",
@@ -158,16 +158,17 @@ path_scopes = [
 failure_class = "hardcoded_policy_override"
 
 [[governed_values]]
-id = "antigravity_skills_root"
-required_source = "NOSTRA_ANTIGRAVITY_SKILLS_ROOT_or_HOME_expansion"
+id = "ide_skill_install_root"
+required_source = "repo_relative_registry_path"
 approved_access_patterns = [
-  "NOSTRA_ANTIGRAVITY_SKILLS_ROOT",
-  "$HOME/.gemini/antigravity/skills",
-  "expanduser",
-  "expandvars",
+  ".codex/skills",
+  ".claude/skills",
+  "resolve_with_override",
+  "install_root",
 ]
 forbidden_literal_patterns = [
-  "/Users/xaoj/.gemini/antigravity/skills",
+  "/Users/xaoj/.codex/skills",
+  "/Users/xaoj/.claude/skills",
 ]
 path_scopes = [
   "nostra/commons/skills/*.toml",
@@ -181,12 +182,47 @@ id = "skill_validator_path"
 required_source = "NOSTRA_SKILL_VALIDATOR_or_repo_relative_default"
 approved_access_patterns = [
   "NOSTRA_SKILL_VALIDATOR",
-  ".codex/skills/.system/skill-creator/scripts/quick_validate.py",
+  "scripts/quick_validate_registry_asset.py",
 ]
 forbidden_literal_patterns = [
-  "/Users/xaoj/.codex/skills/.system/skill-creator/scripts/quick_validate.py",
+  "/Users/xaoj/ICP/scripts/quick_validate_registry_asset.py",
 ]
 path_scopes = [
   "scripts/sync_skills*.py",
+]
+failure_class = "hardcoded_policy_override"
+
+[[governed_values]]
+id = "workflow_validator_path"
+required_source = "NOSTRA_WORKFLOW_VALIDATOR_or_repo_relative_default"
+approved_access_patterns = [
+  "NOSTRA_WORKFLOW_VALIDATOR",
+  "scripts/quick_validate_registry_asset.py",
+]
+forbidden_literal_patterns = [
+  "/Users/xaoj/ICP/scripts/quick_validate_registry_asset.py",
+]
+path_scopes = [
+  "scripts/sync_workflows*.py",
+]
+failure_class = "hardcoded_policy_override"
+
+[[governed_values]]
+id = "ide_workflow_install_root"
+required_source = "repo_relative_registry_path"
+approved_access_patterns = [
+  ".codex/workflows",
+  ".claude/workflows",
+  "resolve_with_override",
+  "install_root",
+]
+forbidden_literal_patterns = [
+  "/Users/xaoj/.codex/workflows",
+  "/Users/xaoj/.claude/workflows",
+]
+path_scopes = [
+  "nostra/commons/workflows/*.toml",
+  "scripts/sync_workflows*.py",
+  "scripts/sync_workflows*.sh",
 ]
 failure_class = "hardcoded_policy_override"

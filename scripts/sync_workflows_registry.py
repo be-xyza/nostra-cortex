@@ -52,7 +52,7 @@ def load_registry(path: Path) -> dict:
     if local_path.exists():
         try:
             local_reg = tomllib.loads(local_path.read_text(encoding="utf-8"))
-            for key in ["source", "ide", "skill"]:
+            for key in ["source", "ide", "workflow"]:
                 if key in local_reg:
                     reg.setdefault(key, []).extend(local_reg[key])
             print(f"INFO: Loaded local registry overlay from {local_path.name}")
@@ -217,11 +217,21 @@ def run_quick_validate(root: Path, workflow_path: Path) -> tuple[bool, str]:
     if override:
         validator = resolve_path(root, override)
     else:
-        validator = root / ".codex/skills/.system/skill-creator/scripts/quick_validate.py"
+        validator = root / "scripts/quick_validate_registry_asset.py"
     if not validator.exists():
         return True, "validator not found; skipped"
     try:
-        out = subprocess.check_output([str(root / "scripts" / "run_repo_python.sh"), str(validator), str(workflow_path)], text=True, stderr=subprocess.STDOUT)
+        out = subprocess.check_output(
+            [
+                str(root / "scripts" / "run_repo_python.sh"),
+                str(validator),
+                "--kind",
+                "workflow",
+                str(workflow_path),
+            ],
+            text=True,
+            stderr=subprocess.STDOUT,
+        )
         return True, out.strip()
     except subprocess.CalledProcessError as exc:
         return False, (exc.output or "validation failed").strip()

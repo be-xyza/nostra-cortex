@@ -282,5 +282,5 @@ Phase A of the "World-Class Heap UX" initiative implemented 8 components that di
 - **Layer 2 (Runtime Schema)**: 3 new gateway endpoints (`/context`, `/export`, `/history`) extend the heap contract.
 
 ### Cross-Initiative Resolution
-- **124 (AGUI Heap Mode)**: Phase A capabilities registered as new decision entry.
+- **124 (Polymorphic Heap Mode)**: Phase A capabilities registered as new decision entry.
 - **095 (Personal Space Substrate)**: No changes needed (already current via Polymorphic Block resolution).

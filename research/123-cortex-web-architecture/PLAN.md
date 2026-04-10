@@ -21,7 +21,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Execution Hosts"
 created: "2026-02-22"
-updated: "2026-03-10"
+updated: "2026-03-28"
 ---
 
 # Initiative 123: Cortex Web Architecture
@@ -33,9 +33,10 @@ Deliver `cortex-web` as the canonical interactive Cortex execution shell, with `
 1. Canonical app root: `/Users/xaoj/ICP/cortex/apps/cortex-web`.
 2. Runtime authority: `cortex-eudaemon` gateway APIs remain source-of-truth (`/api/system/*`, `/api/kg/spaces/:space_id/contribution-graph/*`), while primary navigation authority is governed by `/api/cortex/layout/spec` and `/api/spaces/:space_id/navigation-plan`.
 3. Web shell responsibility: all interactive Workbench UX (A2UI surfaces, route rendering, action execution) is delivered in `cortex-web`.
-4. Desktop shell responsibility: daemon, worker, and local gateway execution surfaces continue without a primary interactive UI mandate.
-5. Governance parity: steward-gated mutations with approval envelope remain mandatory across runtime boundaries.
-6. Navigation matrix realization: capability graph and navigation ranking must be derived from governed runtime UX contracts plus the platform graph, not host-local hardcoded scanner paths.
+4. Canonical conversation surfaces (`/ws/chat`, `/api/cortex/chat/conversations`, `/api/cortex/chat/conversations/:threadId`) are part of the web shell responsibility and must remain runtime-authoritative rather than client-owned.
+5. Desktop shell responsibility: daemon, worker, and local gateway execution surfaces continue without a primary interactive UI mandate.
+6. Governance parity: steward-gated mutations with approval envelope remain mandatory across runtime boundaries.
+7. Navigation matrix realization: capability graph and navigation ranking must be derived from governed runtime UX contracts plus the platform graph, not host-local hardcoded scanner paths.
 
 ## Out of Scope
 1. Reinstating Dioxus desktop UI as a primary execution shell.
@@ -66,18 +67,21 @@ Deliver `cortex-web` as the canonical interactive Cortex execution shell, with `
 - Implement `cortex-web` React/Vite host and Workbench route.
 - Consume shared gateway APIs and contracts.
 - Enforce stewardship gating and parity checks from the web shell.
+- Deliver runtime-authoritative chat/conversation surfaces with heap-backed thread hydration and mixed-content rendering through the shared React A2UI interpreter.
 
 ### Phase 5: Capability Navigation Graph and A2UI Contract Hardening
 - Re-lock runtime dispatch boundaries for local legacy-owned routes required by web actions (`/api/spaces/create`).
 - Formalize `/api/system/capability-graph` as a schema’d, matrix-derived projection with deterministic nodes/edges.
 - Support contextual workbench projection hints (`intent`, `density`, `node_id`) in `/api/system/ux/workbench`.
 - Ensure graph interactions in `cortex-web` provide inspect, route drill-down, and role-visibility semantics.
+- Keep chat mixed-content contracts (`text`, `a2ui`, `pointer`) aligned with the shared React A2UI interpreter and server-backed conversation projections.
 
 ## Exit Criteria
 1. `cortex-web` consumes runtime contracts from `cortex-eudaemon` without host-specific API forks.
 2. Gateway parity inventory, fixtures, and replay checks remain synchronized with `server.rs`.
 3. Steward-gated mutation policy is enforced for web-initiated runtime actions.
 4. Contract, build, and parity checks pass on the latest branch state.
+5. Chat threads in `cortex-web` hydrate from runtime-backed conversation projections rather than host-local conversation ownership.
 
 ## Alignment Addendum
 1. Boundary: Nostra defines authority contracts and governance semantics; Cortex hosts remain execution adapters.

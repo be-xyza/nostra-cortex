@@ -15,6 +15,12 @@ This document defines the canonical boundary to prevent terminology and architec
 - Canonical truth for governance and platform state lives in Nostra protocol authority surfaces (canisters and contracts).
 - Cortex may enforce and validate locally for UX/runtime behavior, but cannot override protocol authority.
 
+## Execution Infrastructure Boundary
+- Provider inventory, runtime host inventory, auth bindings, execution bindings, provider discovery diagnostics, and resolved runtime status are Cortex execution-infrastructure surfaces.
+- These surfaces are not part of Nostra platform authority. They exist to operate and observe Cortex runtime behavior.
+- Detailed reads for these surfaces are operator-only by default. General-reader or agent-facing routes may expose them only through explicitly redacted contracts.
+- Discovery may materialize catalog-visible provider records, but execution eligibility must remain a server-side invariant. A discovered provider is not automatically bindable or executable.
+
 ## Naming Rules
 - Platform crates and services: `nostra-*`
 - Execution crates and services: `cortex-*`
@@ -27,6 +33,7 @@ This document defines the canonical boundary to prevent terminology and architec
 - Canonical docs must include boundary-consistent wording:
   - `/Users/xaoj/ICP/AGENTS.md`
   - `/Users/xaoj/ICP/nostra/spec.md`
+  - `/Users/xaoj/ICP/cortex/spec.md`
   - `/Users/xaoj/ICP/research/README.md`
   - `/Users/xaoj/ICP/docs/reference/README.md`
 - New architecture or protocol docs should reference this file when defining system layers.

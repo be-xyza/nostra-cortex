@@ -74,7 +74,7 @@ This directory now serves two roles:
 ## Versioned JSON Artifacts
 
 - `shared/standards/alignment_contract_exceptions.json`
-- `shared/standards/antigravity_rule_dispositions.json`
+- `shared/standards/skill_policy_dispositions.json`
 - `shared/standards/dynamic_source_exceptions.json`
 - `shared/standards/branding/brand_policy_v1.json`
 - `shared/standards/branding/brand_visual_state_cases_v1.json`

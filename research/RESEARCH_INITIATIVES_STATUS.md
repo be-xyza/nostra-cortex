@@ -1,4 +1,4 @@
-# Research Initiatives Index (135 items)
+# Research Initiatives Index (145 items)
 | ID | Directory | Status |
 |---|---|---|
 | 000 | 000-contribution-graph | active |
@@ -30,7 +30,7 @@
 | 026 | 026-nostra-schema-manager | active |
 | 027 | 027-workflow-builder-business-use-case | draft |
 | 028 | 028-a2ui-integration-feasibility | superseded |
-| 029 | 029-ai-chat-template-integration | draft |
+| 029 | 029-ai-chat-template-integration | active |
 | 030 | 030-artifacts-editor | draft |
 | 031 | 031-production-foundation | draft |
 | 032 | 032-icp-alignment-integration | draft |
@@ -77,9 +77,9 @@
 | 073 | 073-opensass-repositories-catalog | draft |
 | 074 | 074-cortex-ui-substrate | active |
 | 075 | 075-d3-graph-lab | draft |
-| 076 | 076-openrouter-icp-feasibility | draft |
+| 076 | 076-provider-economics-routing-metering | draft |
 | 077 | 077-location-context-awareness | placeholder |
-| 078 | 078-knowledge-graphs | draft |
+| 078 | 078-knowledge-graphs | active |
 | 079 | 079-merchant-of-record | draft |
 | 080 | 080-dpub-standard | active |
 | 081 | 081-openspg-integration-analysis | draft |
@@ -89,7 +89,7 @@
 | 085 | 085-nostra-file-infrastructure | draft |
 | 086 | 086-cobudget-integration-patterns | draft |
 | 087 | 087-nostra-messaging-platform | draft |
-| 088 | 088-accessibility-strategy | active |
+| 088 | 088-accessibility-strategy | completed |
 | 089 | 089-code-standards | draft |
 | 090 | 090-agent-scaling-science | draft |
 | 091 | 091-deepmind-agent-systems-analysis | placeholder |
@@ -119,13 +119,13 @@
 | 115 | 115-cortex-viewspec-governed-ui-synthesis | active |
 | 116 | 116-cortex-realtime-ga-trust-hardening | active |
 | 117 | 117-cortex-ui-standardization | placeholder |
-| 118 | 118-cortex-runtime-extraction | active |
+| 118 | 118-cortex-runtime-extraction | draft |
 | 119 | 119-nostra-commons | completed |
 | 120 | 120-nostra-design-language | active |
 | 121 | 121-cortex-memory-fs | draft |
 | 122 | 122-cortex-agent-runtime-kernel | active |
 | 123 | 123-cortex-web-architecture | active |
-| 124 | 124-agui-heap-mode | active |
+| 124 | 124-polymorphic-heap-mode | active |
 | 125 | 125-system-integrity-quality | active |
 | 126 | 126-agent-harness-architecture | completed |
 | 127 | 127-cortex-native-repo-ingestion | active |
@@ -166,5 +166,13 @@
 | 132 | 132-eudaemon-alpha-initiative | active |
 | 133 | 133-eval-driven-orchestration | active |
 | 134 | 134-hybrid-workflow-authority-and-execution | active |
-| 135 | 135-nostra-contribution-protocol | active |
+| 135 | 135-nostra-contribution-protocol | draft |
+| 136 | 136-cortex-explore-graph | draft |
+| 137 | 137-local-model-orchestration | active |
+| 138 | 138-reserved-placeholder | placeholder |
+| 139 | 139-reserved-placeholder | placeholder |
+| 140 | 140-reserved-placeholder | placeholder |
+| 141 | 141-reserved-placeholder | placeholder |
+| 142 | 142-reserved-placeholder | placeholder |
+| 143 | 143-reserved-placeholder | placeholder |
 | 144 | 144-meta-workbench-refactoring | draft |

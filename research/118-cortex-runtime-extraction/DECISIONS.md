@@ -671,3 +671,41 @@ Adopt BAML-derived patterns in two bounded layers:
   - `nostra/libraries/nostra-workflow-core/src/debates.rs`
 - Phase task mapping:
   - `research/118-cortex-runtime-extraction/experiments/baml/BAML_PHASE_TASKLIST_2026-02-15.md`
+
+---
+
+## ADR-019: Provider Admin Surfaces Are Operator-Only Execution Infrastructure
+
+**Status**: Accepted
+**Date**: 2026-03-26
+
+### Context
+
+As Phase 5 extraction work expanded into provider/runtime management, the gateway began exposing detailed provider inventory, runtime host topology, auth-binding relationships, discovery diagnostics, and resolved runtime status through broad read surfaces. The implementation also materialized discovery records that were useful for inventory, but not always executable by the runtime.
+
+Without a sharper boundary:
+- general or agent-facing readers could learn operator infrastructure topology
+- discovery semantics could be mistaken for execution authorization
+- route-local shaping logic could drift away from the runtime eligibility rules
+
+### Decision
+
+Treat the provider/runtime/auth control plane as Cortex execution infrastructure with three explicit rules:
+
+1. Detailed reads are operator-only.
+2. Canonical operator reads are split into narrow contracts rather than one overloaded aggregate response.
+3. Execution bindability is a server-side eligibility invariant, not a discovery-side or UI-side hint.
+
+### Implications
+
+1. The canonical operator reads are:
+   - `GET /api/system/provider-inventory`
+   - `GET /api/system/runtime-hosts`
+   - `GET /api/system/auth-bindings`
+   - `GET /api/system/execution-bindings`
+   - `GET /api/system/provider-discovery`
+   - `GET /api/system/provider-runtime/status`
+2. `GET /api/system/providers` remains only as a compatibility aggregate composed from the split reads.
+3. Remote discovery requires explicit host capability rather than mere presence of SSH coordinates or SSH auth.
+4. Discovered providers may remain catalog-visible even when non-executable, but binding and runtime selection must reject them unless they satisfy execution eligibility.
+5. Provider-admin orchestration belongs in a dedicated gateway/provider-admin module rather than route-local monolith logic.

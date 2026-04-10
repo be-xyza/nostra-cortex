@@ -24,7 +24,7 @@ flowchart TD
     subgraph Downstream["⬇️ Blocked Downstream"]
         I127E["127E SIQ Surfacing<br/>A2UI Heap Blocks"]
         I127D["127D Advanced Governance<br/>CRDT + ZKP + DPub"]
-        I124["124 AGUI Heap Mode<br/>Polymorphic Blocks"]
+        I124["124 Polymorphic Heap Mode<br/>Polymorphic Blocks"]
         I049["049 Gaming Protocol<br/>Simulation Substrate"]
     end
 
@@ -179,7 +179,7 @@ Every active initiative touched by this roadmap, with its specific role:
 |---|---|---|---|
 | **121** | Memory FS | Provides the sandbox directory structure for ingestion | Phase 1 done, Phase 2 is this roadmap |
 | **122** | Agent Runtime Kernel | Provides MVK, `CortexTool` trait, `AuthorityGuard`, Temporal | Phases 2-3 done — engine executes as Temporal Activity |
-| **124** | AGUI Heap Mode | Rendering target for SIQ blocks via polymorphic block contract | Active — block wrapper + CRDT done |
+| **124** | Polymorphic Heap Mode | Rendering target for SIQ blocks via polymorphic block contract | Active — block wrapper + CRDT done |
 | **125** | SIQ Program | CI enforcement pipeline consuming engine output | Active — observe scaffolded, softgate pending engine |
 | **126** | Agent Harness | Authority ladder (L0-L2) that gates all engine outputs | Completed — no blockers |
 | **127** | Repo Ingestion | Parent initiative; engine is the Phase 2 core deliverable | Phase 1 done |

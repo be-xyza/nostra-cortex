@@ -63,6 +63,18 @@ if [ -f "$BOUNDARY_DOC" ]; then
   fi
 fi
 
+AGENTS_DOC="AGENTS.md"
+if [ -f "$AGENTS_DOC" ]; then
+  if ! has_match "Developer Agent \(Operator Authority\)" "$AGENTS_DOC"; then
+    echo "FAIL: Developer Agent canonical definition missing"
+    FAILURES=$((FAILURES + 1))
+  fi
+  if ! has_match "Runtime Agent \(Execution Authority\)" "$AGENTS_DOC"; then
+    echo "FAIL: Runtime Agent canonical definition missing"
+    FAILURES=$((FAILURES + 1))
+  fi
+fi
+
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
   echo "✅ Terminology checks passed"

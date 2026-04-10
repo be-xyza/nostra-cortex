@@ -20,6 +20,8 @@ def parse_target(command: str) -> Optional[str]:
     parts = shlex.split(command)
     if len(parts) < 2:
         return None
+    if parts[0] in {"bash", "sh"} and len(parts) >= 3 and parts[1] == "scripts/run_repo_python.sh":
+        return parts[2]
     if parts[0] in {"python", "python3", "bash", "sh"}:
         return parts[1]
     return parts[0]

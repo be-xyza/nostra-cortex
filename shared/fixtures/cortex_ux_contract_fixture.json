@@ -13,8 +13,7 @@
     "navigationGraph": {
       "startRouteId": "/system",
       "entries": [
-        {"routeId": "/spaces", "label": "Spaces", "icon": "SP", "viewCapabilityId": "view.spaces", "requiredRole": "viewer", "category": "core"},
-        {"routeId": "/heap", "label": "Heap Canvas", "icon": "HP", "viewCapabilityId": "view.heap", "requiredRole": "operator", "category": "core"},
+        {"routeId": "/explore", "label": "Explore", "icon": "EX", "viewCapabilityId": "view.heap", "requiredRole": "operator", "category": "core"},
         {"routeId": "/synthesis", "label": "Agentic Synthesis", "icon": "AI", "viewCapabilityId": "view.synthesis", "requiredRole": "operator", "category": "core"},
         {"routeId": "/playground", "label": "Chat x Heap Playground", "icon": "PG", "viewCapabilityId": "view.playground", "requiredRole": "operator", "category": "core"},
         {"routeId": "/studio", "label": "Studio", "icon": "ST", "viewCapabilityId": "view.studio", "requiredRole": "operator", "category": "bridge"},
@@ -24,7 +23,6 @@
         {"routeId": "/vfs", "label": "Virtual File System", "icon": "FS", "viewCapabilityId": "view.vfs", "requiredRole": "operator", "category": "bridge"},
         {"routeId": "/logs", "label": "System Logs", "icon": "LG", "viewCapabilityId": "view.logs", "requiredRole": "operator", "category": "bridge"},
         {"routeId": "/settings", "label": "Settings & Preferences", "icon": "SE", "viewCapabilityId": "view.settings", "requiredRole": "operator", "category": "secondary"},
-        {"routeId": "/inbox", "label": "Inbox & Approvals", "icon": "IN", "viewCapabilityId": "view.inbox", "requiredRole": "operator", "category": "core"},
         {"routeId": "/agents", "label": "Agent Fleet", "icon": "AG", "viewCapabilityId": "view.agents", "requiredRole": "operator", "category": "core"},
         {"routeId": "/discovery", "label": "Global Discovery", "icon": "DS", "viewCapabilityId": "view.discovery", "requiredRole": "viewer", "category": "bridge"},
         {"routeId": "/metrics", "label": "Telemetry & SLOs", "icon": "MT", "viewCapabilityId": "view.metrics", "requiredRole": "steward", "category": "secondary"},
@@ -41,8 +39,7 @@
     ]
   },
   "matrix": [
-    {"routeId": "/spaces", "routeLabel": "Spaces", "viewCapabilityId": "view.spaces", "patternId": "pattern.spaces", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.00},
-    {"routeId": "/heap", "routeLabel": "Heap Canvas", "viewCapabilityId": "view.heap", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 5, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.16},
+    {"routeId": "/explore", "routeLabel": "Explore", "viewCapabilityId": "view.heap", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 5, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.16},
     {"routeId": "/synthesis", "routeLabel": "Agentic Synthesis", "viewCapabilityId": "view.synthesis", "patternId": "pattern.studio", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.00},
     {"routeId": "/playground", "routeLabel": "Chat x Heap Playground", "viewCapabilityId": "view.playground", "patternId": "pattern.studio", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.00},
     {"routeId": "/studio", "routeLabel": "Studio", "viewCapabilityId": "view.studio", "patternId": "pattern.studio", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 4, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.00},
@@ -52,7 +49,6 @@
     {"routeId": "/vfs", "routeLabel": "Virtual File System", "viewCapabilityId": "view.vfs", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
     {"routeId": "/logs", "routeLabel": "System Logs", "viewCapabilityId": "view.logs", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
     {"routeId": "/settings", "routeLabel": "Settings & Preferences", "viewCapabilityId": "view.settings", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
-    {"routeId": "/inbox", "routeLabel": "Inbox & Approvals", "viewCapabilityId": "view.inbox", "patternId": "pattern.workflow", "operatorCritical": true, "taskCriticality": 5, "decisionLatency": 5, "evidenceLegibility": 5, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.50},
     {"routeId": "/agents", "routeLabel": "Agent Fleet", "viewCapabilityId": "view.agents", "patternId": "pattern.system", "operatorCritical": true, "taskCriticality": 4, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.86},
     {"routeId": "/discovery", "routeLabel": "Global Discovery", "viewCapabilityId": "view.discovery", "patternId": "pattern.spaces", "operatorCritical": true, "taskCriticality": 3, "decisionLatency": 3, "evidenceLegibility": 4, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 3.70},
     {"routeId": "/metrics", "routeLabel": "Telemetry & SLOs", "viewCapabilityId": "view.metrics", "patternId": "pattern.testing", "operatorCritical": true, "taskCriticality": 5, "decisionLatency": 5, "evidenceLegibility": 5, "recoverability": 4, "accessibility": 4, "extensibility": 4, "weightedScore": 4.50},
