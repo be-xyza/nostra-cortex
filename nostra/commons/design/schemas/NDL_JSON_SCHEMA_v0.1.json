@@ -1,0 +1,324 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://nostra.dev/schemas/ndl/NDL_JSON_SCHEMA_v0.1.json",
+    "title": "Nostra Design Language - Render Contract",
+    "type": "object",
+    "required": [
+        "ndl_version",
+        "profile",
+        "contribution",
+        "authority",
+        "accessibility",
+        "motion",
+        "compliance"
+    ],
+    "properties": {
+        "ndl_version": {
+            "type": "string",
+            "pattern": "^0\\.1\\.\\d+$"
+        },
+        "profile": {
+            "type": "string",
+            "enum": [
+                "publication",
+                "cockpit",
+                "labs",
+                "dao",
+                "simulation"
+            ]
+        },
+        "surface_type": {
+            "type": "string",
+            "enum": [
+                "constitutional",
+                "execution",
+                "hybrid"
+            ],
+            "default": "constitutional"
+        },
+        "contribution": {
+            "type": "object",
+            "required": [
+                "id",
+                "type",
+                "phase",
+                "version",
+                "title",
+                "metadata",
+                "lineage"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "Idea",
+                        "Question",
+                        "Post",
+                        "Comment",
+                        "Issue",
+                        "Poll",
+                        "Proposal",
+                        "Review",
+                        "Decision",
+                        "Project",
+                        "Initiative",
+                        "Deliverable",
+                        "Milestone",
+                        "Bounty",
+                        "Pledge",
+                        "Service",
+                        "Event",
+                        "Artifact",
+                        "Report",
+                        "Reflection",
+                        "Essay",
+                        "Institution"
+                    ]
+                },
+                "phase": {
+                    "type": "string",
+                    "enum": [
+                        "Exploratory",
+                        "Deliberative",
+                        "Decisive",
+                        "Executable",
+                        "Archival",
+                        "Structural"
+                    ]
+                },
+                "version": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "title": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "required": [
+                        "contributors",
+                        "created_at",
+                        "updated_at",
+                        "status"
+                    ],
+                    "properties": {
+                        "contributors": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "created_at": {
+                            "type": "string"
+                        },
+                        "updated_at": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        }
+                    }
+                },
+                "lineage": {
+                    "type": "object",
+                    "required": [
+                        "has_version_chain"
+                    ],
+                    "properties": {
+                        "has_version_chain": {
+                            "type": "boolean"
+                        },
+                        "fork_from": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "merge_from": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "authority": {
+            "type": "object",
+            "required": [
+                "badge_visible",
+                "immutable_elements"
+            ],
+            "properties": {
+                "badge_visible": {
+                    "type": "boolean"
+                },
+                "immutable_elements": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "contribution_type_indicator",
+                            "phase_badge",
+                            "governance_indicator",
+                            "ratification_marker",
+                            "version_chain",
+                            "space_visibility_indicator"
+                        ]
+                    }
+                },
+                "governance": {
+                    "type": [
+                        "object",
+                        "null"
+                    ],
+                    "properties": {
+                        "vote_count": {
+                            "type": "integer"
+                        },
+                        "quorum_met": {
+                            "type": "boolean"
+                        },
+                        "strategy": {
+                            "type": "string"
+                        },
+                        "ratified": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            }
+        },
+        "motion": {
+            "type": "object",
+            "required": [
+                "semantic_token",
+                "reduced_motion_safe"
+            ],
+            "properties": {
+                "semantic_token": {
+                    "type": "string",
+                    "enum": [
+                        "enter_exploratory",
+                        "enter_deliberative",
+                        "ratify",
+                        "fork_diverge",
+                        "merge_converge",
+                        "dormant_state",
+                        "workflow_rehydrate",
+                        "time_passed",
+                        "attention_critical",
+                        "none"
+                    ]
+                },
+                "reduced_motion_safe": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "accessibility": {
+            "type": "object",
+            "required": [
+                "wcag_level",
+                "keyboard_navigable",
+                "aria_roles_defined"
+            ],
+            "properties": {
+                "wcag_level": {
+                    "type": "string",
+                    "enum": [
+                        "AA",
+                        "AAA"
+                    ]
+                },
+                "keyboard_navigable": {
+                    "type": "boolean"
+                },
+                "aria_roles_defined": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "compliance": {
+            "type": "object",
+            "required": [
+                "ai_render_safe",
+                "ndl_compliant"
+            ],
+            "properties": {
+                "ai_render_safe": {
+                    "type": "boolean"
+                },
+                "ndl_compliant": {
+                    "type": "boolean"
+                },
+                "profile_override": {
+                    "type": "boolean"
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "surface_type": {
+                        "const": "execution"
+                    }
+                }
+            },
+            "then": {
+                "not": {
+                    "properties": {
+                        "contribution": {
+                            "properties": {
+                                "type": {
+                                    "const": "Decision"
+                                }
+                            }
+                        }
+                    }
+                },
+                "errorMessage": "Governance Spoofing Prevented: Execution surfaces may not render authoritative Tier 1 components (like Decisions)."
+            }
+        },
+        {
+            "if": {
+                "properties": {
+                    "contribution": {
+                        "properties": {
+                            "type": {
+                                "const": "Decision"
+                            }
+                        }
+                    }
+                }
+            },
+            "then": {
+                "properties": {
+                    "authority": {
+                        "required": [
+                            "governance"
+                        ],
+                        "properties": {
+                            "immutable_elements": {
+                                "contains": {
+                                    "const": "ratification_marker"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

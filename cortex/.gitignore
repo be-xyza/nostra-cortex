@@ -1,0 +1,4 @@
+# Generated runtime/build artifacts
+*.log
+*build*.txt
+check_output.txt

@@ -1,4 +1,4 @@
-use crate::services::dfx_client::LocalIcClient;
+use crate::services::ic_client::LocalIcClient;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

@@ -1,0 +1,214 @@
+# Role Assignment Workflow
+# Enables granting/revoking roles with appropriate governance approval
+# Reference: research/027-workflow-builder-business-use-case/RESEARCH.md
+
+id: "role-assignment"
+name: "Role Assignment"
+version: "1.0.0"
+description: "Request and approve role changes for organization members"
+
+intention: "I want to assign or revoke a role for a member"
+
+triggers:
+  - type: manual
+    button_label: "Manage Roles"
+    icon: "👤"
+
+input_schema:
+  target_principal:
+    type: string
+    required: true
+    description: "Principal ID of the member"
+  role:
+    type: string
+    required: true
+    description: "Role to grant or revoke"
+  action:
+    type: string
+    required: true
+    enum: ["grant", "revoke"]
+
+steps:
+  # Step 1: Submit Role Change Request
+  - id: "submit-request"
+    name: "Submit Role Change"
+    type: user_task
+    description: "Request a role change for a member"
+    allowed_roles: ["Admin", "Owner"]
+    output_schema:
+      target_principal: { type: string, required: true }
+      target_name: { type: string }
+      role: { type: string, required: true }
+      action: { type: string, enum: ["grant", "revoke"] }
+      reason: { type: string }
+    next_steps: ["check-governance"]
+
+  # Step 2: Check Governance Strategy
+  - id: "check-governance"
+    name: "Check Governance"
+    type: branch
+    description: "Route based on organization's governance model"
+    conditions:
+      - field: "governance_strategy"
+        operator: equals
+        value: "owner_dictator"
+        target_step: "owner-approval"
+      - field: "governance_strategy"
+        operator: equals
+        value: "member_vote"
+        target_step: "create-proposal"
+      - field: "governance_strategy"
+        operator: equals
+        value: "multi_sig"
+        target_step: "collect-signatures"
+    default_next: "owner-approval"
+
+  # Branch A: Owner Dictator - Single approval
+  - id: "owner-approval"
+    name: "Owner Approval"
+    type: user_task
+    description: "Owner approves or rejects the role change"
+    allowed_roles: ["Owner"]
+    output_schema:
+      approved: { type: boolean, required: true }
+      notes: { type: string }
+    next_steps: ["apply-if-approved"]
+
+  # Branch B: Member Vote - Create proposal
+  - id: "create-proposal"
+    name: "Create Vote Proposal"
+    type: system_op
+    description: "Create a proposal for member voting"
+    target: governance_host
+    method: "submitProposal"
+    arguments_template:
+      proposal_type: "role_assignment"
+      target_principal: "${target_principal}"
+      role: "${role}"
+      action: "${action}"
+      description: "Role ${action} for ${target_name}: ${role}"
+    next_steps: ["wait-for-vote"]
+
+  - id: "wait-for-vote"
+    name: "Wait for Vote"
+    type: await_event
+    description: "Wait for voting period to complete"
+    await_key: "proposal_resolved"
+    timeout_seconds: 604800  # 7 days
+    next_steps: ["check-vote-result"]
+
+  - id: "check-vote-result"
+    name: "Check Vote Result"
+    type: branch
+    conditions:
+      - field: "proposal_status"
+        operator: equals
+        value: "approved"
+        target_step: "execute-role-change"
+      - field: "proposal_status"
+        operator: equals
+        value: "rejected"
+        target_step: "notify-rejection"
+    default_next: "notify-rejection"
+
+  # Branch C: Multi-sig
+  - id: "collect-signatures"
+    name: "Collect Signatures"
+    type: parallel
+    description: "Collect required number of signatures"
+    fork_steps: ["signer-1", "signer-2", "signer-3"]
+    join_type: any  # Configurable based on required_signatures
+    join_step: "check-signatures"
+
+  - id: "signer-1"
+    name: "Signer 1 Approval"
+    type: user_task
+    allowed_roles: ["permission:multi_sig_signer"]
+    output_schema:
+      approved: { type: boolean }
+
+  - id: "signer-2"
+    name: "Signer 2 Approval"
+    type: user_task
+    allowed_roles: ["permission:multi_sig_signer"]
+    output_schema:
+      approved: { type: boolean }
+
+  - id: "signer-3"
+    name: "Signer 3 Approval"
+    type: user_task
+    allowed_roles: ["permission:multi_sig_signer"]
+    output_schema:
+      approved: { type: boolean }
+
+  - id: "check-signatures"
+    name: "Check Signature Count"
+    type: branch
+    conditions:
+      - field: "approved_count"
+        operator: greater_than
+        value: "1"  # Configurable threshold
+        target_step: "execute-role-change"
+    default_next: "notify-rejection"
+
+  # Convergence: Apply or Reject
+  - id: "apply-if-approved"
+    name: "Check Approval"
+    type: branch
+    conditions:
+      - field: "approved"
+        operator: equals
+        value: "true"
+        target_step: "execute-role-change"
+    default_next: "notify-rejection"
+
+  - id: "execute-role-change"
+    name: "Execute Role Change"
+    type: system_op
+    description: "Apply the role change in the system"
+    target: governance_host
+    method: "executeRoleChange"
+    arguments_from_context:
+      - target_principal
+      - role
+      - action
+    next_steps: ["log-event", "notify-success"]
+
+  - id: "log-event"
+    name: "Log Chronicle Event"
+    type: system_op
+    target: chronicle
+    method: "log"
+    arguments_template:
+      event_type: "${action == 'grant' ? 'role_granted' : 'role_revoked'}"
+      affected_entities: ["${target_principal}"]
+      description: "Role ${role} ${action}ed for ${target_name}"
+    next_steps: []
+
+  - id: "notify-success"
+    name: "Notify Success"
+    type: system_op
+    target: notification
+    method: "send"
+    arguments_template:
+      recipients: ["${target_principal}", "${requester_principal}"]
+      message: "Role ${role} has been ${action}ed successfully"
+    next_steps: []
+
+  - id: "notify-rejection"
+    name: "Notify Rejection"
+    type: system_op
+    target: notification
+    method: "send"
+    arguments_template:
+      recipients: ["${requester_principal}"]
+      message: "Role change request was rejected"
+    next_steps: []
+
+outputs:
+  role_change_applied:
+    type: boolean
+    description: "Whether the role change was successfully applied"
+  chronicle_event_id:
+    type: string
+    description: "ID of the logged chronicle event"

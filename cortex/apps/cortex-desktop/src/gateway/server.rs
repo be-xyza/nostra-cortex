@@ -33,7 +33,7 @@ use crate::services::file_system_service::FileSystemService;
 use crate::services::governance_client::{ActionScopeEvaluation, GovernanceClient};
 use crate::services::heap_mapper::{
     EmitHeapBlockRequest, HeapBlockProjection, canonicalize_emit_heap_block,
-    map_emit_heap_block_to_agui_mutations, parse_emit_heap_block,
+    map_emit_heap_block_to_a2ui_mutations, parse_emit_heap_block,
     parse_iso_timestamp as parse_heap_iso_timestamp, project_heap_block, validate_emit_heap_block,
 };
 use crate::services::siq_types::{
@@ -189,7 +189,7 @@ impl Default for RuntimeDispatchTelemetryState {
 
 #[derive(Serialize)]
 struct SystemStatus {
-    dfx_running: bool,
+    icp_cli_running: bool,
     version: String,
     replica_port: u16,
 }
@@ -198,7 +198,7 @@ struct SystemStatus {
 struct SystemReady {
     ready: bool,
     gateway_port: u16,
-    dfx_port_healthy: bool,
+    icp_network_healthy: bool,
     notes: Vec<String>,
 }
 
@@ -748,6 +748,57 @@ struct SpatialExperimentRunSummary {
     event_key: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+// Shadow compatibility copy: active HTTP authority lives in cortex-eudaemon/cortex-gateway.
+struct SpatialPlaneLayoutPosition {
+    x: f64,
+    y: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutState {
+    #[serde(default)]
+    shape_positions: BTreeMap<String, SpatialPlaneLayoutPosition>,
+    #[serde(default)]
+    collapsed_groups: BTreeMap<String, bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutLineage {
+    #[serde(default)]
+    view_spec_id: Option<String>,
+    #[serde(default)]
+    workflow_id: Option<String>,
+    #[serde(default)]
+    graph_hash: Option<String>,
+    #[serde(default)]
+    space_id: Option<String>,
+    updated_by: String,
+    updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutV1 {
+    schema_version: String,
+    plane_id: String,
+    view_spec_id: String,
+    space_id: String,
+    revision: u64,
+    layout: SpatialPlaneLayoutState,
+    lineage: SpatialPlaneLayoutLineage,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SpatialPlaneLayoutResponse {
+    accepted: bool,
+    layout: SpatialPlaneLayoutV1,
+}
+
 const VIEWSPEC_PROPOSAL_INDEX_KEY: &str = "/cortex/ux/viewspecs/proposals/index.json";
 const VIEWSPEC_ACTIVE_SCOPE_INDEX_KEY: &str = "/cortex/ux/viewspecs/active/index.json";
 const VIEWSPEC_REPLAY_INDEX_KEY: &str = "/cortex/ux/viewspecs/replay/index.json";
@@ -920,11 +971,14 @@ struct ArtifactDocumentV2 {
     fallback_active: bool,
     /// Optional: A2UI Heap Block metadata (Initiative 124 Phase 3)
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    agui_initial_ui_json: Option<String>,
+    #[serde(alias = \"agui_initial_ui_json\")]
+    a2ui_initial_ui_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    agui_tags: Option<Vec<String>>,
+    #[serde(alias = \"agui_tags\")]
+    a2ui_tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    agui_mentions: Option<Vec<String>>,
+    #[serde(alias = \"agui_mentions\")]
+    a2ui_mentions: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     heap_workspace_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -2460,6 +2514,11 @@ impl GatewayService {
             .route(
                 "/api/cortex/viewspecs/experiments/spatial/runs/:run_id",
                 get(get_cortex_viewspec_spatial_experiment_run),
+            )
+            .route(
+                "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id",
+                get(get_cortex_viewspec_spatial_layout)
+                    .post(post_cortex_viewspec_spatial_layout),
             )
             .route(
                 "/api/cortex/viewspecs/validate",
@@ -4451,6 +4510,14 @@ fn spatial_experiment_run_summary_key(run_id: &str) -> String {
     )
 }
 
+fn spatial_plane_layout_key(space_id: &str, view_spec_id: &str) -> String {
+    format!(
+        "/cortex/ux/viewspecs/spatial/layouts/{}/{}.json",
+        sanitize_viewspec_candidate_set_token(space_id),
+        sanitize_viewspec_candidate_set_token(view_spec_id)
+    )
+}
+
 fn spatial_experiment_event_date(timestamp: &str) -> String {
     timestamp
         .get(0..10)
@@ -4475,6 +4542,8 @@ fn spatial_experiment_event_supported(event_type: &str) -> bool {
             | "button_click"
             | "approval"
             | "spatial_shape_click"
+            | "spatial_shape_move"
+            | "spatial_edge_connect"
             | "spatial_adapter_loaded"
             | "spatial_adapter_fallback"
             | "spatial_adapter_replay"
@@ -5776,6 +5845,122 @@ async fn get_cortex_viewspec_spatial_experiment_run(
             Some(json!({ "reason": err })),
         ),
     }
+}
+
+async fn get_cortex_viewspec_spatial_layout(
+    Path((space_id, view_spec_id)): Path<(String, String)>,
+) -> axum::response::Response {
+    let space_id = space_id.trim().to_string();
+    let view_spec_id = view_spec_id.trim().to_string();
+    if space_id.is_empty() || view_spec_id.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPATIAL_LAYOUT_LOOKUP",
+            "space_id and view_spec_id are required.",
+            Some(json!({
+                "spaceId": space_id,
+                "viewSpecId": view_spec_id,
+            })),
+        );
+    }
+
+    let key = spatial_plane_layout_key(space_id.as_str(), view_spec_id.as_str());
+    match store_read_json::<SpatialPlaneLayoutV1>(key.as_str()).await {
+        Ok(Some(layout)) => Json(SpatialPlaneLayoutResponse {
+            accepted: true,
+            layout,
+        })
+        .into_response(),
+        Ok(None) => cortex_ux_error(
+            StatusCode::NOT_FOUND,
+            "SPATIAL_LAYOUT_NOT_FOUND",
+            "Spatial layout was not found for the requested scope.",
+            Some(json!({
+                "spaceId": space_id,
+                "viewSpecId": view_spec_id,
+            })),
+        ),
+        Err(err) => cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "SPATIAL_LAYOUT_LOAD_FAILED",
+            "Failed to load spatial layout artifact.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
+async fn post_cortex_viewspec_spatial_layout(
+    Path((space_id, view_spec_id)): Path<(String, String)>,
+    Json(request): Json<SpatialPlaneLayoutV1>,
+) -> axum::response::Response {
+    let path_space_id = space_id.trim().to_string();
+    let path_view_spec_id = view_spec_id.trim().to_string();
+    if path_space_id.is_empty() || path_view_spec_id.is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPATIAL_LAYOUT_SCOPE",
+            "space_id and view_spec_id are required.",
+            None,
+        );
+    }
+    if request.space_id.trim() != path_space_id || request.view_spec_id.trim() != path_view_spec_id
+    {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "SPATIAL_LAYOUT_SCOPE_MISMATCH",
+            "Spatial layout scope does not match the request path.",
+            Some(json!({
+                "pathSpaceId": path_space_id,
+                "pathViewSpecId": path_view_spec_id,
+                "bodySpaceId": request.space_id,
+                "bodyViewSpecId": request.view_spec_id,
+            })),
+        );
+    }
+    if request.schema_version.trim().is_empty()
+        || request.plane_id.trim().is_empty()
+        || request.revision == 0
+        || request.lineage.updated_by.trim().is_empty()
+        || request.lineage.updated_at.trim().is_empty()
+    {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_SPATIAL_LAYOUT_REQUEST",
+            "schemaVersion, planeId, revision, lineage.updatedBy, and lineage.updatedAt are required.",
+            None,
+        );
+    }
+
+    for (shape_id, position) in &request.layout.shape_positions {
+        if shape_id.trim().is_empty() || !position.x.is_finite() || !position.y.is_finite() {
+            return cortex_ux_error(
+                StatusCode::BAD_REQUEST,
+                "INVALID_SPATIAL_LAYOUT_POSITION",
+                "Spatial layout positions must reference non-empty shape ids and finite coordinates.",
+                Some(json!({
+                    "shapeId": shape_id,
+                    "x": position.x,
+                    "y": position.y,
+                })),
+            );
+        }
+    }
+
+    let key = spatial_plane_layout_key(path_space_id.as_str(), path_view_spec_id.as_str());
+    if let Err(err) = store_write_json(key.as_str(), &request).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "SPATIAL_LAYOUT_STORE_FAILED",
+            "Failed to persist spatial layout artifact.",
+            Some(json!({ "reason": err })),
+        );
+    }
+
+    Json(SpatialPlaneLayoutResponse {
+        accepted: true,
+        layout: request,
+    })
+    .into_response()
 }
 
 async fn get_cortex_viewspec_learning_profile(
@@ -8361,7 +8546,7 @@ async fn post_cortex_heap_emit(
         }
     };
 
-    let agui_mutations = match map_emit_heap_block_to_agui_mutations(&request, &canonical) {
+    let a2ui_mutations = match map_emit_heap_block_to_a2ui_mutations(&request, &canonical) {
         Ok(mutations) => mutations,
         Err(err) => {
             append_heap_emit_rejection_safe(
@@ -8450,9 +8635,9 @@ async fn post_cortex_heap_emit(
             owner_role: actor_role.clone(),
             source_of_truth: source_state.source_of_truth.clone(),
             fallback_active: source_state.fallback_active,
-            agui_initial_ui_json: None,
-            agui_tags: None,
-            agui_mentions: None,
+            a2ui_initial_ui_json: None,
+            a2ui_tags: None,
+            a2ui_mentions: None,
             heap_workspace_id: None,
             heap_block_type: None,
             heap_emitted_at: None,
@@ -8508,7 +8693,7 @@ async fn post_cortex_heap_emit(
         Some(artifact_realtime_channel(&artifact_id)),
         created_at.clone(),
     );
-    envelope.agui_mutations = agui_mutations;
+    envelope.a2ui_mutations = a2ui_mutations;
 
     let apply_result = match apply_crdt_update(&mut state, &envelope, now_iso()) {
         Ok(result) => result,
@@ -8576,9 +8761,9 @@ async fn post_cortex_heap_emit(
         hash: items[artifact_idx].content_hash.clone(),
         block_count: estimate_markdown_blocks(&apply_result.materialized_markdown),
     };
-    items[artifact_idx].agui_initial_ui_json = Some(canonical.surface_json.to_string());
-    items[artifact_idx].agui_tags = Some(canonical.tags.clone());
-    items[artifact_idx].agui_mentions = Some(canonical.mentions_inline.clone());
+    items[artifact_idx].a2ui_initial_ui_json = Some(canonical.surface_json.to_string());
+    items[artifact_idx].a2ui_tags = Some(canonical.tags.clone());
+    items[artifact_idx].a2ui_mentions = Some(canonical.mentions_inline.clone());
     items[artifact_idx].heap_workspace_id = Some(request.workspace_id.clone());
     items[artifact_idx].heap_block_type = Some(request.block.r#type.clone());
     items[artifact_idx].heap_emitted_at = Some(request.source.emitted_at.clone());
@@ -9246,9 +9431,9 @@ async fn post_cortex_artifact_create(
         owner_role: actor_role.clone(),
         source_of_truth: source_state.source_of_truth,
         fallback_active: source_state.fallback_active,
-        agui_initial_ui_json: None,
-        agui_tags: None,
-        agui_mentions: None,
+        a2ui_initial_ui_json: None,
+        a2ui_tags: None,
+        a2ui_mentions: None,
         heap_workspace_id: None,
         heap_block_type: None,
         heap_emitted_at: None,
@@ -10760,7 +10945,7 @@ async fn post_cortex_artifact_collab_force_resolve(
         created_at: now_iso(),
         stream_channel: None,
         mutations: Vec::new(),
-        agui_mutations: Vec::new(),
+        a2ui_mutations: Vec::new(),
     };
     let mut ops = read_artifact_crdt_ops(&artifact_id);
     ops.push(synthetic);
@@ -16048,18 +16233,18 @@ async fn health_check() -> impl IntoResponse {
     Json(json!({ "status": "ok" })).into_response()
 }
 
-fn dfx_command() -> Command {
-    let mut command = Command::new("dfx");
+fn icp_command() -> Command {
+    let mut command = Command::new("icp");
     let term = std::env::var("TERM").unwrap_or_default();
     if term.trim().is_empty() || term.eq_ignore_ascii_case("dumb") {
         command.env("TERM", "xterm-256color");
     }
-    command.env("CLICOLOR", "1");
-    command.env_remove("NO_COLOR");
+    command.env("NO_COLOR", "1");
+    command.env("CLICOLOR", "0");
     command
 }
 
-fn dfx_port_healthy() -> bool {
+fn icp_network_healthy() -> bool {
     let addr = SocketAddr::from(([127, 0, 0, 1], 4943));
     std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(350)).is_ok()
 }
@@ -16072,15 +16257,15 @@ async fn get_system_ready() -> Json<SystemReady> {
         notes.push(note);
     }
 
-    let dfx_port_healthy = dfx_port_healthy();
-    if !dfx_port_healthy {
+    let icp_network_healthy = icp_network_healthy();
+    if !icp_network_healthy {
         notes.push("Local replica TCP probe failed on port 4943".to_string());
     }
 
     Json(SystemReady {
-        ready: dfx_port_healthy,
+        ready: icp_network_healthy,
         gateway_port,
-        dfx_port_healthy,
+        icp_network_healthy,
         notes,
     })
 }
@@ -16207,9 +16392,9 @@ async fn get_system_brand_policy() -> axum::response::Response {
 }
 
 async fn get_system_status() -> Json<SystemStatus> {
-    let dfx_running = dfx_port_healthy();
+    let icp_cli_running = icp_network_healthy();
 
-    let version_output = dfx_command()
+    let version_output = icp_command()
         .arg("--version")
         .output()
         .ok()
@@ -16217,7 +16402,7 @@ async fn get_system_status() -> Json<SystemStatus> {
         .unwrap_or_else(|| "Unknown".to_string());
 
     Json(SystemStatus {
-        dfx_running,
+        icp_cli_running,
         version: version_output.trim().to_string(),
         replica_port: 4943, // Default local port
     })
@@ -17531,7 +17716,7 @@ async fn get_system_decision_telemetry_by_space(Path(space_id): Path<String>) ->
 }
 
 async fn list_canisters() -> Json<Vec<CanisterInfo>> {
-    let output = dfx_command()
+    let output = icp_command()
         .arg("canister")
         .arg("id")
         .arg("--all")
@@ -17544,7 +17729,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         for line in stdout.lines() {
             if let Some((name, id)) = line.split_once(":") {
                 // Check status for each (could be slow, maybe optimize later)
-                let status_output = dfx_command()
+                let status_output = icp_command()
                     .arg("canister")
                     .arg("status")
                     .arg(id.trim())
@@ -17571,7 +17756,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         }
     }
 
-    // Mock data if dfx is offline for UI testing
+    // Mock data if the local IC lane is offline for UI testing
     if canisters.is_empty() {
         canisters.push(CanisterInfo {
             name: "internet_identity (mock)".into(),
@@ -25082,6 +25267,58 @@ mod tests {
         assert_eq!(
             invalid_get_body["errorCode"],
             "INVALID_SPATIAL_EXPERIMENT_RUN_ID"
+        );
+    }
+
+    #[tokio::test]
+    async fn spatial_layout_roundtrip_persists_and_reads_back() {
+        let _lock = acquire_testing_env_lock();
+        let space_id = format!("meta-layout-{}", Utc::now().timestamp_millis());
+        let view_spec_id = "viewspec-spatial-layout".to_string();
+
+        let save_response = post_cortex_viewspec_spatial_layout(
+            Path((space_id.clone(), view_spec_id.clone())),
+            Json(SpatialPlaneLayoutV1 {
+                schema_version: "1.0.0".to_string(),
+                plane_id: "plane-1".to_string(),
+                view_spec_id: view_spec_id.clone(),
+                space_id: space_id.clone(),
+                revision: 1,
+                layout: SpatialPlaneLayoutState {
+                    shape_positions: BTreeMap::from([(
+                        "node-1".to_string(),
+                        SpatialPlaneLayoutPosition { x: 120.0, y: 80.0 },
+                    )]),
+                    collapsed_groups: BTreeMap::from([("group-1".to_string(), true)]),
+                },
+                lineage: SpatialPlaneLayoutLineage {
+                    view_spec_id: Some(view_spec_id.clone()),
+                    workflow_id: None,
+                    graph_hash: Some("graph-alpha".to_string()),
+                    space_id: Some(space_id.clone()),
+                    updated_by: "operator".to_string(),
+                    updated_at: "2026-04-01T00:00:00Z".to_string(),
+                },
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(save_response.status(), StatusCode::OK);
+        let save_body = response_json(save_response).await;
+        assert_eq!(save_body["accepted"], true);
+
+        let read_response =
+            get_cortex_viewspec_spatial_layout(Path((space_id.clone(), view_spec_id.clone())))
+                .await
+                .into_response();
+        assert_eq!(read_response.status(), StatusCode::OK);
+        let read_body = response_json(read_response).await;
+        assert_eq!(read_body["layout"]["spaceId"], space_id);
+        assert_eq!(read_body["layout"]["viewSpecId"], view_spec_id);
+        assert_eq!(read_body["layout"]["layout"]["shapePositions"]["node-1"]["x"], 120.0);
+        assert_eq!(
+            read_body["layout"]["layout"]["collapsedGroups"]["group-1"],
+            true
         );
     }
 

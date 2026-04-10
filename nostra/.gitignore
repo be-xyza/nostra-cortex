@@ -1,0 +1,11 @@
+# Local environment and generated canister state
+.env
+.dfx/
+.mops/
+
+# Generated runtime/build artifacts
+*.log
+*error*.txt
+*dump*.txt
+entities_*.txt
+canister_ids.json

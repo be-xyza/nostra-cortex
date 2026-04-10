@@ -1,4 +1,4 @@
-use crate::dfx::resolve_canister_id;
+use crate::ic::resolve_canister_id;
 use async_trait::async_trait;
 use candid::{CandidType, Decode, Encode, Principal};
 use cortex_runtime::RuntimeError;

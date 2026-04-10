@@ -938,7 +938,7 @@ where
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SessionNewParams {
     cwd: Option<String>,
     session_id: Option<String>,
@@ -947,7 +947,7 @@ struct SessionNewParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SessionLoadParams {
     session_id: String,
     #[serde(default, rename = "_meta")]
@@ -955,7 +955,7 @@ struct SessionLoadParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SessionPromptParams {
     session_id: String,
     prompt: String,
@@ -964,7 +964,7 @@ struct SessionPromptParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SessionCancelParams {
     session_id: String,
     #[serde(default, rename = "_meta")]
@@ -972,7 +972,7 @@ struct SessionCancelParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SessionSetConfigOptionParams {
     session_id: String,
     config_id: String,
@@ -982,7 +982,7 @@ struct SessionSetConfigOptionParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SessionRequestPermissionParams {
     session_id: String,
     tool_call_id: String,
@@ -996,7 +996,7 @@ struct SessionRequestPermissionParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TerminalCreateParams {
     session_id: String,
     command: String,
@@ -1011,7 +1011,7 @@ struct TerminalCreateParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TerminalOutputParams {
     terminal_id: String,
     limit: Option<usize>,
@@ -1020,7 +1020,7 @@ struct TerminalOutputParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TerminalWaitForExitParams {
     terminal_id: String,
     timeout_ms: Option<u64>,
@@ -1029,7 +1029,7 @@ struct TerminalWaitForExitParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TerminalKillParams {
     terminal_id: String,
     #[serde(default, rename = "_meta")]
@@ -1037,7 +1037,7 @@ struct TerminalKillParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TerminalReleaseParams {
     terminal_id: String,
     #[serde(default, rename = "_meta")]
@@ -1045,7 +1045,7 @@ struct TerminalReleaseParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MemFsWriteBlobParams {
     content: String,
     #[serde(default, rename = "_meta")]
@@ -1053,7 +1053,7 @@ struct MemFsWriteBlobParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MemFsReadBlobParams {
     oid: String,
     #[serde(default, rename = "_meta")]
@@ -1061,7 +1061,7 @@ struct MemFsReadBlobParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MemFsWriteTreeParams {
     tree: Tree,
     #[serde(default, rename = "_meta")]
@@ -1069,7 +1069,7 @@ struct MemFsWriteTreeParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MemFsReadTreeParams {
     oid: String,
     #[serde(default, rename = "_meta")]
@@ -1077,7 +1077,7 @@ struct MemFsReadTreeParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MemFsCommitParams {
     branch: String,
     tree_oid: String,
@@ -1088,7 +1088,7 @@ struct MemFsCommitParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MemFsBranchCreateParams {
     branch: String,
     commit_oid: String,
@@ -1097,7 +1097,7 @@ struct MemFsBranchCreateParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MemFsBranchResolveParams {
     branch: String,
     #[serde(default, rename = "_meta")]

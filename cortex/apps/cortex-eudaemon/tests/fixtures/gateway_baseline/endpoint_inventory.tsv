@@ -27,6 +27,10 @@ GET	/api/cortex/studio/heap/blocks
 GET	/api/cortex/studio/heap/blocks/:artifact_id/export
 GET	/api/cortex/studio/heap/blocks/:artifact_id/history
 GET	/api/cortex/studio/heap/changed_blocks
+GET	/api/cortex/studio/uploads/parser-profiles
+GET	/api/cortex/studio/uploads/:upload_id/extractions
+GET	/api/cortex/studio/uploads/:upload_id/extractions/:job_id
+GET	/api/cortex/studio/uploads/:upload_id/extraction
 GET	/api/cortex/views/capability-matrix
 GET	/api/cortex/viewspecs/:view_spec_id
 GET	/api/cortex/viewspecs/active
@@ -88,15 +92,16 @@ GET	/api/system/decision-telemetry/:space_id
 GET	/api/system/decision/telemetry
 GET	/api/system/execution-profile/:space_id
 GET	/api/system/governance-scope/:space_id
-GET	/api/system/llm-adapter/status
 GET	/api/system/local-gateway/queue
 GET	/api/system/local-gateway/queue/export
 GET	/api/system/logs/stream
 GET	/api/system/logs/streams
 GET	/api/system/logs/streams/:stream_id/tail
 GET	/api/system/mutation-gates/:space_id/:mutation_id
+GET	/api/system/provider-runtime/status
 GET	/api/system/ready
 GET	/api/system/replay-contract/:mutation_id
+GET	/api/system/session
 GET	/api/system/siq/coverage
 GET	/api/system/siq/dependency-closure
 GET	/api/system/siq/gates/latest
@@ -115,6 +120,7 @@ GET	/api/testing/runs/:run_id
 GET	/api/workflows
 GET	/api/workflows/catalog
 GET	/ws
+GET	/ws/chat
 GET	/ws/cortex/collab
 POST	/api/acp/fs/read_text_file
 POST	/api/acp/fs/write_text_file
@@ -157,6 +163,8 @@ POST	/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/apply
 POST	/api/cortex/studio/heap/blocks/:artifact_id/steward-gate/validate
 POST	/api/cortex/studio/heap/blocks/context
 POST	/api/cortex/studio/heap/emit
+POST	/api/cortex/studio/uploads
+POST	/api/cortex/studio/uploads/:upload_id/extract
 POST	/api/cortex/viewspecs/:view_spec_id/confidence/recompute
 POST	/api/cortex/viewspecs/:view_spec_id/fork
 POST	/api/cortex/viewspecs/:view_spec_id/propose
@@ -203,9 +211,9 @@ POST	/api/system/gates/emit-heap-block
 POST	/api/system/local-gateway/queue/:mutation_id/discard
 POST	/api/system/local-gateway/queue/:mutation_id/fork
 POST	/api/system/local-gateway/queue/:mutation_id/retry
+POST	/api/system/session/active-role
 POST	/api/workflow/read
 POST	/api/workflow/run
 POST	/api/workflow/save
 PUT	/api/cortex/preferences/theme-policy
 PUT	/api/spaces/:space_id/capability-graph
-GET	/ws/chat

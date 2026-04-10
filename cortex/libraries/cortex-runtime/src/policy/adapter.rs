@@ -68,7 +68,7 @@ impl AcpPolicyConfig {
             allowed_terminal_commands: HashSet::from_iter([
                 "cargo".to_string(),
                 "git".to_string(),
-                "dfx".to_string(),
+                "icp".to_string(),
                 "ls".to_string(),
                 "cat".to_string(),
             ]),

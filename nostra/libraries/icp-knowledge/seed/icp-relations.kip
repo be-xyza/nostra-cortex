@@ -1,0 +1,16 @@
+// ICP Core Relationships
+UPSERT {
+    CONCEPT ?icp_rel {
+        {type: "Relationship", name: "ICP_Architecture"}
+        @ "relates_to" "Internet Computer"
+        @ "extends" "Protocol"
+    }
+}
+
+UPSERT {
+    CONCEPT ?canister_rel {
+        {type: "Relationship", name: "Canister_Model"}
+        @ "implements" "Canister Smart Contract"
+        @ "relates_to" "Component"
+    }
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0.0",
+  "planeId": "plane-1",
+  "viewSpecId": "viewspec-spatial-layout",
+  "spaceId": "meta-layout-1775114442711",
+  "revision": 1,
+  "layout": {
+    "shapePositions": {
+      "node-1": {
+        "x": 120.0,
+        "y": 80.0
+      }
+    },
+    "collapsedGroups": {
+      "group-1": true
+    },
+    "viewState": {
+      "zoom": 1.15,
+      "panX": 32.0,
+      "panY": -18.0
+    },
+    "selectedShapeIds": [
+      "node-1"
+    ]
+  },
+  "lineage": {
+    "viewSpecId": "viewspec-spatial-layout",
+    "workflowId": null,
+    "graphHash": "graph-alpha",
+    "spaceId": "meta-layout-1775114442711",
+    "updatedBy": "operator",
+    "updatedAt": "2026-04-01T00:00:00Z"
+  }
+}

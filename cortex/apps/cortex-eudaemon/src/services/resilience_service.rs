@@ -22,8 +22,8 @@ impl ResilienceService {
     }
 
     pub async fn calculate_scores(&self) -> ResilienceReport {
-        let dfx_client = crate::services::dfx_client::DfxClient::new(None);
-        let replica_running = dfx_client.is_replica_running().await;
+        let ic_client = crate::services::ic_client::IcClient::new(None);
+        let replica_running = ic_client.is_replica_running().await;
         let gateway_probe = crate::gateway::runtime_host::local_gateway_probe();
         let breakdown = calculate(&ResilienceProbeInput {
             replica_running,

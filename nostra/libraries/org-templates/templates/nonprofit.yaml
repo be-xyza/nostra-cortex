@@ -1,0 +1,136 @@
+# Nonprofit Template
+# Mission-driven organization with board governance
+# Reference: research/027-workflow-builder-business-use-case/PLAN.md
+
+id: "nonprofit"
+name: "Nonprofit Organization"
+version: "1.0.0"
+description: "Template for nonprofits with board governance, volunteer management, and transparency features"
+
+structure:
+  type: "nonprofit"
+  governance_strategy: "member_vote"
+  
+governance_config:
+  quorum_percent: 51
+  approval_percent: 51
+  voting_period_days: 7
+  
+  board_config:
+    minimum_members: 3
+    maximum_members: 15
+    term_length_years: 2
+    
+  action_thresholds:
+    routine:
+      approval_percent: 51
+    
+    budget_approval:
+      approval_percent: 67
+      required_roles: ["Board Member"]
+    
+    bylaw_amendments:
+      approval_percent: 75
+      voting_period_days: 14
+
+default_roles:
+  - name: "Board Chair"
+    permissions:
+      - "manage_members"
+      - "manage_roles"
+      - "manage_schema"
+      - "create_proposals"
+      - "vote_on_proposals"
+      - "approve_proposals"
+      - "manage_workflows"
+      - "manage_finances"
+      - "view_all"
+      - "contribute"
+
+  - name: "Board Member"
+    permissions:
+      - "create_proposals"
+      - "vote_on_proposals"
+      - "manage_finances"
+      - "view_all"
+      - "contribute"
+
+  - name: "Executive Director"
+    description: "Chief executive officer of the organization"
+    permissions:
+      - "manage_members"
+      - "create_proposals"
+      - "manage_workflows"
+      - "view_all"
+      - "contribute"
+
+  - name: "Staff"
+    permissions:
+      - "view_all"
+      - "contribute"
+
+  - name: "Volunteer"
+    permissions:
+      - "view_all"
+      - "contribute"
+
+  - name: "Donor"
+    description: "Public view for transparency"
+    permissions:
+      - "view_all"
+
+suggested_workflows:
+  - "org-setup-wizard"
+  - "role-assignment"
+  - "decision-pipeline"
+  - "grant-application"    # Future
+  - "volunteer-onboarding" # Future
+  - "annual-report"        # Future
+
+space_config:
+  visibility: "public"  # Transparency requirement
+  
+  default_subspaces:
+    - name: "Board"
+      icon: "🏛️"
+      description: "Board meetings, votes, and governance"
+      visibility: "board_only"
+    
+    - name: "Programs"
+      icon: "🎯"
+      description: "Active programs and initiatives"
+    
+    - name: "Volunteers"
+      icon: "🙋"
+      description: "Volunteer coordination and scheduling"
+    
+    - name: "Fundraising"
+      icon: "💝"
+      description: "Campaigns, grants, and donor relations"
+    
+    - name: "Impact"
+      icon: "📊"
+      description: "Metrics, reports, and outcomes"
+      visibility: "public"
+
+transparency_features:
+  public_financials: true
+  annual_report_required: true
+  board_meeting_minutes: "public_summary"
+  
+  public_displays:
+    - "Mission statement"
+    - "Leadership team"
+    - "Annual budget summary"
+    - "Impact metrics"
+
+onboarding_message: |
+  Welcome to your Nonprofit on Nostra!
+  
+  Your organization prioritizes transparency and mission impact.
+  Board governance ensures accountability.
+  
+  Get started by:
+  1. Adding your board members
+  2. Setting up your programs
+  3. Creating your public impact dashboard

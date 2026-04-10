@@ -1,0 +1,29 @@
+#![allow(dead_code)]
+
+pub mod a2ui_lab;
+pub mod a2ui_validation;
+pub mod ag_ui_types;
+pub mod artifacts_editor;
+pub mod attested_lab;
+pub mod benchmark_runner_lab;
+pub mod compliance_validator_lab;
+pub mod components_lab;
+pub mod d3_lab;
+pub mod entities_lab;
+pub mod godot_bridge_lab;
+pub mod ingestion_lab;
+pub mod knowledge_workbench_lab;
+pub mod lab_card;
+pub mod lab_view;
+pub mod labs_grid;
+pub mod library;
+pub mod library_lab;
+pub mod map_lab;
+pub mod media_lab;
+pub mod registry;
+pub mod scheduler_lab;
+pub mod tempo_lab;
+pub mod types;
+pub mod ui_studio_lab;
+pub mod workflow_lab;
+pub mod zk_lab;

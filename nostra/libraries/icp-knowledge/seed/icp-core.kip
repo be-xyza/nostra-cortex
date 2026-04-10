@@ -1,0 +1,44 @@
+// Core ICP Entities
+UPSERT {
+    CONCEPT ?icp {
+        {type: "Protocol", name: "Internet Computer"}
+        SET ATTRIBUTES {
+            description: "World Computer blockchain network",
+            ticker: "ICP"
+        }
+        @ "belongs_to_domain" "ICPKnowledge"
+    }
+}
+
+UPSERT {
+    CONCEPT ?nns {
+        {type: "GovernanceSystem", name: "Network Nervous System"}
+        SET ATTRIBUTES {
+            description: "Algorithmic governance system of the Internet Computer"
+        }
+        @ "governs" "Internet Computer"
+        @ "belongs_to_domain" "ICPKnowledge"
+    }
+}
+
+UPSERT {
+    CONCEPT ?subnet {
+        {type: "Infrastructure", name: "Subnet Architecture"}
+        SET ATTRIBUTES {
+            description: "Independent blockchain running on a subset of nodes"
+        }
+        @ "shards" "Internet Computer"
+        @ "belongs_to_domain" "ICPKnowledge"
+    }
+}
+
+UPSERT {
+    CONCEPT ?canister {
+        {type: "Component", name: "Canister Smart Contract"}
+        SET ATTRIBUTES {
+            description: "Computational unit running WebAssembly"
+        }
+        @ "runs_on" "Subnet Architecture"
+        @ "belongs_to_domain" "ICPKnowledge"
+    }
+}

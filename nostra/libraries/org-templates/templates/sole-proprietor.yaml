@@ -1,0 +1,64 @@
+# Sole Proprietor Template
+# Single-owner business structure with full owner authority
+# Reference: research/027-workflow-builder-business-use-case/PLAN.md
+
+id: "sole-proprietor"
+name: "Sole Proprietorship"
+version: "1.0.0"
+description: "Template for single-owner businesses with streamlined governance"
+
+structure:
+  type: "sole_proprietor"
+  governance_strategy: "owner_dictator"
+  
+default_roles:
+  - name: "Owner"
+    auto_assign_founder: true
+    permissions:
+      - "manage_members"
+      - "manage_roles"
+      - "manage_schema"
+      - "create_proposals"
+      - "approve_proposals"
+      - "manage_workflows"
+      - "manage_finances"
+      - "view_all"
+      - "contribute"
+
+  - name: "Contractor"
+    description: "External contractors with limited access"
+    permissions:
+      - "view_all"
+      - "contribute"
+
+suggested_workflows:
+  - "org-setup-wizard"
+  - "role-assignment"
+  - "decision-pipeline"
+
+space_config:
+  visibility: "private"
+  allow_public_subspaces: true
+  
+  default_subspaces:
+    - name: "Projects"
+      icon: "📁"
+      description: "Active client projects and deliverables"
+    
+    - name: "Finances"
+      icon: "💰"
+      description: "Invoices, payments, and financial records"
+      visibility: "owner_only"
+    
+    - name: "Knowledge Base"
+      icon: "📚"
+      description: "Reference materials and documentation"
+
+onboarding_message: |
+  Welcome to your Sole Proprietorship on Nostra!
+  
+  As the owner, you have full control over all operations.
+  Get started by:
+  1. Setting up your client project workflow
+  2. Creating your first project space
+  3. Inviting contractors if needed

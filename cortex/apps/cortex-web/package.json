@@ -14,6 +14,9 @@
     "test:spatial": "node --experimental-strip-types --test tests/spatialReplay.test.ts tests/spatialMapper.test.ts tests/spatialEventContract.test.ts tests/heapApiContract.test.ts tests/capabilityGraphApiContract.test.ts tests/capabilityOverlayModel.test.ts tests/chatSocketContract.test.ts tests/shellNavigationModel.test.ts tests/requestScope.test.ts tests/brandPolicyApiContract.test.ts tests/brandLogoPolicy.test.ts",
     "test:spatial-playwright": "npx playwright test -c playwright.heap.config.ts tests/playwright/execution-canvas.spec.ts",
     "test:heap-renderer-contract": "node --experimental-strip-types --test tests/gateSummaryRendererContract.test.ts tests/dataTableContract.test.ts tests/navSectionsContract.test.ts",
+    "test:layout-playwright": "PLAYWRIGHT_BROWSER=chrome npx playwright test -c playwright.heap.config.ts tests/playwright/layout-catalogue.spec.ts tests/playwright/layout-registry.spec.ts",
+    "test:layout-playwright:chrome": "PLAYWRIGHT_BROWSER=chrome npx playwright test -c playwright.heap.config.ts tests/playwright/layout-catalogue.spec.ts tests/playwright/layout-registry.spec.ts",
+    "test:layout-playwright:webkit": "PLAYWRIGHT_BROWSER=webkit npx playwright test -c playwright.heap.config.ts tests/playwright/layout-catalogue.spec.ts tests/playwright/layout-registry.spec.ts",
     "test:heap-parity": "npx playwright test -c playwright.heap.config.ts tests/playwright/heap-parity.spec.ts",
     "test:workflow-playwright": "npx playwright test -c playwright.heap.config.ts tests/playwright/workflow-cockpit.spec.ts"
   },

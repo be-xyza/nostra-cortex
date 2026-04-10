@@ -1,5 +1,6 @@
 import { useState, useEffect, ReactNode, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
     LayoutGrid,
     Search,
@@ -11,30 +12,39 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     ChevronDown,
+    Bookmark,
     Mail,
     GitBranch,
     GitMerge,
     FileCode,
     Terminal,
-    Inbox,
     Compass,
+    MessagesSquare,
+    MoreHorizontal,
+    PencilLine,
+    Trash2,
 } from "lucide-react";
-import { ShellLayoutSpec, NavigationEntrySpec, CompiledNavigationPlan, WhoAmIResponse } from "../../contracts";
+import { ShellLayoutSpec, NavigationEntrySpec, CompiledNavigationPlan, AuthSession } from "../../contracts";
 import { gatewayBaseUrl, workbenchApi } from "../../api";
 import { useUiStore } from "../../store/uiStore";
 import { buildNavigationSections } from "./navSections";
 import { LayoutChangeToast } from "./LayoutChangeToast";
 import { useLayoutPreferences, type LayoutPreferences, EMPTY_PREFS } from "../../store/layoutPreferences.ts";
+import { useCustomViewsStore, type SavedCustomView } from "../../store/customViewsStore.ts";
 import { useActiveSpaceContext, useCanonicalActiveSpaces } from "../../store/spacesRegistry";
 import {
+    buildFallbackAuthSession,
     buildFallbackShellLayoutSpec,
-    buildFallbackWhoami,
     formatShellBootstrapWarning,
 } from "./shellBootstrapFallback.ts";
+import { resolveShellEntries } from "./shellNavigationModel.ts";
+import { appendShellUtilityEntries } from "./shellUtilityEntries.ts";
 import { GripVertical } from "lucide-react";
 import { WorkbenchNamingModal } from "./WorkbenchNamingModal";
 import { SpaceSelector } from "./SpaceSelector";
 import { RoleProfileSelector } from "./RoleProfileSelector";
+import { ExploreSavedViewModal } from "../heap/ExploreSavedViewModal";
+import { ConfirmActionModal } from "./ConfirmActionModal";
 
 interface ShellLayoutProps {
     children?: ReactNode;
@@ -44,20 +54,23 @@ interface ShellLayoutProps {
 const ICON_MAP: Record<string, React.ReactNode> = {
     "/": <LayoutGrid className="w-5 h-5" />,
     "/explore": <Compass className="w-5 h-5" />,
+    "/conversations": <MessagesSquare className="w-5 h-5" />,
     "/playground": <Activity className="w-5 h-5" />,
     "/spaces": <Search className="w-5 h-5" />,
     "/system": <ShieldAlert className="w-5 h-5" />,
     "/system/providers": <BrainCircuit className="w-5 h-5" />,
-    "/inbox": <Inbox className="w-5 h-5" />,
     "/workflows": <GitBranch className="w-5 h-5" />,
     "/contributions": <GitMerge className="w-5 h-5" />,
     "/artifacts": <FileCode className="w-5 h-5" />,
     "/logs": <Terminal className="w-5 h-5" />,
+    bookmark: <Bookmark className="w-5 h-5" />,
     "default": <LayoutGrid className="w-5 h-5" />,
 };
 
+const EMPTY_CUSTOM_VIEWS: SavedCustomView[] = [];
+
 function getIcon(entry: NavigationEntrySpec) {
-    return ICON_MAP[entry.routeId] || ICON_MAP[entry.label.toLowerCase()] || ICON_MAP["default"];
+    return ICON_MAP[entry.icon] || ICON_MAP[entry.routeId] || ICON_MAP[entry.label.toLowerCase()] || ICON_MAP["default"];
 }
 
 type ShellNavMode = "expanded" | "rail" | "hidden";
@@ -77,13 +90,16 @@ function normalizeRouteId(routeId: string): string {
     return routeId.startsWith("/") ? routeId : `/${routeId}`;
 }
 
-function resolveActiveRoute(pathname: string, entries: NavigationEntrySpec[]): string | null {
+function resolveActiveRoute(pathname: string, search: string, entries: NavigationEntrySpec[]): string | null {
+    const currentHref = `${pathname}${search}`;
     let bestMatch: string | null = null;
     for (const entry of entries) {
-        const routePath = normalizeRouteId(entry.routeId);
-        const matchesRoute = routePath === "/"
-            ? pathname === "/"
-            : pathname === routePath || pathname.startsWith(`${routePath}/`);
+      const routePath = normalizeRouteId(entry.routeId);
+        const matchesRoute = routePath.includes("?")
+            ? currentHref === routePath
+            : routePath === "/"
+                ? pathname === "/"
+                : pathname === routePath || pathname.startsWith(`${routePath}/`);
         if (!matchesRoute) {
             continue;
         }
@@ -94,12 +110,65 @@ function resolveActiveRoute(pathname: string, entries: NavigationEntrySpec[]): s
     return bestMatch;
 }
 
+function CustomViewActionsMenu({
+    view,
+    onRename,
+    onRemove,
+}: {
+    view: SavedCustomView;
+    onRename: (view: SavedCustomView) => void;
+    onRemove: (view: SavedCustomView) => void;
+}) {
+    return (
+        <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/8 bg-slate-950/55 text-white/45 opacity-0 shadow-sm shadow-black/20 transition hover:border-white/15 hover:bg-white/6 hover:text-white group-hover:opacity-100 group-focus-within:opacity-100"
+                    aria-label={`View actions for ${view.label}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <MoreHorizontal className="h-4 w-4" />
+                </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                    className="z-50 min-w-[170px] rounded-2xl border border-white/10 bg-[#0f172a] p-1.5 shadow-2xl shadow-black/40 backdrop-blur-xl"
+                    sideOffset={8}
+                    align="end"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <DropdownMenu.Label className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/35">
+                        Saved View
+                    </DropdownMenu.Label>
+                    <DropdownMenu.Item
+                        className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] text-white/72 outline-none transition hover:bg-white/5 hover:text-white"
+                        onClick={() => onRename(view)}
+                    >
+                        <PencilLine className="h-3.5 w-3.5" />
+                        <span>Rename</span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator className="my-1 h-px bg-white/5" />
+                    <DropdownMenu.Item
+                        className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] text-red-300/75 outline-none transition hover:bg-red-500/10 hover:text-red-200"
+                        onClick={() => onRemove(view)}
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Remove</span>
+                    </DropdownMenu.Item>
+                </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+    );
+}
+
 export function ShellLayout({ children }: ShellLayoutProps) {
     useCanonicalActiveSpaces();
     const [layoutSpec, setLayoutSpec] = useState<ShellLayoutSpec | null>(null);
     const [compiledPlan, setCompiledPlan] = useState<CompiledNavigationPlan | null>(null);
-    const [whoami, setWhoami] = useState<WhoAmIResponse | null>(null);
-    const [whoamiError, setWhoamiError] = useState<string | null>(null);
+    const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+    const [sessionError, setSessionError] = useState<string | null>(null);
     const [bootstrapWarning, setBootstrapWarning] = useState<string | null>(null);
     const dynamicNavEnabled =
         (((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_DYNAMIC_NAV_ENABLED as string | undefined) ?? "true").toLowerCase() !== "false";
@@ -123,8 +192,9 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const activeSpaceId = useActiveSpaceContext();
     const actorRoleEnv =
         (((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_ACTOR_ROLE as string | undefined) ?? "operator").trim() || "operator";
-    const actorRole = sessionUser?.role?.trim() || actorRoleEnv;
+    const actorRoleHint = sessionUser?.role?.trim() || actorRoleEnv;
     const actorId = sessionUser?.actorId?.trim() || "unknown";
+    const activeRole = authSession?.activeRole || actorRoleHint;
     const configuredGatewayTarget = gatewayBaseUrl().trim() || "same-origin /api proxy";
 
     useEffect(() => {
@@ -133,23 +203,25 @@ export function ShellLayout({ children }: ShellLayoutProps) {
 
     useEffect(() => {
         if (!sessionUser) return;
-        setWhoamiError(null);
+        setSessionError(null);
         void workbenchApi
-            .getWhoami(actorRole, actorId)
-            .then((payload) => setWhoami(payload))
+            .getSession(actorRoleHint, actorId)
+            .then((payload) => {
+                setAuthSession(payload);
+                if (sessionUser.role !== payload.activeRole) {
+                    setSessionUser({ actorId: sessionUser.actorId, role: payload.activeRole });
+                }
+            })
             .catch((err) => {
                 const message = err instanceof Error ? err.message : "unknown error";
-                setWhoamiError(message);
-                setWhoami(buildFallbackWhoami(actorId, actorRole));
+                const fallback = buildFallbackAuthSession(actorId, actorRoleHint);
+                setSessionError(message);
+                setAuthSession(fallback);
+                if (sessionUser.role !== fallback.activeRole) {
+                    setSessionUser({ actorId: sessionUser.actorId, role: fallback.activeRole });
+                }
             });
-    }, [sessionUser, actorRole, actorId]);
-
-    useEffect(() => {
-        if (!sessionUser || !whoami) return;
-        if (whoami.allowUnverifiedRoleHeader) return;
-        if (sessionUser.role === whoami.effectiveRole) return;
-        setSessionUser({ actorId: sessionUser.actorId, role: whoami.effectiveRole });
-    }, [sessionUser, whoami, setSessionUser]);
+    }, [sessionUser, actorRoleHint, actorId, setSessionUser]);
 
     useEffect(() => {
         const load = async () => {
@@ -159,7 +231,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                 setBootstrapWarning(null);
                 try {
                     const plan = await workbenchApi.getSpaceNavigationPlan(activeSpaceId, {
-                        actorRole,
+                        actorRole: activeRole,
                         intent: "navigate",
                         density: "comfortable"
                     });
@@ -177,7 +249,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
             }
         };
         void load();
-    }, [activeSpaceId, actorRole, configuredGatewayTarget]);
+    }, [activeRole, activeSpaceId, configuredGatewayTarget]);
 
     useEffect(() => {
         if (!dynamicNavEnabled) return;
@@ -233,29 +305,21 @@ export function ShellLayout({ children }: ShellLayoutProps) {
         useLayoutPreferences.getState().getPreferences(activeSpaceId);
     }, [activeSpaceId]);
 
-    const entries = useMemo(() => {
-        const baseEntries = (layoutSpec?.navigationGraph?.entries ?? [])
-            .filter((entry) => playgroundEnabled || entry.routeId !== "/playground")
-            .filter((entry) => normalizeRouteId(entry.routeId) !== "/spaces");
-        if (!compiledPlan?.entries?.length) {
-            return baseEntries;
-        }
-        const rankByRoute = new Map<string, number>();
-        for (const entry of compiledPlan.entries) {
-            rankByRoute.set(normalizeRouteId(entry.routeId), entry.rank);
-        }
-        const filtered = baseEntries.filter((entry) => rankByRoute.has(normalizeRouteId(entry.routeId)));
-        filtered.sort((left, right) => {
-            const leftRank = rankByRoute.get(normalizeRouteId(left.routeId)) ?? Number.MAX_SAFE_INTEGER;
-            const rightRank = rankByRoute.get(normalizeRouteId(right.routeId)) ?? Number.MAX_SAFE_INTEGER;
-            if (leftRank !== rightRank) {
-                return leftRank - rightRank;
-            }
-            return left.label.localeCompare(right.label);
-        });
-        return filtered;
-    }, [layoutSpec, playgroundEnabled, compiledPlan]);
-    const activeRoute = resolveActiveRoute(location.pathname, entries);
+    const entries = useMemo(
+        () =>
+            appendShellUtilityEntries(
+                resolveShellEntries({
+                    layoutSpec,
+                    compiledPlan,
+                    actorRole: activeRole,
+                    playgroundEnabled,
+                    preferBaseEntries:
+                        authSession?.authMode === "read_fallback",
+                }),
+            ),
+        [activeRole, authSession?.authMode, compiledPlan, layoutSpec, playgroundEnabled],
+    );
+    const activeRoute = resolveActiveRoute(location.pathname, location.search, entries);
     const totalBadgeCount = useMemo(
         () => entries.reduce((sum, entry) => sum + (entry.navMeta?.badgeCount || 0), 0),
         [entries]
@@ -268,12 +332,81 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const showRail = dynamicNavEnabled && !isMobile && navMode === "rail";
     const layoutPrefs = useLayoutPreferences((s) => s.cache[activeSpaceId] ?? EMPTY_PREFS);
     const stageChange = useLayoutPreferences((s) => s.stageChange);
+    const customViews = useCustomViewsStore((state) => state.cache[activeSpaceId] ?? EMPTY_CUSTOM_VIEWS);
+    const getCustomViews = useCustomViewsStore((state) => state.getViews);
+    const updateCustomView = useCustomViewsStore((state) => state.updateView);
+    const removeCustomView = useCustomViewsStore((state) => state.removeView);
     const [previewLayoutPrefs, setPreviewLayoutPrefs] = useState<LayoutPreferences | null>(null);
+    const [customViewRenameTarget, setCustomViewRenameTarget] = useState<SavedCustomView | null>(null);
+    const [customViewDeleteTarget, setCustomViewDeleteTarget] = useState<SavedCustomView | null>(null);
+
+    useEffect(() => {
+        getCustomViews(activeSpaceId);
+    }, [activeSpaceId, getCustomViews]);
+
+    const customViewByHref = useMemo(() => {
+        return new Map(customViews.map((view) => [view.href, view]));
+    }, [customViews]);
+
+    const handleRoleChange = async (role: string) => {
+        if (!authSession || role === authSession.activeRole) {
+            return;
+        }
+        try {
+            const nextSession = await workbenchApi.setActiveRole(role, activeSpaceId, actorId);
+            setAuthSession(nextSession);
+            setSessionUser({ actorId, role: nextSession.activeRole });
+            setSessionError(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "unknown error";
+            setSessionError(message);
+        }
+    };
 
     const navigationSections = useMemo(
-        () => buildNavigationSections(entries, compiledPlan, previewLayoutPrefs || layoutPrefs),
-        [entries, compiledPlan, layoutPrefs, previewLayoutPrefs]
+        () =>
+            buildNavigationSections(
+                entries,
+                compiledPlan,
+                previewLayoutPrefs || layoutPrefs,
+                customViews.length > 0
+                    ? [
+                        {
+                            slot: "custom_views",
+                            label: "Views",
+                            entries: customViews.map((view) => ({
+                                routeId: view.href,
+                                label: view.label,
+                                icon: "bookmark",
+                                category: "custom",
+                                requiredRole: "viewer",
+                                navSlot: "custom_views",
+                                navMeta: {
+                                    badgeTone: "info",
+                                },
+                            })),
+                        },
+                    ]
+                    : [],
+            ),
+        [compiledPlan, customViews, entries, layoutPrefs, previewLayoutPrefs]
     );
+
+    const handleRenameCustomView = (label: string) => {
+        if (!customViewRenameTarget) {
+            return;
+        }
+        updateCustomView(activeSpaceId, customViewRenameTarget.id, { label });
+        setCustomViewRenameTarget(null);
+    };
+
+    const handleRemoveCustomView = () => {
+        if (!customViewDeleteTarget) {
+            return;
+        }
+        removeCustomView(activeSpaceId, customViewDeleteTarget.id);
+        setCustomViewDeleteTarget(null);
+    };
 
     // Nav drag-and-drop handlers
     const [draggedNavItem, setDraggedNavItem] = useState<string | null>(null);
@@ -426,13 +559,14 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                         />
                         
                         <div className="relative flex items-center justify-center w-full">
-                            <RoleProfileSelector 
-                                whoami={whoami}
-                                sessionUser={sessionUser}
-                                setSessionUser={setSessionUser}
-                                collapsed={showRail}
-                                isCentered={true}
-                            />
+                            {authSession && (
+                                <RoleProfileSelector 
+                                    session={authSession}
+                                    onRoleChange={handleRoleChange}
+                                    collapsed={showRail}
+                                    isCentered={true}
+                                />
+                            )}
                             {!showRail && (
                                 <div className="absolute right-1 flex items-center gap-1.5">
                                     {attentionEntries.length > 0 && (
@@ -450,7 +584,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                         </div>
 
                         {!showRail && activeSpaceIds.length > 1 && (
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/5 border border-blue-500/10 animate-in fade-in duration-300">
+                            <div className="flex items-center gap-3 w-full p-3 rounded-xl transition-all duration-200 group hover:bg-white/5 active:scale-[0.98] relative">
                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                                 <span className="text-[9px] font-black uppercase tracking-wider text-blue-400 leading-none">
                                     {wasWorkbenchNamedManually ? "Live Session" : "Drafting Workbench"}
@@ -490,6 +624,9 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                 const badgeTone = entry.navMeta?.badgeTone || "default";
                                 const label = entry.label;
                                 const icon = getIcon(entry);
+                                const customView = section.slot === "custom_views" ? customViewByHref.get(entry.routeId) : null;
+                                const showCustomViewActions = Boolean(customView) && !showRail;
+                                const showPrimaryBadge = Boolean(customView && isActive && !showRail);
                                 return (
                                     <div
                                         key={entry.routeId}
@@ -502,7 +639,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                     >
                                         <Link
                                             to={routePath}
-                                            className={`nav-item flex items-center transition-all duration-200 pointer-events-auto ${showRail ? "justify-center p-3" : "gap-3 py-2.5 px-3 rounded-lg"} ${isActive ? "active text-blue-400 bg-blue-500/10 border border-white/5 shadow-md" : "text-cortex-ink-faint hover:text-cortex-50 hover:bg-cortex-surface-panel"}`}
+                                            className={`nav-item flex items-center transition-all duration-200 pointer-events-auto ${showRail ? "justify-center p-3" : `gap-3 py-2.5 px-3 rounded-lg ${showCustomViewActions ? "pr-16" : ""}`} ${isActive ? "active text-blue-400 bg-blue-500/10 border border-white/5 shadow-md" : "text-cortex-ink-faint hover:text-cortex-50 hover:bg-cortex-surface-panel"}`}
                                             title={label}
                                             aria-label={label}
                                             draggable={false}
@@ -511,13 +648,27 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                             }}
                                         >
                                             {!showRail && <GripVertical className="w-3 h-3 opacity-0 group-hover:opacity-40 transition-opacity shrink-0 cursor-grab active:cursor-grabbing" />}
-                                            <span className={`nav-icon shrink-0 flex items-center justify-center transition-transform duration-200 ${isActive ? "scale-110 opacity-100" : "opacity-70 group-hover:opacity-100"}`}>{icon}</span>
+                                            <span className={`nav-icon shrink-0 flex items-center justify-center transition-transform duration-200 w-8 h-8 rounded-lg bg-white/5 group-hover:bg-white/10 ${isActive ? "scale-110 opacity-100" : "opacity-70 group-hover:opacity-100"}`}>{icon}</span>
                                             {!showRail && <span className="nav-label text-[13px] font-medium tracking-wide">{label}</span>}
+                                            {showPrimaryBadge && (
+                                                <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-500/12 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                                                    Primary
+                                                </span>
+                                            )}
                                             {!showRail && badgeCount > 0 && (
                                                 <span className={`nav-badge ml-auto text-[9px] px-1.5 py-0.5 rounded-full ${badgeTone === "critical" ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-white/5 text-slate-400 border border-white/5"}`}>{badgeCount}</span>
                                             )}
                                             {!showRail && entry.navMeta?.attention && <span className="nav-attention-dot w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" aria-hidden="true" />}
                                         </Link>
+                                        {showCustomViewActions && customView && (
+                                            <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                                                <CustomViewActionsMenu
+                                                    view={customView}
+                                                    onRename={(view) => setCustomViewRenameTarget(view)}
+                                                    onRemove={(view) => setCustomViewDeleteTarget(view)}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -525,7 +676,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                     ))}
                 </nav>
             </aside>
-            <main className={`shell-main ${location.pathname.startsWith("/system") || location.pathname.startsWith("/heap") || location.pathname.startsWith("/spaces") || location.pathname.startsWith("/explore") || location.pathname.startsWith("/inbox") || location.pathname.startsWith("/drafts") || location.pathname.startsWith("/activity") || location.pathname.startsWith("/pinned") || location.pathname.startsWith("/archive") ? "shell-main--full" : ""}`}>
+            <main className={`shell-main ${location.pathname.startsWith("/system") || location.pathname.startsWith("/heap") || location.pathname.startsWith("/spaces") || location.pathname.startsWith("/explore") || location.pathname.startsWith("/drafts") || location.pathname.startsWith("/activity") || location.pathname.startsWith("/pinned") || location.pathname.startsWith("/archive") || location.pathname.startsWith("/artifacts") || location.pathname.startsWith("/workflows") || location.pathname.startsWith("/contributions") ? "shell-main--full" : ""}`}>
                 {dynamicNavEnabled && isMobile && !navVisible && (
                     <button
                         className="shell-main__menu-btn fixed top-4 left-4 z-40 bg-slate-900/80 backdrop-blur border border-white/5 p-2 rounded-lg text-slate-100 shadow-xl"
@@ -535,15 +686,17 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                         <Menu className="w-5 h-5" />
                     </button>
                 )}
-                {(bootstrapWarning || whoamiError) && (
+                {(bootstrapWarning || sessionError || authSession?.authMode === "read_fallback") && (
                     <div className="mx-4 mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-sm text-amber-100 shadow-[0_8px_32px_rgba(245,158,11,0.08)]">
                         <div className="font-medium">
-                            Running in local preview fallback mode
+                            {authSession?.authMode === "read_fallback"
+                                ? "Running in degraded read-fallback mode"
+                                : "Running in local preview fallback mode"}
                         </div>
                         <div className="mt-1 text-amber-100/80">
-                            {bootstrapWarning || formatShellBootstrapWarning(
+                            {bootstrapWarning || sessionError || formatShellBootstrapWarning(
                                 "identity",
-                                whoamiError || "unknown identity error",
+                                "Gateway identity session unavailable; viewer-scoped fallback is active.",
                                 configuredGatewayTarget,
                             )}
                         </div>
@@ -565,6 +718,30 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                         pendingWorkbenchAction();
                     }
                 }}
+            />
+            <ExploreSavedViewModal
+                isOpen={Boolean(customViewRenameTarget)}
+                onClose={() => setCustomViewRenameTarget(null)}
+                onConfirm={handleRenameCustomView}
+                initialLabel={customViewRenameTarget?.label ?? ""}
+                title="Rename saved view"
+                confirmLabel="Rename View"
+                placeholder="Research Overview"
+                description="Update the label for this saved sidebar view without changing its current route or settings."
+            />
+            <ConfirmActionModal
+                isOpen={Boolean(customViewDeleteTarget)}
+                onClose={() => setCustomViewDeleteTarget(null)}
+                onConfirm={handleRemoveCustomView}
+                title={customViewDeleteTarget?.label ?? "Remove saved view"}
+                confirmLabel="Remove View"
+                description={
+                    customViewDeleteTarget
+                        ? <>
+                            Remove <span className="font-semibold text-white">“{customViewDeleteTarget.label}”</span> from the sidebar. This only deletes the saved shortcut, not the underlying Explore data or settings.
+                          </>
+                        : "Remove this saved shortcut from the sidebar."
+                }
             />
         </div>
     );

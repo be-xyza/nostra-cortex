@@ -43,6 +43,8 @@ Nostra Cortex operates on a **polyglot stack** with two conceptual layers:
 > **Nostra** = Platform authority layer (data, contributions, governance; defines what exists)
 > **Cortex** = Execution runtime layer (workers, agents, workflows; defines how work runs)
 
+Execution infrastructure topology such as provider inventory, runtime hosts, auth bindings, discovery diagnostics, execution bindings, and resolved runtime status is not part of Nostra's authority model. These operator controls belong to Cortex and must not be treated as platform-authoritative or default-readable surfaces.
+
 1.  **Backend (The "Brain")**:
     *   **Canisters (Motoko/Rust)**: Core logic, storage, and indexers.
     *   **Execution Adapters (Rust)**: Handles durable execution through a Hybrid Workflow Authority (Initiative 134), executing `nostra-workflow-core` state machines natively off-chain for WASM compatibility rather than relying strictly on the official Temporal SDK. Serverless Workflow DSL is a deterministic projection, not the canonical loop.

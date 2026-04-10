@@ -1,0 +1,229 @@
+# Decision Pipeline Workflow
+# Structured process for organizational decision-making
+# Reference: research/027-workflow-builder-business-use-case/PLAN.md Phase 3.1
+
+id: "decision-pipeline"
+name: "Decision Pipeline"
+version: "1.0.0"
+description: "Transform discussions and polls into formal organizational decisions"
+
+intention: "I want to make a formal decision on a topic"
+
+triggers:
+  - type: manual
+    button_label: "Start Decision"
+    icon: "⚖️"
+  - type: on_entity_create
+    entity_type: "Poll"
+    condition: "poll.decision_binding == true"
+
+input_schema:
+  topic:
+    type: string
+    required: true
+    description: "Subject of the decision"
+  context_entities:
+    type: array
+    item_type: string
+    description: "Related entity IDs (Research, Ideas, etc.)"
+
+steps:
+  # Step 1: Draft Proposal
+  - id: "draft-proposal"
+    name: "Draft Proposal"
+    type: user_task
+    description: "Draft the decision proposal with options"
+    allowed_roles: ["Member", "Admin", "Owner"]
+    output_schema:
+      title: { type: string, required: true }
+      description: { type: string, required: true }
+      options:
+        type: array
+        item_type: object
+        items:
+          label: { type: string }
+          description: { type: string }
+      voting_period_days: { type: number, default: 7 }
+      quorum_percent: { type: number, default: 51 }
+    next_steps: ["ai-review"]
+
+  # Step 2: AI Review (Optional Enhancement)
+  - id: "ai-review"
+    name: "AI Analysis"
+    type: async_external_op
+    description: "AI agent analyzes proposal for clarity and completeness"
+    agent: "Analyst"
+    action: "reviewProposal"
+    payload_from_context:
+      - title
+      - description
+      - options
+      - context_entities
+    timeout_seconds: 60
+    output_schema:
+      clarity_score: { type: number }
+      suggestions: { type: array, item_type: string }
+      risk_flags: { type: array, item_type: string }
+    next_steps: ["refine-or-publish"]
+
+  # Step 3: Refine or Publish
+  - id: "refine-or-publish"
+    name: "Review AI Feedback"
+    type: branch
+    conditions:
+      - field: "clarity_score"
+        operator: less_than
+        value: "0.7"
+        target_step: "refine-proposal"
+    default_next: "create-poll"
+
+  - id: "refine-proposal"
+    name: "Refine Proposal"
+    type: user_task
+    description: "Address AI suggestions before publishing"
+    allowed_roles: ["Member", "Admin", "Owner"]
+    output_schema:
+      refined_description: { type: string }
+      addressed_suggestions: { type: array, item_type: string }
+    next_steps: ["create-poll"]
+
+  # Step 4: Create Poll
+  - id: "create-poll"
+    name: "Create Poll"
+    type: system_op
+    description: "Create voting poll for the proposal"
+    target: local
+    method: "execute_kip"
+    arguments_template: |
+      UPSERT {
+        CONCEPT ?poll {
+          {type: "Poll", name: "${title}"}
+          SET ATTRIBUTES {
+            description: "${description}",
+            options: ${options_json},
+            voting_ends: "${voting_end_date}",
+            quorum_percent: ${quorum_percent},
+            decision_binding: true
+          }
+          SET PROPOSITIONS {
+            ("decides_on", {type: "Decision", name: "${title}"})
+          }
+        }
+      }
+    output:
+      poll_id: "string"
+    next_steps: ["notify-voters"]
+
+  # Step 5: Notify Voters
+  - id: "notify-voters"
+    name: "Notify Members"
+    type: system_op
+    target: notification
+    method: "broadcast"
+    arguments_template:
+      org_id: "${org_id}"
+      roles: ["Member", "Admin", "Owner"]
+      message: "New decision vote: ${title}. Voting ends ${voting_end_date}."
+      action_url: "/polls/${poll_id}"
+    next_steps: ["await-voting-period"]
+
+  # Step 6: Wait for Voting Period
+  - id: "await-voting-period"
+    name: "Voting Period"
+    type: delay
+    duration_seconds_from: "voting_period_days * 86400"
+    next_step: "tally-votes"
+
+  # Step 7: Tally Votes
+  - id: "tally-votes"
+    name: "Tally Votes"
+    type: system_op
+    target: local
+    method: "tallyPollVotes"
+    arguments:
+      poll_id: "${poll_id}"
+    output:
+      winning_option: "string"
+      vote_count: "number"
+      participation_percent: "number"
+      quorum_met: "boolean"
+    next_steps: ["check-quorum"]
+
+  # Step 8: Check Quorum
+  - id: "check-quorum"
+    name: "Check Quorum"
+    type: branch
+    conditions:
+      - field: "quorum_met"
+        operator: equals
+        value: "true"
+        target_step: "create-decision"
+    default_next: "quorum-failed"
+
+  - id: "quorum-failed"
+    name: "Quorum Not Met"
+    type: system_op
+    target: notification
+    method: "broadcast"
+    arguments_template:
+      message: "Decision vote '${title}' did not reach quorum (${participation_percent}% of ${quorum_percent}% required)"
+    next_steps: []
+
+  # Step 9: Create Decision Record
+  - id: "create-decision"
+    name: "Create Decision"
+    type: system_op
+    description: "Create formal Decision entity from poll result"
+    target: local
+    method: "execute_kip"
+    arguments_template: |
+      UPSERT {
+        CONCEPT ?decision {
+          {type: "Decision", name: "${title}"}
+          SET ATTRIBUTES {
+            outcome: "${winning_option}",
+            vote_count: ${vote_count},
+            participation_percent: ${participation_percent},
+            decided_at: "${now_timestamp}",
+            rationale: "${description}"
+          }
+          SET PROPOSITIONS {
+            ("decided_via", {type: "Poll", id: "${poll_id}"})
+          }
+        }
+      }
+    next_steps: ["log-chronicle", "notify-result"]
+
+  # Step 10: Log Chronicle Event
+  - id: "log-chronicle"
+    name: "Log to Chronicle"
+    type: system_op
+    target: chronicle
+    method: "log"
+    arguments_template:
+      event_type: "decision_made"
+      affected_entities: ["${decision_id}", "${poll_id}"]
+      description: "Decision '${title}' passed with outcome: ${winning_option}"
+    next_steps: []
+
+  # Step 11: Notify Result
+  - id: "notify-result"
+    name: "Announce Result"
+    type: system_op
+    target: notification
+    method: "broadcast"
+    arguments_template:
+      org_id: "${org_id}"
+      message: "Decision made: ${title} → ${winning_option}"
+    next_steps: []
+
+outputs:
+  decision_id:
+    type: string
+    description: "ID of the created Decision entity"
+  poll_id:
+    type: string
+    description: "ID of the voting Poll"
+  outcome:
+    type: string
+    description: "The winning option"

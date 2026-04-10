@@ -1,0 +1,16 @@
+[package]
+name = "nostra_log_registry"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = "0.10"
+ic-cdk = "0.18"
+ic-cdk-macros = "0.18"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+time = "0.3"
+ic-stable-structures = "0.6"

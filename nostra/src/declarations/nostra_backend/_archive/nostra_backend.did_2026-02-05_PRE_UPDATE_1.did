@@ -1,0 +1,374 @@
+type WorkflowStep = 
+ record {
+   allowedRoles: vec AllowedRole;
+   id: text;
+   name: text;
+   nextSteps: vec text;
+   stepType: StepType;
+ };
+type WorkflowInstance = 
+ record {
+   context: vec record {
+                  text;
+                  text;
+                };
+   createdAt: int;
+   currentStepId: text;
+   definitionId: text;
+   history: vec HistoryEntry;
+   id: text;
+   loopState: opt RepeatState;
+   parallelState: opt ParallelState;
+   status: InstanceStatus;
+ };
+type WorkflowDefinition = 
+ record {
+   id: text;
+   name: text;
+   steps: vec WorkflowStep;
+   triggers: vec Trigger;
+ };
+
+type FlowNodePosition = 
+ record {
+   node_id: text;
+   x: int;
+   y: int;
+ };
+type FlowHandlePosition = 
+ record {
+   handle_id: text;
+   source: text;
+   target: text;
+ };
+type FlowLayoutInput = 
+ record {
+   workflow_id: text;
+   graph_version: text;
+   node_positions: vec FlowNodePosition;
+   handle_positions: vec FlowHandlePosition;
+   collapsed_groups: vec text;
+ };
+type FlowLayout = 
+ record {
+   workflow_id: text;
+   graph_version: text;
+   node_positions: vec FlowNodePosition;
+   handle_positions: vec FlowHandlePosition;
+   collapsed_groups: vec text;
+   updated_by: principal;
+   updated_at: nat64;
+ };
+type UserTask = 
+ record {
+   description: text;
+   outputSchema: text;
+ };
+type UserProfile = record {featureFlags: vec text;};
+type Trigger = 
+ variant {
+   manual;
+   on_entity_create;
+ };
+type TransitionGuard = 
+ record {
+   field: text;
+   operator: GuardOperator;
+   targetStep: text;
+   value: text;
+ };
+type SystemOp = 
+ record {
+   arguments: blob;
+   method: text;
+   target: variant {
+             canister: principal;
+             local;
+           };
+ };
+type StepType = 
+ variant {
+   async_external_op: AsyncExternalOp;
+   await_event: text;
+   branch: BranchConfig;
+   delay: DelayConfig;
+   parallel: ParallelConfig;
+   repeat_loop: RepeatConfig;
+   sequence;
+   system_op: SystemOp;
+   user_task: UserTask;
+ };
+type Role = 
+ variant {
+   admin;
+   editor;
+   viewer;
+ };
+type RepeatState = 
+ record {
+   currentIteration: nat;
+   loopId: text;
+   maxIterations: nat;
+ };
+type RepeatConfig = 
+ record {
+   bodySteps: vec text;
+   exitCondition: TransitionGuard;
+   maxIterations: nat;
+ };
+type Relationship = 
+ record {
+   bidirectional: bool;
+   creatorAddress: opt text;
+   creatorPrincipal: opt principal;
+   from: text;
+   libraryId: opt text;
+   timestamp: int;
+   to: text;
+   "type": text;
+ };
+type ParallelState = 
+ record {
+   activeSteps: vec text;
+   completedSteps: vec text;
+   forkId: text;
+   results: vec record {
+                  text;
+                  text;
+                };
+ };
+type ParallelConfig = 
+ record {
+   forkSteps: vec text;
+   joinStep: text;
+   joinType: JoinType;
+ };
+type LogSource = 
+ variant {
+   Agent: text;
+   Backend;
+   Frontend;
+ };
+type LogLevel = 
+ variant {
+   Critical;
+   Error;
+   Info;
+   Warn;
+ };
+type LogEntry = 
+ record {
+   context: opt vec record {
+                      text;
+                      text;
+                    };
+   id: text;
+   level: LogLevel;
+   message: text;
+   source: LogSource;
+   timestamp: int;
+ };
+type LibraryManifest = 
+ record {
+   description: text;
+   id: text;
+   license: opt text;
+   version: text;
+ };
+type Library = 
+ record {
+   dependencies: vec text;
+   description: text;
+   entities: vec Entity;
+   id: text;
+   relationships: vec Relationship;
+   version: text;
+   workflows: vec WorkflowDefinition;
+ };
+type KipResult = 
+ variant {
+   err: text;
+   ok: text;
+ };
+type JoinType = 
+ variant {
+   all;
+   any;
+ };
+type InstanceStatus = 
+ variant {
+   active;
+   completed;
+   failed: text;
+   waiting_for_external: ExternalRequest;
+ };
+type HistoryEntry = 
+ record {
+   action: text;
+   stepId: text;
+   timestamp: int;
+   user: principal;
+ };
+type GuardOperator = 
+ variant {
+   contains;
+   equals;
+   greater_than;
+   less_than;
+   not_equals;
+ };
+type ExternalRequest = 
+ record {
+   instanceId: text;
+   payload: vec record {
+                  text;
+                  text;
+                };
+   requestId: text;
+   startedAt: int;
+   stepId: text;
+ };
+type EntityType = 
+ variant {
+   component;
+   cryptoAsset;
+   cryptography;
+   developmentTool;
+   economy;
+   feature;
+   governanceSystem;
+   infrastructure;
+   model;
+   protocol;
+   security;
+ };
+type Entity = 
+ record {
+   attributes: vec record {
+                     text;
+                     text;
+                   };
+   creatorAddress: opt text;
+   creatorPrincipal: opt principal;
+   description: text;
+   entityType: EntityType;
+   id: text;
+   libraryId: opt text;
+   name: text;
+   tags: vec text;
+   timestamp: int;
+ };
+type DelayConfig = 
+ record {
+   durationSeconds: nat;
+   nextStep: text;
+ };
+type ChatMessageType = 
+ variant {
+   ai;
+   user;
+ };
+type ChatMessage = 
+ record {
+   content: text;
+   context: opt text;
+   messageType: ChatMessageType;
+   timestamp: int;
+ };
+type BranchConfig = 
+ record {
+   conditions: vec TransitionGuard;
+   defaultNext: opt text;
+ };
+type AsyncExternalOp = 
+ record {
+   payloadSchema: text;
+   requiredCapabilities: vec text;
+   timeoutSeconds: nat;
+ };
+type AllowedRole = 
+ variant {
+   any;
+   named: text;
+   permission: text;
+ };
+type WorkerConfig = 
+ record {
+   alg: opt text;
+   encVersion: opt nat;
+   keyId: opt text;
+   publicKey: blob;
+   registeredAt: int;
+   workerId: text;
+ };
+type KeyEntry = 
+ record {
+   alg: opt text;
+   encVersion: opt nat;
+   encryptedKey: blob;
+   ephemeralPubKey: opt blob;
+   id: text;
+   keyId: opt text;
+   keyLabel: text;
+   model: opt text;
+   scope: opt text;
+   createdAt: int;
+ };
+service : {
+  bootstrap: () -> (text);
+  addKey: (text, text, opt text, opt text, blob) -> ();
+  addKeyV2: (text, text, opt text, opt text, blob, opt blob, opt text, opt nat,
+   opt text) -> ();
+  /// Execute a single KIP command (KQL, KML, or META)
+  /// Returns JSON-formatted result or error message
+  execute_kip: (command: text) -> (KipResult) query;
+  /// Execute a batch of KIP commands
+  /// Returns array of results, one per command
+  execute_kip_batch: (commands: vec text) -> (vec KipResult) query;
+  /// Execute a mutating KIP command (UPSERT, DELETE)
+  /// This is a non-query function that can modify state
+  /// Execute a mutating KIP command (UPSERT, DELETE)
+  execute_kip_mutation: (command: text) -> (KipResult);
+  getAllEntities: () -> (vec Entity) query;
+  getAllRelationships: () -> (vec Relationship) query;
+  getAllWorkflowInstances: () -> (vec WorkflowInstance) query;
+  getFlowLayout: (text, opt text) -> (opt FlowLayout) query;
+  getFlowLayoutHistory: (text, opt text, opt nat) -> (vec FlowLayout) query;
+  getChatHistory: () -> (vec ChatMessage) query;
+  getEnabledLibraryIds: () -> (vec text) query;
+  getInstalledLibraries: () -> (vec LibraryManifest) query;
+  getLogs: (_filter_source: opt LogSource, _filter_level: opt LogLevel,
+   limit: nat) -> (vec LogEntry) query;
+  getMyKeys: (opt text) -> (vec KeyEntry) query;
+  getMyProfile: () -> (UserProfile);
+  getPendingTasks: (role: text) -> (vec ExternalRequest) query;
+  getSystemStatus: () -> (text);
+  getUserKeys: (principal, opt text) -> (vec KeyEntry) query;
+  getUserRoles: (user: principal) -> (vec Role) query;
+  getWorkerConfig: () -> (opt WorkerConfig) query;
+  getWorkerKey: () -> (opt blob) query;
+  grantRole: (user: principal, role: Role) -> ();
+  installLibrary: (lib: Library) -> ();
+  install_library_kip: (manifestJson: text, capsules:
+   vec record {
+         text;
+         text;
+       }) -> (text);
+  processAIQuery: (input: text) -> (text);
+  registerWorker: (blob) -> ();
+  registerWorkerV2: (blob, opt text, opt text, opt nat) -> ();
+  recordLegacyKeyUsage: (principal, text, text) -> (bool);
+  revokeRole: (user: principal, role: Role) -> ();
+  updateKeyV2ForUser: (principal, text, blob, opt blob, opt text, opt nat,
+   opt text) -> (bool);
+  removeKey: (text) -> ();
+  setFeatureFlag: (flag: text, enabled: bool) -> ();
+  submitLog: (source: LogSource, level: LogLevel, message: text, context:
+   opt vec record {
+             text;
+             text;
+           }) -> ();
+  submitTaskOutcome: (instId: text, stepId: text, outcome: text) -> (text);
+  setFlowLayout: (FlowLayoutInput) -> (FlowLayout);
+  toggleLibrary: (libId: text, enabled: bool) -> ();
+}

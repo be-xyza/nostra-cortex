@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isPreviewFixturesEnabledMode, normalizeRegistryMode, syncPreviewFixturesState } from "../shared/previewFixtures.ts";
 
 export type GraphVariant = "off" | "2d" | "3d";
 export type MotionStyle = "static" | "drift" | "orbit";
@@ -27,15 +28,22 @@ const DEFAULT_PREFS: UserPreferences = {
     ambientGraphMotion: "drift",
     reduceMotion: false,
     theme: "default",
-    registryMode: "auto",
+    registryMode: "live",
 };
 
 function readFromStorage(): UserPreferences {
     if (typeof window === "undefined") return DEFAULT_PREFS;
     try {
         const raw = window.localStorage.getItem(STORAGE_KEY);
-        return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+        const parsed = raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+        const normalized = {
+            ...parsed,
+            registryMode: normalizeRegistryMode(parsed.registryMode),
+        };
+        syncPreviewFixturesState(isPreviewFixturesEnabledMode(normalized.registryMode));
+        return normalized;
     } catch {
+        syncPreviewFixturesState(false);
         return DEFAULT_PREFS;
     }
 }
@@ -43,7 +51,12 @@ function readFromStorage(): UserPreferences {
 function writeToStorage(prefs: UserPreferences): void {
     if (typeof window === "undefined") return;
     try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+        const normalized = {
+            ...prefs,
+            registryMode: normalizeRegistryMode(prefs.registryMode),
+        };
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+        syncPreviewFixturesState(isPreviewFixturesEnabledMode(normalized.registryMode));
     } catch {
         // ignore storage failures
     }
@@ -69,8 +82,8 @@ export const useUserPreferences = create<UserPreferencesState>((set, get) => ({
         writeToStorage({ ...get() });
     },
     setRegistryMode: (mode) => {
-        set({ registryMode: mode });
-        writeToStorage({ ...get() });
+        const registryMode = normalizeRegistryMode(mode);
+        set({ registryMode });
+        writeToStorage({ ...get(), registryMode });
     },
 }));
-

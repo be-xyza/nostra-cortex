@@ -1,0 +1,14 @@
+UPSERT {
+    CONCEPT ?component_type {
+        {type: "$ConceptType", name: "Component"}
+        SET ATTRIBUTES {
+            description: "A functional building block (Canister, Wasm Module)",
+            archetype: "concept",
+            version: "1.0.0"
+        }
+        SET PROPOSITIONS {
+            ("belongs_to_domain", {type: "Domain", name: "ICPKnowledge"})
+        }
+    }
+}
+WITH METADATA { source: "icp-core", author: "$system" }

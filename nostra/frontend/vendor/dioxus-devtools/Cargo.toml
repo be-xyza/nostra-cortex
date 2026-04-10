@@ -1,0 +1,7 @@
+[package]
+name = "dioxus-devtools"
+version = "0.7.3"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

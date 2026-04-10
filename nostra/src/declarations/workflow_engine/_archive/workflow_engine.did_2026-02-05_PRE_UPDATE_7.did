@@ -1,0 +1,107 @@
+type FileMetadata = record {
+  mime_type: text;
+  size: nat64;
+  last_modified: nat64;
+};
+
+type ListEntry = record { text; FileMetadata };
+
+type Result = variant { Ok: null; Err: text };
+type ResultBytes = variant { Ok: vec nat8; Err: text };
+type ResultText = variant { Ok: text; Err: text };
+type ResultList = variant { Ok: vec ListEntry; Err: text };
+
+type ContributionVersionRef = record { contribution_id: text; version_hash: text };
+type ChapterManifest = record {
+  index: nat32;
+  contribution_ref: ContributionVersionRef;
+  content_hash: text;
+  title: text;
+};
+type EditionMetadata = record { license: text };
+type EditionManifest = record {
+  edition_id: text;
+  dpub_id: text;
+  version: text;
+  name: opt text;
+  content_root: text;
+  chapters: vec ChapterManifest;
+  published_at: text;
+  publisher: text;
+  previous_edition: opt text;
+  metadata: EditionMetadata;
+};
+
+type ResultEdition = variant { Ok: EditionManifest; Err: text };
+
+// Flow Graph + Workbench
+type FlowNode = record {
+  id: text;
+  name: text;
+  "type": text;
+  schema_ref: opt text;
+  file_ref: opt text;
+  language: opt text;
+  tags: vec text;
+  flows: vec text;
+};
+type FlowEdge = record {
+  id: text;
+  source: text;
+  target: text;
+  topic: opt text;
+  "variant": text;
+  conditional: opt bool;
+};
+type FlowGraph = record {
+  id: text;
+  workflow_id: text;
+  version: text;
+  generated_at: nat64;
+  nodes: vec FlowNode;
+  edges: vec FlowEdge;
+};
+type FlowNodePosition = record { node_id: text; x: int; y: int };
+type FlowHandlePosition = record { handle_id: text; source: text; target: text };
+type FlowLayoutInput = record {
+  workflow_id: text;
+  graph_version: text;
+  node_positions: vec FlowNodePosition;
+  handle_positions: vec FlowHandlePosition;
+  collapsed_groups: vec text;
+};
+type FlowLayout = record {
+  workflow_id: text;
+  graph_version: text;
+  node_positions: vec FlowNodePosition;
+  handle_positions: vec FlowHandlePosition;
+  collapsed_groups: vec text;
+  updated_by: principal;
+  updated_at: nat64;
+};
+type ResultFlowGraph = variant { Ok: FlowGraph; Err: text };
+type ResultFlowLayout = variant { Ok: FlowLayout; Err: text };
+
+service : {
+  start_workflow: (text) -> (text);
+  process_message: (text) -> (text);
+  get_workflow: (text) -> (opt text) query;
+
+  // Flow Graph
+  get_flow_graph: (text, opt text) -> (ResultFlowGraph) query;
+  get_flow_layout: (text, opt text) -> (ResultFlowLayout) query;
+  set_flow_layout: (FlowLayoutInput) -> (ResultFlowLayout);
+
+  // VFS
+  write_file: (text, vec nat8, text) -> (Result);
+  read_file: (text) -> (ResultBytes) query;
+  list_files: (text) -> (vec ListEntry) query;
+  read_dpub_file_guarded: (text, opt text, opt text) -> (ResultBytes) query;
+  list_dpub_files_guarded: (text, opt text, opt text) -> (ResultList) query;
+  read_vfs_guarded: (text, opt text, opt text) -> (ResultBytes) query;
+  list_vfs_guarded: (text, opt text, opt text) -> (ResultList) query;
+
+  // dPub V1
+  publish_dpub_edition: (text, text, opt text, opt text) -> (ResultEdition);
+  get_dpub_feed: (text, nat32, opt text, opt text) -> (ResultText) query;
+}

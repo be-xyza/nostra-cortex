@@ -1,0 +1,152 @@
+# DAO Template
+# Decentralized Autonomous Organization with token-weighted governance
+# Reference: research/027-workflow-builder-business-use-case/PLAN.md
+
+id: "dao"
+name: "Decentralized Autonomous Organization"
+version: "1.0.0"
+description: "Template for DAOs with token-weighted voting, treasury management, and on-chain execution"
+
+structure:
+  type: "dao"
+  governance_strategy: "token_weighted"
+  
+governance_config:
+  quorum_percent: 10  # Lower for token-weighted
+  approval_percent: 51
+  voting_period_days: 5
+  
+  token_config:
+    token_standard: "ICRC-1"
+    token_symbol: "${org_symbol}"
+    initial_supply: 1000000
+    decimals: 8
+    
+  voting_power:
+    calculation: "one_token_one_vote"
+    delegation_enabled: true
+    quadratic_option: false  # Can be enabled
+    
+  proposal_config:
+    min_tokens_to_propose: 1000
+    proposal_deposit: 100
+    deposit_return: "on_execution_or_rejection"
+  
+  timelock:
+    enabled: true
+    delay_seconds: 172800  # 48 hours
+
+default_roles:
+  - name: "Core Team"
+    description: "Founding team with operational access"
+    permissions:
+      - "manage_members"
+      - "manage_roles"
+      - "manage_schema"
+      - "create_proposals"
+      - "vote_on_proposals"
+      - "manage_workflows"
+      - "view_all"
+      - "contribute"
+
+  - name: "Token Holder"
+    description: "Any token holder"
+    permissions:
+      - "create_proposals"
+      - "vote_on_proposals"
+      - "view_all"
+      - "contribute"
+
+  - name: "Delegate"
+    description: "Token holder with delegated voting power"
+    permissions:
+      - "vote_on_proposals"
+      - "view_all"
+      - "contribute"
+
+  - name: "Community"
+    description: "Non-token holders"
+    permissions:
+      - "view_all"
+      - "contribute"
+
+suggested_workflows:
+  - "org-setup-wizard"
+  - "role-assignment"
+  - "decision-pipeline"
+  - "treasury-proposal"    # Spend from treasury
+  - "token-distribution"   # Airdrops, grants
+  - "delegation-manager"   # Manage voting delegation
+
+space_config:
+  visibility: "public"
+  
+  default_subspaces:
+    - name: "Governance"
+      icon: "🗳️"
+      description: "Proposals, voting, and governance discussions"
+      visibility: "public"
+    
+    - name: "Treasury"
+      icon: "🏦"
+      description: "Treasury management and financial proposals"
+      visibility: "public"
+    
+    - name: "Development"
+      icon: "⚡"
+      description: "Protocol development and technical discussions"
+    
+    - name: "Community"
+      icon: "🌐"
+      description: "Community discussions and coordination"
+      visibility: "public"
+    
+    - name: "Grants"
+      icon: "🎁"
+      description: "Grant proposals and funded projects"
+
+treasury_config:
+  multi_sig_threshold: 3
+  multi_sig_signers: 5
+  
+  spending_limits:
+    small:
+      max_amount: 1000
+      approval: "core_team"
+    
+    medium:
+      max_amount: 10000
+      approval: "token_vote"
+      quorum: 5
+    
+    large:
+      max_amount: null  # No limit
+      approval: "token_vote"
+      quorum: 10
+      voting_period_days: 7
+
+transparency_features:
+  public_treasury: true
+  public_proposals: true
+  public_voting: true
+  
+  dashboards:
+    - "Token distribution"
+    - "Treasury balance"
+    - "Active proposals"
+    - "Voting participation"
+    - "Delegate rankings"
+
+onboarding_message: |
+  Welcome to your DAO on Nostra!
+  
+  Your organization uses token-weighted governance.
+  Key settings:
+  - Quorum: ${governance_config.quorum_percent}%
+  - Min tokens to propose: ${governance_config.proposal_config.min_tokens_to_propose}
+  - Timelock: ${governance_config.timelock.delay_seconds / 3600} hours
+  
+  Get started by:
+  1. Configuring your governance token
+  2. Distributing initial tokens to founders
+  3. Creating your first governance proposal

@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "apps/cortex-desktop",
+  "frontend",
   "libraries/cortex-domain",
   "libraries/cortex-runtime",
   "libraries/cortex-ic-adapter",

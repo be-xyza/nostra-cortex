@@ -1,0 +1,61 @@
+// OrgProfile: Organization Profile Entity Type
+// Defines the core attributes for an organization operating on Nostra
+
+UPSERT {
+  CONCEPT ?org_profile {
+    {type: "$ConceptType", name: "OrgProfile"}
+    SET ATTRIBUTES {
+      description: "Profile representing an organization (business, nonprofit, DAO) on Nostra",
+      phase: "operational",
+      instance_schema: {
+        "name": { 
+          "type": "string", 
+          "is_required": true,
+          "description": "Legal or operating name of the organization"
+        },
+        "mission": { 
+          "type": "string",
+          "description": "Mission statement or purpose"
+        },
+        "structure": { 
+          "type": "string",
+          "enum": ["sole_proprietor", "llc", "corporation", "nonprofit", "cooperative", "dao"],
+          "is_required": true,
+          "description": "Organizational structure type"
+        },
+        "governance_strategy": {
+          "type": "string",
+          "enum": ["owner_dictator", "member_vote", "multi_sig", "token_weighted"],
+          "default": "owner_dictator",
+          "description": "How decisions are made"
+        },
+        "founding_date": {
+          "type": "string",
+          "format": "date",
+          "description": "When the organization was established"
+        },
+        "founders": {
+          "type": "array",
+          "item_type": "string",
+          "description": "Principal IDs of founding members"
+        },
+        "website": {
+          "type": "string",
+          "format": "uri",
+          "description": "External website URL"
+        },
+        "social_links": {
+          "type": "object",
+          "description": "Social media handles"
+        }
+      }
+      SET PROPOSITIONS { 
+        ("belongs_to_domain", {type: "Domain", name: "OrgTemplates"})
+      }
+    }
+  }
+}
+WITH METADATA { 
+  source: "nostra-org-templates-library", 
+  confidence: 1.0 
+}

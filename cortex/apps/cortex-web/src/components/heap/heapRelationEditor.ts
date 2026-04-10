@@ -38,12 +38,16 @@ export function buildHeapRelationUpsertRequest({
   agentId = "cortex-web",
 }: BuildHeapRelationUpsertRequestArgs): EmitHeapBlockRequest {
   const surface = (block.surfaceJson ?? {}) as Record<string, unknown>;
+  const projection = block.projection as unknown as Record<string, unknown>;
+  const projectionWorkspaceId =
+    typeof projection.workspaceId === "string" ? projection.workspaceId : undefined;
 
   return {
     schema_version: "1.0.0",
     mode: "heap",
     space_id:
       block.projection.spaceId
+      ?? projectionWorkspaceId
       ?? (typeof surface.space_id === "string" ? surface.space_id : ""),
     source: {
       agent_id: agentId,

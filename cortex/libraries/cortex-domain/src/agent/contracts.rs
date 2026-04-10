@@ -130,6 +130,26 @@ pub struct AgentExecutionRecord {
     #[serde(default)]
     pub model_fingerprint: Option<String>,
     #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub auth_mode: Option<String>,
+    #[serde(default)]
+    pub response_id: Option<String>,
+    #[serde(default)]
+    pub prompt_template_artifact_id: Option<String>,
+    #[serde(default)]
+    pub prompt_template_revision_id: Option<String>,
+    #[serde(default)]
+    pub prompt_execution_artifact_id: Option<String>,
+    #[serde(default)]
+    pub parent_run_id: Option<String>,
+    #[serde(default)]
+    pub child_run_ids: Vec<String>,
+    #[serde(default)]
+    pub provider_trace_summary: Option<Value>,
+    #[serde(default)]
     pub tool_state_hash: Option<String>,
     #[serde(default)]
     pub confidence: Option<f64>,
@@ -238,6 +258,26 @@ pub struct TemporalBridgeRunSnapshot {
     #[serde(default)]
     pub authority_outcome: Option<AuthorityExecutionOutcome>,
     #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub auth_mode: Option<String>,
+    #[serde(default)]
+    pub response_id: Option<String>,
+    #[serde(default)]
+    pub prompt_template_artifact_id: Option<String>,
+    #[serde(default)]
+    pub prompt_template_revision_id: Option<String>,
+    #[serde(default)]
+    pub prompt_execution_artifact_id: Option<String>,
+    #[serde(default)]
+    pub parent_run_id: Option<String>,
+    #[serde(default)]
+    pub child_run_ids: Vec<String>,
+    #[serde(default)]
+    pub provider_trace_summary: Option<Value>,
+    #[serde(default)]
     pub provider_trace: Option<Value>,
     pub approval_timeout_seconds: u64,
     pub terminal: bool,
@@ -292,6 +332,26 @@ pub struct AgentRun {
     #[serde(default)]
     pub stream_channel: Option<String>,
     #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub auth_mode: Option<String>,
+    #[serde(default)]
+    pub response_id: Option<String>,
+    #[serde(default)]
+    pub prompt_template_artifact_id: Option<String>,
+    #[serde(default)]
+    pub prompt_template_revision_id: Option<String>,
+    #[serde(default)]
+    pub prompt_execution_artifact_id: Option<String>,
+    #[serde(default)]
+    pub parent_run_id: Option<String>,
+    #[serde(default)]
+    pub child_run_ids: Vec<String>,
+    #[serde(default)]
+    pub provider_trace_summary: Option<Value>,
+    #[serde(default)]
     pub simulation: Option<Value>,
     #[serde(default)]
     pub surface_update: Option<Value>,
@@ -341,6 +401,16 @@ mod tests {
             timestamp: "2026-02-24T00:00:00Z".to_string(),
             space_id: None,
             model_fingerprint: None,
+            provider: None,
+            model: None,
+            auth_mode: None,
+            response_id: None,
+            prompt_template_artifact_id: None,
+            prompt_template_revision_id: None,
+            prompt_execution_artifact_id: None,
+            parent_run_id: None,
+            child_run_ids: Vec::new(),
+            provider_trace_summary: None,
             tool_state_hash: None,
             confidence: None,
             promotion_level: None,
@@ -355,6 +425,9 @@ mod tests {
         assert_eq!(encoded["schemaVersion"], "1.0.0");
         assert_eq!(encoded["authorityScope"], "l1");
         assert!(encoded.get("modelFingerprint").is_some());
+        assert!(encoded.get("provider").is_some());
+        assert!(encoded.get("promptTemplateArtifactId").is_some());
+        assert!(encoded.get("childRunIds").is_some());
     }
 
     #[test]

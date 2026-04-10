@@ -1,0 +1,159 @@
+# Org Setup Wizard Workflow
+# Guides users through complete organization creation on Nostra
+# Reference: research/027-workflow-builder-business-use-case/RESEARCH.md
+
+id: "org-setup-wizard"
+name: "Organization Setup Wizard"
+version: "1.0.0"
+description: "Step-by-step guided workflow to create and configure a new organization Space on Nostra"
+
+intention: "I want to create a new organization on Nostra"
+
+triggers:
+  - type: manual
+    button_label: "Create Organization"
+    icon: "🏢"
+
+input_schema:
+  org_name:
+    type: string
+    required: true
+    description: "Organization name"
+  structure:
+    type: string
+    required: true
+    enum: ["sole_proprietor", "llc", "corporation", "nonprofit", "cooperative", "dao"]
+    description: "Organizational structure"
+
+# Wizard Steps
+steps:
+  # Step 1: Collect Basic Info
+  - id: "collect-info"
+    name: "Organization Details"
+    type: user_task
+    description: "Enter your organization's basic information"
+    allowed_roles: ["any"]
+    output_schema:
+      org_name: { type: string, required: true }
+      mission: { type: string }
+      structure: { type: string, required: true }
+      website: { type: string }
+    next_steps: ["select-governance"]
+
+  # Step 2: Select Governance Model
+  - id: "select-governance"
+    name: "Governance Model"
+    type: user_task
+    description: "Choose how decisions will be made in your organization"
+    allowed_roles: ["any"]
+    output_schema:
+      governance_strategy:
+        type: string
+        required: true
+        enum: ["owner_dictator", "member_vote", "multi_sig", "token_weighted"]
+        default_for:
+          sole_proprietor: "owner_dictator"
+          llc: "member_vote"
+          nonprofit: "member_vote"
+          dao: "token_weighted"
+    next_steps: ["add-founders"]
+
+  # Step 3: Add Founding Members
+  - id: "add-founders"
+    name: "Founding Members"
+    type: user_task
+    description: "Add the founding members of your organization"
+    allowed_roles: ["any"]
+    output_schema:
+      founders:
+        type: array
+        item_type: object
+        items:
+          principal_id: { type: string }
+          name: { type: string }
+          initial_role: { type: string, enum: ["Owner", "Admin", "Member"] }
+    next_steps: ["create-space"]
+
+  # Step 4: Create the Organization Space
+  - id: "create-space"
+    name: "Create Organization Space"
+    type: system_op
+    description: "System creates the organization Space with configured governance"
+    target: local
+    method: "createOrgSpace"
+    arguments_from_context:
+      - org_name
+      - mission
+      - structure
+      - governance_strategy
+      - founders
+    output_contribution:
+      type: "Space"
+      template: |
+        {
+          "name": "${org_name}",
+          "space_type": "organization",
+          "governance": "${governance_strategy}",
+          "metadata": {
+            "structure": "${structure}",
+            "mission": "${mission}"
+          }
+        }
+    next_steps: ["create-org-profile"]
+
+  # Step 5: Create OrgProfile Entity
+  - id: "create-org-profile"
+    name: "Create Organization Profile"
+    type: system_op
+    description: "Create the OrgProfile entity in the knowledge graph"
+    target: local
+    method: "execute_kip"
+    arguments_template: |
+      UPSERT {
+        CONCEPT ?org {
+          {type: "OrgProfile", name: "${org_name}"}
+          SET ATTRIBUTES {
+            mission: "${mission}",
+            structure: "${structure}",
+            governance_strategy: "${governance_strategy}",
+            founding_date: "${now_date}",
+            founders: ${founders_array}
+          }
+        }
+      }
+      WITH METADATA { source: "org-setup-wizard", confidence: 1.0 }
+    next_steps: ["assign-roles"]
+
+  # Step 6: Assign Founder Roles
+  - id: "assign-roles"
+    name: "Assign Roles to Founders"
+    type: system_op
+    description: "Assign initial roles to founding members via governance"
+    target: governance_host
+    method: "assignRoles"
+    arguments_from_context:
+      - founders
+    next_steps: ["setup-complete"]
+
+  # Step 7: Completion
+  - id: "setup-complete"
+    name: "Setup Complete"
+    type: user_task
+    description: "Review your organization setup and explore your new Space"
+    allowed_roles: ["any"]
+    display_summary: true
+    output_schema:
+      review_confirmed: { type: boolean, default: true }
+    next_steps: []  # Terminal step
+
+# Outputs produced by this workflow
+outputs:
+  space_id:
+    type: string
+    description: "ID of the created organization Space"
+  org_profile_id:
+    type: string
+    description: "ID of the OrgProfile entity"
+  governance_config:
+    type: object
+    description: "Applied governance configuration"

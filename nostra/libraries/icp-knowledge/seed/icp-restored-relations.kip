@@ -1,0 +1,74 @@
+// Restored rich ICP relationships
+UPSERT { CONCEPT ?rel_1 { {type: "Relationship", name: "icp_composed_of"} @ "composed_of" "Subnet" @ "relates_to" "Internet Computer" } }
+UPSERT { CONCEPT ?rel_2 { {type: "Relationship", name: "subnet_consists_of"} @ "consists_of" "Node" @ "relates_to" "Subnet" } }
+UPSERT { CONCEPT ?rel_3 { {type: "Relationship", name: "node_runs"} @ "runs" "Replica" @ "relates_to" "Node" } }
+UPSERT { CONCEPT ?rel_4 { {type: "Relationship", name: "subnet_hosts"} @ "hosts" "Canister" @ "relates_to" "Subnet" } }
+UPSERT { CONCEPT ?rel_5 { {type: "Relationship", name: "node_connects_to"} @ "connects_to" "Boundary Nodes" @ "relates_to" "Node" } }
+UPSERT { CONCEPT ?rel_6 { {type: "Relationship", name: "canister_executes"} @ "executes" "WebAssembly" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_7 { {type: "Relationship", name: "system_subnet_hosts"} @ "hosts" "NNS" @ "relates_to" "System Subnet" } }
+UPSERT { CONCEPT ?rel_8 { {type: "Relationship", name: "routing_table_maps_to"} @ "maps_to" "Subnet" @ "relates_to" "Routing Table" } }
+UPSERT { CONCEPT ?rel_9 { {type: "Relationship", name: "nns_governs"} @ "governs" "Internet Computer" @ "relates_to" "NNS" } }
+UPSERT { CONCEPT ?rel_10 { {type: "Relationship", name: "nns_creates"} @ "creates" "Subnet" @ "relates_to" "NNS" } }
+UPSERT { CONCEPT ?rel_11 { {type: "Relationship", name: "icp_token_staked_into"} @ "staked_into" "Neuron" @ "relates_to" "ICP Token" } }
+UPSERT { CONCEPT ?rel_12 { {type: "Relationship", name: "neuron_votes_on"} @ "votes_on" "Proposal" @ "relates_to" "Neuron" } }
+UPSERT { CONCEPT ?rel_13 { {type: "Relationship", name: "proposal_modifies"} @ "modifies" "NNS" @ "relates_to" "Proposal" } }
+UPSERT { CONCEPT ?rel_14 { {type: "Relationship", name: "sns_governs_dapp"} @ "governs_dapp" "Canister" @ "relates_to" "SNS" } }
+UPSERT { CONCEPT ?rel_15 { {type: "Relationship", name: "neuron_follows"} @ "follows" "Followee" @ "relates_to" "Neuron" } }
+UPSERT { CONCEPT ?rel_16 { {type: "Relationship", name: "neuron_controlled_by"} @ "controlled_by" "Dissolve Delay" @ "relates_to" "Neuron" } }
+UPSERT { CONCEPT ?rel_17 { {type: "Relationship", name: "neuron_accrues"} @ "accrues" "Maturity" @ "relates_to" "Neuron" } }
+UPSERT { CONCEPT ?rel_18 { {type: "Relationship", name: "canister_consumes"} @ "consumes" "Cycles" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_19 { {type: "Relationship", name: "icp_token_converted_to"} @ "converted_to" "Cycles" @ "relates_to" "ICP Token" } }
+UPSERT { CONCEPT ?rel_20 { {type: "Relationship", name: "cycles_pegged_to"} @ "pegged_to" "XDR" @ "relates_to" "Cycles" } }
+UPSERT { CONCEPT ?rel_21 { {type: "Relationship", name: "reverse_gas_applies_to"} @ "applies_to" "Canister" @ "relates_to" "Reverse Gas Model" } }
+UPSERT { CONCEPT ?rel_22 { {type: "Relationship", name: "ledger_records"} @ "records" "ICP Token" @ "relates_to" "Ledger" } }
+UPSERT { CONCEPT ?rel_23 { {type: "Relationship", name: "cycles_wallet_holds"} @ "holds" "Cycles" @ "relates_to" "Cycles Wallet" } }
+UPSERT { CONCEPT ?rel_24 { {type: "Relationship", name: "canister_pays"} @ "pays" "Storage Cost" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_25 { {type: "Relationship", name: "canister_pays_gas"} @ "pays" "Gas" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_26 { {type: "Relationship", name: "community_fund_funds"} @ "funds" "SNS" @ "relates_to" "Community Fund" } }
+UPSERT { CONCEPT ?rel_27 { {type: "Relationship", name: "canister_uses"} @ "uses" "Wasm Memory" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_28 { {type: "Relationship", name: "canister_persists_in"} @ "persists_in" "Stable Memory" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_29 { {type: "Relationship", name: "canister_reads_from"} @ "reads_from" "Input Queue" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_30 { {type: "Relationship", name: "controller_manages"} @ "manages" "Canister" @ "relates_to" "Controller" } }
+UPSERT { CONCEPT ?rel_31 { {type: "Relationship", name: "pre_upgrade_writes_to"} @ "writes_to" "Stable Memory" @ "relates_to" "Pre-Upgrade" } }
+UPSERT { CONCEPT ?rel_32 { {type: "Relationship", name: "post_upgrade_reads_from"} @ "reads_from" "Stable Memory" @ "relates_to" "Post-Upgrade" } }
+UPSERT { CONCEPT ?rel_33 { {type: "Relationship", name: "canister_undergoes"} @ "undergoes" "Canister Upgrade" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_34 { {type: "Relationship", name: "canister_runs"} @ "runs" "Heartbeat" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_35 { {type: "Relationship", name: "canister_sets"} @ "sets" "Global Timer" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_36 { {type: "Relationship", name: "icp_cli_deploys"} @ "deploys" "Canister" @ "relates_to" "ICP CLI" } }
+UPSERT { CONCEPT ?rel_37 { {type: "Relationship", name: "motoko_compiles_to"} @ "compiles_to" "WebAssembly" @ "relates_to" "Motoko" } }
+UPSERT { CONCEPT ?rel_38 { {type: "Relationship", name: "rust_cdk_compiles_to"} @ "compiles_to" "WebAssembly" @ "relates_to" "Rust CDK" } }
+UPSERT { CONCEPT ?rel_39 { {type: "Relationship", name: "candid_describes_interface"} @ "describes_interface" "Canister" @ "relates_to" "Candid" } }
+UPSERT { CONCEPT ?rel_40 { {type: "Relationship", name: "icp_cli_manages"} @ "manages" "Cycles Wallet" @ "relates_to" "ICP CLI" } }
+UPSERT { CONCEPT ?rel_41 { {type: "Relationship", name: "pocket_ic_tests"} @ "tests" "Canister" @ "relates_to" "PocketIC" } }
+UPSERT { CONCEPT ?rel_42 { {type: "Relationship", name: "chain_key_enables"} @ "enables" "Threshold Signatures" @ "relates_to" "Chain-Key Crypto" } }
+UPSERT { CONCEPT ?rel_43 { {type: "Relationship", name: "threshold_sig_secures"} @ "secures" "Internet Computer" @ "relates_to" "Threshold Signatures" } }
+UPSERT { CONCEPT ?rel_44 { {type: "Relationship", name: "internet_identity_uses"} @ "uses" "WebAuthn" @ "relates_to" "Internet Identity" } }
+UPSERT { CONCEPT ?rel_45 { {type: "Relationship", name: "internet_identity_generates"} @ "generates" "Principal" @ "relates_to" "Internet Identity" } }
+UPSERT { CONCEPT ?rel_46 { {type: "Relationship", name: "internet_identity_issues"} @ "issues" "Anchor" @ "relates_to" "Internet Identity" } }
+UPSERT { CONCEPT ?rel_47 { {type: "Relationship", name: "internet_identity_signs"} @ "signs" "Delegation" @ "relates_to" "Internet Identity" } }
+UPSERT { CONCEPT ?rel_48 { {type: "Relationship", name: "delegation_authorizes"} @ "authorizes" "Session Key" @ "relates_to" "Delegation" } }
+UPSERT { CONCEPT ?rel_49 { {type: "Relationship", name: "canister_generates"} @ "generates" "Canister Signature" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_50 { {type: "Relationship", name: "service_worker_verifies"} @ "verifies" "Asset Certification" @ "relates_to" "Service Worker" } }
+UPSERT { CONCEPT ?rel_51 { {type: "Relationship", name: "asset_canister_serves"} @ "serves" "Asset Certification" @ "relates_to" "Asset Canister" } }
+UPSERT { CONCEPT ?rel_52 { {type: "Relationship", name: "chain_key_powers"} @ "powers" "Bitcoin Integration" @ "relates_to" "Chain-Key Crypto" } }
+UPSERT { CONCEPT ?rel_53 { {type: "Relationship", name: "bitcoin_integration_enables"} @ "enables" "ckBTC" @ "relates_to" "Bitcoin Integration" } }
+UPSERT { CONCEPT ?rel_54 { {type: "Relationship", name: "chain_fusion_includes"} @ "includes" "EVM RPC" @ "relates_to" "Chain Fusion" } }
+UPSERT { CONCEPT ?rel_55 { {type: "Relationship", name: "evm_rpc_supports"} @ "supports" "ckETH" @ "relates_to" "EVM RPC" } }
+UPSERT { CONCEPT ?rel_56 { {type: "Relationship", name: "http_outcalls_empowers"} @ "empowers" "Canister" @ "relates_to" "HTTPS Outcalls" } }
+UPSERT { CONCEPT ?rel_57 { {type: "Relationship", name: "ingress_message_triggers"} @ "triggers" "Canister" @ "relates_to" "Ingress Message" } }
+UPSERT { CONCEPT ?rel_58 { {type: "Relationship", name: "update_call_requires"} @ "requires" "Consensus" @ "relates_to" "Update Call" } }
+UPSERT { CONCEPT ?rel_59 { {type: "Relationship", name: "query_call_bypasses"} @ "bypasses" "Consensus" @ "relates_to" "Query Call" } }
+UPSERT { CONCEPT ?rel_60 { {type: "Relationship", name: "composite_query_combines"} @ "combines" "Query Call" @ "relates_to" "Composite Query" } }
+UPSERT { CONCEPT ?rel_61 { {type: "Relationship", name: "reentrancy_caused_by"} @ "caused_by" "Inter-Canister Call" @ "relates_to" "Re-entrancy" } }
+UPSERT { CONCEPT ?rel_62 { {type: "Relationship", name: "application_subnet_is_type_of"} @ "is_type_of" "Subnet" @ "relates_to" "Application Subnet" } }
+UPSERT { CONCEPT ?rel_63 { {type: "Relationship", name: "fiduciary_subnet_is_type_of"} @ "is_type_of" "Subnet" @ "relates_to" "Fiduciary Subnet" } }
+UPSERT { CONCEPT ?rel_64 { {type: "Relationship", name: "topic_categorizes"} @ "categorizes" "Proposal" @ "relates_to" "Proposal Topic" } }
+UPSERT { CONCEPT ?rel_65 { {type: "Relationship", name: "canister_tracks"} @ "tracks" "Call Context" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_66 { {type: "Relationship", name: "inter_canister_call_triggers"} @ "triggers" "Callback" @ "relates_to" "Inter-Canister Call" } }
+UPSERT { CONCEPT ?rel_67 { {type: "Relationship", name: "canister_has"} @ "has" "Cycle Balance" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_68 { {type: "Relationship", name: "identity_identifies"} @ "identifies" "Principal" @ "relates_to" "Identity" } }
+UPSERT { CONCEPT ?rel_69 { {type: "Relationship", name: "canister_exposes"} @ "exposes" "Canister Metrics" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_70 { {type: "Relationship", name: "subnet_measured_by"} @ "measured_by" "Throughput" @ "relates_to" "Subnet" } }
+UPSERT { CONCEPT ?rel_71 { {type: "Relationship", name: "canister_bounded_by"} @ "bounded_by" "Instruction Limit" @ "relates_to" "Canister" } }
+UPSERT { CONCEPT ?rel_72 { {type: "Relationship", name: "wasm_supports"} @ "supports" "SIMD" @ "relates_to" "WebAssembly" } }
+UPSERT { CONCEPT ?rel_73 { {type: "Relationship", name: "internet_identity_accessed_via"} @ "accessed_via" "II Frontend" @ "relates_to" "Internet Identity" } }

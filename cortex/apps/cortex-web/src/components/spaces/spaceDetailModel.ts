@@ -108,11 +108,11 @@ export function buildAgentExecutionRecentWorkItem(
 
   const value =
     grade === "FAIL"
-      ? `Eudaemon last reviewed this space on ${createdAt} and flagged that it needs attention.`
-      : `Eudaemon last reviewed this space on ${createdAt} and shared a new update.`;
+      ? `Eudaemon last benchmarked this space on ${createdAt} and flagged that it needs attention.`
+      : `Eudaemon last benchmarked this space on ${createdAt} and shared a new result.`;
 
   return {
-    label: "Latest Eudaemon update",
+    label: "Latest benchmark",
     value,
   };
 }

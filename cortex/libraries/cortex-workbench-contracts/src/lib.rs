@@ -192,8 +192,6 @@ pub struct DpubSystemReadyResponse {
     #[serde(default)]
     pub icp_network_healthy: bool,
     #[serde(default)]
-    pub dfx_port_healthy: bool,
-    #[serde(default)]
     pub gateway_port: u16,
     #[serde(default)]
     pub notes: Vec<String>,

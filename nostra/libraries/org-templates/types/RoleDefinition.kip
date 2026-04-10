@@ -1,0 +1,109 @@
+// RoleDefinition: Organizational Role Type
+// Defines roles that can be assigned to members within an organization
+
+UPSERT {
+  CONCEPT ?role_def {
+    {type: "$ConceptType", name: "RoleDefinition"}
+    SET ATTRIBUTES {
+      description: "A role that can be assigned to members within an organization",
+      phase: "operational",
+      instance_schema: {
+        "name": { 
+          "type": "string", 
+          "is_required": true,
+          "description": "Role name (e.g., 'Owner', 'Admin', 'Contributor')"
+        },
+        "description": { 
+          "type": "string",
+          "description": "What this role is responsible for"
+        },
+        "permissions": {
+          "type": "array",
+          "item_type": "string",
+          "enum_items": [
+            "manage_members",
+            "manage_roles", 
+            "manage_schema",
+            "create_proposals",
+            "vote_on_proposals",
+            "approve_proposals",
+            "manage_workflows",
+            "manage_finances",
+            "view_all",
+            "contribute"
+          ],
+          "description": "List of permissions granted by this role"
+        },
+        "is_system": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this is a built-in system role"
+        },
+        "hierarchy_level": {
+          "type": "number",
+          "description": "Numeric level for role hierarchy (higher = more authority)"
+        }
+      }
+      SET PROPOSITIONS { 
+        ("belongs_to_domain", {type: "Domain", name: "OrgTemplates"})
+      }
+    }
+  }
+}
+WITH METADATA { 
+  source: "nostra-org-templates-library", 
+  confidence: 1.0 
+}
+
+// Define built-in system roles
+UPSERT {
+  CONCEPT ?owner_role {
+    {type: "RoleDefinition", name: "Owner"}
+    SET ATTRIBUTES {
+      description: "Full control over organization - top-level authority",
+      permissions: ["manage_members", "manage_roles", "manage_schema", "create_proposals", "vote_on_proposals", "approve_proposals", "manage_workflows", "manage_finances", "view_all", "contribute"],
+      is_system: true,
+      hierarchy_level: 100
+    }
+  }
+}
+WITH METADATA { source: "nostra-org-templates-library" }
+
+UPSERT {
+  CONCEPT ?admin_role {
+    {type: "RoleDefinition", name: "Admin"}
+    SET ATTRIBUTES {
+      description: "Administrative access - can manage most operations",
+      permissions: ["manage_members", "create_proposals", "vote_on_proposals", "manage_workflows", "view_all", "contribute"],
+      is_system: true,
+      hierarchy_level: 80
+    }
+  }
+}
+WITH METADATA { source: "nostra-org-templates-library" }
+
+UPSERT {
+  CONCEPT ?member_role {
+    {type: "RoleDefinition", name: "Member"}
+    SET ATTRIBUTES {
+      description: "Standard member - can contribute and vote",
+      permissions: ["create_proposals", "vote_on_proposals", "view_all", "contribute"],
+      is_system: true,
+      hierarchy_level: 50
+    }
+  }
+}
+WITH METADATA { source: "nostra-org-templates-library" }
+
+UPSERT {
+  CONCEPT ?viewer_role {
+    {type: "RoleDefinition", name: "Viewer"}
+    SET ATTRIBUTES {
+      description: "Read-only access to organization content",
+      permissions: ["view_all"],
+      is_system: true,
+      hierarchy_level: 10
+    }
+  }
+}
+WITH METADATA { source: "nostra-org-templates-library" }

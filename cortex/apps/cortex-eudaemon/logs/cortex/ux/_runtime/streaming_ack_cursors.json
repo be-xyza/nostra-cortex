@@ -1,0 +1,10 @@
+{
+  "cortex:artifact:a": {
+    "artifactId": "a",
+    "channel": "cortex:artifact:a",
+    "lastSequence": 1,
+    "lastLamport": 1,
+    "lastOpId": "op-1",
+    "updatedAt": "2026-03-23T10:59:41.200641+00:00"
+  }
+}

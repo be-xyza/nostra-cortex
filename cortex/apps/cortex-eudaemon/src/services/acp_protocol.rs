@@ -507,6 +507,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn session_new_rejects_legacy_snake_case_param_aliases() {
+        let (mut runtime, root) = test_runtime();
+        let err = runtime
+            .handle(rpc(
+                "session/new",
+                json!({
+                    "cwd": root.display().to_string(),
+                    "session_id": "sess_legacy_alias"
+                }),
+            ))
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.code, -32602);
+        assert!(err.message.contains("unknown field"));
+        assert!(err.message.contains("session_id"));
+    }
+
+    #[tokio::test]
     async fn session_prompt_and_load_preserve_ordering() {
         let (mut runtime, root) = test_runtime();
         let created = runtime

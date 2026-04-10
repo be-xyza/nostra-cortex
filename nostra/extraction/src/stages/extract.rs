@@ -13,7 +13,7 @@ impl Stage for ExtractStage {
         let mut doc = input;
 
         let mut names = BTreeSet::new();
-        for token in doc.request.content.split_whitespace() {
+        for token in doc.resolved_content.split_whitespace() {
             let clean = token
                 .trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_')
                 .trim()
@@ -42,7 +42,7 @@ impl Stage for ExtractStage {
             })
             .collect();
 
-        let lc = doc.request.content.to_lowercase();
+        let lc = doc.resolved_content.to_lowercase();
         if doc.candidate_entities.len() >= 2 {
             if lc.contains(" works at ") || lc.contains(" employed by ") {
                 doc.candidate_relations.push(ExtractionRelationV1 {

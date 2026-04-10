@@ -4,12 +4,20 @@ import { AgentEvent, parseAgentActivityEvent } from "./agentActivity";
 
 export interface AgentActivityPanelProps {
     spaceId: string;
+    onSolicit?: () => void;
 }
 
 const AgentEventRow = React.memo(({ evt }: { evt: AgentEvent }) => (
     <div className="flex flex-col gap-1 px-3 py-2 bg-slate-950/50 hover:bg-slate-800/50 rounded transition-colors group">
         <div className="flex justify-between items-start gap-4">
-            <span className="text-xs font-mono text-purple-400 font-semibold">{evt.agent}</span>
+            <span className="text-xs font-mono text-purple-400 font-semibold flex items-center gap-2">
+                {evt.agent}
+                {evt.details?.includes("provider:codex_subscription") && (
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black tracking-widest bg-amber-500/20 text-amber-500 uppercase border border-amber-500/30">
+                        LIVE COGNITION
+                    </span>
+                )}
+            </span>
             <span className="text-[10px] font-mono text-slate-500 shrink-0">
                 {new Date(evt.timestamp).toLocaleTimeString()}
             </span>
@@ -30,7 +38,7 @@ const AgentEventRow = React.memo(({ evt }: { evt: AgentEvent }) => (
     </div>
 ));
 
-export function AgentActivityPanel({ spaceId }: AgentActivityPanelProps) {
+export function AgentActivityPanel({ spaceId, onSolicit }: AgentActivityPanelProps) {
     const [events, setEvents] = useState<AgentEvent[]>([]);
     const [activeAgentCount, setActiveAgentCount] = useState(0);
 
@@ -86,7 +94,16 @@ export function AgentActivityPanel({ spaceId }: AgentActivityPanelProps) {
                         Agent Activity
                     </span>
                 </div>
-                <span className="text-[10px] font-mono text-slate-500">{events.length} trace(s)</span>
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={onSolicit}
+                        className="text-[10px] font-bold tracking-widest bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 px-2 py-1 rounded border border-indigo-500/30 uppercase transition-colors"
+                        title="Interrupt or solicit the active Eudaemon loop"
+                    >
+                        Solicit Agent
+                    </button>
+                    <span className="text-[10px] font-mono text-slate-500">{events.length} trace(s)</span>
+                </div>
             </div>
 
             <div className="flex flex-col p-2 gap-1">

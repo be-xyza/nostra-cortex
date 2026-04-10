@@ -19,3 +19,19 @@ hex = "0.4"
 [[bin]]
 name = "nostra-contribution-cli"
 path = "src/bin/nostra_contribution_cli.rs"
+test = false
+
+[[bin]]
+name = "nostra-docling-adapter"
+path = "src/bin/nostra_docling_adapter.rs"
+test = false
+
+[[bin]]
+name = "nostra-liteparse-adapter"
+path = "src/bin/nostra_liteparse_adapter.rs"
+test = false
+
+[[bin]]
+name = "nostra-markitdown-adapter"
+path = "src/bin/nostra_markitdown_adapter.rs"
+test = false

@@ -1,0 +1,14 @@
+UPSERT {
+    CONCEPT ?protocol_type {
+        {type: "$ConceptType", name: "Protocol"}
+        SET ATTRIBUTES {
+            description: "A decentralized network protocol standard",
+            archetype: "concept",
+            version: "1.0.0"
+        }
+        SET PROPOSITIONS {
+            ("belongs_to_domain", {type: "Domain", name: "ICPKnowledge"})
+        }
+    }
+}
+WITH METADATA { source: "icp-core", author: "$system" }

@@ -1,0 +1,52 @@
+version = 1
+updated_at = "2026-02-24"
+owner = "Systems Steward"
+description = "Canonical cross-IDE skill registry for Nostra/Cortex development surfaces."
+
+[[source]]
+id = "repo_commons"
+type = "local_dir"
+base_path = "nostra/commons/skills"
+
+[[source]]
+id = "antigravity"
+type = "local_dir"
+base_path = "$HOME/.gemini/antigravity/skills"
+env_override = "NOSTRA_ANTIGRAVITY_SKILLS_ROOT"
+
+[[ide]]
+id = "codex"
+install_root = ".codex/skills"
+managed_by_registry = true
+
+[[ide]]
+id = "claude"
+install_root = ".claude/skills"
+managed_by_registry = true
+
+[[ide]]
+id = "antigravity"
+install_root = "$HOME/.gemini/antigravity/skills"
+env_override = "NOSTRA_ANTIGRAVITY_SKILLS_ROOT"
+managed_by_registry = true
+
+[[skill]]
+id = "nostra-cortex-dev-core"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "nostra-cortex-dev-core"
+targets = ["codex", "claude", "antigravity"]
+required_checks = [
+  "bash scripts/check_agent_preflight_contract.sh",
+  "bash scripts/check_dynamic_config_contract.sh",
+]
+
+[[skill]]
+id = "frontend-design"
+version = "antigravity-current"
+source_id = "antigravity"
+source_rel_path = "frontend-design"
+targets = ["codex", "claude"]
+required_checks = [
+  "bash scripts/check_dynamic_config_contract.sh",
+]

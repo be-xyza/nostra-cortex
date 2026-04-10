@@ -1,0 +1,2 @@
+UPSERT { CONCEPT ?rel_36 { {type: "Relationship", name: "dfx_deploys"} @ "deploys" "Canister" @ "relates_to" "DFX" } }
+UPSERT { CONCEPT ?rel_40 { {type: "Relationship", name: "dfx_manages"} @ "manages" "Cycles Wallet" @ "relates_to" "DFX" } }

@@ -1,0 +1,122 @@
+# LLC Template
+# Limited Liability Company with member-based governance
+# Reference: research/027-workflow-builder-business-use-case/PLAN.md
+
+id: "llc"
+name: "Limited Liability Company"
+version: "1.0.0"
+description: "Template for LLCs with multi-member governance and operating agreement patterns"
+
+structure:
+  type: "llc"
+  governance_strategy: "member_vote"
+  
+governance_config:
+  quorum_percent: 51
+  approval_percent: 51
+  voting_period_days: 7
+  
+  # Actions requiring different approval thresholds
+  action_thresholds:
+    routine_decisions:
+      approval_percent: 51
+      voting_period_days: 3
+    
+    member_changes:
+      approval_percent: 67
+      voting_period_days: 7
+    
+    major_decisions:
+      approval_percent: 75
+      voting_period_days: 14
+      description: "Amendments to operating agreement, dissolution, major contracts"
+
+default_roles:
+  - name: "Managing Member"
+    permissions:
+      - "manage_members"
+      - "manage_roles"
+      - "manage_schema"
+      - "create_proposals"
+      - "vote_on_proposals"
+      - "approve_proposals"
+      - "manage_workflows"
+      - "manage_finances"
+      - "view_all"
+      - "contribute"
+
+  - name: "Member"
+    description: "Voting member with ownership stake"
+    permissions:
+      - "create_proposals"
+      - "vote_on_proposals"
+      - "view_all"
+      - "contribute"
+
+  - name: "Employee"
+    description: "Non-member employees"
+    permissions:
+      - "view_all"
+      - "contribute"
+
+suggested_workflows:
+  - "org-setup-wizard"
+  - "role-assignment"
+  - "decision-pipeline"
+  - "member-buyout"     # Future: Handle member exits
+  - "profit-distribution"  # Future: Handle distributions
+
+space_config:
+  visibility: "private"
+  
+  default_subspaces:
+    - name: "Operations"
+      icon: "⚙️"
+      description: "Day-to-day business operations"
+    
+    - name: "Governance"
+      icon: "⚖️"
+      description: "Proposals, votes, and decisions"
+    
+    - name: "Finances"
+      icon: "💰"
+      description: "Financial records and distributions"
+      visibility: "members_only"
+    
+    - name: "Documents"
+      icon: "📄"
+      description: "Operating agreement, contracts, and legal documents"
+      visibility: "members_only"
+
+operating_agreement_template:
+  sections:
+    - "Formation and Purpose"
+    - "Member Contributions"
+    - "Management and Voting"
+    - "Profit and Loss Allocation"
+    - "Distributions"
+    - "Transfer of Membership"
+    - "Dissolution"
+  
+  # These become structured data in Nostra
+  key_provisions:
+    - name: "Decision Quorum"
+      value: "${governance_config.quorum_percent}%"
+      editable: true
+    
+    - name: "Voting Period"
+      value: "${governance_config.voting_period_days} days"
+      editable: true
+
+onboarding_message: |
+  Welcome to your LLC on Nostra!
+  
+  Your organization uses member voting for decisions.
+  Key governance settings:
+  - Quorum: ${governance_config.quorum_percent}%
+  - Voting period: ${governance_config.voting_period_days} days
+  
+  Get started by:
+  1. Adding your founding members
+  2. Reviewing governance settings
+  3. Creating your first proposal

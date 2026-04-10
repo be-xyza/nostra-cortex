@@ -1,0 +1,40 @@
+{
+    "id": "nostra.org-templates",
+    "name": "Organization Templates",
+    "version": "0.1.0",
+    "domain": "OrgTemplates",
+    "description": "Curated governance and operational templates for organizations running on Nostra. Includes setup wizards, decision pipelines, and role management workflows.",
+    "author": "Nostra DAO",
+    "license": "MIT",
+    "archetype": "curated",
+    "dependencies": {
+        "nostra.core": "^0.1.0"
+    },
+    "fork_policy": {
+        "can_fork": true,
+        "copy_history": false,
+        "attribution_required": true
+    },
+    "exports": {
+        "workflows": [
+            "workflows/org-setup-wizard.yaml",
+            "workflows/role-assignment.yaml",
+            "workflows/decision-pipeline.yaml"
+        ],
+        "types": [
+            "types/OrgProfile.kip",
+            "types/RoleDefinition.kip"
+        ],
+        "templates": [
+            "templates/sole-proprietor.yaml",
+            "templates/llc.yaml",
+            "templates/nonprofit.yaml",
+            "templates/dao.yaml"
+        ]
+    },
+    "capsules": [
+        "seed/org-domain.kip",
+        "types/OrgProfile.kip",
+        "types/RoleDefinition.kip"
+    ]
+}

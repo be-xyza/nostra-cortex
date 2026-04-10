@@ -1,7 +1,14 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { workbenchApi } from "../../api";
+import { useUiStore } from "../../store/uiStore";
 import { A2UIChartRenderer, type A2UIChartData } from "./A2UIChartRenderer";
 import { buildGateSummaryRenderModel } from "./gateSummary";
+import { buildHeapArtifactHref } from "./heapArtifactRouting";
+import {
+    buildSolicitationRenderModel,
+    buildStewardFeedbackRenderModel,
+} from "./solicitationRenderModel";
 
 /**
  * Renders a markdown-lite string to HTML.
@@ -204,7 +211,7 @@ export function PayloadRenderer({ content, artifactId, expanded = false, showRaw
             case "media":
                 return renderMedia(content);
             case "structured_data":
-                return renderStructuredData(content);
+                return renderStructuredData(content, artifactId);
             case "pointer":
                 return renderPointer(content);
             default: {
@@ -228,10 +235,115 @@ export function PayloadRenderer({ content, artifactId, expanded = false, showRaw
     );
 }
 
-function A2UIPayloadRenderer({ content, expanded, artifactId }: { content: PayloadContent; expanded?: boolean; artifactId?: string }) {
-    const tree = content.tree || content.a2ui?.tree;
+interface FeedbackDecisionCardProps {
+    artifactId?: string;
+    title: string;
+    roleLabel?: string;
+    summary?: string;
+    hint?: string;
+    detailItems?: Array<{ label: string; value: string }>;
+}
+
+function FeedbackDecisionCard({
+    artifactId,
+    title,
+    roleLabel,
+    summary,
+    hint,
+    detailItems = [],
+}: FeedbackDecisionCardProps) {
+    const navigate = useNavigate();
+    const sessionUser = useUiStore((state) => state.sessionUser);
     const [submitting, setSubmitting] = useState(false);
     const [feedback, setFeedback] = useState("");
+
+    const handleSubmitFeedback = async (decision: string) => {
+        if (!artifactId) {
+            return;
+        }
+        setSubmitting(true);
+        try {
+            const response = await workbenchApi.submitA2UIFeedback(
+                artifactId,
+                { decision, feedback },
+                sessionUser?.role || "operator",
+                sessionUser?.actorId || "cortex-web",
+            );
+            setFeedback("");
+            if (decision === "approved" && response.followUpArtifactId) {
+                navigate(`${buildHeapArtifactHref(response.followUpArtifactId)}&heap_view=tasks`);
+            }
+        } catch (err) {
+            console.error("A2UI Feedback failed", err);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="mt-2 p-4 rounded-xl flex flex-col gap-3 bg-purple-950/20 border border-purple-900/50">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex flex-col gap-1">
+                    <span className="font-bold text-sm text-purple-300">{title}</span>
+                    {summary ? (
+                        <span className="text-sm text-slate-300 italic">{summary}</span>
+                    ) : null}
+                </div>
+                {roleLabel ? (
+                    <span className="text-xs font-semibold text-slate-400">{roleLabel}</span>
+                ) : null}
+            </div>
+
+            {detailItems.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {detailItems.map((item) => (
+                        <div key={`${item.label}:${item.value}`} className="rounded-lg bg-black/20 px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-widest text-slate-500">{item.label}</div>
+                            <div className="text-xs text-slate-200">{item.value}</div>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+
+            <textarea
+                value={feedback}
+                onChange={(event) => setFeedback(event.target.value)}
+                placeholder="Provide steward feedback or requirements (optional)..."
+                className="w-full bg-black/20 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none min-h-[72px] border-none"
+            />
+
+            <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => handleSubmitFeedback("approved")}
+                        disabled={submitting || !artifactId}
+                        className={`flex-1 bg-green-500/20 text-green-300 text-xs font-semibold py-2 rounded hover:bg-green-500/30 transition-colors ${submitting || !artifactId ? "opacity-50" : ""}`}
+                    >
+                        Approve & Record
+                    </button>
+                    <button
+                        onClick={() => handleSubmitFeedback("rejected")}
+                        disabled={submitting || !artifactId}
+                        className={`flex-1 bg-rose-500/20 text-rose-300 text-xs font-semibold py-2 rounded hover:bg-rose-500/30 transition-colors ${submitting || !artifactId ? "opacity-50" : ""}`}
+                    >
+                        Reject & Record
+                    </button>
+                </div>
+                <div className="text-[11px] text-slate-500">
+                    {hint ?? "This records a steward feedback block for review lineage."}
+                </div>
+                {!artifactId ? (
+                    <div className="text-[11px] text-amber-300/80">
+                        Feedback is unavailable until the block has a canonical artifact id.
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
+function A2UIPayloadRenderer({ content, expanded, artifactId }: { content: PayloadContent; expanded?: boolean; artifactId?: string }) {
+    const tree = content.tree || content.a2ui?.tree;
 
     const t = (tree || {}) as any;
     const chartData = t.chart_data || t.data?.chart_data || content.meta?.chart_data || content.data?.chart_data;
@@ -256,53 +368,16 @@ function A2UIPayloadRenderer({ content, expanded, artifactId }: { content: Paylo
         );
     }
 
-    const handleSubmitFeedback = async (decision: string) => {
-        if (!artifactId) return;
-        setSubmitting(true);
-        try {
-            await workbenchApi.submitA2UIFeedback(artifactId, { decision, feedback });
-            setFeedback("");
-        } catch (err) {
-            console.error("A2UI Feedback failed", err);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     // AgentBenchmarkRecord pattern
     if (t.widget === "AgentBenchmarkRecord" || t.type === "benchmark_solicitation") {
         return (
-            <div className="mt-2 p-3 rounded-lg flex flex-col gap-3 bg-purple-950/20">
-                <div className="flex justify-between items-end">
-                    <span className="font-bold text-sm text-purple-400">Agent Solicitation Pending</span>
-                    <span className="text-xs font-semibold text-slate-400">{String(t.agent_role || "steward.code")}</span>
-                </div>
-                {Boolean(t.rationale) && (
-                    <div className="text-sm text-slate-300 italic">{String(t.rationale)}</div>
-                )}
-                <textarea
-                    value={feedback}
-                    onChange={(e) => setFeedback(e.target.value)}
-                    placeholder="Provide steering feedback or requirements (optional)..."
-                    className="w-full bg-black/20 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none min-h-[60px] border-none"
-                />
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => handleSubmitFeedback("approved")}
-                        disabled={submitting}
-                        className={`flex-1 bg-green-500/20 text-green-400 text-xs font-semibold py-1.5 rounded hover:bg-green-500/30 transition-colors ${submitting ? "opacity-50" : ""}`}
-                    >
-                        Approve & Proceed
-                    </button>
-                    <button
-                        onClick={() => handleSubmitFeedback("rejected")}
-                        disabled={submitting}
-                        className={`flex-1 bg-red-500/20 text-red-400 text-xs font-semibold py-1.5 rounded hover:bg-red-500/30 transition-colors ${submitting ? "opacity-50" : ""}`}
-                    >
-                        Reject
-                    </button>
-                </div>
-            </div>
+            <FeedbackDecisionCard
+                artifactId={artifactId}
+                title="Agent Solicitation Pending"
+                roleLabel={String(t.agent_role || "steward.code")}
+                summary={Boolean(t.rationale) ? String(t.rationale) : undefined}
+                hint="This records steward feedback in the heap. Proposal execution remains a separate workflow step."
+            />
         );
     }
 
@@ -408,11 +483,78 @@ function renderMedia(content: PayloadContent) {
     );
 }
 
-function renderStructuredData(content: PayloadContent) {
+function renderStructuredData(content: PayloadContent, artifactId?: string) {
     const data = content.data || content.structured_data || {};
     
     if (data && typeof data === "object" && !Array.isArray(data)) {
         const typedData = data as Record<string, any>;
+
+        const solicitationModel = buildSolicitationRenderModel(typedData);
+        if (solicitationModel) {
+            const detailItems = [
+                ...(solicitationModel.requestedRoleLabel
+                    ? [{ label: "Requested Agent", value: solicitationModel.requestedRoleLabel }]
+                    : []),
+                { label: "Authority", value: solicitationModel.authorityScopeLabel },
+                ...(solicitationModel.budgetLabel ? [{ label: "Budget", value: solicitationModel.budgetLabel }] : []),
+                {
+                    label: "Capabilities",
+                    value: solicitationModel.capabilityLabels.length
+                        ? solicitationModel.capabilityLabels.join(", ")
+                        : "None specified",
+                },
+            ];
+
+            return (
+                <FeedbackDecisionCard
+                    artifactId={artifactId}
+                    title="Agent Solicitation"
+                    roleLabel={solicitationModel.roleLabel}
+                    summary={solicitationModel.summary}
+                    hint={solicitationModel.feedbackHint}
+                    detailItems={detailItems}
+                />
+            );
+        }
+
+        const stewardFeedbackModel = buildStewardFeedbackRenderModel(typedData);
+        if (stewardFeedbackModel) {
+            const decisionClass = stewardFeedbackModel.decisionTone === "approved"
+                ? "bg-emerald-500/15 text-emerald-300"
+                : stewardFeedbackModel.decisionTone === "rejected"
+                    ? "bg-rose-500/15 text-rose-300"
+                    : "bg-slate-500/15 text-slate-300";
+
+            return (
+                <div className="mt-2 p-4 rounded-xl flex flex-col gap-3 bg-slate-950/30 border border-slate-800/70">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-xs uppercase tracking-widest text-slate-500">Steward Feedback</span>
+                            <span className="text-sm font-semibold text-slate-100">{stewardFeedbackModel.summary}</span>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${decisionClass}`}>
+                            {stewardFeedbackModel.decisionLabel}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <div className="rounded-lg bg-black/20 px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-widest text-slate-500">Submitted By</div>
+                            <div className="text-xs text-slate-200">{stewardFeedbackModel.submittedBy}</div>
+                        </div>
+                        <div className="rounded-lg bg-black/20 px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-widest text-slate-500">Submitted At</div>
+                            <div className="text-xs text-slate-200">{stewardFeedbackModel.submittedAt ?? "Unknown"}</div>
+                        </div>
+                        <div className="rounded-lg bg-black/20 px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-widest text-slate-500">Parent Artifact</div>
+                            <div className="text-xs font-mono text-slate-200 break-all">
+                                {stewardFeedbackModel.parentArtifactId ?? "Unavailable"}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
         
         if (typedData.schema_id === "nostra.heap.block.gate_summary.v1") {
             return renderGateSummaryStructuredData(typedData);

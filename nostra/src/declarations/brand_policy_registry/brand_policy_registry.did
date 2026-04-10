@@ -1,0 +1,133 @@
+type BrandPalette = record {
+  outer_base : text;
+  outer_gradient_to : text;
+  inner_base : text;
+  inner_gradient_to : text;
+};
+
+type LabsBounds = record {
+  gap_min_degrees : float64;
+  gap_max_degrees : float64;
+  stroke_min_px : float64;
+  stroke_max_px : float64;
+};
+
+type TemporalVariantPolicy = record {
+  force_gradient : bool;
+  stroke_cap : text;
+  palette : BrandPalette;
+};
+
+type PhilosophicalMotionPolicy = record {
+  container_transition_sec : float64;
+  ring_transition_sec : float64;
+  stroke_transition_sec : float64;
+  ring_animation_duration_sec : float64;
+  ring_rotation_delta_deg : float64;
+  ring_stroke_delta_px : float64;
+  dot_transition_sec : float64;
+  dot_animation_duration_sec : float64;
+  dot_pulse_radius_delta_px : float64;
+  dot_pulse_opacity_min : float64;
+};
+
+type TechnicalMotionPolicy = record {
+  container_transition_ms : nat64;
+  ring_transition_ms : nat64;
+  stroke_transition_ms : nat64;
+  dot_transition_ms : nat64;
+  step_count : nat64;
+  ring_step_count : nat64;
+};
+
+type BrandMotionPolicy = record {
+  philosophical : PhilosophicalMotionPolicy;
+  technical : TechnicalMotionPolicy;
+};
+
+type PhilosophicalModeBaselinePolicy = record {
+  gap_degrees : float64;
+  stroke_width_delta_px : float64;
+  stroke_cap : text;
+  force_gradient : bool;
+};
+
+type TechnicalModeBaselinePolicy = record {
+  stroke_cap : text;
+  force_gradient : bool;
+};
+
+type BrandModeBaselinesPolicy = record {
+  philosophical : PhilosophicalModeBaselinePolicy;
+  technical : TechnicalModeBaselinePolicy;
+};
+
+type ThemeModeMapEntry = record {
+  key : text;
+  value : text;
+};
+
+type BrandHostDefaultsPolicy = record {
+  default_temporal_state : text;
+  default_authority : text;
+  theme_mode_map : vec ThemeModeMapEntry;
+};
+
+type TemporalVariantEntry = record {
+  key : text;
+  value : TemporalVariantPolicy;
+};
+
+type BrandStylePolicy = record {
+  allow_labs_customizations : bool;
+  labs_bounds : LabsBounds;
+  official_palette : BrandPalette;
+  mode_baselines : opt BrandModeBaselinesPolicy;
+  host_defaults : opt BrandHostDefaultsPolicy;
+  temporal_variants : vec TemporalVariantEntry;
+  motion : BrandMotionPolicy;
+};
+
+type BrandKernelPolicy = record {
+  mark_composition : text;
+  technical_canonical_gap_degrees : nat64;
+  ring_radius_px : nat64;
+  dot_radius_px : nat64;
+  base_stroke_width_px : nat64;
+  steward_gated : bool;
+};
+
+type TemporalWindow = record {
+  state : text;
+  recurrence : text;
+  start_month_day : text;
+  end_month_day : text;
+  start_time_utc : text;
+  end_time_utc : text;
+};
+
+type BrandPolicyDocument = record {
+  schema_version : text;
+  policy_id : text;
+  policy_version : nat64;
+  kernel : BrandKernelPolicy;
+  style : BrandStylePolicy;
+  temporal_windows : vec TemporalWindow;
+  updated_at_ns : nat64;
+  source_ref : opt text;
+};
+
+type BrandPolicyMeta = record {
+  schema_version : text;
+  policy_id : text;
+  policy_version : nat64;
+  updated_at_ns : nat64;
+  source_ref : opt text;
+};
+
+service : {
+  get_brand_policy : () -> (BrandPolicyDocument) query;
+  get_brand_policy_version : () -> (nat64) query;
+  get_brand_policy_digest : () -> (text) query;
+  get_brand_policy_meta : () -> (BrandPolicyMeta) query;
+}

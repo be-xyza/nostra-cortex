@@ -9,7 +9,6 @@ use crate::activity_service::ActivityService;
 use crate::book::BlockContent;
 use crate::config_service::ConfigService;
 use crate::gateway_service::GatewayService;
-use nostra_shared::types::provider_registry::ProviderRecord;
 use crate::skills::extraction::{EXTRACTION_ASYNC_PAYLOAD_SCHEMA_V1, ExtractionOrchestrator};
 use crate::temporal_governor::TemporalGovernor;
 use crate::vector_service::{
@@ -26,7 +25,11 @@ use axum::{
     routing::{get, post},
 };
 use chrono::DateTime;
-use nostra_extraction::{ExtractionRequestV1, ExtractionResultV1, ExtractionStatus};
+use nostra_extraction::{
+    ExtractionRequestV1, ExtractionResultV1, ExtractionStatus, run_local_pipeline_with_content,
+    validate_extraction_input_source,
+};
+use nostra_shared::types::provider_registry::ProviderRecord;
 use nostra_workflow_core::builder::{WorkflowParser, WorkflowTemplates};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -84,7 +87,10 @@ pub async fn start_server(
         .route("/automations/acp/status", get(get_acp_automation_status))
         .route("/tasks", get(get_pending_tasks))
         .route("/tasks/:id/complete", post(complete_task))
-        .route("/extraction/payload-schema", get(get_extraction_payload_schema))
+        .route(
+            "/extraction/payload-schema",
+            get(get_extraction_payload_schema),
+        )
         .route("/extraction/submit", post(submit_extraction))
         .route("/extraction/status/:job_id", get(get_extraction_status))
         .route("/extraction/callback", post(extraction_callback))
@@ -543,9 +549,31 @@ async fn submit_extraction(
         )
             .into_response();
     }
-    if request.content.trim().is_empty() {
-        return (StatusCode::BAD_REQUEST, "content must not be empty").into_response();
+    if let Err(err) = validate_extraction_input_source(&request) {
+        return (StatusCode::BAD_REQUEST, err).into_response();
     }
+    if request
+        .artifact_path
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default()
+        .is_empty()
+    {
+        request.artifact_path = request
+            .content_ref
+            .as_deref()
+            .and_then(resolve_content_ref_local_path);
+    }
+    let resolved_content = if !request.content.trim().is_empty() {
+        request.content.clone()
+    } else if let Some(content_ref) = request.content_ref.as_deref() {
+        match resolve_content_ref_text(content_ref) {
+            Ok(content) => content,
+            Err(err) => return (StatusCode::BAD_REQUEST, err).into_response(),
+        }
+    } else {
+        return (StatusCode::BAD_REQUEST, "content must not be empty").into_response();
+    };
 
     let trace_id = uuid::Uuid::new_v4().to_string();
     let started = Instant::now();
@@ -556,7 +584,23 @@ async fn submit_extraction(
         .unwrap_or_else(|| format!("extract-{}", uuid::Uuid::new_v4()));
     request.job_id = Some(job_id.clone());
 
-    let mut result = state.extraction_orchestrator.extract(&request).await;
+    let mut result = if request.content.trim().is_empty() {
+        match run_local_pipeline_with_content(&request, resolved_content.clone()) {
+            Ok(result) => result,
+            Err(err) => {
+                let mut failed = ExtractionResultV1::default();
+                failed.job_id = request.job_id.clone().unwrap_or_default();
+                failed.source_ref = request.source_ref.clone();
+                failed.source_type = request.source_type.clone();
+                failed.schema_ref = request.schema_ref.clone();
+                failed.status = ExtractionStatus::Failed;
+                failed.flags = vec![format!("content_ref_resolution_failed:{}", err)];
+                failed
+            }
+        }
+    } else {
+        state.extraction_orchestrator.extract(&request).await
+    };
     if result.job_id.trim().is_empty() {
         result.job_id = job_id.clone();
     }
@@ -651,6 +695,32 @@ async fn extraction_callback(
         }),
     )
         .into_response()
+}
+
+fn resolve_content_ref_text(content_ref: &str) -> Result<String, String> {
+    let trimmed = content_ref.trim();
+    if let Some(path) = trimmed.strip_prefix("file://") {
+        return std::fs::read(path)
+            .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
+            .map_err(|err| format!("failed_to_read_content_ref:{err}"));
+    }
+    if trimmed.starts_with('/') {
+        return std::fs::read(trimmed)
+            .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
+            .map_err(|err| format!("failed_to_read_content_ref:{err}"));
+    }
+    Err("content_ref must be a file:// URI or absolute path for direct worker API use".to_string())
+}
+
+fn resolve_content_ref_local_path(content_ref: &str) -> Option<String> {
+    let trimmed = content_ref.trim();
+    if let Some(path) = trimmed.strip_prefix("file://") {
+        return Some(path.to_string());
+    }
+    if trimmed.starts_with('/') {
+        return Some(trimmed.to_string());
+    }
+    None
 }
 
 fn callback_authorized(headers: &HeaderMap) -> bool {
@@ -1813,6 +1883,11 @@ mod tests {
             space_id: Some("space-api".to_string()),
             content: "Nostra Cortex uses Rust and Motoko. Alice works at Zipstack Labs."
                 .to_string(),
+            content_ref: None,
+            artifact_path: None,
+            mime_type: Some("text/plain".to_string()),
+            file_size: None,
+            parser_profile: Some("docling".to_string()),
             extraction_mode: nostra_extraction::ExtractionMode::Local,
             fallback_policy: nostra_extraction::ExtractionFallbackPolicyV1::default(),
             timeout_seconds: Some(60),
@@ -1825,7 +1900,9 @@ mod tests {
             .await
             .into_response();
         assert_eq!(response.status(), StatusCode::OK);
-        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body");
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
         let payload: ExtractionResultV1 = serde_json::from_slice(&body).expect("json");
         assert_eq!(payload.job_id, "extract-test-1");
         assert!(!payload.candidate_entities.is_empty());
@@ -1841,6 +1918,11 @@ mod tests {
             schema_ref: None,
             space_id: Some("space-api".to_string()),
             content: "Project Atlas depends on Nostra and Cortex.".to_string(),
+            content_ref: None,
+            artifact_path: None,
+            mime_type: Some("text/plain".to_string()),
+            file_size: None,
+            parser_profile: Some("docling".to_string()),
             extraction_mode: nostra_extraction::ExtractionMode::Local,
             fallback_policy: nostra_extraction::ExtractionFallbackPolicyV1::default(),
             timeout_seconds: Some(60),
@@ -1854,12 +1936,9 @@ mod tests {
             .into_response();
         assert_eq!(submit.status(), StatusCode::OK);
 
-        let status = get_extraction_status(
-            Path("extract-test-2".to_string()),
-            State(state),
-        )
-        .await
-        .into_response();
+        let status = get_extraction_status(Path("extract-test-2".to_string()), State(state))
+            .await
+            .into_response();
         assert_eq!(status.status(), StatusCode::OK);
     }
 
@@ -1881,12 +1960,15 @@ mod tests {
                 provenance: Default::default(),
                 attempted_backends: vec!["external".to_string()],
                 fallback_reason: None,
+                normalized_document: None,
+                result_ref: None,
             },
         };
         let mut headers = HeaderMap::new();
-        let denied = extraction_callback(headers.clone(), State(state.clone()), Json(callback_body))
-            .await
-            .into_response();
+        let denied =
+            extraction_callback(headers.clone(), State(state.clone()), Json(callback_body))
+                .await
+                .into_response();
         assert_eq!(denied.status(), StatusCode::FORBIDDEN);
 
         let callback_body_ok = ExtractionCallbackRequest {
@@ -1903,6 +1985,8 @@ mod tests {
                 provenance: Default::default(),
                 attempted_backends: vec!["external".to_string()],
                 fallback_reason: None,
+                normalized_document: None,
+                result_ref: None,
             },
         };
         headers.insert(

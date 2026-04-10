@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { workbenchApi } from '../api.ts';
-import type { GraphPhysicsConfig, SpaceRegistryRecord } from '../contracts.ts';
+import type {
+    GraphPhysicsConfig,
+    SpaceReadinessStatus,
+    SpaceRegistryRecord,
+    SpaceSourceMode,
+} from '../contracts.ts';
 import { useUiStore } from './uiStore.ts';
 import { useUserPreferences } from './userPreferences.ts';
 
 const INTRO_SPACE_ID = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+const LIVE_SPACES_CACHE_KEY = 'cortex.liveSpaces.v1';
 export type SpaceRegistryMode = 'auto' | 'preview' | 'live';
+export type SpaceSourceBucketKey = 'registered' | 'observed' | 'preview' | 'draft';
 
 /**
  * Default "Branching Universe" physics configuration.
@@ -42,6 +49,17 @@ export interface Space {
     createdAt?: string;
     members?: string[];
     archetype?: string;
+    sourceMode?: SpaceSourceMode | 'preview' | 'draft';
+    readinessSummary?: SpaceReadinessStatus;
+    readiness?: {
+        registry: SpaceReadinessStatus;
+        navigationPlan: SpaceReadinessStatus;
+        agentRuns: SpaceReadinessStatus;
+        contributionGraphArtifact: SpaceReadinessStatus;
+        contributionGraphRuns: SpaceReadinessStatus;
+        capabilityGraph: SpaceReadinessStatus;
+        summary: SpaceReadinessStatus;
+    };
     stats?: SpaceStats;
     config?: SpaceConfig;
     metadata?: {
@@ -68,6 +86,17 @@ const META_SPACE: Space = {
     type: 'global',
     archetype: 'Meta',
     icon: 'globe',
+    sourceMode: 'registered',
+    readinessSummary: 'pass',
+    readiness: {
+        registry: 'pass',
+        navigationPlan: 'pass',
+        agentRuns: 'pass',
+        contributionGraphArtifact: 'in_progress',
+        contributionGraphRuns: 'in_progress',
+        capabilityGraph: 'pass',
+        summary: 'pass',
+    },
     stats: { objectCount: 24500, growthPercentage: 8, memberCount: 12 },
     config: { actions: ['details', 'settings', 'archive'], enforcement: 'flexible' }
 };
@@ -80,6 +109,17 @@ export const PREVIEW_SPACES: Space[] = [
         archetype: 'Intro',
         icon: 'star',
         description: 'Demo Space for local preview content',
+        sourceMode: 'preview',
+        readinessSummary: 'in_progress',
+        readiness: {
+            registry: 'in_progress',
+            navigationPlan: 'in_progress',
+            agentRuns: 'in_progress',
+            contributionGraphArtifact: 'in_progress',
+            contributionGraphRuns: 'in_progress',
+            capabilityGraph: 'in_progress',
+            summary: 'in_progress',
+        },
         stats: { objectCount: 1240, growthPercentage: 12, memberCount: 45 },
         config: { actions: ['details', 'copy_id', 'explore'], enforcement: 'audit' }
     },
@@ -90,6 +130,17 @@ export const PREVIEW_SPACES: Space[] = [
         archetype: 'Governance',
         icon: 'shield',
         description: 'Demo Space for governance preview flows',
+        sourceMode: 'preview',
+        readinessSummary: 'in_progress',
+        readiness: {
+            registry: 'in_progress',
+            navigationPlan: 'in_progress',
+            agentRuns: 'in_progress',
+            contributionGraphArtifact: 'in_progress',
+            contributionGraphRuns: 'in_progress',
+            capabilityGraph: 'in_progress',
+            summary: 'in_progress',
+        },
         stats: { objectCount: 850, growthPercentage: 3, memberCount: 150 },
         config: { actions: ['details', 'copy_id'], enforcement: 'strict' }
     },
@@ -100,6 +151,17 @@ export const PREVIEW_SPACES: Space[] = [
         archetype: 'System',
         icon: 'settings',
         description: 'Demo Space for system preview content',
+        sourceMode: 'preview',
+        readinessSummary: 'in_progress',
+        readiness: {
+            registry: 'in_progress',
+            navigationPlan: 'in_progress',
+            agentRuns: 'in_progress',
+            contributionGraphArtifact: 'in_progress',
+            contributionGraphRuns: 'in_progress',
+            capabilityGraph: 'in_progress',
+            summary: 'in_progress',
+        },
         stats: { objectCount: 15400, growthPercentage: 1, memberCount: 3 },
         config: { actions: ['details', 'settings'], enforcement: 'strict' }
     },
@@ -110,6 +172,17 @@ export const PREVIEW_SPACES: Space[] = [
         archetype: 'Research',
         icon: 'flask',
         description: 'Demo Space for research preview content',
+        sourceMode: 'preview',
+        readinessSummary: 'in_progress',
+        readiness: {
+            registry: 'in_progress',
+            navigationPlan: 'in_progress',
+            agentRuns: 'in_progress',
+            contributionGraphArtifact: 'in_progress',
+            contributionGraphRuns: 'in_progress',
+            capabilityGraph: 'in_progress',
+            summary: 'in_progress',
+        },
         stats: { objectCount: 520, growthPercentage: 24, memberCount: 8 },
         config: { actions: ['details', 'copy_id', 'explore', 'archive'], enforcement: 'flexible' }
     },
@@ -120,6 +193,17 @@ export const PREVIEW_SPACES: Space[] = [
         archetype: 'General',
         icon: 'box',
         description: 'Demo Space for default preview content',
+        sourceMode: 'preview',
+        readinessSummary: 'in_progress',
+        readiness: {
+            registry: 'in_progress',
+            navigationPlan: 'in_progress',
+            agentRuns: 'in_progress',
+            contributionGraphArtifact: 'in_progress',
+            contributionGraphRuns: 'in_progress',
+            capabilityGraph: 'in_progress',
+            summary: 'in_progress',
+        },
         stats: { objectCount: 87, growthPercentage: 0, memberCount: 1 },
         config: { actions: ['details', 'copy_id'], enforcement: 'audit' }
     },
@@ -134,7 +218,7 @@ export function resolveSpaceRegistryMode(value?: string): SpaceRegistryMode {
 }
 
 export function getRegistryFallbackSpaces(mode: SpaceRegistryMode): Space[] {
-    if (mode === 'preview' || mode === 'auto') {
+    if (mode === 'preview') {
         return [META_SPACE, ...PREVIEW_SPACES];
     }
     return [META_SPACE];
@@ -143,6 +227,61 @@ export function getRegistryFallbackSpaces(mode: SpaceRegistryMode): Space[] {
 export function getRegistryBootstrapSpaces(mode: SpaceRegistryMode): Space[] {
     if (mode === 'preview') {
         return getRegistryFallbackSpaces(mode);
+    }
+    return [META_SPACE];
+}
+
+function normalizeCachedSpaces(value: unknown): Space[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value
+        .filter((entry): entry is Space => Boolean(entry) && typeof entry === 'object' && typeof (entry as Space).id === 'string')
+        .filter((space) => space.id !== 'meta')
+        .filter((space) => space.sourceMode !== 'preview');
+}
+
+function readCachedLiveSpaces(): Space[] {
+    if (typeof window === 'undefined') {
+        return [];
+    }
+    try {
+        const raw = window.localStorage.getItem(LIVE_SPACES_CACHE_KEY);
+        if (!raw) {
+            return [];
+        }
+        return normalizeCachedSpaces(JSON.parse(raw));
+    } catch {
+        return [];
+    }
+}
+
+function writeCachedLiveSpaces(spaces: Space[]): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+    try {
+        const serializable = spaces.filter((space) => space.id !== 'meta' && space.sourceMode !== 'preview');
+        window.localStorage.setItem(LIVE_SPACES_CACHE_KEY, JSON.stringify(serializable));
+    } catch {
+        // Best-effort cache only.
+    }
+}
+
+export function resolveRegistryFailureSpaces(
+    registryMode: SpaceRegistryMode,
+    currentSpaces: Space[],
+    cachedLiveSpaces: Space[] = [],
+): Space[] {
+    const currentLiveSpaces = currentSpaces.filter((space) => space.id !== 'meta' && space.sourceMode !== 'preview');
+    if (currentLiveSpaces.length > 0) {
+        return [META_SPACE, ...currentLiveSpaces];
+    }
+    if (cachedLiveSpaces.length > 0) {
+        return [META_SPACE, ...cachedLiveSpaces];
+    }
+    if (registryMode !== 'live') {
+        return getRegistryFallbackSpaces(registryMode);
     }
     return [META_SPACE];
 }
@@ -174,6 +313,52 @@ function isSystemOwnedSpace(record: SpaceRegistryRecord): boolean {
     return owner.startsWith('system') || owner.startsWith('agent:');
 }
 
+export function describeSpaceSourceMode(space: Pick<Space, 'sourceMode'>): string {
+    switch (space.sourceMode) {
+        case 'observed':
+            return 'Observed Live Space';
+        case 'preview':
+            return 'Preview Space';
+        case 'draft':
+            return 'Draft Space';
+        default:
+            return 'Registered Space';
+    }
+}
+
+export function describeSpaceReadiness(space: Pick<Space, 'readinessSummary'>): string {
+    switch (space.readinessSummary) {
+        case 'pass':
+            return 'pass';
+        case 'fail':
+            return 'fail';
+        case 'in_progress':
+            return 'in progress';
+        default:
+            return 'unknown';
+    }
+}
+
+export function partitionSpacesBySource(spaces: Space[]): Record<SpaceSourceBucketKey, Space[]> {
+    return spaces.reduce<Record<SpaceSourceBucketKey, Space[]>>(
+        (acc, space) => {
+            const mode = space.sourceMode ?? 'registered';
+            if (mode === 'observed' || mode === 'preview' || mode === 'draft') {
+                acc[mode].push(space);
+            } else {
+                acc.registered.push(space);
+            }
+            return acc;
+        },
+        {
+            registered: [],
+            observed: [],
+            preview: [],
+            draft: [],
+        },
+    );
+}
+
 function compactSpaceSuffix(spaceId: string): string {
     return spaceId.slice(0, 8);
 }
@@ -203,6 +388,9 @@ export function mapSpaceRegistryRecordToSpace(record: SpaceRegistryRecord): Spac
         createdAt: record.createdAt,
         members: record.members,
         archetype: archetype || undefined,
+        sourceMode: record.sourceMode ?? 'registered',
+        readinessSummary: record.readinessSummary,
+        readiness: record.readiness,
         stats: {
             objectCount: 0,
             growthPercentage: 0,
@@ -234,7 +422,7 @@ export function mapSpaceRegistryRecordToSpace(record: SpaceRegistryRecord): Spac
 
 /**
  * Registry of available spaces.
- * Fetches canonical space truth from the Cortex gateway and falls back to preview fixtures.
+ * Fetches canonical space truth from the Cortex gateway and only shows preview fixtures when explicitly enabled.
  */
 export function useAvailableSpaces() {
     return useAvailableSpacesState().spaces;
@@ -245,19 +433,18 @@ export function useSpaceRegistrySnapshot() {
 }
 
 function useAvailableSpacesState() {
-    const envResolvedMode = resolveSpaceRegistryMode(
-        ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_SPACE_REGISTRY_MODE as string | undefined)
-    );
     const storeRegistryMode = useUserPreferences((state) => state.registryMode);
-    
-    // Auto falls back to what the Env had, or 'live' by default if no env variable.
-    // If store has 'auto' but we want local to stick to 'live' when possible.
-    const registryMode = storeRegistryMode === 'auto' 
-        ? ((envResolvedMode === 'preview' || envResolvedMode === 'live') ? envResolvedMode : 'live')
-        : (resolveSpaceRegistryMode(storeRegistryMode) || 'live');
+    const registryMode = resolveSpaceRegistryMode(storeRegistryMode) === 'preview' ? 'preview' : 'live';
 
-    const [spaces, setSpaces] = useState<Space[]>(() => getRegistryBootstrapSpaces(registryMode));
+    const [spaces, setSpaces] = useState<Space[]>(() => {
+        if (registryMode === 'preview') {
+            return getRegistryBootstrapSpaces(registryMode);
+        }
+        const cachedLiveSpaces = readCachedLiveSpaces();
+        return cachedLiveSpaces.length > 0 ? [META_SPACE, ...cachedLiveSpaces] : getRegistryBootstrapSpaces(registryMode);
+    });
     const [registryResolved, setRegistryResolved] = useState<boolean>(registryMode === 'preview');
+    const [registryDegraded, setRegistryDegraded] = useState<boolean>(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -265,33 +452,35 @@ function useAvailableSpacesState() {
         if (registryMode === 'preview') {
             setSpaces(getRegistryBootstrapSpaces(registryMode));
             setRegistryResolved(true);
+            setRegistryDegraded(false);
             return () => {
                 cancelled = true;
             };
         }
 
         setRegistryResolved(false);
+        setRegistryDegraded(false);
 
-        // Fetch explicitly requested mode or auto/live
         workbenchApi.getSpaces()
             .then((response) => {
                 if (cancelled) {
                     return;
                 }
-                setSpaces([META_SPACE, ...response.items.map(mapSpaceRegistryRecordToSpace)]);
+                const resolvedSpaces = [META_SPACE, ...response.items.map(mapSpaceRegistryRecordToSpace)];
+                setSpaces(resolvedSpaces);
                 setRegistryResolved(true);
+                setRegistryDegraded(false);
+                writeCachedLiveSpaces(resolvedSpaces);
             })
             .catch(() => {
                 if (cancelled) {
                     return;
                 }
-                // Fallback to preview spaces if API fails and mode wasn't strictly 'live'
-                if (registryMode !== 'live') {
-                    setSpaces(getRegistryFallbackSpaces(registryMode));
-                } else {
-                    setSpaces([META_SPACE]);
-                }
+                setSpaces((currentSpaces) =>
+                    resolveRegistryFailureSpaces('live', currentSpaces, readCachedLiveSpaces()),
+                );
                 setRegistryResolved(true);
+                setRegistryDegraded(true);
             });
 
         return () => {
@@ -299,7 +488,7 @@ function useAvailableSpacesState() {
         };
     }, [registryMode]);
 
-    return { spaces, registryMode, registryResolved };
+    return { spaces, registryMode, registryResolved, registryDegraded };
 }
 
 export function useCanonicalActiveSpaces() {

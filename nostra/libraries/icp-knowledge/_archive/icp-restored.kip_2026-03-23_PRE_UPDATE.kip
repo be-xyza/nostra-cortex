@@ -1,0 +1,1 @@
+UPSERT { CONCEPT ?dfx { {type: "DevelopmentTool", name: "DFX"} SET ATTRIBUTES { description: "The command-line execution environment for creating and managing apps." } @ "belongs_to_domain" "ICPKnowledge" } }

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "replay_1775114287044",
+    "kind": "write",
+    "key": "/cortex/ux/viewspecs/spatial/layouts/meta-layout-1775114287037/viewspec-spatial-layout.json",
+    "content": "{\n  \"schemaVersion\": \"1.0.0\",\n  \"planeId\": \"plane-1\",\n  \"viewSpecId\": \"viewspec-spatial-layout\",\n  \"spaceId\": \"meta-layout-1775114287037\",\n  \"revision\": 1,\n  \"layout\": {\n    \"shapePositions\": {\n      \"node-1\": {\n        \"x\": 120.0,\n        \"y\": 80.0\n      }\n    },\n    \"collapsedGroups\": {\n      \"group-1\": true\n    },\n    \"viewState\": {\n      \"zoom\": 1.15,\n      \"panX\": 32.0,\n      \"panY\": -18.0\n    },\n    \"selectedShapeIds\": [\n      \"node-1\"\n    ]\n  },\n  \"lineage\": {\n    \"viewSpecId\": \"viewspec-spatial-layout\",\n    \"workflowId\": null,\n    \"graphHash\": \"graph-alpha\",\n    \"spaceId\": \"meta-layout-1775114287037\",\n    \"updatedBy\": \"operator\",\n    \"updatedAt\": \"2026-04-01T00:00:00Z\"\n  }\n}",
+    "mimeType": "application/json",
+    "enqueuedAt": "2026-04-02T07:18:07.044398+00:00",
+    "attemptCount": 0,
+    "lastError": "workflow engine VFS is not configured"
+  },
+  {
+    "id": "replay_1775114442722",
+    "kind": "write",
+    "key": "/cortex/ux/viewspecs/spatial/layouts/meta-layout-1775114442711/viewspec-spatial-layout.json",
+    "content": "{\n  \"schemaVersion\": \"1.0.0\",\n  \"planeId\": \"plane-1\",\n  \"viewSpecId\": \"viewspec-spatial-layout\",\n  \"spaceId\": \"meta-layout-1775114442711\",\n  \"revision\": 1,\n  \"layout\": {\n    \"shapePositions\": {\n      \"node-1\": {\n        \"x\": 120.0,\n        \"y\": 80.0\n      }\n    },\n    \"collapsedGroups\": {\n      \"group-1\": true\n    },\n    \"viewState\": {\n      \"zoom\": 1.15,\n      \"panX\": 32.0,\n      \"panY\": -18.0\n    },\n    \"selectedShapeIds\": [\n      \"node-1\"\n    ]\n  },\n  \"lineage\": {\n    \"viewSpecId\": \"viewspec-spatial-layout\",\n    \"workflowId\": null,\n    \"graphHash\": \"graph-alpha\",\n    \"spaceId\": \"meta-layout-1775114442711\",\n    \"updatedBy\": \"operator\",\n    \"updatedAt\": \"2026-04-01T00:00:00Z\"\n  }\n}",
+    "mimeType": "application/json",
+    "enqueuedAt": "2026-04-02T07:20:42.722013+00:00",
+    "attemptCount": 0,
+    "lastError": "workflow engine VFS is not configured"
+  }
+]

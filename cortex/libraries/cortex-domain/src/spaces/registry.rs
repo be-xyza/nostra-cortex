@@ -11,6 +11,7 @@ pub enum CreationMode {
     Import,
     Template,
     Preview,
+    Observed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -58,6 +59,51 @@ pub struct SpaceRecord {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SpaceRegistry {
     pub spaces: BTreeMap<String, SpaceRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceAgentRoutingOverride {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter_set_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_binding_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceRoutingSettings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter_set_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_binding_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_routing_policy: Option<String>,
+    #[serde(default)]
+    pub agent_overrides: BTreeMap<String, SpaceAgentRoutingOverride>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceRuntimeSettingsRegistry {
+    #[serde(default)]
+    pub spaces: BTreeMap<String, SpaceRoutingSettings>,
 }
 
 impl SpaceRegistry {
@@ -114,6 +160,49 @@ impl SpaceRegistry {
             .values()
             .filter(|r| r.status == SpaceStatus::Active)
             .collect()
+    }
+}
+
+impl SpaceRuntimeSettingsRegistry {
+    pub fn load_from_path(path: &Path) -> Result<Self, String> {
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+        let content = fs::read_to_string(path)
+            .map_err(|e| format!("Failed to read space runtime settings: {}", e))?;
+        serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse space runtime settings: {}", e))
+    }
+
+    pub fn save_to_path(&self, path: &Path) -> Result<(), String> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create runtime settings directory: {}", e))?;
+        }
+        if path.exists() {
+            fs::copy(path, SpaceRegistry::backup_path_for(path))
+                .map_err(|e| format!("Failed to create runtime settings backup: {}", e))?;
+        }
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| format!("Failed to serialize runtime settings: {}", e))?;
+        let tmp_path = SpaceRegistry::temp_path_for(path);
+        let mut file = fs::File::create(&tmp_path)
+            .map_err(|e| format!("Failed to create runtime settings temp file: {}", e))?;
+        file.write_all(content.as_bytes())
+            .map_err(|e| format!("Failed to write runtime settings temp file: {}", e))?;
+        file.sync_all()
+            .map_err(|e| format!("Failed to sync runtime settings temp file: {}", e))?;
+        fs::rename(&tmp_path, path)
+            .map_err(|e| format!("Failed to install runtime settings temp file: {}", e))?;
+        Ok(())
+    }
+
+    pub fn get(&self, space_id: &str) -> Option<&SpaceRoutingSettings> {
+        self.spaces.get(space_id)
+    }
+
+    pub fn upsert(&mut self, space_id: impl Into<String>, settings: SpaceRoutingSettings) {
+        self.spaces.insert(space_id.into(), settings);
     }
 }
 
@@ -240,5 +329,49 @@ mod tests {
 
         let _ = fs::remove_file(SpaceRegistry::backup_path_for(&path));
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn runtime_settings_round_trip_with_agent_overrides() {
+        let mut registry = SpaceRuntimeSettingsRegistry::default();
+        let mut overrides = BTreeMap::new();
+        overrides.insert(
+            "agent:eudaemon-alpha-01".to_string(),
+            SpaceAgentRoutingOverride {
+                agent_id: Some("agent:eudaemon-alpha-01".to_string()),
+                adapter_set_ref: Some("adapter.primary".to_string()),
+                default_model: Some("gpt-5.4".to_string()),
+                auth_binding_id: Some("cred-openai".to_string()),
+                auth_mode: Some("api_key".to_string()),
+                provider_id: Some("openrouter_primary".to_string()),
+            },
+        );
+
+        registry.upsert(
+            "space-alpha",
+            SpaceRoutingSettings {
+                adapter_set_ref: Some("adapter.primary".to_string()),
+                default_model: Some("gpt-5.4".to_string()),
+                auth_binding_id: Some("cred-openai".to_string()),
+                provider_id: Some("openrouter_primary".to_string()),
+                agent_routing_policy: Some("space_default_with_agent_overrides".to_string()),
+                agent_overrides: overrides,
+                updated_at: Some("2026-03-22T00:00:00Z".to_string()),
+                updated_by: Some("systems-steward".to_string()),
+            },
+        );
+
+        let encoded = serde_json::to_string(&registry).expect("encode");
+        let decoded: SpaceRuntimeSettingsRegistry =
+            serde_json::from_str(&encoded).expect("decode");
+        let settings = decoded.get("space-alpha").expect("space settings");
+        assert_eq!(settings.default_model.as_deref(), Some("gpt-5.4"));
+        assert_eq!(
+            settings
+                .agent_overrides
+                .get("agent:eudaemon-alpha-01")
+                .and_then(|entry| entry.auth_binding_id.as_deref()),
+            Some("cred-openai")
+        );
     }
 }

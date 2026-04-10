@@ -1,0 +1,21 @@
+// Seed: Organization Templates Domain
+// Establishes the OrgTemplates domain for organizational type definitions
+
+UPSERT {
+  CONCEPT ?domain {
+    {type: "Domain", name: "OrgTemplates"}
+    SET ATTRIBUTES {
+      description: "Organizational templates and governance patterns for entities running on Nostra",
+      archetype: "curated",
+      icon: "🏢"
+    }
+    SET PROPOSITIONS {
+      ("depends_on", {type: "Domain", name: "NostraCore"})
+    }
+  }
+}
+WITH METADATA { 
+  steward: "nostra-dao", 
+  version: "0.1.0",
+  source: "nostra-org-templates-library"
+}

@@ -1,0 +1,54 @@
+type FileMetadata = record {
+  mime_type: text;
+  size: nat64;
+  last_modified: nat64;
+};
+
+type ListEntry = record { text; FileMetadata };
+
+type Result = variant { Ok: null; Err: text };
+type ResultBytes = variant { Ok: vec nat8; Err: text };
+type ResultText = variant { Ok: text; Err: text };
+type ResultList = variant { Ok: vec ListEntry; Err: text };
+
+type ContributionVersionRef = record { contribution_id: text; version_hash: text };
+type ChapterManifest = record {
+  index: nat32;
+  contribution_ref: ContributionVersionRef;
+  content_hash: text;
+  title: text;
+};
+type EditionMetadata = record { license: text };
+type EditionManifest = record {
+  edition_id: text;
+  dpub_id: text;
+  version: text;
+  name: opt text;
+  content_root: text;
+  chapters: vec ChapterManifest;
+  published_at: text;
+  publisher: text;
+  previous_edition: opt text;
+  metadata: EditionMetadata;
+};
+
+type ResultEdition = variant { Ok: EditionManifest; Err: text };
+
+service : {
+  start_workflow: (text) -> (text);
+  process_message: (text) -> (text);
+  get_workflow: (text) -> (opt text) query;
+
+  // VFS
+  write_file: (text, vec nat8, text) -> (Result);
+  read_file: (text) -> (ResultBytes) query;
+  list_files: (text) -> (vec ListEntry) query;
+  read_dpub_file_guarded: (text, opt text, opt text) -> (ResultBytes) query;
+  list_dpub_files_guarded: (text, opt text, opt text) -> (ResultList) query;
+  read_vfs_guarded: (text, opt text, opt text) -> (ResultBytes) query;
+  list_vfs_guarded: (text, opt text, opt text) -> (ResultList) query;
+
+  // dPub V1
+  publish_dpub_edition: (text, text, opt text, opt text) -> (ResultEdition);
+  get_dpub_feed: (text, nat32, opt text, opt text) -> (ResultText) query;
+}

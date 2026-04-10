@@ -1,4 +1,4 @@
-import type { ShellLayoutSpec, WhoAmIResponse } from "../../contracts.ts";
+import type { AuthSession, ShellLayoutSpec, WhoAmIResponse } from "../../contracts.ts";
 
 const FALLBACK_LAYOUT_SPEC: ShellLayoutSpec = {
   layoutId: "default",
@@ -62,7 +62,7 @@ const FALLBACK_LAYOUT_SPEC: ShellLayoutSpec = {
       },
       {
         routeId: "/system/providers",
-        label: "API Providers",
+        label: "Providers",
         icon: "shield-alert",
         category: "system",
         requiredRole: "operator",
@@ -72,17 +72,33 @@ const FALLBACK_LAYOUT_SPEC: ShellLayoutSpec = {
   },
 };
 
-const FALLBACK_WHOAMI: WhoAmIResponse = {
+const FALLBACK_SESSION: AuthSession = {
   schemaVersion: "1.0.0",
   generatedAt: "1970-01-01T00:00:00.000Z",
   principal: "local-user",
-  requestedRole: "operator",
-  effectiveRole: "operator",
-  claims: ["*"],
-  identityVerified: true,
-  identitySource: "local",
-  authzDevMode: true,
-  allowUnverifiedRoleHeader: true,
+  sessionId: "fallback-session",
+  identityVerified: false,
+  identitySource: "read_fallback_viewer",
+  authMode: "read_fallback",
+  grantedRoles: ["viewer"],
+  activeRole: "viewer",
+  globalClaims: [],
+  spaceGrants: [],
+  allowRoleSwitch: false,
+  allowUnverifiedRoleHeader: false,
+};
+
+const FALLBACK_WHOAMI: WhoAmIResponse = {
+  schemaVersion: "1.0.0",
+  generatedAt: "1970-01-01T00:00:00.000Z",
+  principal: FALLBACK_SESSION.principal,
+  requestedRole: "viewer",
+  effectiveRole: FALLBACK_SESSION.activeRole,
+  claims: [],
+  identityVerified: FALLBACK_SESSION.identityVerified,
+  identitySource: FALLBACK_SESSION.identitySource,
+  authzDevMode: false,
+  allowUnverifiedRoleHeader: false,
   authzDecisionVersion: "1.0",
 };
 
@@ -116,13 +132,25 @@ export function buildFallbackWhoami(
   actorRole?: string,
   generatedAt = new Date().toISOString(),
 ): WhoAmIResponse {
-  const normalizedRole = normalizeRole(actorRole);
+  const session = buildFallbackAuthSession(actorId, actorRole, generatedAt);
   return {
     ...FALLBACK_WHOAMI,
     generatedAt,
+    principal: session.principal,
+    requestedRole: normalizeRole(actorRole),
+    effectiveRole: session.activeRole,
+  };
+}
+
+export function buildFallbackAuthSession(
+  actorId?: string,
+  _actorRole?: string,
+  generatedAt = new Date().toISOString(),
+): AuthSession {
+  return {
+    ...FALLBACK_SESSION,
+    generatedAt,
     principal: normalizeActorId(actorId),
-    requestedRole: normalizedRole,
-    effectiveRole: normalizedRole,
   };
 }
 
@@ -136,7 +164,7 @@ export function formatShellBootstrapWarning(
     : "";
   const prefix =
     context === "layout"
-      ? "Gateway unavailable. Using local preview shell."
-      : "Identity endpoint unavailable. Using local preview role.";
+      ? "Gateway unavailable. Using local fallback shell."
+      : "Identity endpoint unavailable. Using local fallback role.";
   return `${prefix}${targetSuffix} ${error}`.trim();
 }

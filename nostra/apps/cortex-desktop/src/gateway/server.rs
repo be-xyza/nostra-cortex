@@ -79,7 +79,6 @@ use axum::{
 };
 use candid::Principal;
 use chrono::{DateTime, Utc};
-use cortex_ic_adapter::ic_cli::IcCliKind;
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
@@ -102,8 +101,8 @@ struct SystemStatus {
     local_ic_running: bool,
     version: String,
     local_ic_host: String,
-    #[serde(rename = "dfx_running")]
-    dfx_running: bool,
+    #[serde(alias = "dfx_running")]
+    icp_running: bool,
     #[serde(rename = "replica_port")]
     replica_port: u16,
 }
@@ -113,8 +112,8 @@ struct SystemReady {
     ready: bool,
     gateway_port: u16,
     local_ic_healthy: bool,
-    #[serde(rename = "dfx_port_healthy")]
-    dfx_port_healthy: bool,
+    #[serde(alias = "dfx_port_healthy")]
+    icp_port_healthy: bool,
     notes: Vec<String>,
 }
 
@@ -11549,23 +11548,11 @@ async fn health_check() -> impl IntoResponse {
 }
 
 fn local_ic_healthy() -> bool {
-    let kind = match std::env::var("CORTEX_IC_CLI").as_deref() {
-        Ok("icp") => IcCliKind::Icp,
-        _ => IcCliKind::Dfx,
-    };
-    let mut cmd = match kind {
-        IcCliKind::Icp => {
-            let mut c = Command::new("icp");
-            c.args(["network", "status"]);
-            c
-        }
-        IcCliKind::Dfx => {
-            let mut c = Command::new("dfx");
-            c.arg("ping");
-            c
-        }
-    };
-    cmd.output().map(|o| o.status.success()).unwrap_or(false)
+    Command::new("icp")
+        .args(["network", "status"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 async fn get_system_ready() -> Json<SystemReady> {
@@ -11586,7 +11573,7 @@ async fn get_system_ready() -> Json<SystemReady> {
         ready: healthy,
         gateway_port,
         local_ic_healthy: healthy,
-        dfx_port_healthy: healthy,
+        icp_port_healthy: healthy,
         notes,
     })
 }
@@ -11594,16 +11581,7 @@ async fn get_system_ready() -> Json<SystemReady> {
 async fn get_system_status() -> Json<SystemStatus> {
     let running = local_ic_healthy();
 
-    let kind = match std::env::var("CORTEX_IC_CLI").as_deref() {
-        Ok("icp") => IcCliKind::Icp,
-        _ => IcCliKind::Dfx,
-    };
-    let bin = match kind {
-        IcCliKind::Icp => "icp",
-        IcCliKind::Dfx => "dfx",
-    };
-
-    let version_output = Command::new(bin)
+    let version_output = Command::new("icp")
         .arg("--version")
         .output()
         .ok()
@@ -11614,7 +11592,7 @@ async fn get_system_status() -> Json<SystemStatus> {
         local_ic_running: running,
         version: version_output.trim().to_string(),
         local_ic_host: "127.0.0.1:4943".to_string(),
-        dfx_running: running,
+        icp_running: running,
         replica_port: 4943,
     })
 }
@@ -12843,7 +12821,7 @@ async fn get_system_decision_telemetry_by_space(Path(space_id): Path<String>) ->
 }
 
 async fn list_canisters() -> Json<Vec<CanisterInfo>> {
-    let output = Command::new("dfx")
+    let output = Command::new("icp")
         .arg("canister")
         .arg("id")
         .arg("--all")
@@ -12856,7 +12834,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         for line in stdout.lines() {
             if let Some((name, id)) = line.split_once(":") {
                 // Check status for each (could be slow, maybe optimize later)
-                let status_output = Command::new("dfx")
+                let status_output = Command::new("icp")
                     .arg("canister")
                     .arg("status")
                     .arg(id.trim())
@@ -12883,7 +12861,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         }
     }
 
-    // Mock data if dfx is offline for UI testing
+    // Mock data if icp is offline for UI testing
     if canisters.is_empty() {
         canisters.push(CanisterInfo {
             name: "internet_identity (mock)".into(),

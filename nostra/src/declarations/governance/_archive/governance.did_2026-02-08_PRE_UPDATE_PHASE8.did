@@ -1,0 +1,64 @@
+type Policy = record {
+    id: text;
+    rule_type: text;
+    parameters: text;
+};
+
+type Constitution = record {
+    id: text;
+    policies: vec Policy;
+};
+
+type ComplianceResult = variant {
+    Pass;
+    Fail: text;
+    RequiresReview: text;
+};
+
+type Result = variant { Ok: null; Err: text };
+type EpistemicMode = variant { observe; soft_gate; hard_gate };
+type DecisionClass = variant { governance; merge; high_impact; standard };
+type EpistemicPolicy = record {
+    mode: EpistemicMode;
+    min_evidence: nat32;
+    min_alternatives: nat32;
+    min_robustness: float64;
+    max_confidence_drift: float64;
+    max_fork_pressure: float64;
+    max_correction_density: float64;
+    simulation_ttl_days: nat32;
+    enforced_decision_classes: vec DecisionClass;
+    block_on_soft: bool;
+};
+
+type AttributionWeightPolicy = record {
+    domain_mode: text;
+    weight: float64;
+    allow_binding: bool;
+    rationale: text;
+    updated_at: nat64;
+};
+
+type ActionScopeEvaluation = record {
+    allowed: bool;
+    reason: text;
+    effective_weight: float64;
+    requires_review: bool;
+    gate_decision: text;
+    required_actions: vec text;
+    policy_ref: opt text;
+};
+
+service : {
+    register_constitution: (Constitution) -> ();
+    check_compliance: (text, text) -> (ComplianceResult) query;
+    set_epistemic_policy: (EpistemicPolicy) -> (Result);
+    get_epistemic_policy: () -> (opt EpistemicPolicy) query;
+    set_workflow_engine_target: (principal) -> (Result);
+    get_workflow_engine_target: () -> (opt principal) query;
+    sync_epistemic_policy_to_workflow_engine: () -> (Result);
+    set_attribution_weight_policy: (text, AttributionWeightPolicy) -> (Result);
+    get_attribution_weight_policy: (text) -> (opt AttributionWeightPolicy) query;
+    evaluate_action_scope: (text, text, text) -> (ActionScopeEvaluation) query;
+    evaluate_action_scope_with_gate: (text, text, text, text) -> (ActionScopeEvaluation) query;
+}

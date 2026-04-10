@@ -77,9 +77,9 @@ test("shell layout contract carries optional navMeta and playground route", asyn
         navigationGraph: {
           entries: [
             {
-              routeId: "/heap",
-              label: "Heap Canvas",
-              icon: "HP",
+              routeId: "/explore",
+              label: "Explore",
+              icon: "EX",
               category: "core",
               requiredRole: "operator",
               navMeta: { badgeCount: 1, badgeTone: "info", attention: true, attentionLabel: "Live heap", collapsibleHint: "expanded" }
@@ -105,6 +105,96 @@ test("shell layout contract carries optional navMeta and playground route", asyn
     assert.ok(layout.navigationGraph.entries.some((entry) => entry.routeId === "/playground"));
     assert.equal(layout.navigationGraph.entries[0]?.navMeta?.badgeTone, "info");
     assert.equal(layout.navigationGraph.entries[1]?.navMeta?.attentionLabel, "Orchestration");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("session endpoint uses the canonical identity path and returns backend-issued session state", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedRole = "";
+  let capturedActor = "";
+
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    capturedUrl = String(input);
+    capturedRole = String((init?.headers as Record<string, string> | undefined)?.["x-cortex-role"] ?? "");
+    capturedActor = String((init?.headers as Record<string, string> | undefined)?.["x-cortex-actor"] ?? "");
+    return new Response(
+      JSON.stringify({
+        schemaVersion: "1.0.0",
+        generatedAt: "2026-03-22T00:00:00Z",
+        principal: "web-test",
+        sessionId: "sess-1",
+        identityVerified: false,
+        identitySource: "dev_unverified_header",
+        authMode: "dev_override",
+        grantedRoles: ["viewer", "editor", "operator"],
+        activeRole: "operator",
+        globalClaims: [],
+        spaceGrants: [],
+        allowRoleSwitch: true,
+        allowUnverifiedRoleHeader: true
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    const session = await workbenchApi.getSession("operator", "web-test");
+    assert.ok(capturedUrl.endsWith("/api/system/session"));
+    assert.equal(capturedRole, "operator");
+    assert.equal(capturedActor, "web-test");
+    assert.equal(session.sessionId, "sess-1");
+    assert.equal(session.activeRole, "operator");
+    assert.deepEqual(session.grantedRoles, ["viewer", "editor", "operator"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("session active-role switch posts to the canonical endpoint", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedMethod = "";
+  let capturedBody = "";
+  let capturedActor = "";
+
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    capturedUrl = String(input);
+    capturedMethod = init?.method ?? "GET";
+    capturedBody = String(init?.body ?? "");
+    capturedActor = String((init?.headers as Record<string, string> | undefined)?.["x-cortex-actor"] ?? "");
+    return new Response(
+      JSON.stringify({
+        schemaVersion: "1.0.0",
+        generatedAt: "2026-03-22T00:00:00Z",
+        principal: "web-test",
+        sessionId: "sess-1",
+        identityVerified: false,
+        identitySource: "session_claims",
+        authMode: "session_claims",
+        grantedRoles: ["viewer", "editor", "operator"],
+        activeRole: "viewer",
+        globalClaims: [],
+        spaceGrants: [],
+        allowRoleSwitch: true,
+        allowUnverifiedRoleHeader: false
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    const session = await workbenchApi.setActiveRole("viewer", "nostra-governance-v0", "web-test");
+    assert.ok(capturedUrl.endsWith("/api/system/session/active-role"));
+    assert.equal(capturedMethod, "POST");
+    assert.equal(capturedActor, "web-test");
+    assert.equal(
+      capturedBody,
+      JSON.stringify({ role: "viewer", spaceId: "nostra-governance-v0" }),
+    );
+    assert.equal(session.activeRole, "viewer");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -229,7 +319,7 @@ test("space action plan POST sends operator headers and serialized request body"
         generatedAt: "2026-03-12T00:00:00Z",
         planHash: "hash",
         spaceId: "nostra-governance-v0",
-        routeId: "/heap",
+        routeId: "/explore",
         pageType: "heap_board",
         actorRole: "operator",
         zones: [],
@@ -238,13 +328,13 @@ test("space action plan POST sends operator headers and serialized request body"
     );
   }) as typeof fetch;
 
-  const payload = {
-    schemaVersion: "1.0.0",
-    spaceId: "nostra-governance-v0",
-    actorRole: "operator",
-    routeId: "/heap",
-    pageType: "heap_board",
-    zones: ["heap_page_bar"],
+    const payload = {
+      schemaVersion: "1.0.0",
+      spaceId: "nostra-governance-v0",
+      actorRole: "operator",
+      routeId: "/explore",
+      pageType: "heap_board",
+      zones: ["heap_page_bar"],
     selection: {
       selectedArtifactIds: [],
       selectedCount: 0,

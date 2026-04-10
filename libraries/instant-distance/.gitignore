@@ -1,0 +1,6 @@
+/target
+Cargo.lock
+*.svg
+*.so
+__pycache__
+.DS_Store

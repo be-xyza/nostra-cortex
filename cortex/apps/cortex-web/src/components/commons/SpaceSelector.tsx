@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, Check, Globe, Layout, Shield, FlaskConical, Plus, Settings, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useUiStore } from "../../store/uiStore";
-import { useSpaceRegistrySnapshot } from "../../store/spacesRegistry";
+import { partitionSpacesBySource, useSpaceRegistrySnapshot } from "../../store/spacesRegistry";
 import { resolveSpaceSelectorTriggerState } from "./spaceSelectorPresentation";
 
 interface SpaceSelectorProps {
@@ -50,7 +50,7 @@ export const SpaceSelector: React.FC<SpaceSelectorProps> = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const { spaces: availableSpaces, registryResolved } = useSpaceRegistrySnapshot();
+    const { spaces: availableSpaces, registryResolved, registryDegraded } = useSpaceRegistrySnapshot();
     const activeSpaceIds = useUiStore((state) => state.activeSpaceIds);
     const setActiveSpaceIds = useUiStore((state) => state.setActiveSpaceIds);
     const activeWorkbenchSession = useUiStore((state) => state.activeWorkbenchSession);
@@ -94,6 +94,8 @@ export const SpaceSelector: React.FC<SpaceSelectorProps> = ({
 
     const isMeta = activeSpaceIds.includes("meta");
     const activeSpaces = availableSpaces.filter(s => activeSpaceIds.includes(s.id));
+    const nonMetaSpaces = availableSpaces.filter((space) => space.id !== "meta");
+    const groupedSpaces = partitionSpacesBySource(nonMetaSpaces);
     
     // Determine visual config for the trigger
     const primarySpaceId = isMeta ? "meta" : (activeSpaces[0]?.id || "default");
@@ -104,6 +106,8 @@ export const SpaceSelector: React.FC<SpaceSelectorProps> = ({
         isMulti,
         activeSpaceCount: activeSpaceIds.length,
         activeSpaceName: activeSpaces[0]?.name,
+        activeSpaceSourceMode: activeSpaces[0]?.sourceMode,
+        activeSpaceReadiness: activeSpaces[0]?.readinessSummary,
         registryResolved,
     });
 
@@ -144,7 +148,7 @@ export const SpaceSelector: React.FC<SpaceSelectorProps> = ({
             {isOpen && (
                 <div className="absolute top-full left-0 w-64 mt-2 bg-slate-950/98 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_8px_32px_-8px_rgba(0,0,0,0.8)] p-1 z-50 animate-in fade-in zoom-in-95 duration-100">
                     <div className="text-[9px] font-black text-cortex-ink-faint px-3 py-2 uppercase tracking-widest border-b border-white/5 mb-1">
-                        Switch Workspace / Space
+                        Switch Space
                     </div>
                     
                     <button
@@ -169,7 +173,28 @@ export const SpaceSelector: React.FC<SpaceSelectorProps> = ({
                     </div>
 
                     <div className="max-h-[240px] overflow-y-auto custom-scrollbar space-y-0.5">
-                        {availableSpaces.filter(s => s.id !== "meta").map((space) => {
+                        {registryDegraded && (
+                            <div className="mx-3 mb-2 rounded-lg border border-amber-400/15 bg-amber-400/8 px-2.5 py-2 text-[9px] text-amber-100/80">
+                                Gateway unavailable. Showing the last known live Space registry.
+                            </div>
+                        )}
+                        {([
+                            ["registered", "Registered Spaces"],
+                            ["observed", "Observed Live Evidence"],
+                            ["draft", "Draft Spaces"],
+                            ["preview", "Preview Spaces"],
+                        ] as const).map(([bucket, label]) => {
+                            const entries = groupedSpaces[bucket];
+                            if (entries.length === 0) {
+                                return null;
+                            }
+                            return (
+                                <div key={bucket} className="mb-2">
+                                    <div className="px-3 py-1 text-[8px] font-black uppercase tracking-[0.24em] text-cortex-ink-faint/80">
+                                        {label}
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        {entries.map((space) => {
                             const isSelected = activeSpaceIds.includes(space.id) && !isMeta;
                             const spaceConf = SPACE_CONFIG[space.id] || SPACE_CONFIG.default;
                             return (
@@ -190,6 +215,13 @@ export const SpaceSelector: React.FC<SpaceSelectorProps> = ({
                                             </span>
                                             <span className="text-[7px] font-medium text-cortex-500 uppercase tracking-tighter">
                                                 ID: {space.id}
+                                            </span>
+                                            <span className="mt-0.5 inline-flex items-center rounded-full border border-white/8 bg-white/4 px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-wider text-cortex-300">
+                                                {(space.sourceMode === "observed" && "Observed Live Space")
+                                                    || (space.sourceMode === "preview" && "Preview Space")
+                                                    || (space.sourceMode === "draft" && "Draft Space")
+                                                    || "Registered Space"}
+                                                {space.readinessSummary ? ` · ${space.readinessSummary.replace("_", " ")}` : ""}
                                             </span>
                                         </div>
                                     </button>
@@ -217,6 +249,10 @@ export const SpaceSelector: React.FC<SpaceSelectorProps> = ({
                                                 <Check className="w-3.5 h-3.5 text-blue-500" />
                                             </>
                                         )}
+                                    </div>
+                                </div>
+                            );
+                                        })}
                                     </div>
                                 </div>
                             );

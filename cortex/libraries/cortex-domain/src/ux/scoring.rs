@@ -66,28 +66,13 @@ pub fn default_shell_layout_spec() -> ShellLayoutSpec {
         navigation_graph: NavigationGraphSpec {
             entries: vec![
                 nav(
-                    "/spaces",
-                    "Spaces",
-                    "SP",
-                    "core",
-                    "viewer",
-                    Some("primary_workspace"),
-                    Some(nav_meta(Some(2), "default", false, None, "expanded")),
-                ),
-                nav(
-                    "/heap",
-                    "Heap Canvas",
-                    "HP",
+                    "/explore",
+                    "Explore",
+                    "EX",
                     "core",
                     "operator",
                     Some("primary_workspace"),
-                    Some(nav_meta(
-                        Some(1),
-                        "info",
-                        true,
-                        Some("Live heap"),
-                        "expanded",
-                    )),
+                    None,
                 ),
                 nav(
                     "/studio",
@@ -151,21 +136,6 @@ pub fn default_shell_layout_spec() -> ShellLayoutSpec {
                     "operator",
                     Some("secondary_admin"),
                     Some(nav_meta(Some(0), "default", false, None, "expanded")),
-                ),
-                nav(
-                    "/inbox",
-                    "Inbox & Approvals",
-                    "IN",
-                    "core",
-                    "operator",
-                    Some("primary_attention"),
-                    Some(nav_meta(
-                        Some(1),
-                        "critical",
-                        true,
-                        Some("Approvals"),
-                        "expanded",
-                    )),
                 ),
                 nav(
                     "/agents",
@@ -283,16 +253,6 @@ pub fn default_view_capability_manifests() -> Vec<ViewCapabilityManifest> {
             "operator",
             true,
             "Global Workflow operations fallback lane",
-        ),
-        cap(
-            "/inbox",
-            "Inbox & Approvals",
-            "view.inbox",
-            "pattern.workflow",
-            UX_STATUS_CANDIDATE,
-            "operator",
-            true,
-            "Operator Human-in-the-Loop gate review and approval inbox",
         ),
         cap(
             "/studio",
@@ -415,14 +375,14 @@ pub fn default_view_capability_manifests() -> Vec<ViewCapabilityManifest> {
             "Simulation adapter status, controls, and injection lane",
         ),
         cap(
-            "/heap",
-            "Heap Canvas",
+            "/explore",
+            "Explore",
             "view.heap",
             "pattern.system",
             UX_STATUS_CANDIDATE,
             "operator",
             false,
-            "Infinite spatial CRDT Heap board",
+            "Infinite spatial CRDT Explore board",
         ),
         cap(
             "/labs",
@@ -568,7 +528,7 @@ fn slot_weight(slot: &str) -> u32 {
 fn infer_nav_slot_for_route(route_id: &str) -> &'static str {
     match route_id {
         "/inbox" | "/notifications" => "primary_attention",
-        "/spaces" | "/heap" => "primary_workspace",
+        "/spaces" | "/heap" | "/explore" => "primary_workspace",
         "/workflows" | "/flows" => "primary_execute",
         "/studio" | "/artifacts" | "/vfs" => "secondary_build",
         "/agents" | "/discovery" | "/memory" | "/simulation" => "secondary_agents",
@@ -1501,8 +1461,7 @@ mod tests {
             .map(|entry| entry.route_id.clone())
             .collect();
         let required_routes = [
-            "/spaces",
-            "/heap",
+            "/explore",
             "/studio",
             "/workflows",
             "/contributions",
@@ -1514,7 +1473,6 @@ mod tests {
             "/vfs",
             "/logs",
             "/settings",
-            "/inbox",
             "/agents",
             "/discovery",
             "/metrics",
@@ -1533,8 +1491,7 @@ mod tests {
             .map(|entry| entry.route_id.clone())
             .collect();
         let required_capability_routes = [
-            "/spaces",
-            "/heap",
+            "/explore",
             "/studio",
             "/workflows",
             "/contributions",
@@ -1546,7 +1503,6 @@ mod tests {
             "/vfs",
             "/logs",
             "/settings",
-            "/inbox",
             "/agents",
             "/discovery",
             "/metrics",

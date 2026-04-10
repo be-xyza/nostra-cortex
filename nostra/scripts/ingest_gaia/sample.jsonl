@@ -1,0 +1,2 @@
+{"task_id": "gaia_val_001", "Question": "What is the capital of France?", "Level": 1, "Final_answer": "Paris", "file_name": null, "file_path": null, "Annotator_Metadata": {}}
+{"task_id": "gaia_val_002", "Question": "Extract the total revenue from the attached report.", "Level": 2, "Final_answer": "$10M", "file_name": "report.pdf", "file_path": "data/report.pdf", "Annotator_Metadata": {"steps": "4"}}

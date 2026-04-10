@@ -7,7 +7,6 @@ use tokio::process::Command;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum IcCliKind {
-    Dfx,
     Icp,
 }
 
@@ -50,177 +49,6 @@ pub trait IcCliBackend: Send + Sync {
         name: &str,
         network: &str,
     ) -> Result<(), String>;
-}
-
-pub struct DfxBackend {
-    pub project_root: Option<PathBuf>,
-}
-
-impl DfxBackend {
-    fn run_cmd(&self, args: &[&str]) -> Command {
-        let mut cmd = Command::new("dfx");
-        if let Some(ref root) = self.project_root {
-            cmd.current_dir(root);
-        }
-        cmd.args(args);
-        cmd
-    }
-
-    async fn exec(&self, args: &[&str]) -> Result<std::process::Output, String> {
-        self.run_cmd(args)
-            .output()
-            .await
-            .map_err(|e| format!("failed to execute dfx {}: {}", args.join(" "), e))
-    }
-}
-
-#[async_trait]
-impl IcCliBackend for DfxBackend {
-    fn kind(&self) -> IcCliKind {
-        IcCliKind::Dfx
-    }
-
-    async fn version(&self) -> Result<String, String> {
-        let output = self.exec(&["--version"]).await?;
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn is_installed(&self) -> bool {
-        Command::new("dfx")
-            .arg("--version")
-            .output()
-            .await
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-    }
-
-    async fn local_status(&self) -> bool {
-        self.exec(&["ping"])
-            .await
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-    }
-
-    async fn start_local(&self) -> Result<(), String> {
-        let output = self.exec(&["start", "--background"]).await?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn stop_local(&self) -> Result<(), String> {
-        let output = self.exec(&["stop"]).await?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn build_check(&self, _project_root: &Path) -> Result<(), String> {
-        let output = self.exec(&["build", "--check"]).await?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn deploy(
-        &self,
-        _project_root: &Path,
-        network: &str,
-        mode: Option<&str>,
-    ) -> Result<(), String> {
-        let mut args = vec!["deploy", "--network", network];
-        if let Some(m) = mode {
-            args.push("--mode");
-            args.push(m);
-        }
-        let output = self.exec(&args).await?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn canister_id(&self, name: &str) -> Result<String, String> {
-        let output = self.exec(&["canister", "id", name]).await?;
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn canister_status(&self, name: &str) -> Result<String, String> {
-        let output = self.exec(&["canister", "status", name]).await?;
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn canister_call(
-        &self,
-        name: &str,
-        method: &str,
-        argument: Option<&str>,
-    ) -> Result<String, String> {
-        let mut args = vec!["canister", "call", name, method];
-        if let Some(arg) = argument {
-            args.push(arg);
-        }
-        let output = self.exec(&args).await?;
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn snapshot_create(&self, name: &str, network: &str) -> Result<String, String> {
-        let output = self
-            .exec(&["canister", "--network", network, "snapshot", "create", name])
-            .await?;
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-
-    async fn snapshot_load(
-        &self,
-        snapshot_id: &str,
-        name: &str,
-        network: &str,
-    ) -> Result<(), String> {
-        let output = self
-            .exec(&[
-                "canister",
-                "--network",
-                network,
-                "snapshot",
-                "load",
-                name,
-                snapshot_id,
-            ])
-            .await?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
 }
 
 pub struct IcpBackend {
@@ -385,15 +213,8 @@ pub struct DirectAgentBackend {
 }
 
 impl DirectAgentBackend {
-    pub async fn new(
-        cli_kind: IcCliKind,
-        project_root: Option<PathBuf>,
-        host: &str,
-    ) -> Result<Self, String> {
-        let cli_backend: Box<dyn IcCliBackend> = match cli_kind {
-            IcCliKind::Dfx => Box::new(DfxBackend { project_root }),
-            IcCliKind::Icp => Box::new(IcpBackend { project_root }),
-        };
+    pub async fn new(project_root: Option<PathBuf>, host: &str) -> Result<Self, String> {
+        let cli_backend: Box<dyn IcCliBackend> = Box::new(IcpBackend { project_root });
 
         let agent: Agent = Agent::builder()
             .with_url(host)

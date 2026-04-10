@@ -1,0 +1,250 @@
+type FileMetadata = record {
+  mime_type: text;
+  size: nat64;
+  last_modified: nat64;
+};
+
+type ListEntry = record { text; FileMetadata };
+
+type Result = variant { Ok: null; Err: text };
+type ResultBytes = variant { Ok: vec nat8; Err: text };
+type ResultText = variant { Ok: text; Err: text };
+type ResultList = variant { Ok: vec ListEntry; Err: text };
+
+type ContributionVersionRef = record { contribution_id: text; version_hash: text };
+type ChapterManifest = record {
+  index: nat32;
+  contribution_ref: ContributionVersionRef;
+  content_hash: text;
+  title: text;
+};
+type EditionMetadata = record { license: text };
+type EditionManifest = record {
+  edition_id: text;
+  dpub_id: text;
+  version: text;
+  name: opt text;
+  content_root: text;
+  chapters: vec ChapterManifest;
+  published_at: text;
+  publisher: text;
+  previous_edition: opt text;
+  metadata: EditionMetadata;
+};
+
+type ResultEdition = variant { Ok: EditionManifest; Err: text };
+type PublishContext = record { commit_hash: text; source_ref: opt text };
+
+// Flow Graph + Workbench
+type FlowNode = record {
+  id: text;
+  name: text;
+  "type": text;
+  schema_ref: opt text;
+  file_ref: opt text;
+  language: opt text;
+  tags: vec text;
+  flows: vec text;
+};
+type FlowEdge = record {
+  id: text;
+  source: text;
+  target: text;
+  topic: opt text;
+  "variant": text;
+  conditional: opt bool;
+};
+type FlowGraph = record {
+  id: text;
+  workflow_id: text;
+  version: text;
+  generated_at: nat64;
+  nodes: vec FlowNode;
+  edges: vec FlowEdge;
+};
+type FlowNodePosition = record { node_id: text; x: int; y: int };
+type FlowHandlePosition = record { handle_id: text; source: text; target: text };
+type FlowLayoutInput = record {
+  workflow_id: text;
+  graph_version: text;
+  node_positions: vec FlowNodePosition;
+  handle_positions: vec FlowHandlePosition;
+  collapsed_groups: vec text;
+};
+type FlowLayout = record {
+  workflow_id: text;
+  graph_version: text;
+  node_positions: vec FlowNodePosition;
+  handle_positions: vec FlowHandlePosition;
+  collapsed_groups: vec text;
+  updated_by: principal;
+  updated_at: nat64;
+};
+type ResultFlowGraph = variant { Ok: FlowGraph; Err: text };
+type ResultFlowLayout = variant { Ok: FlowLayout; Err: text };
+type OfflineConflictSummary = record {
+  mutation_id: text;
+  workflow_id: text;
+  kind: text;
+  error: text;
+  source: opt text;
+  status: text;
+};
+
+// Blackwell Guardrails
+type EpistemicMode = variant { observe; soft_gate; hard_gate };
+type DecisionClass = variant { governance; merge; high_impact; standard };
+type GateOutcome = variant { pass; warn; require_review; require_simulation; block };
+
+type EpistemicAssessment = record {
+  assessment_id: text;
+  workflow_id: text;
+  mutation_id: text;
+  decision_class: DecisionClass;
+  confidence_score: float64;
+  source_reliability: float64;
+  robustness_score: float64;
+  voi_score: float64;
+  regret_risk: float64;
+  assumption_count: nat32;
+  evidence_count: nat32;
+  alternative_count: nat32;
+  gate_outcome: GateOutcome;
+  reasons: vec text;
+  created_at: nat64;
+};
+
+type EpistemicPolicy = record {
+  mode: EpistemicMode;
+  min_evidence: nat32;
+  min_alternatives: nat32;
+  min_robustness: float64;
+  max_confidence_drift: float64;
+  max_fork_pressure: float64;
+  max_correction_density: float64;
+  simulation_ttl_days: nat32;
+  enforced_decision_classes: vec DecisionClass;
+  block_on_soft: bool;
+};
+
+type EpistemicPolicyAuthority = variant {
+  LocalAdmin;
+  GovernanceCanister: principal;
+};
+
+type EpistemicOverrideAck = record {
+  assessment_id: text;
+  mutation_id: text;
+  workflow_id: text;
+  justification: text;
+  approved_by: principal;
+  approved_at: nat64;
+};
+
+type ExecutionTopology = variant { LocalOnly; Networked; Hybrid };
+type ConsensusMode = variant { NoneLocal; ReplicatedConsensus; DelegatedConsensus };
+type TrustBoundary = variant { AttributedDefault; MixedAttribution; PrivacyPreferred };
+type ExecutionProfile = record {
+  execution_topology: ExecutionTopology;
+  consensus_mode: ConsensusMode;
+  trust_boundary: TrustBoundary;
+  updated_by: principal;
+  updated_at: nat64;
+};
+type AttributionMode = variant { attributed; pseudonymous; anonymous; delayed };
+type AttributionDomain = record {
+  id: text;
+  mode: AttributionMode;
+  reattachment_policy: text;
+  governance_visibility: text;
+  auditability_level: text;
+  weight_policy_ref: opt text;
+  updated_by: principal;
+  updated_at: nat64;
+};
+type ContributionAttributionBinding = record {
+  contribution_id: text;
+  space_id: text;
+  domain_id: text;
+  bound_by: principal;
+  bound_at: nat64;
+};
+type ReplayContract = record {
+  mutation_id: text;
+  workflow_id: text;
+  action_target: text;
+  adapter_set_ref: text;
+  execution_profile_ref: text;
+  attribution_domain_ref: text;
+  deterministic_input_hash: text;
+  lineage_id: opt text;
+  policy_ref: opt text;
+  policy_snapshot_ref: opt text;
+  evidence_refs: vec text;
+  decision_digest: opt text;
+  captured_at: nat64;
+};
+type DecisionLineage = record {
+  mutation_id: text;
+  workflow_id: text;
+  lineage_id: text;
+  action_target: text;
+  decision_digest: text;
+  policy_ref: opt text;
+  policy_snapshot_ref: opt text;
+  evidence_refs: vec text;
+  captured_at: nat64;
+};
+
+type ResultEpistemicAssessment = variant { Ok: EpistemicAssessment; Err: text };
+type ResultEpistemicPolicy = variant { Ok: EpistemicPolicy; Err: text };
+
+service : {
+  start_workflow: (text) -> (text);
+  process_message: (text) -> (text);
+  get_workflow: (text) -> (opt text) query;
+  list_offline_conflicts: () -> (vec OfflineConflictSummary) query;
+
+  // Blackwell Guardrails
+  evaluate_epistemic_gate: (text, text, opt text) -> (ResultEpistemicAssessment);
+  get_epistemic_assessment: (text) -> (opt EpistemicAssessment) query;
+  list_epistemic_assessments: (text, nat32) -> (vec EpistemicAssessment) query;
+  get_epistemic_policy: () -> (EpistemicPolicy) query;
+  get_epistemic_policy_authority: () -> (EpistemicPolicyAuthority) query;
+  set_epistemic_policy: (EpistemicPolicy) -> (Result);
+  set_epistemic_policy_authority: (EpistemicPolicyAuthority) -> (Result);
+  ack_epistemic_override: (EpistemicOverrideAck) -> (Result);
+
+  // Execution + Attribution decision surfaces
+  set_space_execution_profile: (text, ExecutionProfile) -> (Result);
+  get_space_execution_profile: (text) -> (opt ExecutionProfile) query;
+  upsert_attribution_domain: (text, AttributionDomain) -> (Result);
+  get_attribution_domains: (text) -> (vec AttributionDomain) query;
+  bind_contribution_attribution_domain: (text, text, text) -> (Result);
+  get_contribution_attribution_binding: (text) -> (opt ContributionAttributionBinding) query;
+  get_replay_contract: (text) -> (opt ReplayContract) query;
+  get_epistemic_assessment_by_mutation: (text) -> (opt EpistemicAssessment) query;
+  list_space_replay_contracts: (text, nat32) -> (vec ReplayContract) query;
+  get_decision_lineage_by_mutation: (text) -> (opt DecisionLineage) query;
+  list_space_decision_lineage: (text, nat32) -> (vec DecisionLineage) query;
+
+  // Flow Graph
+  get_flow_graph: (text, opt text) -> (ResultFlowGraph) query;
+  get_flow_layout: (text, opt text) -> (ResultFlowLayout) query;
+  set_flow_layout: (FlowLayoutInput) -> (ResultFlowLayout);
+
+  // VFS
+  write_file: (text, vec nat8, text) -> (Result);
+  read_file: (text) -> (ResultBytes) query;
+  list_files: (text) -> (vec ListEntry) query;
+  read_dpub_file_guarded: (text, opt text, opt text) -> (ResultBytes) query;
+  list_dpub_files_guarded: (text, opt text, opt text) -> (ResultList) query;
+  read_vfs_guarded: (text, opt text, opt text) -> (ResultBytes) query;
+  list_vfs_guarded: (text, opt text, opt text) -> (ResultList) query;
+
+  // dPub V1
+  // Deprecated for new clients; use publish_dpub_edition_v2.
+  publish_dpub_edition: (text, text, opt text, opt text) -> (ResultEdition);
+  publish_dpub_edition_v2: (text, text, opt text, opt text, PublishContext) -> (ResultEdition);
+  get_dpub_feed: (text, nat32, opt text, opt text) -> (ResultText) query;
+}

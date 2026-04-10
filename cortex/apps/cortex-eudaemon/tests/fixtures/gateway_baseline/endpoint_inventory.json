@@ -118,6 +118,22 @@
     },
     {
       "method": "GET",
+      "path": "/api/cortex/studio/uploads/parser-profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/uploads/:upload_id/extractions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/uploads/:upload_id/extractions/:job_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cortex/studio/uploads/:upload_id/extraction"
+    },
+    {
+      "method": "GET",
       "path": "/api/cortex/views/capability-matrix"
     },
     {
@@ -362,10 +378,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/system/llm-adapter/status"
-    },
-    {
-      "method": "GET",
       "path": "/api/system/local-gateway/queue"
     },
     {
@@ -390,11 +402,19 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/provider-runtime/status"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/ready"
     },
     {
       "method": "GET",
       "path": "/api/system/replay-contract/:mutation_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/session"
     },
     {
       "method": "GET",
@@ -467,6 +487,10 @@
     {
       "method": "GET",
       "path": "/ws"
+    },
+    {
+      "method": "GET",
+      "path": "/ws/chat"
     },
     {
       "method": "GET",
@@ -635,6 +659,14 @@
     {
       "method": "POST",
       "path": "/api/cortex/studio/heap/emit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/uploads"
+    },
+    {
+      "method": "POST",
+      "path": "/api/cortex/studio/uploads/:upload_id/extract"
     },
     {
       "method": "POST",
@@ -822,6 +854,10 @@
     },
     {
       "method": "POST",
+      "path": "/api/system/session/active-role"
+    },
+    {
+      "method": "POST",
       "path": "/api/workflow/read"
     },
     {
@@ -839,10 +875,6 @@
     {
       "method": "PUT",
       "path": "/api/spaces/:space_id/capability-graph"
-    },
-    {
-      "method": "GET",
-      "path": "/ws/chat"
     }
   ]
 }

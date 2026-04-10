@@ -40,6 +40,26 @@ pub(crate) struct AgentRunSummaryResponse {
     pub space_id: String,
     pub contribution_id: String,
     pub agent_id: Option<String>,
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub auth_mode: Option<String>,
+    #[serde(default)]
+    pub response_id: Option<String>,
+    #[serde(default)]
+    pub prompt_template_artifact_id: Option<String>,
+    #[serde(default)]
+    pub prompt_template_revision_id: Option<String>,
+    #[serde(default)]
+    pub prompt_execution_artifact_id: Option<String>,
+    #[serde(default)]
+    pub parent_run_id: Option<String>,
+    #[serde(default)]
+    pub child_run_ids: Vec<String>,
+    #[serde(default)]
+    pub provider_trace_summary: Option<serde_json::Value>,
     pub status: String,
     pub started_at: String,
     pub updated_at: String,
@@ -112,7 +132,11 @@ pub(crate) fn list_agent_runs(
     let clamped_limit = limit.clamp(1, 200);
     let prefix = format!("{}__", sanitize_fs_component(normalized_space_id));
     let mut summaries = Vec::new();
-    let entries = fs::read_dir(agent_runs_dir()).map_err(|err| err.to_string())?;
+    let runs_dir = agent_runs_dir();
+    if !runs_dir.exists() {
+        return Ok(summaries);
+    }
+    let entries = fs::read_dir(runs_dir).map_err(|err| err.to_string())?;
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
@@ -139,6 +163,16 @@ pub(crate) fn list_agent_runs(
             space_id: record.run.space_id.clone(),
             contribution_id: record.run.contribution_id.clone(),
             agent_id: record.run.agent_id.clone(),
+            provider: record.run.provider.clone(),
+            model: record.run.model.clone(),
+            auth_mode: record.run.auth_mode.clone(),
+            response_id: record.run.response_id.clone(),
+            prompt_template_artifact_id: record.run.prompt_template_artifact_id.clone(),
+            prompt_template_revision_id: record.run.prompt_template_revision_id.clone(),
+            prompt_execution_artifact_id: record.run.prompt_execution_artifact_id.clone(),
+            parent_run_id: record.run.parent_run_id.clone(),
+            child_run_ids: record.run.child_run_ids.clone(),
+            provider_trace_summary: record.run.provider_trace_summary.clone(),
             status: stringify_serde_enum(&record.run.status)
                 .unwrap_or_else(|| "unknown".to_string()),
             started_at: record.run.started_at.clone(),

@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Shield, Crown, Key, PenTool, Eye, Check, ChevronDown, Activity, Terminal } from "lucide-react";
-import { useUiStore } from "../../store/uiStore";
+import { Shield, Crown, PenTool, Eye, Check, ChevronDown, Terminal } from "lucide-react";
+import type { AuthSession } from "../../contracts.ts";
 
 interface RoleProfileSelectorProps {
-    whoami: any;
-    sessionUser: any;
-    setSessionUser: (user: any) => void;
+    session: AuthSession;
+    onRoleChange: (role: string) => void | Promise<void>;
     className?: string;
     collapsed?: boolean;
     isCentered?: boolean;
@@ -56,16 +55,15 @@ const ROLE_CONFIG: Record<string, {
 };
 
 export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({ 
-    whoami, 
-    sessionUser, 
-    setSessionUser,
+    session,
+    onRoleChange,
     className = "",
     collapsed = false,
     isCentered = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const activeRole = sessionUser?.role || whoami?.effectiveRole || "viewer";
+    const activeRole = session.activeRole || "viewer";
     const config = ROLE_CONFIG[activeRole] || ROLE_CONFIG.viewer;
 
     useEffect(() => {
@@ -79,18 +77,15 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
     }, []);
 
     const handleRoleChange = (role: string) => {
-        if (!sessionUser) return;
-        setSessionUser({ actorId: sessionUser.actorId, role });
+        void onRoleChange(role);
         setIsOpen(false);
     };
-
-    if (!whoami) return null;
 
     return (
         <div className={`relative ${className}`} ref={dropdownRef}>
             <button
-                onClick={() => whoami.allowUnverifiedRoleHeader && setIsOpen(!isOpen)}
-                className={`flex items-center transition-all duration-300 ${whoami.allowUnverifiedRoleHeader ? "hover:bg-white/5" : "cursor-default"} 
+                onClick={() => session.allowRoleSwitch && setIsOpen(!isOpen)}
+                className={`flex items-center transition-all duration-300 ${session.allowRoleSwitch ? "hover:bg-white/5" : "cursor-default"} 
                     ${collapsed ? "justify-center p-1 rounded-full w-10 h-10" : "gap-2.5 p-1 rounded-xl pr-3"}
                     ${isCentered ? "mx-auto" : ""}`}
                 aria-label={`Current role: ${activeRole}`}
@@ -112,7 +107,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
                             <span className="text-[10px] font-black uppercase tracking-wider text-cortex-100">
                                 {activeRole}
                             </span>
-                            {whoami.allowUnverifiedRoleHeader && (
+                            {session.allowRoleSwitch && (
                                 <ChevronDown className={`w-3 h-3 text-cortex-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
                             )}
                         </div>
@@ -126,9 +121,10 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
             {isOpen && (
                 <div className="absolute top-full left-0 w-48 mt-2 bg-slate-950/98 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_8px_32px_-8px_rgba(0,0,0,0.8)] p-1 z-50 animate-in fade-in zoom-in-95 duration-100">
                     <div className="text-[9px] font-black text-cortex-ink-faint px-3 py-2 uppercase tracking-widest border-b border-white/5 mb-1">
-                        Switch Authority Role
+                        {session.authMode === "dev_override" ? "Switch Dev Role" : "Switch Authority Role"}
                     </div>
-                    {Object.entries(ROLE_CONFIG).map(([role, roleConfig]) => {
+                    {session.grantedRoles.map((role) => {
+                        const roleConfig = ROLE_CONFIG[role] || ROLE_CONFIG.viewer;
                         const isSelected = activeRole === role;
                         return (
                             <button

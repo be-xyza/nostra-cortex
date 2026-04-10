@@ -1,0 +1,22 @@
+// Nostra Streaming Canister Candid Interface
+// WebSocket endpoints for real-time AI chat streaming
+
+type ChatMessage = record {
+    msg_type: text;
+    content: text;
+    conversation_id: opt text;
+};
+
+type A2UIEvent = record {
+    event_type: text;
+    payload: text;
+};
+
+// WebSocket Service Interface (required by ic-websocket-cdk)
+service : {
+    // WebSocket lifecycle
+    ws_open: (record { client_nonce: nat64; gateway_principal: principal }) -> (variant { Ok: null; Err: text });
+    ws_close: (record { client_key: record { client_principal: principal; client_nonce: nat64 } }) -> (variant { Ok: null; Err: text });
+    ws_message: (record { client_key: record { client_principal: principal; client_nonce: nat64 }; sequence_num: nat64; timestamp: nat64; is_service_message: bool; content: vec nat8 }, opt ChatMessage) -> (variant { Ok: null; Err: text });
+    ws_get_messages: (record { nonce: nat64 }) -> (record { messages: vec record { client_key: record { client_principal: principal; client_nonce: nat64 }; sequence_num: nat64; timestamp: nat64; is_service_message: bool; content: vec nat8 }; cert: vec nat8; tree: vec nat8 }) query;
+}

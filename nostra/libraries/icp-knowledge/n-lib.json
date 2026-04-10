@@ -1,0 +1,22 @@
+{
+    "id": "icp.core",
+    "name": "ICP Core Library",
+    "version": "0.1.0",
+    "domain": "ICPKnowledge",
+    "archetype": "curated",
+    "description": "Core concepts and infrastructure of the Internet Computer Protocol.",
+    "license": "MIT",
+    "dependencies": {},
+    "capsules": [
+        "types/Protocol.kip",
+        "types/Infrastructure.kip",
+        "types/Component.kip",
+        "seed/icp-restored.kip",
+        "seed/icp-restored-relations.kip"
+    ],
+    "fork_policy": {
+        "can_fork": true,
+        "copy_history": false,
+        "attribution_required": true
+    }
+}

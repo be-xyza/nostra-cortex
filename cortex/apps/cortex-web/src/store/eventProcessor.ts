@@ -1,5 +1,5 @@
-import { HeapBlockListItem, HeapBlockProjection, Json } from '../contracts';
-import { GlobalEvent } from './eventStore';
+import { HeapBlockListItem, HeapBlockProjection, Json } from '../contracts.ts';
+import { GlobalEvent } from './eventStore.ts';
 
 /**
  * Reducer for Heap Blocks

@@ -1,0 +1,16 @@
+version: 1
+
+canisters:
+  brand_policy_registry:
+    type: rust
+    package: nostra-brand-policy-registry
+    candid: src/declarations/brand_policy_registry/brand_policy_registry.did
+  workflow_engine:
+    type: rust
+    package: nostra-workflow-engine
+    candid: src/declarations/workflow_engine/workflow_engine.did
+
+defaults:
+  build:
+    args: ""
+    packtool: ""

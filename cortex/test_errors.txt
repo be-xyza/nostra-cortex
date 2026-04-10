@@ -1,0 +1,300 @@
+   Compiling cortex-desktop v0.1.0 (/Users/xaoj/ICP/cortex/apps/cortex-desktop)
+error[E0428]: the name `parse_heap_cursor` is defined multiple times
+     --> apps/cortex-desktop/src/gateway/server.rs:13811:1
+      |
+ 3150 | fn parse_heap_cursor(cursor: &str) -> Option<(String, String)> {
+      | -------------------------------------------------------------- previous definition of the value `parse_heap_cursor` here
+...
+13811 | fn parse_heap_cursor(cursor: &str) -> Option<(String, String)> {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `parse_heap_cursor` redefined here
+      |
+      = note: `parse_heap_cursor` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `heap_cursor_key` is defined multiple times
+     --> apps/cortex-desktop/src/gateway/server.rs:13819:1
+      |
+ 3146 | fn heap_cursor_key(updated_at: &str, artifact_id: &str) -> String {
+      | ----------------------------------------------------------------- previous definition of the value `heap_cursor_key` here
+...
+13819 | fn heap_cursor_key(updated_at: &str, artifact_id: &str) -> String {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `heap_cursor_key` redefined here
+      |
+      = note: `heap_cursor_key` must be defined only once in the value namespace of this module
+
+error[E0425]: cannot find function `role_rank` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13095:8
+      |
+13095 |     if role_rank(&actor_role) < role_rank("operator") {
+      |        ^^^^^^^^^ not found in this scope
+      |
+help: consider importing this function
+      |
+    1 + use cortex_domain::ux::role_rank;
+      |
+
+error[E0425]: cannot find function `role_rank` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13095:33
+      |
+13095 |     if role_rank(&actor_role) < role_rank("operator") {
+      |                                 ^^^^^^^^^ not found in this scope
+      |
+help: consider importing this function
+      |
+    1 + use cortex_domain::ux::role_rank;
+      |
+
+warning: unused imports: `ArtifactCollabCheckpoint`, `ArtifactCrdtState`, `ArtifactCrdtUpdateEnvelope`, `init_state as init_crdt_state`, `materialize_markdown as materialize_crdt_markdown`, and `state_hash as crdt_state_hash`
+  --> apps/cortex-desktop/src/gateway/server.rs:11:5
+   |
+11 |     ArtifactCollabCheckpoint, ArtifactCrdtConflict, ArtifactCrdtState, ArtifactCrdtUpdateEnvelope,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^                        ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 |     apply_update as apply_crdt_update, build_replace_markdown_update,
+13 |     init_state as init_crdt_state, materialize_markdown as materialize_crdt_markdown,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+14 |     state_hash as crdt_state_hash,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `ArtifactRealtimeEnvelope` and `ArtifactRealtimeResyncResult`
+  --> apps/cortex-desktop/src/gateway/server.rs:30:61
+   |
+30 |     ArtifactRealtimeAckCursor, ArtifactRealtimeBacklogItem, ArtifactRealtimeEnvelope,
+   |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+31 |     ArtifactRealtimeIntegrityReport, ArtifactRealtimePollResult, ArtifactRealtimeResyncResult,
+   |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `put`
+  --> apps/cortex-desktop/src/gateway/server.rs:52:26
+   |
+52 |     routing::{get, post, put},
+   |                          ^^^
+
+warning: unused import: `std::fs::OpenOptions`
+  --> apps/cortex-desktop/src/gateway/server.rs:92:5
+   |
+92 | use std::fs::OpenOptions;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::io::Write`
+  --> apps/cortex-desktop/src/gateway/server.rs:94:5
+   |
+94 | use std::io::Write;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `Sha256`
+ --> apps/cortex-desktop/src/services/local_gateway.rs:5:20
+  |
+5 | use sha2::{Digest, Sha256};
+  |                    ^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> apps/cortex-desktop/src/services/local_gateway.rs:6:5
+  |
+6 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0425]: cannot find function `test_override_actor_role_binding` in this scope
+    --> apps/cortex-desktop/src/gateway/server.rs:5586:29
+     |
+5586 |     let mock_role_binding = test_override_actor_role_binding();
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `test_override_policy_evaluation` in this scope
+    --> apps/cortex-desktop/src/gateway/server.rs:5590:28
+     |
+5590 |     let mock_policy_eval = test_override_policy_evaluation();
+     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `test_override_actor_role_binding` in this scope
+    --> apps/cortex-desktop/src/gateway/server.rs:6062:29
+     |
+6062 |     let mock_role_binding = test_override_actor_role_binding();
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `test_override_policy_evaluation` in this scope
+    --> apps/cortex-desktop/src/gateway/server.rs:6066:28
+     |
+6066 |     let mock_policy_eval = test_override_policy_evaluation();
+     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `test_override_agent_l2_scope_evaluation` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:11413:29
+      |
+11413 |     let l2_scope_override = test_override_agent_l2_scope_evaluation();
+      |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0308]: mismatched types
+     --> apps/cortex-desktop/src/gateway/server.rs:13003:50
+      |
+13003 |                     if let Some(val) = attrs.get(*key) {
+      |                                              --- ^^^^ expected `&_`, found `String`
+      |                                              |
+      |                                              arguments to this method are incorrect
+      |
+      = note: expected reference `&_`
+                    found struct `std::string::String`
+note: method defined here
+     --> /Users/xaoj/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/collections/btree/map.rs:718:12
+      |
+  718 |     pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&V>
+      |            ^^^
+help: consider removing deref here
+      |
+13003 -                     if let Some(val) = attrs.get(*key) {
+13003 +                     if let Some(val) = attrs.get(key) {
+      |
+
+error[E0425]: cannot find function `append_heap_emit_rejection_safe` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13113:13
+      |
+13113 |             append_heap_emit_rejection_safe(
+      |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `append_heap_emit_rejection_safe` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13131:9
+      |
+13131 |         append_heap_emit_rejection_safe(
+      |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `append_heap_emit_rejection_safe` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13150:13
+      |
+13150 |             append_heap_emit_rejection_safe(
+      |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `append_heap_emit_rejection_safe` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13170:13
+      |
+13170 |             append_heap_emit_rejection_safe(
+      |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_artifacts_store` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13187:21
+      |
+13187 |     let mut items = read_artifacts_store();
+      |                     ^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_artifact_revisions` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13188:25
+      |
+13188 |     let mut revisions = read_artifact_revisions();
+      |                         ^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_artifact_crdt_state` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13282:21
+      |
+13282 |     let mut state = read_artifact_crdt_state(&artifact_id, &seed_markdown);
+      |                     ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `write_artifact_crdt_state` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13332:23
+      |
+13332 |     if let Err(err) = write_artifact_crdt_state(&artifact_id, &state) {
+      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_artifact_crdt_ops` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13341:28
+      |
+13341 |     let mut existing_ops = read_artifact_crdt_ops(&artifact_id);
+      |                            ^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `write_artifact_crdt_ops` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13347:27
+      |
+13347 |         if let Err(err) = write_artifact_crdt_ops(&artifact_id, &existing_ops) {
+      |                           ^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `upsert_artifact_revision` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13359:24
+      |
+13359 |         let revision = upsert_artifact_revision(
+      |                        ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `write_artifacts_store` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13413:23
+      |
+13413 |     if let Err(err) = write_artifacts_store(&items) {
+      |                       ^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `write_artifact_revisions` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13422:27
+      |
+13422 |         if let Err(err) = write_artifact_revisions(&revisions) {
+      |                           ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `append_artifact_audit` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13471:13
+      |
+13471 |     let _ = append_artifact_audit(
+      |             ^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_artifacts_store` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13526:25
+      |
+13526 |     let mut artifacts = read_artifacts_store();
+      |                         ^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `write_artifacts_store` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13532:17
+      |
+13532 |         let _ = write_artifacts_store(&artifacts);
+      |                 ^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `append_artifact_audit` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13534:13
+      |
+13534 |     let _ = append_artifact_audit(
+      |             ^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_artifacts_store` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13583:25
+      |
+13583 |     let mut artifacts = read_artifacts_store();
+      |                         ^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `write_artifacts_store` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13590:17
+      |
+13590 |         let _ = write_artifacts_store(&artifacts);
+      |                 ^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `append_artifact_audit` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13592:13
+      |
+13592 |     let _ = append_artifact_audit(
+      |             ^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_json_file_vec` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13804:5
+      |
+13804 |     read_json_file_vec(&cortex_ux_heap_projection_store_path())
+      |     ^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `write_json_file_vec` in this scope
+     --> apps/cortex-desktop/src/gateway/server.rs:13808:5
+      |
+13808 |     write_json_file_vec(&cortex_ux_heap_projection_store_path(), items)
+      |     ^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+warning: unused import: `Digest`
+ --> apps/cortex-desktop/src/services/local_gateway.rs:5:12
+  |
+5 | use sha2::{Digest, Sha256};
+  |            ^^^^^^
+
+warning: unused variable: `heap_space_hint`
+   --> apps/cortex-desktop/src/services/agent_service.rs:115:13
+    |
+115 |         let heap_space_hint = space_id.clone();
+    |             ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_heap_space_hint`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0308, E0425, E0428.
+For more information about an error, try `rustc --explain E0308`.
+warning: `cortex-desktop` (lib) generated 9 warnings
+error: could not compile `cortex-desktop` (lib) due to 27 previous errors; 9 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+warning: `cortex-desktop` (lib test) generated 9 warnings (9 duplicates)
+error: could not compile `cortex-desktop` (lib test) due to 32 previous errors; 9 warnings emitted

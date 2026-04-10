@@ -1,0 +1,16 @@
+{
+    "name": "nostra-frontend-js",
+    "version": "0.1.0",
+    "scripts": {
+        "build": "esbuild src/js/adapter.js --bundle --outfile=public/streaming-adapter.js --format=esm --define:process.env.NODE_ENV='\"production\"'"
+    },
+    "dependencies": {
+        "@dfinity/agent": "^2.3.0",
+        "@dfinity/candid": "^2.3.0",
+        "@dfinity/principal": "^2.3.0",
+        "ic-websocket-js": "^0.5.0"
+    },
+    "devDependencies": {
+        "esbuild": "^0.19.0"
+    }
+}
