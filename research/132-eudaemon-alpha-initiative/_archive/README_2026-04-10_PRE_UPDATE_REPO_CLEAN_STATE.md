@@ -2,7 +2,7 @@
 
 **Status**: Active  
 **Created**: 2026-03-07  
-**Updated**: 2026-04-10  
+**Updated**: 2026-04-01  
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -17,8 +17,6 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 This initiative no longer treats Hostinger or Docker as the active deployment path, and it no longer treats the Rust-native `cortex-eudaemon` runtime as the Phase 6 primary implementation. The Rust-native path remains the migration target for Phase 7+.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
-
-Developer worktree isolation, checkpointing, and immutable evidence promotion are now explicit operator safety controls around Initiative 132. They protect the system-definition layer and steward continuity, but they are not themselves runtime heap, closeout-ledger, or workflow primitives.
 
 ## Objectives
 
@@ -67,7 +65,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **080 (DPub Standard)**: Chronicle drafting stays local in Phase 6; governed promotion remains the next integration step.
 - **130 / 133 / 134**: Space capability governance, evaluation, and workflow artifacts remain the controlling portfolio surfaces for any future cognitive audit pipeline.
 - **ZeroClaw (latest upstream)**: Relevant only as a possible sidecar/auth pattern source for Codex subscription access. It is not the runtime authority, gateway replacement, or workflow substrate.
-- **Repo Hygiene Program**: Clean request worktrees, durable checkpoint bundles, and immutable evidence promotion keep system-definition work aligned with Initiative 125 integrity controls without reclassifying Git state as a Cortex runtime primitive.
 
 ## Evolutionary Lifecycle
 
@@ -92,8 +89,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Cognitive audit posture**: external batch cognition is advisory only; Eudaemon is the architect and synthesizer for audit loops, not the direct high-volume analyzer
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
-- **Developer isolation posture**: request work belongs in clean `.worktrees/`; the shared root worktree is reserved for repo-wide stewardship tasks
-- **Evidence posture**: mutable `logs/*` outputs remain local operational artifacts; durable evidence is preserved by promoting immutable copies into governed initiative surfaces
 
 ## Validated Phase 7 Sequencing
 
@@ -110,23 +105,6 @@ The first extraction seams worth pursuing in the current repo are:
 - **Workbench UX / heap projection surface**: heap/workbench/viewspec projection and UX orchestration
 
 Current stage evidence now shows Batch 1 materially advanced on the provider-runtime surface: remote runtime-host discovery moved behind `provider_runtime::discovery`, provider-admin auth-binding helper logic moved behind `gateway::provider_admin`, and the governed parity/operator checks remained green after the extraction. ACP and workbench extraction remain deferred by default rather than being pulled into the same batch.
-
-## Repo Hygiene Alignment
-
-Initiative 132 treats repo hygiene as an operator safety layer with three clear boundaries:
-
-1. Heap blocks remain exploratory runtime material.
-2. Closeout ledgers remain runtime follow-through for operational remediation.
-3. Workflow checkpoints remain durable execution primitives.
-
-Developer Git worktree isolation does not replace any of those surfaces. It exists to protect the system-definition layer from lost steward updates, dirty-root drift, and ambiguous evidence provenance.
-
-The practical consequences are:
-
-- request work should begin from a clean `.worktrees/` branch
-- root-worktree work is reserved for repo-wide stewardship operations
-- mutable `logs/*_latest.*` outputs are reproducible local artifacts, not durable Git authority
-- evidence that matters should be promoted into governed initiative surfaces and remain source-linked
 
 ## Deployment Surfaces
 
