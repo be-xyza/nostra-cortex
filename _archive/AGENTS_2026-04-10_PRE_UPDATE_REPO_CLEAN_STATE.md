@@ -122,7 +122,6 @@ Primary references:
 ### Dos
 - **Follow the Research Pipeline**: Before starting a major task, read the relevant `research/NNN-name/PLAN.md`.
 - **[NEW] Follow System Standards**: Adhere to [docs/architecture/standards.md](file:///Users/xaoj/ICP/docs/architecture/standards.md) for Modularity and Confidence.
-- **Use Clean Request Worktrees**: Start new implementation requests in `.worktrees/` via `bash scripts/start_request_worktree.sh --branch <branch>` unless the task is an explicit repo-wide stewardship operation.
 - **Protect Execution Infrastructure Surfaces**: Treat provider/runtime/auth admin routes as operator surfaces. Agent-facing routes, automations, and UI affordances must not expose or mutate execution topology, binding, or discovery state without operator authorization.
 - **Reference Intake Governance**: For non-core repositories, follow `docs/reference/README.md` and keep `research/reference/index.toml`, `research/reference/index.md`, and `research/reference/analysis/<repo>.md` in sync.
 - **Archive Before Update**: Always archive the target file(s) to `_archive/` before modification.
@@ -137,7 +136,6 @@ Primary references:
 - **Use Standard Specs**: Adhere to `ResourceRef` and `Event` standards in `shared/`.
 - **Log Errors**: Use the centralized [Log Registry](research/019-nostra-log-registry/PLAN.md) for agent error reporting.
 - **Canister Logging**: Enable controller-only canister log visibility in the active ICP project manifest, and keep any legacy manifest config aligned during migration.
-- **Promote Immutable Evidence**: Keep mutable runtime outputs in `logs/` local, and preserve durable evidence by promoting immutable copies into governed initiative surfaces.
 
 ### Don'ts
 - **No Python Agents**: Do not propose or implement new Python-based agents; use Rust/WASM. Off-chain ML inference kernels (e.g., HRM via PyTorch MPS) and one-off utility scripts are exempt when execution is sandboxed outside canisters.
@@ -146,8 +144,6 @@ Primary references:
 - **No Unbounded Loops**: Avoid iterating over potentially infinite data structures in Canisters (DoS risk).
 - **No Direct DOM**: Avoid direct JS DOM manipulation outside of standard React paradigms or legacy `dioxus::eval` bridges.
 - **Reserved Keywords**: Do not use `actor` or `query` as variable names in Motoko.
-- **No Dirty Tree as Memory**: Do not rely on a long-lived dirty worktree or `git stash` as the primary persistence mechanism for important in-flight work.
-- **No Tracked Generated Runtime Outputs**: Do not keep generated build artifacts, mutable log projections, or local test outputs tracked in governed repo paths.
 
 ---
 
@@ -239,41 +235,6 @@ Use this for all local IDE agent test execution evidence in v1.
 
 ---
 
-## Clean-State Operations Contract (Agents)
-
-Use this for request lifecycle hygiene, recovery, and evidence promotion.
-
-### Authority Model
-- Authored source, governed docs, and research artifacts are Git authority.
-- Mutable runtime/build/test outputs are local operator surfaces, not Git authority.
-- `logs/` remains the canonical runtime output location, but mutable artifacts under `logs/` must stay reproducible and local.
-- When evidence must be preserved, promote an immutable copy into a governed initiative surface instead of tracking the mutable runtime output directly.
-
-### Request Lifecycle
-1. Create a recovery snapshot before bulk hygiene work:
-   - `bash scripts/create_repo_recovery_snapshot.sh`
-2. Start request work in a clean request worktree:
-   - `bash scripts/start_request_worktree.sh --branch codex/<request-name>`
-3. Save durable pause points:
-   - `bash scripts/checkpoint_request.sh`
-4. Close requests with hygiene checks and emitted closeout evidence:
-   - `bash scripts/close_request.sh`
-5. Prune stale worktrees:
-   - `bash scripts/worktree_gc.sh`
-
-### Worktree Rules
-- `.worktrees/` is the canonical request-worktree location for this repo.
-- The shared root worktree is reserved for repo-wide stewardship tasks only.
-- Every pause point must have a durable checkpoint via a WIP commit or an explicit patch bundle.
-- Unpushed branches and unstaged/untracked work must be surfaced before closeout or handoff.
-
-### Evidence Promotion
-- Promote immutable evidence with:
-  - `bash scripts/promote_evidence_artifact.sh --source <path> --initiative <research-dir>`
-- Docs and research should reference promoted immutable evidence or the command contract that regenerates the runtime output, not tracked mutable `*_latest.*` artifacts.
-
----
-
 ## Commands
 
 ### Research & Planning
@@ -304,21 +265,6 @@ npm -C cortex/apps/cortex-web install
 
 # Run Development Server
 npm -C cortex/apps/cortex-web run dev
-```
-
-### Repo Hygiene
-```bash
-# Create a recovery bundle before bulk cleanup
-bash scripts/create_repo_recovery_snapshot.sh
-
-# Start clean request work in a dedicated worktree
-bash scripts/start_request_worktree.sh --branch codex/my-change
-
-# Save a durable checkpoint before context switching
-bash scripts/checkpoint_request.sh
-
-# Close a request with hygiene verification
-bash scripts/close_request.sh
 ```
 
 ---

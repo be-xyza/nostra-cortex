@@ -12,21 +12,20 @@ This document is the canonical index for architecture-level standards referenced
 
 ## Source Standards
 1. `/Users/xaoj/ICP/docs/architecture/nostra-cortex-boundary.md`
-2. `/Users/xaoj/ICP/docs/architecture/repo-clean-state.md`
-3. `/Users/xaoj/ICP/shared/standards/TECHNOLOGY_NEUTRALITY.md`
-4. `/Users/xaoj/ICP/shared/standards/LOCAL_FIRST.md`
-5. `/Users/xaoj/ICP/shared/standards/ROLE_SEMANTICS.md`
-6. `/Users/xaoj/ICP/shared/standards/SEMANTIC_PRIMITIVES.md`
-7. `/Users/xaoj/ICP/docs/architecture/promotion-migration-rubric.md`
-8. `/Users/xaoj/ICP/shared/specs.md`
-9. `/Users/xaoj/ICP/shared/standards/agent_preflight_contract.toml`
-10. `/Users/xaoj/ICP/shared/standards/dynamic_source_contract.toml`
-11. `/Users/xaoj/ICP/shared/standards/agent_failure_modes.toml`
-12. `/Users/xaoj/ICP/nostra/commons/skills/registry.toml`
-13. `/Users/xaoj/ICP/nostra/commons/workflows/registry.toml`
-14. `/Users/xaoj/ICP/shared/standards/skill_policy.toml`
-15. `/Users/xaoj/ICP/shared/standards/skill_policy_dispositions.json`
-16. `/Users/xaoj/ICP/shared/standards/cortex_runtime_authority.schema.json`
+2. `/Users/xaoj/ICP/shared/standards/TECHNOLOGY_NEUTRALITY.md`
+3. `/Users/xaoj/ICP/shared/standards/LOCAL_FIRST.md`
+4. `/Users/xaoj/ICP/shared/standards/ROLE_SEMANTICS.md`
+5. `/Users/xaoj/ICP/shared/standards/SEMANTIC_PRIMITIVES.md`
+6. `/Users/xaoj/ICP/docs/architecture/promotion-migration-rubric.md`
+7. `/Users/xaoj/ICP/shared/specs.md`
+8. `/Users/xaoj/ICP/shared/standards/agent_preflight_contract.toml`
+9. `/Users/xaoj/ICP/shared/standards/dynamic_source_contract.toml`
+10. `/Users/xaoj/ICP/shared/standards/agent_failure_modes.toml`
+11. `/Users/xaoj/ICP/nostra/commons/skills/registry.toml`
+12. `/Users/xaoj/ICP/nostra/commons/workflows/registry.toml`
+13. `/Users/xaoj/ICP/shared/standards/skill_policy.toml`
+14. `/Users/xaoj/ICP/shared/standards/skill_policy_dispositions.json`
+15. `/Users/xaoj/ICP/shared/standards/cortex_runtime_authority.schema.json`
 
 ## Enforcement Hooks
 1. `/Users/xaoj/ICP/shared/standards/alignment_contracts.toml`
@@ -49,5 +48,3 @@ This document is the canonical index for architecture-level standards referenced
 18. `/Users/xaoj/ICP/scripts/check_knowledge_graph_contract.sh`
 19. `/Users/xaoj/ICP/scripts/check_standards_discovery_index.sh`
 20. `/Users/xaoj/ICP/scripts/check_vps_runtime_authority.sh`
-21. `/Users/xaoj/ICP/scripts/check_clean_worktree.sh`
-22. `/Users/xaoj/ICP/scripts/check_tracked_generated_artifacts.sh`

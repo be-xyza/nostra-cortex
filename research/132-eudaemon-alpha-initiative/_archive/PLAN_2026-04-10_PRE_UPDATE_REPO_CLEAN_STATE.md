@@ -42,7 +42,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-04-10"
+updated: "2026-03-31"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -50,13 +50,6 @@ updated: "2026-04-10"
 ## Overview
 
 Initiative 132 establishes Eudaemon Alpha as the first institutional research agent aligned to the current Nostra/Cortex runtime stack. The objective is not to invent a new workspace or planning model. The objective is to bind the agent to the primitives already implemented or actively governed in the portfolio.
-
-Current validated reality for this pass:
-- Gateway parity passes locally in this checkout.
-- The root repo is the authoritative source for this planning pass.
-- The companion `eudaemon-alpha/` repo path is absent here and should be treated as unvalidated until it is restored or mirrored.
-- Prompt override remains a target hypothesis, not a validated runtime dependency.
-- Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
 
 ## Phase 6 Runtime Resolution
 
@@ -76,7 +69,6 @@ At this stage:
 - Nostra remains authority for initiatives, contributions, DPub lineage, and institutional identity.
 - Cortex remains authority for heap workspaces, lifecycle execution, closeout tracking, action/navigation compilation, and workflow runtime behavior.
 - Initiative 134 supersedes treating older workflow-engine assumptions as the canonical workflow architecture.
-- Developer worktree isolation is an operator/developer governance process for protecting the system definition. It is not a heap primitive, closeout primitive, or workflow primitive.
 
 ## Architecture Resolution
 
@@ -140,7 +132,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 6. Preserve DPub lineage and promotion paths for chronicle outputs under Initiative 080.
 7. Integrate a recommendation-only cognitive audit path that uses typed audit units, batch reasoning, and governed synthesis without bypassing SIQ, workflow, or steward review.
 8. Formalize a live-provider boundary that supports `api_key` and `codex_subscription` lanes without making browser-subscription auth the runtime authority.
-9. Treat clean request worktrees, durable checkpointing, and immutable evidence promotion as operator safety controls for the system-definition layer.
 
 ## Out of Scope
 
@@ -149,7 +140,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 3. Giving external references or upstream model behavior authority over local governance contracts.
 4. Autonomous promotion beyond recommendation-only boundaries.
 5. Direct creation or mutation of the Nostra core graph from external batch analysis output.
-6. Treating developer Git worktree state as a Cortex runtime primitive.
 
 ## Delivery Phases
 
@@ -195,14 +185,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Publish outputs through heap blocks, proposals, closeout work, workflow drafts, or chronicle drafts instead of direct authority mutation.
 - Keep deterministic SIQ checks and steward review as the release-gating authority.
 
-### Phase H: Repo Hygiene and Evidence Promotion
-- Require clean request worktrees for developer/operator implementation work outside bounded repo-wide stewardship operations.
-- Reserve the shared root worktree for recovery, portfolio alignment, and other repo-wide structural tasks.
-- Treat mutable runtime outputs under `logs/` as local operational surfaces rather than Git authority.
-- Preserve durable evidence by promoting immutable copies into governed initiative surfaces instead of tracking mutable `*_latest.*` outputs.
-- Use checkpoint bundles or WIP commits before handoff or context switching so steward-facing updates are not stranded in a dirty tree.
-- Keep this hygiene layer aligned with Initiative 125 controls, Initiative 133 evidence routing, and Initiative 134 workflow authority boundaries.
-
 ## Exit Criteria
 
 1. Initiative 132 is portfolio-consistent and structurally governed.
@@ -212,7 +194,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 5. Initiative 132 is ready to continue implementation against current Cortex contracts rather than stale architecture assumptions.
 6. The cognitive audit path is explicitly routed through current heap, lifecycle, SIQ, and workflow surfaces rather than treated as a direct mutation engine.
 7. The live cognition lane is explicitly primary for Phase 6 communication, while the batch audit lane remains secondary and advisory.
-8. Developer worktree isolation, closeout hygiene, and evidence promotion are explicitly separated from heap, closeout-ledger, and workflow primitives.
 
 ### 6.2 LLM API Connection
 Promote the live LLM path from an activity-side workaround into the canonical pattern-detection contract:
@@ -220,7 +201,7 @@ Promote the live LLM path from an activity-side workaround into the canonical pa
 - Support explicit provider boundaries for `api_key` and `codex_subscription` lanes.
 - Do not assume ChatGPT Pro provides transferable generic API billing.
 - Load the system prompt from `config/system_prompt.md`.
-- Prefer `prompt_override` from Heap when present and verified, with local file fallback.
+- Prefer `prompt_override` from Heap when present, with local file fallback.
 - Format the payload as `{"model": route.model, "system": active_prompt, "messages": [{"role": "user", "content": bundle_context + code_context}]}`.
 - Parse `score`, `rationale`, `proposed_nodes`, and `proposed_edges` from the returned JSON.
 - Track actual `latency_ms`, `token_usage`, and `token_cost` in the benchmark path.
@@ -230,12 +211,11 @@ Use canonical heap endpoints and contracts end to end:
 - Query recent blocks via `GET /api/cortex/studio/heap/blocks`.
 - Package selected context via `POST /api/cortex/studio/heap/blocks/context`.
 - Emit proposals and execution records through `POST /api/cortex/studio/heap/emit`.
-- Validate that the agent ingests steward comments and, when verified, prompt overrides from the canonical bundle path.
+- Validate that the agent ingests steward comments and prompt overrides from the canonical bundle path.
 
 ### 6.4 Graph-Native PROMPT Seeding
 - Create the first real `ContributionType.PROMPT` node for the Code Analysis system prompt on the Heap.
-- If a live `prompt_override` path is available, test that `PatternDetector` fetches and uses it instead of `config/system_prompt.md`.
-- Until that path is validated, keep the local file as the fallback and record the override path as unverified.
+- Test that `PatternDetector` correctly fetches and uses `prompt_override` from the Heap instead of the local `config/system_prompt.md`.
 - Validate the agent gracefully falls back to the local file when the PROMPT node is unavailable.
 
 ---
@@ -324,12 +304,12 @@ Critical items identified during Initiative 132 gap analysis that must be resolv
 
 Blocking preflight work before live deployment:
 
-- [x] **Canonical Runtime Split**: Python agent + Rust gateway remains the Phase 6 deployment target, with the companion repo path still unvalidated in this checkout
+- [x] **Canonical Runtime Split**: Python agent + Rust gateway is the Phase 6 deployment target
 - [x] **Canonical Env Contract**: loopback gateway URL, production auth flags, explicit Temporal target
-- [x] **Linux Service Assets**: root repo owns `cortex-gateway.service`; the companion repo service unit is a planned boundary, not a validated checkout fact
+- [x] **Linux Service Assets**: root repo owns `cortex-gateway.service`; companion repo owns `eudaemon-alpha-agent.service`
 - [x] **Hetzner Runbook**: bootstrap script, env template, and SSH guidance added to the repo
 - [x] **Deployment Hygiene**: ignore workstation artifacts (`venv`, `__pycache__`, `.pytest_cache`, `.DS_Store`, `.worktrees`)
-- [x] **Repo Boundary**: Initiative 132 stays in root repo; `eudaemon-alpha/` is the planned companion boundary but is not validated in this checkout
+- [x] **Repo Boundary**: Initiative 132 stays in root repo; `eudaemon-alpha/` becomes a companion implementation repo/submodule
 - [ ] **Live Box Validation**: verify SSH alias/host, install deps on Hetzner, enable services, and complete one end-to-end bootstrap cycle
 
 ### Phase 6.5: Production Identity Enforcement
@@ -374,7 +354,7 @@ To ensure the Eudaemon Alpha loop can be tested end-to-end without mocks before 
 
 ### Manual (Phases 6-7)
 1. SSH login works to the Hetzner host using the documented alias or explicit host and local private key.
-2. If and when the companion repo is restored, `git clone --recurse-submodules` produces the expected deployment workspace shape.
+2. `git clone --recurse-submodules` produces the full deployment workspace shape.
 3. `cortex-gateway.service` and `eudaemon-alpha-agent.service` start cleanly under `systemd`.
 4. The actor registry contains `agent:eudaemon-alpha-01`.
 5. The target Space includes the agent in `members` with the intended `archetype`.

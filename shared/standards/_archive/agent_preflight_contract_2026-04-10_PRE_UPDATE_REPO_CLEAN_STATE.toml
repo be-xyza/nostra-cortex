@@ -1,5 +1,5 @@
 version = 1
-updated_at = "2026-04-10"
+updated_at = "2026-04-09"
 owner = "Systems Steward"
 
 [preflight]
@@ -8,8 +8,6 @@ required_steps = [
   "load_relevant_research_plan",
   "validate_repo_python_runtime",
   "validate_nostra_cortex_boundary",
-  "validate_request_worktree_hygiene",
-  "validate_artifact_authority_boundaries",
   "validate_dynamic_sources",
   "consult_semantic_primitives_when_introducing_or_renaming_terms",
   "validate_skill_registry_when_skill_sources_touched",
@@ -21,8 +19,6 @@ required_steps = [
 required_commands = [
   "bash scripts/check_repo_python_runtime.sh",
   "bash scripts/check_agent_preflight_contract.sh",
-  "bash scripts/check_clean_worktree.sh",
-  "bash scripts/check_tracked_generated_artifacts.sh",
   "bash scripts/check_dynamic_config_contract.sh",
   "bash scripts/run_repo_python.sh scripts/check_semantic_primitives.py --strict",
   "bash scripts/check_alignment_contract_targets.sh",
