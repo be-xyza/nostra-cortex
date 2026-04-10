@@ -13,8 +13,12 @@ bash "$ROOT_DIR/scripts/run_repo_python.sh" "$ROOT_DIR/scripts/check_agent_prefl
 
 for cmd in \
   "$ROOT_DIR/scripts/check_repo_python_runtime.sh" \
+  "$ROOT_DIR/scripts/check_clean_worktree.sh" \
+  "$ROOT_DIR/scripts/check_tracked_generated_artifacts.sh" \
   "$ROOT_DIR/scripts/check_dynamic_config_contract.sh" \
-  "$ROOT_DIR/scripts/check_antigravity_rule_policy.sh" \
+  "$ROOT_DIR/scripts/check_skill_registry_integrity.sh" \
+  "$ROOT_DIR/scripts/check_skill_policy.sh" \
+  "$ROOT_DIR/scripts/check_workflow_declarations.sh" \
   "$ROOT_DIR/scripts/check_alignment_contract_targets.sh"
 do
   if [[ ! -f "$cmd" ]]; then

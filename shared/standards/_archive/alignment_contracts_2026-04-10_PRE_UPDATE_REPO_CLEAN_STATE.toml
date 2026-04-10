@@ -1,5 +1,5 @@
 version = 1
-updated_at = "2026-04-10"
+updated_at = "2026-04-09"
 exceptions_path = "shared/standards/alignment_contract_exceptions.json"
 
 # Alignment contract registry
@@ -118,26 +118,6 @@ enabled = true
 enforcement_mode = "observe"
 source_standard = "docs/architecture/standards.md"
 command = "bash scripts/check_docs_structure.sh"
-
-[[rule]]
-id = "clean_worktree_contract"
-description = "Request worktree hygiene and root-worktree reservation policy"
-owner = "Systems Steward"
-severity = "P1"
-enabled = true
-enforcement_mode = "observe"
-source_standard = "docs/architecture/repo-clean-state.md"
-command = "bash scripts/check_clean_worktree.sh --allow-root-dirty"
-
-[[rule]]
-id = "tracked_generated_artifacts"
-description = "Generated/runtime artifacts must not stay tracked in governed paths"
-owner = "Systems Steward"
-severity = "P0"
-enabled = true
-enforcement_mode = "observe"
-source_standard = "docs/architecture/repo-clean-state.md"
-command = "bash scripts/check_tracked_generated_artifacts.sh"
 
 [[rule]]
 id = "vps_runtime_authority_contract"

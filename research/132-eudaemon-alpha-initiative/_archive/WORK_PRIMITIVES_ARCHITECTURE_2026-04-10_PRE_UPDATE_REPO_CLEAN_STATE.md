@@ -68,11 +68,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Keep Initiative 132 as a governed research initiative with frontmatter, explicit dependencies, and portfolio registration.
 - Use initiatives to record architecture intent, sequencing, and stewardship, not as runtime scratchpads.
 
-### Developer isolation
-- Use clean Git worktrees as an operator/developer process for protecting the system-definition layer.
-- Root-worktree recovery, checkpointing, and evidence promotion are not heap primitives, closeout-ledger primitives, or workflow primitives.
-- Mutable runtime outputs may still land in `logs/`, but durable evidence should be promoted into governed initiative surfaces.
-
 ### Kickoff approval
 - Use heap kickoff approval only for bounded initiative kickoff packets that already have governed initiative metadata and a steward-backed execution boundary.
 - The kickoff launcher must emit an approval-first `agent_solicitation`, not a direct execution task.
@@ -94,7 +89,6 @@ Scope: Initiative 132 readiness review before further implementation
 4. Prefer implemented contracts over speculative models: use existing heap, closeout, action-plan, and workflow surfaces before inventing anything new.
 5. References inform design; they do not outrank local authority artifacts.
 6. Kickoff approval is approval-first and bounded: it is not a generic "start initiative" affordance.
-7. Developer hygiene stays operator-side: request worktree isolation and evidence promotion protect the repo, but they do not redefine Cortex runtime primitives.
 
 ## Consequences for Initiative 132
 

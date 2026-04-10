@@ -1,23 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-03 — Meta-Harness Intake Reality Sync
-
-**Decision**
-
-Adopt the Meta-Harness findings for Initiative 132 as recommendation-only planning inputs, while treating gateway parity as locally passing, the root repo as authoritative for this pass, the `eudaemon-alpha/` companion path as absent/unvalidated in this checkout, and prompt override as unverified until a live path is demonstrated.
-
-**Why**
-
-- The current checkout can validate the root Cortex/Nostra surfaces directly, but it does not contain a validated companion `eudaemon-alpha/` implementation repo.
-- Meta-Harness is useful as a harness-evaluation pattern, not as a license to bypass governance, workflow authority, or steward review.
-- The planning docs need to distinguish current evidence from future migration assumptions so later work does not inherit stale certainty.
-
-**Consequences**
-
-- Initiative 132 planning must label prompt-override behavior as unverified until a live path exists.
-- Any Meta-Harness-derived optimization remains advisory until steward-reviewed and cannot self-apply changes.
-- Docs that refer to the `eudaemon-alpha/` companion boundary should treat it as planned or historical, not as currently validated in this checkout.
-
 ## 2026-03-18 — Phase 6 Hetzner Runtime Resolution
 
 **Decision**
@@ -41,19 +23,19 @@ Phase 6 deploys Eudaemon Alpha as a Python worker on a Hetzner VPS with the Rust
 
 **Decision**
 
-Initiative 132 remains authoritative in the root ICP repo. The Python Eudaemon Alpha worker was planned as a companion implementation repo boundary, but this checkout does not validate the `eudaemon-alpha/` path as present or live.
+Initiative 132 remains authoritative in the root ICP repo, while the Python Eudaemon Alpha worker moves into a companion implementation repo attached back to the root repo as the `eudaemon-alpha` submodule.
 
 **Why**
 
 - The root repo should remain the governance and architecture source of truth.
 - The Python worker is transitional implementation surface, not the long-term platform authority.
-- Earlier deployment notes used a submodule pattern to describe the boundary, but that boundary is not validated in the current checkout.
+- A submodule preserves a pinned revision from the root repo while keeping the implementation boundary clean.
 
 **Consequences**
 
-- Root docs and Hetzner guidance should treat `eudaemon-alpha/` references as planned or historical until the path is restored and validated.
-- Agent-owned service units and bootstrap tooling remain contingent on that companion boundary being present.
-- Root deployment flows only need `git clone --recurse-submodules` if the companion repo is actually present.
+- Root docs and Hetzner guidance must refer to `eudaemon-alpha/` as a submodule-owned path.
+- Agent-owned service units and bootstrap tooling move under the companion repo.
+- Root deployment flows must use `git clone --recurse-submodules`.
 
 ## 2026-03-19 — Doubleword Batch Cognition Is Advisory and Eudaemon Is the Synthesizer
 
@@ -193,22 +175,3 @@ Initiative 132 accepts the current Batch 1 provider-runtime extraction slice as 
 - Provider discovery merge behavior, host-scoped provider identity synthesis, and probe-key precedence are now tested closer to the modules that own them.
 - Batch 1 can be considered materially advanced for the current stage, but Batch 2 ACP / terminal extraction remains deferred until it is started as its own governed batch.
 - The current stage closeout should reference [`BATCH1_DECISION_GATE.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/BATCH1_DECISION_GATE.md) as the authoritative evidence record for this extraction slice.
-
-## 2026-04-10 — Developer Worktree Hygiene and Evidence Promotion Stay Operator-Side
-
-**Decision**
-
-Initiative 132 explicitly treats clean request worktrees, durable checkpointing, and immutable evidence promotion as operator/developer governance controls around the system-definition layer. They do not become new heap, closeout-ledger, or workflow primitives.
-
-**Why**
-
-- The current repo has shown that important steward-facing updates can be lost or obscured when generated artifacts, mutable runtime outputs, and authored changes coexist in one dirty tree.
-- Initiative 132 already separates exploratory runtime material, operational follow-through, and durable workflow execution. Extending those runtime primitives to cover Git hygiene would blur the boundary between system definition and runtime execution.
-- Initiative 125 is the right place for continuous hygiene/integrity gates, while Initiatives 133 and 134 already define how evidence and durable execution should re-enter the governed runtime stack.
-
-**Consequences**
-
-- Request work should start in a clean `.worktrees/` branch by default, with the shared root worktree reserved for repo-wide stewardship operations.
-- Mutable `logs/*` outputs, including `*_latest.*` projections, remain local operational artifacts rather than durable Git authority.
-- Evidence that matters must be promoted into governed initiative surfaces as immutable artifacts instead of being preserved only as mutable runtime projections.
-- Handoff and context switching require a durable checkpoint bundle or WIP commit so important updates are not stranded in a dirty worktree.
