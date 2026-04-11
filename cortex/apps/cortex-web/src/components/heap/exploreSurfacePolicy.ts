@@ -27,6 +27,7 @@ export interface ExploreSurfacePolicyContext {
   spaceId?: string;
   surfaceId?: string;
   spaceArchetype?: string;
+  projectionIntent?: ExploreProjectionIntent;
 }
 
 type ExploreListPolicyOverrides = Partial<
@@ -151,6 +152,20 @@ export const EXPLORE_SURFACE_POLICIES_BY_ID: Record<string, ExploreSurfacePolicy
 export function resolveExploreSurfacePolicy(
   context: ExploreSurfacePolicyContext = {}
 ): ExploreSurfacePolicy {
+  if (context.projectionIntent) {
+    switch (context.projectionIntent) {
+      case "story":
+        return STORY_EXPLORE_LIST_POLICY;
+      case "density":
+        return DENSITY_EXPLORE_LIST_POLICY;
+      case "lineage":
+        return LINEAGE_EXPLORE_LIST_POLICY;
+      case "overview":
+      default:
+        return DEFAULT_EXPLORE_LIST_POLICY;
+    }
+  }
+
   const profile = resolveSpaceArchetypeProfile(context.spaceArchetype);
   return (
     EXPLORE_SURFACE_POLICIES_BY_ID[profile.explorePolicyId] ??

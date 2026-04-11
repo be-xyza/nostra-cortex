@@ -29,6 +29,9 @@ import { A2UIInterpreter, type A2UINode } from "../a2ui/A2UIInterpreter";
 import { NdlMetadataBlock } from "../ndl/NdlMetadataBlock";
 import { HeapCardActionMenu } from "./HeapCardActionMenu";
 import type { ActionHandlers } from "./actionExecutor";
+import { summarizeHeapBlockText } from "./heapTextSummary.ts";
+import type { ExploreCardDepth } from "./exploreViewSettings.ts";
+import { displayBlockType } from "../a2ui/ArtifactAssetViewer";
 
 interface HeapBlockCardProps {
     block: HeapBlockListItem;
@@ -41,6 +44,7 @@ interface HeapBlockCardProps {
     cardActions?: ToolbarActionDescriptor[];
     cardActionSelection?: ActionSelectionContext;
     actionHandlers?: ActionHandlers;
+    presentationDepth?: ExploreCardDepth;
     children?: React.ReactNode;
 }
 
@@ -58,6 +62,7 @@ const TYPE_COLOR: Record<string, string> = {
     media: "purple",
     task: "green",
     checklist: "green",
+    agent_solicitation: "indigo",
     action_plan: "amber",
     compiled_plan: "amber",
     chat_thread: "indigo",
@@ -75,6 +80,7 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
     media: <Image className="w-3.5 h-3.5" />,
     task: <CheckSquare className="w-3.5 h-3.5" />,
     checklist: <ListChecks className="w-3.5 h-3.5" />,
+    agent_solicitation: <ClipboardCheck className="w-3.5 h-3.5" />,
     action_plan: <ClipboardCheck className="w-3.5 h-3.5" />,
     compiled_plan: <ClipboardCheck className="w-3.5 h-3.5" />,
     chat_thread: <MessagesSquare className="w-3.5 h-3.5" />,
@@ -86,6 +92,34 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
     capability: <Cpu className="w-3.5 h-3.5" />,
     pattern: <Network className="w-3.5 h-3.5" />,
 };
+
+const UPLOAD_STATUS_ATTRIBUTE_KEYS = new Set([
+    "upload_id",
+    "resource_ref",
+    "upload_status",
+    "extraction_status",
+    "requested_parser_profile",
+    "parser_backend",
+    "extraction_confidence",
+    "extraction_flags",
+    "extraction_result_ref",
+    "extraction_summary",
+    "extraction_page_count",
+    "extraction_block_count",
+]);
+
+const EXTRACTION_STATUS_BADGE_CLASS: Record<string, string> = {
+    uploaded: "text-blue-300 bg-blue-500/10 border-blue-500/25",
+    extracting: "text-indigo-300 bg-indigo-500/10 border-indigo-500/25",
+    indexed: "text-emerald-300 bg-emerald-500/10 border-emerald-500/25",
+    completed: "text-emerald-300 bg-emerald-500/10 border-emerald-500/25",
+    needs_review: "text-yellow-300 bg-yellow-500/10 border-yellow-500/25",
+    failed: "text-rose-300 bg-rose-500/10 border-rose-500/25",
+};
+
+function prettifyUploadState(value: string): string {
+    return value.replace(/_/g, " ");
+}
 
 function surfaceToPayloadContent(block: HeapBlockListItem): PayloadContent {
     const surface = block.surfaceJson || {};
@@ -128,6 +162,7 @@ export function HeapBlockCard({
     cardActions = [],
     cardActionSelection,
     actionHandlers,
+    presentationDepth = "full",
     children,
 }: HeapBlockCardProps) {
     const navigate = useNavigate();
@@ -135,6 +170,14 @@ export function HeapBlockCard({
     const { projection, surfaceJson, pinnedAt } = block;
     const attributes = projection.attributes || {};
     const blockType = projection.blockType || "note";
+    const uploadStatus = typeof attributes.upload_status === "string" ? attributes.upload_status : null;
+    const extractionStatus = typeof attributes.extraction_status === "string" ? attributes.extraction_status : null;
+    const requestedParserProfile = typeof attributes.requested_parser_profile === "string" ? attributes.requested_parser_profile : null;
+    const parserBackend = typeof attributes.parser_backend === "string" ? attributes.parser_backend : null;
+    const extractionConfidence = typeof attributes.extraction_confidence === "string" ? attributes.extraction_confidence : null;
+    const extractionPageCount = typeof attributes.extraction_page_count === "string" ? attributes.extraction_page_count : null;
+    const extractionBlockCount = typeof attributes.extraction_block_count === "string" ? attributes.extraction_block_count : null;
+    const displayAttributes = Object.entries(attributes).filter(([key]) => !UPLOAD_STATUS_ATTRIBUTE_KEYS.has(key));
     const surface = (surfaceJson as Record<string, unknown>) || {};
     const behaviors = surface.behaviors as string[] || [];
     const behaviorBadges = pinnedAt && !behaviors.includes("pinned")
@@ -143,6 +186,12 @@ export function HeapBlockCard({
     const blockIcon = TYPE_ICON[blockType] || <FileText className="w-3.5 h-3.5" />;
     const isCollapsed = behaviors.includes("collapsed");
     const emittedAt = projection.emittedAt || projection.updatedAt;
+    const summaryText = summarizeHeapBlockText(block);
+    const showFullSurface = presentationDepth === "full";
+    const showMetadata = presentationDepth !== "title";
+    const showRelations = presentationDepth === "full";
+    const showPayload = presentationDepth === "full";
+    const showChildren = presentationDepth === "full";
 
     const cardClass = [
         "heap-block-card heap-block-card--surface h-fit flex flex-col rounded-xl overflow-hidden cursor-pointer select-none relative group/card",
@@ -164,7 +213,7 @@ export function HeapBlockCard({
         >
             {/* Glow Effect on Hover */}
             <div className={`absolute inset-0 bg-linear-to-br from-blue-500/5 to-purple-600/5 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 pointer-events-none`} />
-            <div className="heap-block-card__header flex justify-between items-start p-3 bg-cortex-surface-panel/40 border-b border-white/5">
+            <div className={`heap-block-card__header flex justify-between items-start ${showFullSurface ? "p-3" : "p-2.5"} bg-cortex-surface-panel/40 border-b border-white/5`}>
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-1.5">
                         <span className={`text-[11px] leading-none font-black tracking-widest uppercase flex items-center gap-1.5 ${
@@ -178,7 +227,7 @@ export function HeapBlockCard({
                             TYPE_COLOR[blockType] === 'indigo' ? 'text-indigo-400' :
                             'text-slate-400'
                         }`}>
-                            {blockIcon} {blockType}
+                            {blockIcon} {displayBlockType(blockType)}
                         </span>
                         {(blockType === "task" || blockType === "checklist") && (() => {
                             const items = ((surface as Record<string, unknown>).checklist_items as Array<{ done?: boolean }>) || [];
@@ -221,32 +270,47 @@ export function HeapBlockCard({
                 </div>
             </div>
 
-            <div className="p-3 bg-transparent flex-1 flex flex-col relative z-10">
-                <div className="flex items-center justify-between mb-2">
-                    <NdlMetadataBlock
-                        versionChain={String(surface.version || "0.8")}
-                        phase={String(surface.phase || "Alpha")}
-                        confidence={typeof surface.confidence === "number" ? surface.confidence : 85}
-                        authorityScope={String(surface.authority_scope || "Local")}
-                        compact
-                    />
-                    <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
-                        {cardActions.length > 0 && cardActionSelection && actionHandlers && (
-                            <HeapCardActionMenu
-                                actions={cardActions}
-                                selection={cardActionSelection}
-                                handlers={actionHandlers}
+            <div className={`bg-transparent flex-1 flex flex-col relative z-10 ${showFullSurface ? "p-3" : "p-2.5"}`}>
+                {showMetadata && (
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                        {showFullSurface ? (
+                            <NdlMetadataBlock
+                                versionChain={String(surface.version || "0.8")}
+                                phase={String(surface.phase || "Alpha")}
+                                confidence={typeof surface.confidence === "number" ? surface.confidence : 85}
+                                authorityScope={String(surface.authority_scope || "Local")}
+                                compact
                             />
+                        ) : (
+                            <div className="text-[10px] uppercase tracking-[0.24em] text-cortex-500">
+                                {displayBlockType(blockType)} · {formatTime(emittedAt)}
+                            </div>
+                        )}
+                        {cardActions.length > 0 && cardActionSelection && actionHandlers && (
+                            <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
+                                <HeapCardActionMenu
+                                    actions={cardActions}
+                                    selection={cardActionSelection}
+                                    handlers={actionHandlers}
+                                />
+                            </div>
                         )}
                     </div>
-                </div>
+                )}
 
-                <h3 className="text-sm font-bold text-slate-100 mb-1.5 line-clamp-2 px-0.5 leading-relaxed">{projection.title}</h3>
+                <h3 className={`font-bold text-slate-100 px-0.5 leading-tight ${presentationDepth === "title" ? "text-sm" : "text-[15px]"} ${showFullSurface ? "mb-1.5" : "mb-1"} line-clamp-2`}>
+                    {projection.title}
+                </h3>
 
-                {/* Attributes */}
-                {!isCollapsed && Object.keys(attributes).length > 0 && (
+                {presentationDepth !== "title" && summaryText !== projection.title && (
+                    <p className={`px-0.5 text-slate-300/80 leading-5 ${presentationDepth === "full" ? "text-sm line-clamp-3" : "text-xs line-clamp-2"}`}>
+                        {summaryText}
+                    </p>
+                )}
+
+                {showFullSurface && !isCollapsed && displayAttributes.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 my-2.5">
-                        {Object.entries(attributes).map(([k, v]) => (
+                        {displayAttributes.map(([k, v]) => (
                             <div key={k} className="inline-flex items-center text-[9px] bg-slate-950/60 rounded-md px-1.5 py-0.5" title={`${k}: ${v}`}>
                                 <span className="text-slate-500 mr-1 font-bold">{k}:</span>
                                 <span className="font-mono text-slate-400 truncate max-w-[100px]">{String(v)}</span>
@@ -255,33 +319,84 @@ export function HeapBlockCard({
                     </div>
                 )}
 
-                {/* Payload */}
-                {!isCollapsed && !nestedNode && !children && <PayloadRenderer content={payloadContent} />}
-                {!isCollapsed && nestedNode && (
+                {showFullSurface && !isCollapsed && blockType === "upload" && (
+                    <div className="my-3 rounded-xl border border-white/8 bg-slate-950/40 p-3">
+                        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cortex-500">Extraction</div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {uploadStatus && (
+                                <span className="text-[10px] font-mono border border-blue-500/20 bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded-full uppercase tracking-[0.18em]">
+                                    {prettifyUploadState(uploadStatus)}
+                                </span>
+                            )}
+                            {extractionStatus && (
+                                <span className={`text-[10px] font-mono border px-2 py-0.5 rounded-full uppercase tracking-[0.18em] ${EXTRACTION_STATUS_BADGE_CLASS[extractionStatus] ?? "text-slate-300 bg-slate-500/10 border-slate-500/20"}`}>
+                                    {prettifyUploadState(extractionStatus)}
+                                </span>
+                            )}
+                            {requestedParserProfile && (
+                                <span className="text-[10px] font-mono border border-white/10 bg-white/4 text-slate-300 px-2 py-0.5 rounded-full uppercase tracking-[0.18em]">
+                                    requested {requestedParserProfile}
+                                </span>
+                            )}
+                            {parserBackend && (
+                                <span className="text-[10px] font-mono border border-white/10 bg-white/4 text-slate-300 px-2 py-0.5 rounded-full uppercase tracking-[0.18em]">
+                                    resolved {parserBackend}
+                                </span>
+                            )}
+                        </div>
+                        {(extractionConfidence || extractionPageCount || extractionBlockCount) && (
+                            <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-400">
+                                {extractionConfidence && <span>confidence {extractionConfidence}</span>}
+                                {extractionPageCount && <span>pages {extractionPageCount}</span>}
+                                {extractionBlockCount && <span>blocks {extractionBlockCount}</span>}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {showPayload && !isCollapsed && !nestedNode && !children && <PayloadRenderer content={payloadContent} />}
+                {showPayload && !isCollapsed && nestedNode && (
                     <div className="mt-3 pl-3 bg-white/5 rounded-lg flex flex-col gap-3">
                         <A2UIInterpreter node={nestedNode} />
                     </div>
                 )}
-                {!isCollapsed && children && (
+                {showChildren && !isCollapsed && children && (
                     <div className="mt-3 pl-3 bg-white/5 rounded-lg flex flex-col gap-3">{children}</div>
                 )}
             </div>
 
             {/* Footer */}
-            <div className="px-3 py-2 bg-cortex-surface-base/40 border-t border-white/5 flex flex-wrap gap-1.5 items-center">
+            <div className={`px-3 ${showFullSurface ? "py-2" : "py-1.5"} bg-cortex-surface-base/40 border-t border-white/5 flex flex-wrap gap-1.5 items-center`}>
                 <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity mr-auto">
                     <div className="w-4 h-4 rounded-full bg-linear-to-tr from-slate-800 to-slate-700 flex items-center justify-center text-[8px] font-black text-slate-300 shadow-inner shrink-0 leading-none">
                         {author.substring(0, 2).toUpperCase()}
                     </div>
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">{author.split(' ')[0]}</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                        {author.split(" ")[0]}
+                    </span>
                 </div>
-                {payloadContent.payload_type !== blockType && (
+                {blockType === "upload" && uploadStatus && (
+                    <span className="text-[10px] font-mono border border-blue-500/20 bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded-full uppercase tracking-[0.18em]">
+                        {prettifyUploadState(uploadStatus)}
+                    </span>
+                )}
+                {blockType === "upload" && extractionStatus && (
+                    <span className={`text-[10px] font-mono border px-2 py-0.5 rounded-full uppercase tracking-[0.18em] ${EXTRACTION_STATUS_BADGE_CLASS[extractionStatus] ?? "text-slate-300 bg-slate-500/10 border-slate-500/20"}`}>
+                        {prettifyUploadState(extractionStatus)}
+                    </span>
+                )}
+                {blockType === "upload" && parserBackend && (
+                    <span className="text-[10px] font-mono border border-white/10 bg-white/4 text-slate-300 px-2 py-0.5 rounded-full uppercase tracking-[0.18em]">
+                        {parserBackend}
+                    </span>
+                )}
+                {showFullSurface && payloadContent.payload_type !== blockType && (
                     <span className="heap-payload-label text-[10px] font-mono text-slate-600 flex items-center gap-1 ml-2">
                         <FileText className="w-2.5 h-2.5" />
                         {payloadContent.payload_type}
                     </span>
                 )}
-                {projection.pageLinks?.map((pageLink) => (
+                {showFullSurface && projection.pageLinks?.map((pageLink) => (
                     <button
                         key={pageLink}
                         onClick={(e) => { e.stopPropagation(); navigate(`/?space_id=${pageLink}`); }}
@@ -291,7 +406,7 @@ export function HeapBlockCard({
                         {pageLink.substring(0, 8)}
                     </button>
                 ))}
-                {projection.mentionsInline?.map(m => (
+                {showRelations && projection.mentionsInline?.map((m) => (
                     <button
                         key={m}
                         onClick={(e) => { e.stopPropagation(); navigate(`/?block_id=${m}`); }}
@@ -301,7 +416,7 @@ export function HeapBlockCard({
                         {m.substring(0, 8)}
                     </button>
                 ))}
-                {projection.tags?.map(t => (
+                {showRelations && projection.tags?.map((t) => (
                     <span key={t} className="heap-tag-chip text-[10px] bg-white/5 text-slate-500 px-2 py-0.5 rounded-full cursor-default font-medium">#{t}</span>
                 ))}
                 <div className="flex items-center gap-1 ml-auto text-slate-500 hover:text-slate-300 transition-colors">

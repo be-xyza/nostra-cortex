@@ -560,7 +560,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                         
                         <div className="relative flex items-center justify-center w-full">
                             {authSession && (
-                                <RoleProfileSelector
+                                <RoleProfileSelector 
                                     session={authSession}
                                     onRoleChange={handleRoleChange}
                                     collapsed={showRail}

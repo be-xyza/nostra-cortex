@@ -4,7 +4,7 @@ const LAYOUT_SPEC_FIXTURE = {
     layoutId: "shell_layout_v2",
     navigationGraph: {
         entries: [
-            { routeId: "/heap", label: "Heap Canvas", icon: "HP", category: "Core", requiredRole: "viewer" }
+            { routeId: "/explore", label: "Explore", icon: "EX", category: "Core", requiredRole: "viewer" }
         ]
     }
 };
@@ -168,7 +168,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("verifies all enriched block types render correctly", async ({ page }) => {
-    await page.goto("/heap");
+    await page.goto("/explore");
 
     // 1. Chart
     const chartCard = page.locator(".heap-block-card").filter({ hasText: "Agent Performance Metrics" });

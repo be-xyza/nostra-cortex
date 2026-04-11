@@ -20,6 +20,26 @@ type WorkflowArtifactInspectorContextValue = {
 const WorkflowArtifactInspectorContext =
   React.createContext<WorkflowArtifactInspectorContextValue | null>(null);
 
+function resolveInspectorPathFromNodeId(nodeId: string): string {
+  const trimmed = nodeId.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.startsWith("/api/")) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("artifact:")) {
+    const artifactId = trimmed.slice("artifact:".length).trim();
+    return artifactId
+      ? `/api/cortex/studio/artifacts/${encodeURIComponent(artifactId)}`
+      : "";
+  }
+
+  return `/api/cortex/${trimmed.replace(":", "/")}`;
+}
+
 export function WorkflowArtifactInspectorProvider({
   children,
 }: {
@@ -91,9 +111,7 @@ export function WorkflowArtifactInspectorProvider({
     }
 
     // Map common node_id prefixes to gateway API paths
-    let resolvedPath = nodeId.startsWith("/api/")
-      ? nodeId
-      : `/api/cortex/${nodeId.replace(":", "/")}`;
+    let resolvedPath = resolveInspectorPathFromNodeId(nodeId);
 
     // Normalize known prefixes to match gateway requirements (plural + hyphen)
     // Use regex to catch all variations and ensure pluralization
