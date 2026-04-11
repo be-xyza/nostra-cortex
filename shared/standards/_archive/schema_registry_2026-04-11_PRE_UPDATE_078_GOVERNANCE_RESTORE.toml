@@ -232,18 +232,6 @@ status = "active"
 notes = "Governed JSON artifact referenced by the skill policy."
 
 [[artifacts]]
-id = "nostra.standards.antigravity_rule_dispositions.v1"
-title = "Antigravity Rule Dispositions"
-group = "governance"
-path = "shared/standards/antigravity_rule_dispositions.json"
-purpose = "Disposition registry for antigravity rule handling and skill replacement mapping."
-owner = "Systems Steward"
-aliases = ["antigravity_rule_dispositions.json", "antigravity-rule-dispositions"]
-known_consumers = ["shared/standards/antigravity_rule_policy.toml", "scripts/check_antigravity_rule_policy.py"]
-status = "active"
-notes = "Governed JSON artifact referenced by the antigravity policy."
-
-[[artifacts]]
 id = "nostra.standards.dynamic_source_exceptions.v1"
 title = "Dynamic Source Exceptions"
 group = "governance"
