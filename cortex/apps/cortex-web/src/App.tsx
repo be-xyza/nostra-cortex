@@ -15,7 +15,6 @@ import { EXECUTION_CANVAS_ROUTE, SPACE_STUDIO_ROUTE } from "./components/spaces/
 import { ContributionsWorkbenchHost } from "./components/contributions/ContributionsWorkbenchHost";
 import { LogsPage } from "./components/live/LogsPage";
 import { ProviderDashboard } from "./components/system/ProviderDashboard";
-import { ConversationsPage } from "./components/conversations/ConversationsPage";
 
 export function App() {
   const navigate = useNavigate();
@@ -71,7 +70,6 @@ export function App() {
             } />
             <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/spaces/:id" element={<SpaceDetailPage />} />
-            <Route path="/conversations" element={<ConversationsPage />} />
             <Route path="/explore" element={<HeapBlockGrid showFilterSidebar={true} />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/system/providers" element={
