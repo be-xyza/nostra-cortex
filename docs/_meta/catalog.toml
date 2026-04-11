@@ -1,0 +1,22 @@
+version = 1
+updated_at = "2026-04-09"
+owner = "Operational Steward"
+purpose = "Top-level catalog for the docs tree."
+
+[[entry]]
+id = "architecture"
+path = "docs/architecture"
+title = "Architecture"
+status = "active"
+
+[[entry]]
+id = "cortex"
+path = "docs/cortex"
+title = "Cortex"
+status = "active"
+
+[[entry]]
+id = "reference"
+path = "docs/reference"
+title = "Reference"
+status = "active"

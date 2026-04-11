@@ -1,0 +1,82 @@
+version = 1
+updated_at = "2026-04-08"
+owner = "Systems Steward"
+description = "Canonical repo-local workflow registry for Nostra/Cortex development surfaces."
+
+[[source]]
+id = "repo_commons"
+type = "local_dir"
+base_path = "nostra/commons/workflows"
+
+[[ide]]
+id = "codex"
+install_root = ".codex/workflows"
+managed_by_registry = true
+
+[[ide]]
+id = "claude"
+install_root = ".claude/workflows"
+managed_by_registry = true
+
+[[workflow]]
+id = "developer-runtime-handoff"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "developer-runtime-handoff"
+targets = ["codex", "claude"]
+
+[[workflow]]
+id = "gateway-protocol-contract-change"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "gateway-protocol-contract-change"
+targets = ["codex", "claude"]
+
+[[workflow]]
+id = "dual-host-parity-validation"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "dual-host-parity-validation"
+targets = ["codex", "claude"]
+
+[[workflow]]
+id = "runtime-authority-surface-change"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "runtime-authority-surface-change"
+targets = ["codex", "claude"]
+
+[[workflow]]
+id = "conversation-surface-runtime-authority"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "conversation-surface-runtime-authority"
+targets = ["codex", "claude"]
+
+[[workflow]]
+id = "navigation-contract-change"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "navigation-contract-change"
+targets = ["codex", "claude"]
+
+[[workflow]]
+id = "workflow-engine-runtime-change"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "workflow-engine-runtime-change"
+targets = ["codex", "claude"]
+
+[[workflow]]
+id = "workflow-declaration-change"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "workflow-declaration-change"
+targets = ["codex", "claude"]
+
+[[workflow]]
+id = "ide-governance-surface-change"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "ide-governance-surface-change"
+targets = ["codex", "claude"]
