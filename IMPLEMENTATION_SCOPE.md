@@ -26,3 +26,11 @@ Only provider/runtime boundary files may be restored from the recovery anchor. W
 ## Immediate Next Step
 
 Restore only the owned paths from `codex/execution-canvas-runtime-recovery`, run the branch-specific gateway/parity checks, and open the first recovery PR from this branch rather than from the salvage anchor.
+
+## Validation Result
+
+Validated on 2026-04-11 against merged `origin/main`.
+
+The direct residue remaining in `codex/execution-canvas-runtime-recovery` for this scope is not currently promotable as a clean provider/runtime slice. The surviving file-level deltas after hygiene merge reintroduce unrelated desktop workbench churn, spatial-layout surface changes, and gateway inventory regressions that remove operator-only provider routes from the baseline fixtures.
+
+Until the provider/runtime slice is reconstructed from narrower source commits or manual hunk selection, this branch should remain clean and serve as the implementation target rather than absorbing residue directly from the salvage anchor.
