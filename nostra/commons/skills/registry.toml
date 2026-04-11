@@ -1,0 +1,40 @@
+version = 1
+updated_at = "2026-04-08"
+owner = "Systems Steward"
+description = "Canonical repo-local skill registry for Nostra/Cortex development surfaces."
+
+[[source]]
+id = "repo_commons"
+type = "local_dir"
+base_path = "nostra/commons/skills"
+
+[[ide]]
+id = "codex"
+install_root = ".codex/skills"
+managed_by_registry = true
+
+[[ide]]
+id = "claude"
+install_root = ".claude/skills"
+managed_by_registry = true
+
+[[skill]]
+id = "nostra-cortex-dev-core"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "nostra-cortex-dev-core"
+targets = ["codex", "claude"]
+required_checks = [
+  "bash scripts/check_agent_preflight_contract.sh",
+  "bash scripts/check_dynamic_config_contract.sh",
+]
+
+[[skill]]
+id = "frontend-design"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "frontend-design"
+targets = ["codex", "claude"]
+required_checks = [
+  "bash scripts/check_dynamic_config_contract.sh",
+]
