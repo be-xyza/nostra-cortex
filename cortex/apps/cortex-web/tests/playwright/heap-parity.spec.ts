@@ -5,7 +5,7 @@ const LAYOUT_SPEC_FIXTURE = {
   navigationGraph: {
     entries: [
       { routeId: "/system", label: "System", icon: "SY", category: "Core", requiredRole: "viewer" },
-      { routeId: "/heap", label: "Heap Canvas", icon: "HP", category: "Core", requiredRole: "viewer" },
+      { routeId: "/explore", label: "Explore", icon: "EX", category: "Core", requiredRole: "viewer" },
       { routeId: "/playground", label: "Playground", icon: "PG", category: "Core", requiredRole: "viewer" }
     ]
   }
@@ -21,7 +21,7 @@ const WHOAMI_FIXTURE = {
 const NAVIGATION_PLAN_FIXTURE = {
   schemaVersion: "1.0.0",
   entries: [
-    { capabilityId: "cap.heap", routeId: "/heap", label: "Heap Canvas", icon: "database", navSlot: "primary" },
+    { capabilityId: "cap.heap", routeId: "/explore", label: "Explore", icon: "database", navSlot: "primary" },
     { capabilityId: "cap.system", routeId: "/system", label: "System", icon: "settings", navSlot: "primary" }
   ]
 };
@@ -246,7 +246,7 @@ test("heap parity renders structural controls and interactions", async ({ page }
       body: JSON.stringify(noDeltaResponse()),
     });
   });
-  await page.goto("/heap");
+  await page.goto("/explore");
 
   await expect(page.locator(".shell-layout")).toBeVisible();
   await expect(page.locator(".heap-surface")).toBeVisible();
@@ -351,7 +351,7 @@ test("heap parity delta polling reconciles changed blocks when local flag is ena
     });
   });
 
-  await page.goto("/heap");
+  await page.goto("/explore");
   await expect(page.locator(".heap-block-card").filter({ hasText: "Heap Parity Card" }).first()).toBeVisible();
   await expect(page.locator(".heap-block-card").filter({ hasText: "Heap Parity Card (Delta)" }).first()).toBeVisible({ timeout: 10000 });
   await expect.poll(() => changedBlocksCalls, { timeout: 10000 }).toBeGreaterThan(0);
@@ -361,7 +361,7 @@ test("heap workbench enrichment features function correctly", async ({ page }) =
   await page.route(/\/api\/cortex\/studio\/heap\/changed_blocks/, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(noDeltaResponse()) });
   });
-  await page.goto("/heap");
+  await page.goto("/explore");
 
   // 1. Discussions / Comments Verification
   const firstCard = page.locator(".heap-block-card").filter({ hasText: "Heap Parity Card" }).first();
@@ -423,4 +423,3 @@ test("heap workbench enrichment features function correctly", async ({ page }) =
   await expect(page.locator("#heap-grid-header")).toContainText(/steward\.synth.*processing/i, { timeout: 10000 });
   await expect(page.locator("#heap-grid-header")).toContainText(/emitted to space/i, { timeout: 15000 });
 });
-

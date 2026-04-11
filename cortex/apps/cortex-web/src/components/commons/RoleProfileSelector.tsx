@@ -10,7 +10,7 @@ interface RoleProfileSelectorProps {
     isCentered?: boolean;
 }
 
-const ROLE_CONFIG: Record<string, {
+const ROLE_CONFIG: Record<string, { 
     icon: React.ReactNode, 
     color: string, 
     ringColor: string, 
@@ -85,7 +85,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
         <div className={`relative ${className}`} ref={dropdownRef}>
             <button
                 onClick={() => session.allowRoleSwitch && setIsOpen(!isOpen)}
-                className={`flex items-center transition-all duration-300 ${session.allowRoleSwitch ? "hover:bg-white/5" : "cursor-default"}
+                className={`flex items-center transition-all duration-300 ${session.allowRoleSwitch ? "hover:bg-white/5" : "cursor-default"} 
                     ${collapsed ? "justify-center p-1 rounded-full w-10 h-10" : "gap-2.5 p-1 rounded-xl pr-3"}
                     ${isCentered ? "mx-auto" : ""}`}
                 aria-label={`Current role: ${activeRole}`}

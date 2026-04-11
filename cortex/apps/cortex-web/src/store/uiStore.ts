@@ -2,7 +2,6 @@ import { create } from 'zustand';
 
 const ACTOR_ID_STORAGE_KEY = "cortex.shell.actor.id";
 const ROLE_STORAGE_KEY = "cortex.shell.actor.role";
-const DEFAULT_PREVIEW_SPACE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 const ROLE_OPTIONS = ["viewer", "editor", "operator", "steward", "admin"] as const;
 type CortexRole = typeof ROLE_OPTIONS[number];
 
@@ -64,8 +63,7 @@ function defaultSpaceId(): string {
     if (envSpace) {
         return envSpace;
     }
-    const registryMode = String(env.VITE_SPACE_REGISTRY_MODE ?? "auto").trim().toLowerCase();
-    return registryMode === "preview" ? DEFAULT_PREVIEW_SPACE_ID : "meta";
+    return "meta";
 }
 
 interface UiState {

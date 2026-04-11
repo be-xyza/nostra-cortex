@@ -2,6 +2,8 @@
 declare let self: ServiceWorkerGlobalScope;
 
 import { precacheAndRoute } from 'workbox-precaching';
+import { resolveRequestSpaceId } from './serviceWorker/requestScope.ts';
+import { readPreviewFixturesCookie } from './shared/previewFixtures.ts';
 
 // Precaching injected assets from Vite
 precacheAndRoute(self.__WB_MANIFEST || []);
@@ -31,16 +33,29 @@ import {
   MOCK_CONTRIBUTION_GRAPH,
   MOCK_WORKFLOW_TOPOLOGY,
   buildMockActionPlan
-} from './store/seedData';
-import { getEventsBySpace, appendEvent, getEventsByArtifactId, getEventsBySpaceSince, seedIfEmpty, getSnapshot } from './store/eventStore';
-import { reduceHeapBlocks } from './store/eventProcessor';
+} from './store/seedData.ts';
+import { getEventsBySpace, appendEvent, getEventsByArtifactId, getEventsBySpaceSince, seedIfEmpty, getSnapshot } from './store/eventStore.ts';
+import { reduceHeapBlocks } from './store/eventProcessor.ts';
+import { buildFallbackAuthSession, buildFallbackWhoami } from './components/commons/shellBootstrapFallback.ts';
 
 const DEFAULT_SPACE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+let previewFixturesEnabledState = false;
+
+self.addEventListener('message', (event) => {
+  const data = event.data as { type?: string; enabled?: unknown } | undefined;
+  if (data?.type === "cortex.preview-fixtures") {
+    previewFixturesEnabledState = Boolean(data.enabled);
+  }
+});
 
 async function respondNetworkFirst(
   request: Request,
   fallbackFactory: () => Promise<Response>,
+  fallbackEnabled = true
 ): Promise<Response> {
+  if (!fallbackEnabled) {
+    return fetch(request);
+  }
   try {
     const networkResponse = await fetch(request);
     if (networkResponse.ok) {
@@ -52,63 +67,73 @@ async function respondNetworkFirst(
   return fallbackFactory();
 }
 
+function previewFixturesEnabledForRequest(request: Request): boolean {
+  return previewFixturesEnabledState || readPreviewFixturesCookie(request.headers.get('cookie'));
+}
+
 /**
  * Route Cortex Requests (The Execution Boundary)
  */
 async function routeCortexRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
-  const spaceId = url.searchParams.get('spaceId') || DEFAULT_SPACE_ID;
+  const spaceId = resolveRequestSpaceId(url, DEFAULT_SPACE_ID);
+  const previewFixturesEnabled = previewFixturesEnabledForRequest(request);
   console.log(`[Service Worker] Intercepted Cortex Action: ${path}`);
   
   // 1. GET /api/cortex/studio/heap/blocks
   if (path === '/api/cortex/studio/heap/blocks' && request.method === 'GET') {
-    // Seed the store if it's empty for this space (restores mock content)
-    await seedIfEmpty(spaceId);
-    
-    const events = await getEventsBySpace(spaceId);
-    const blocks = reduceHeapBlocks(events);
-    
-    const includeDeleted = url.searchParams.get('includeDeleted') === 'true';
-    const finalBlocks = includeDeleted ? blocks : blocks.filter(b => !b.deletedAt);
+    return respondNetworkFirst(request, async () => {
+      await seedIfEmpty(spaceId);
 
-    return new Response(JSON.stringify({
-      schemaVersion: "1.0.0",
-      generatedAt: new Date().toISOString(),
-      count: finalBlocks.length,
-      hasMore: false,
-      items: finalBlocks
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      const events = await getEventsBySpace(spaceId);
+      const blocks = reduceHeapBlocks(events);
+
+      const includeDeleted = url.searchParams.get('includeDeleted') === 'true';
+      const finalBlocks = includeDeleted ? blocks : blocks.filter(b => !b.deletedAt);
+
+      return new Response(JSON.stringify({
+        schemaVersion: "1.0.0",
+        generatedAt: new Date().toISOString(),
+        count: finalBlocks.length,
+        hasMore: false,
+        items: finalBlocks
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }, previewFixturesEnabled);
   }
 
   // 1b. GET /api/cortex/studio/heap/changed_blocks
   if (path === '/api/cortex/studio/heap/changed_blocks' && request.method === 'GET') {
-    const changedSince = url.searchParams.get('changedSince') || '';
-    const events = await getEventsBySpaceSince(spaceId, changedSince);
-    const allBlocks = reduceHeapBlocks(await getEventsBySpace(spaceId));
-    
-    // Filter blocks that were affected by these new events
-    const affectedIds = new Set(events.map(e => e.payload.artifactId as string));
-    const changed = allBlocks.filter(b => affectedIds.has(b.projection.artifactId) && !b.deletedAt);
-    const deleted = allBlocks.filter(b => affectedIds.has(b.projection.artifactId) && b.deletedAt).map(b => b.projection.artifactId);
+    return respondNetworkFirst(request, async () => {
+      const changedSince = url.searchParams.get('changedSince') || '';
+      const events = await getEventsBySpaceSince(spaceId, changedSince);
+      const allBlocks = reduceHeapBlocks(await getEventsBySpace(spaceId));
 
-    return new Response(JSON.stringify({
-      generatedAt: new Date().toISOString(),
-      changed,
-      deleted,
-      hasMore: false,
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      const affectedIds = new Set(events.map(e => e.payload.artifactId as string));
+      const changed = allBlocks.filter(b => affectedIds.has(b.projection.artifactId) && !b.deletedAt);
+      const deleted = allBlocks.filter(b => affectedIds.has(b.projection.artifactId) && b.deletedAt).map(b => b.projection.artifactId);
+
+      return new Response(JSON.stringify({
+        schemaVersion: "1.0.0",
+        generatedAt: new Date().toISOString(),
+        count: changed.length,
+        changed,
+        deleted,
+        hasMore: false,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }, previewFixturesEnabled);
   }
 
   // 2. POST /api/cortex/studio/heap/emit
   if (path === '/api/cortex/studio/heap/emit' && request.method === 'POST') {
+    if (!previewFixturesEnabled) return fetch(request);
     const payload = await request.json();
     const artifactId = `local-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     
     await appendEvent({
       id: `evt-${Date.now()}`,
       type: 'HeapBlockCreated',
-      spaceId: payload.workspace_id || spaceId,
+      spaceId: payload.space_id || payload.workspace_id || spaceId,
       timestamp: new Date().toISOString(),
       payload: {
         ...payload.block,
@@ -126,6 +151,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
   // 3. POST /api/cortex/studio/heap/blocks/:id/pin
   const pinMatch = path.match(/\/api\/cortex\/studio\/heap\/blocks\/([^/]+)\/pin$/);
   if (pinMatch && request.method === 'POST') {
+    if (!previewFixturesEnabled) return fetch(request);
     const artifactId = pinMatch[1];
     await appendEvent({
       id: `evt-pin-${Date.now()}`,
@@ -145,6 +171,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
   // 4. POST /api/cortex/studio/heap/blocks/:id/delete
   const deleteMatch = path.match(/\/api\/cortex\/studio\/heap\/blocks\/([^/]+)\/delete$/);
   if (deleteMatch && request.method === 'POST') {
+    if (!previewFixturesEnabled) return fetch(request);
     const artifactId = deleteMatch[1];
     await appendEvent({
       id: `evt-delete-${Date.now()}`,
@@ -164,6 +191,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
   // 5. GET /api/cortex/studio/heap/blocks/:id/history
   const historyMatch = path.match(/\/api\/cortex\/studio\/heap\/blocks\/([^/]+)\/history$/);
   if (historyMatch && request.method === 'GET') {
+    if (!previewFixturesEnabled) return fetch(request);
     const artifactId = historyMatch[1];
     const events = await getEventsByArtifactId(spaceId, artifactId);
     return new Response(JSON.stringify({
@@ -180,6 +208,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
   // 5b. GET /api/cortex/workflow-definitions/:id/projections/:kind
   const topoMatch = path.match(/^\/api\/cortex\/workflow-definitions\/([^/]+)\/projections\/execution_topology_v1$/);
   if (topoMatch && request.method === "GET") {
+    if (!previewFixturesEnabled) return fetch(request);
     return new Response(JSON.stringify(MOCK_WORKFLOW_TOPOLOGY), {
       status: 200,
       headers: { "Content-Type": "application/json" }
@@ -188,6 +217,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
 
   const defProjMatch = path.match(/^\/api\/cortex\/workflow-definitions\/([^/]+)\/projections\/([^/]+)$/);
   if (defProjMatch && request.method === "GET") {
+    if (!previewFixturesEnabled) return fetch(request);
     return new Response(JSON.stringify({
       kind: defProjMatch[2],
       projection: { note: "Mock generic projection for " + defProjMatch[2] }
@@ -196,6 +226,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
 
   const defMatch = path.match(/^\/api\/cortex\/workflow-definitions\/([^/]+)$/);
   if (defMatch && request.method === "GET") {
+    if (!previewFixturesEnabled) return fetch(request);
     return new Response(JSON.stringify({
       definitionId: defMatch[1],
       definition: {
@@ -208,18 +239,46 @@ async function routeCortexRequest(request: Request): Promise<Response> {
 
   // 6. GET /api/cortex/layout/spec
   if (path === '/api/cortex/layout/spec' && request.method === 'GET') {
-    const layout = await getSnapshot("system:layout:spec");
-    if (layout) return new Response(JSON.stringify(layout), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return respondNetworkFirst(request, async () => {
+      const layout = await getSnapshot("system:layout:spec");
+      if (layout) {
+        return new Response(JSON.stringify(layout), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return fetch(request);
+    }, previewFixturesEnabled);
   }
 
-  // 7. GET /api/system/whoami
+  // 7. GET /api/system/session
+  if (path === '/api/system/session' && request.method === 'GET') {
+    return respondNetworkFirst(request, async () => {
+      const session = await getSnapshot("system:session");
+      if (session) {
+        return new Response(JSON.stringify(session), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response(JSON.stringify(buildFallbackAuthSession()), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }, previewFixturesEnabled);
+  }
+
+  // 8. GET /api/system/whoami
   if (path === '/api/system/whoami' && request.method === 'GET') {
-    const whoami = await getSnapshot("system:whoami");
-    if (whoami) return new Response(JSON.stringify(whoami), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return respondNetworkFirst(request, async () => {
+      const whoami = await getSnapshot("system:whoami");
+      if (whoami) {
+        return new Response(JSON.stringify(whoami), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response(JSON.stringify(buildFallbackWhoami()), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }, previewFixturesEnabled);
   }
 
   // 9. GET /api/system/ux/workbench
   if (path === '/api/system/ux/workbench' && request.method === 'GET') {
+    if (!previewFixturesEnabled) return fetch(request);
     const route = url.searchParams.get('route') || '';
     const lookupKey = route ? `system:ux:workbench:${route}` : 'system:ux:workbench';
     let workbench = await getSnapshot(lookupKey);
@@ -235,6 +294,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
   // Contribution graph mock (ambient background graph)
   const graphMatch = path.match(/^\/api\/kg\/spaces\/[^/]+\/contribution-graph\/graph$/);
   if (graphMatch && request.method === 'GET') {
+    if (!previewFixturesEnabled) return fetch(request);
     return new Response(JSON.stringify(MOCK_CONTRIBUTION_GRAPH), {
       status: 200, headers: { 'Content-Type': 'application/json' }
     });
@@ -245,6 +305,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
       new Response(JSON.stringify(MOCK_CAPABILITY_GRAPH), {
         headers: { 'Content-Type': 'application/json' }
       }),
+      previewFixturesEnabled,
     );
   }
 
@@ -253,6 +314,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
       new Response(JSON.stringify(PLATFORM_CAPABILITY_CATALOG), {
         headers: { 'Content-Type': 'application/json' }
       }),
+      previewFixturesEnabled,
     );
   }
 
@@ -262,6 +324,7 @@ async function routeCortexRequest(request: Request): Promise<Response> {
       new Response(JSON.stringify(MOCK_SPACE_CAPABILITY_GRAPH), {
         headers: { 'Content-Type': 'application/json' }
       }),
+      previewFixturesEnabled,
     );
   }
 
@@ -271,11 +334,8 @@ async function routeCortexRequest(request: Request): Promise<Response> {
       if (navPlan) {
         return new Response(JSON.stringify(navPlan), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
-      return new Response(JSON.stringify({
-        status: "offline-error",
-        message: "Navigation plan unavailable while offline."
-      }), { status: 503, headers: { 'Content-Type': 'application/json' } });
-    });
+      return fetch(request);
+    }, previewFixturesEnabled);
   }
 
   if (url.pathname.startsWith('/api/spaces/') && url.pathname.endsWith('/action-plan')) {
@@ -285,17 +345,10 @@ async function routeCortexRequest(request: Request): Promise<Response> {
       return new Response(JSON.stringify(buildMockActionPlan(fallbackSpaceId, routeId)), {
         headers: { 'Content-Type': 'application/json' }
       });
-    });
+    }, previewFixturesEnabled);
   }
 
-  try {
-    return await fetch(request);
-  } catch {
-    return new Response(JSON.stringify({ 
-      status: "offline-error",
-      message: "Gateway unreachable and route not implemented locally."
-    }), { status: 503, headers: { 'Content-Type': 'application/json' } });
-  }
+  return fetch(request);
 }
 
 // Intercept specific domain/api calls

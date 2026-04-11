@@ -51,6 +51,17 @@ const reviewBlocks: MockBlock[] = [
   },
   {
     projection: {
+      artifactId: "kickoff-approval",
+      blockType: "agent_solicitation",
+      tags: ["initiative"],
+      pageLinks: ["space-gamma"],
+      mentionsInline: [],
+      attributes: { review_lane: "private_review" },
+    },
+    surfaceJson: { behaviors: ["awaiting_approval"] },
+  },
+  {
+    projection: {
       artifactId: "ordinary-note",
       blockType: "note",
       tags: ["note"],
@@ -67,7 +78,7 @@ test("Inbox includes space promotion requests even when they already have relati
     (block) => block.projection.artifactId,
   );
 
-  assert.deepEqual(inboxIds, ["public-review", "private-review"]);
+  assert.deepEqual(inboxIds, ["public-review", "private-review", "kickoff-approval"]);
 });
 
 test("review lane helpers expose promotion queue lanes and filter them cleanly", () => {
@@ -83,10 +94,11 @@ test("review lane helpers expose promotion queue lanes and filter them cleanly",
 
   assert.equal(readHeapBlockReviewLane(reviewBlocks[0] as never), "public_review");
   assert.equal(readHeapBlockReviewLane(reviewBlocks[1] as never), "private_review");
-  assert.equal(readHeapBlockReviewLane(reviewBlocks[2] as never), null);
+  assert.equal(readHeapBlockReviewLane(reviewBlocks[2] as never), "private_review");
+  assert.equal(readHeapBlockReviewLane(reviewBlocks[3] as never), null);
   assert.deepEqual(
     allReviewBlocks.map((block) => block.projection.artifactId),
-    ["public-review", "private-review", "ordinary-note"],
+    ["public-review", "private-review", "kickoff-approval", "ordinary-note"],
   );
   assert.deepEqual(
     publicReviewBlocks.map((block) => block.projection.artifactId),
@@ -94,14 +106,15 @@ test("review lane helpers expose promotion queue lanes and filter them cleanly",
   );
   assert.deepEqual(
     privateReviewBlocks.map((block) => block.projection.artifactId),
-    ["private-review"],
+    ["private-review", "kickoff-approval"],
   );
 });
 
 test("view counts treat promotion requests as Inbox work even without mentions or urgency", () => {
   const counts = buildHeapViewCounts(reviewBlocks as never[]);
 
-  assert.equal(counts.Inbox, 2);
-  assert.equal(counts.Explore, 3);
+  assert.equal(counts.Inbox, 3);
+  assert.equal(counts.Proposals, 1);
+  assert.equal(counts.Explore, 4);
   assert.equal(counts.Drafts, 0);
 });

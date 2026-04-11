@@ -1,6 +1,10 @@
 import { chromium } from 'playwright';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 (async () => {
+  const outputDir = join('/tmp', 'cortex-web-verify-ui');
+  mkdirSync(outputDir, { recursive: true });
   const browser = await chromium.launch();
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -17,23 +21,23 @@ import { chromium } from 'playwright';
   await page.goto('http://localhost:4173/explore', { waitUntil: 'networkidle' });
   // Wait a bit for transitions
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: '/Users/xaoj/.gemini/antigravity/brain/b5e803db-32fc-434d-ab2d-69682512b573/canvas_explore_verification.png', fullPage: true });
+  await page.screenshot({ path: join(outputDir, 'canvas_explore_verification.png'), fullPage: true });
 
   console.log("Capturing Inbox...");
   await page.goto('http://localhost:4173/explore?heap_view=Inbox', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: '/Users/xaoj/.gemini/antigravity/brain/b5e803db-32fc-434d-ab2d-69682512b573/canvas_inbox_verification.png', fullPage: true });
+  await page.screenshot({ path: join(outputDir, 'canvas_inbox_verification.png'), fullPage: true });
 
   console.log("Expanding Space Selector...");
   await page.goto('http://localhost:4173/explore', { waitUntil: 'networkidle' });
   await page.click('[aria-label="Select Space"]');
   await page.waitForTimeout(500);
-  await page.screenshot({ path: '/Users/xaoj/.gemini/antigravity/brain/b5e803db-32fc-434d-ab2d-69682512b573/space_selector_verification.png' });
+  await page.screenshot({ path: join(outputDir, 'space_selector_verification.png') });
 
   console.log("Capturing Spaces Page...");
   await page.goto('http://localhost:4173/spaces', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: '/Users/xaoj/.gemini/antigravity/brain/b5e803db-32fc-434d-ab2d-69682512b573/spaces_page_verification.png', fullPage: true });
+  await page.screenshot({ path: join(outputDir, 'spaces_page_verification.png'), fullPage: true });
 
   await browser.close();
   console.log("Done.");

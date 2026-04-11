@@ -1226,10 +1226,7 @@ mod tests {
 
         assert_eq!(parsed.workspace_id, "01ARZ3NDEKTSV4RRFFQ69G5FAV");
         assert_eq!(surface["payload_type"], "task");
-        assert_eq!(
-            surface["task"],
-            "# Initiative 078 Kickoff\n- [ ] Read the plan"
-        );
+        assert_eq!(surface["task"], "# Initiative 078 Kickoff\n- [ ] Read the plan");
     }
 
     #[test]

@@ -4,7 +4,13 @@ import { AgentRunEventEnvelope, AgentRunRecord, SpatialExperimentRunSummary, Spa
 import { A2UIInterpreter } from "./a2ui/A2UIInterpreter";
 import { A2UI_EVENT_TYPES } from "./a2ui/spatialEventContract";
 
-const INTERACTION_EVENTS = new Set(["button_click", "approval", "spatial_shape_click"]);
+const INTERACTION_EVENTS = new Set([
+  "button_click",
+  "approval",
+  "spatial_shape_click",
+  "spatial_shape_move",
+  "spatial_edge_connect"
+]);
 const TRACKED_EVENT_TYPES = new Set<string>(A2UI_EVENT_TYPES);
 const SERVER_RUN_EVENT_TYPES = new Set([
   "run_started",
@@ -501,7 +507,13 @@ export function A2UIRenderSpace({
           total: current.total + 1,
           approvals: current.approvals + (isApprovalSuccess ? 1 : 0),
           buttonClicks: current.buttonClicks + (eventType === "button_click" ? 1 : 0),
-          spatialClicks: current.spatialClicks + (eventType === "spatial_shape_click" ? 1 : 0),
+          spatialClicks: current.spatialClicks + (
+            eventType === "spatial_shape_click" ||
+            eventType === "spatial_shape_move" ||
+            eventType === "spatial_edge_connect"
+              ? 1
+              : 0
+          ),
           adapterLoaded: current.adapterLoaded + (eventType === "spatial_adapter_loaded" ? 1 : 0),
           adapterFallbacks: current.adapterFallbacks + (eventType === "spatial_adapter_fallback" ? 1 : 0),
           replayFailures: current.replayFailures + (eventType === "spatial_adapter_replay_failed" ? 1 : 0),
