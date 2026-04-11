@@ -1,0 +1,5 @@
+interface:
+  display_name: "Nostra Cortex Dev Core"
+  short_description: "Governed preflight for Nostra and Cortex code changes"
+  default_prompt: "Use $nostra-cortex-dev-core to prepare and validate a governed Nostra or Cortex implementation change."
+

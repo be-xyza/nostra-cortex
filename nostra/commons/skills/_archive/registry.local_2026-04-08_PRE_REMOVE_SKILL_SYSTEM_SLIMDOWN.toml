@@ -1,0 +1,34 @@
+[[skill]]
+id = "requesting-code-review"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "requesting-code-review"
+targets = ["codex", "claude", "antigravity"]
+
+[[skill]]
+id = "using-git-worktrees"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "using-git-worktrees"
+targets = ["codex", "claude", "antigravity"]
+
+[[skill]]
+id = "executing-plans"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "executing-plans"
+targets = ["codex", "claude", "antigravity"]
+
+[[skill]]
+id = "subagent-driven-development"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "subagent-driven-development"
+targets = ["codex", "claude", "antigravity"]
+
+[[skill]]
+id = "test-driven-development"
+version = "1.0.0"
+source_id = "repo_commons"
+source_rel_path = "test-driven-development"
+targets = ["codex", "claude", "antigravity"]

@@ -1,0 +1,31 @@
+version = 1
+updated_at = "2026-02-24"
+owner = "Systems Steward"
+description = "Canonical cross-IDE workflow registry for Nostra/Cortex development surfaces."
+
+[[source]]
+id = "repo_commons"
+type = "local_dir"
+base_path = "nostra/commons/workflows"
+
+[[source]]
+id = "antigravity"
+type = "local_dir"
+base_path = "$HOME/.gemini/antigravity/workflows"
+env_override = "NOSTRA_ANTIGRAVITY_WORKFLOWS_ROOT"
+
+[[ide]]
+id = "codex"
+install_root = ".codex/workflows"
+managed_by_registry = true
+
+[[ide]]
+id = "claude"
+install_root = ".claude/workflows"
+managed_by_registry = true
+
+[[ide]]
+id = "antigravity"
+install_root = "$HOME/.gemini/antigravity/workflows"
+env_override = "NOSTRA_ANTIGRAVITY_WORKFLOWS_ROOT"
+managed_by_registry = true
