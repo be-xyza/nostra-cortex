@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nostra.cortex.terminal_document_v1",
+  "title": "Cortex Terminal Document v1",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["Container", "Box", "Text", "Spacer", "SelectList"]
+    },
+    "componentProperties": {
+      "type": "object"
+    },
+    "children": {
+      "type": "object",
+      "required": ["explicitList"],
+      "properties": {
+        "explicitList": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

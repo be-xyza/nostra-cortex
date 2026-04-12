@@ -1,0 +1,21 @@
+{
+  "name": "a2ui-terminal",
+  "version": "1.0.0",
+  "description": "A2UI to Terminal Prototype using pi-tui",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "plan": "tsx src/index.ts --plan-only",
+    "test": "tsx --test src/planner.test.ts",
+    "benchmark": "tsx src/benchmark.ts"
+  },
+  "dependencies": {
+    "@mariozechner/pi-tui": "latest",
+    "chalk": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}
