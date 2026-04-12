@@ -1,0 +1,29 @@
+version = 1
+updated_at = "2026-04-11"
+
+[[entry]]
+path = "research/reference/knowledge/agent-systems/2026_he_in_place_ttt"
+kind = "paper"
+status = "reviewed"
+tags = ["TTT", "inference", "fast-weights", "agents"]
+description = "Paper on In-Place Test-Time Training for LLMs."
+upstream = "https://arxiv.org/html/2604.06169v1"
+why_here = "Concepts for dynamic adaptation in agentic inference."
+links_to_nostra_cortex = ["Cortex Eudaemon Memory"]
+review_date = "2026-04-11"
+known_risks = "Requires gradient descent at inference time."
+suggested_next_experiments = "Estimate inference latency."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = ""
+initiative_refs = []
+
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 4
+pattern_value = 5
+ux_value = 1
+future_optionality = 5
+topic_fit = 5
