@@ -193,7 +193,7 @@ Use this for any non-core repository entering the research reference extension.
 - Command contract: `knowledge intake` = categorize -> folderize -> metadata -> register in knowledge index.
 - Default mode is `recommendation_only`; sensitive structural actions (`rename`, `merge`, `archive`, `delete`, scope/root changes) require steward escalation.
 - If policy changes, archive and update `AGENTS.md` first.
-- Detailed procedure and current local validation contract: `docs/reference/README.md`.
+- Detailed procedure and topic registry: `docs/reference/README.md` and `docs/reference/topics.md`.
 
 ---
 

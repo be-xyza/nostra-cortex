@@ -1,0 +1,29 @@
+version = 1
+updated_at = "2026-04-11"
+
+[[entry]]
+path = "research/reference/knowledge/agent-systems/2026_he_in_place_ttt"
+kind = "paper"
+status = "reviewed"
+tags = ["TTT", "inference", "fast-weights", "long-context", "agents"]
+description = "Primary-source paper on inference-time fast-weight adaptation for long-context LLM behavior."
+upstream = "https://arxiv.org/html/2604.06169v1"
+why_here = "Primary-source manually validated paper retained as a recommendation-only pattern source for Cortex host-side adaptive inference experiments, especially long-context handling."
+links_to_nostra_cortex = ["Repository inference: Cortex runtime host-side adaptive inference experiments", "Repository inference: Initiative 132 long-context agent execution evaluation"]
+review_date = "2026-04-11"
+known_risks = "Requires inference-time parameter updates and accelerator-oriented execution; the paper does not validate IC-canister, CPU-only, or graph-native agent memory deployments."
+suggested_next_experiments = "Prototype and benchmark chunk-wise fast-weight updates in a host-side Cortex adapter, then compare latency, memory, and quality against retrieval/context-window baselines."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "Primary-source manually validated on 2026-04-11 against arXiv HTML v1 and the OpenReview ICLR 2026 entry; reduced unsupported intake assumptions to recommendation-only inferences. Validator-backed compliance is not claimed in this checkout. See research/reference/analysis/reference-intake-protocol-drift-2026-04-11.md."
+initiative_refs = ["118-cortex-runtime-extraction", "132-eudaemon-alpha-initiative"]
+
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 2
+pattern_value = 5
+ux_value = 0
+future_optionality = 4
+topic_fit = 5

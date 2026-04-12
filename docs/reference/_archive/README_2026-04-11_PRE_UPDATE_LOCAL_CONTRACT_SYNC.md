@@ -8,19 +8,9 @@ This is the operational source of truth for classifying and adding repositories 
 - Canonical metadata: `research/reference/index.toml` (Repos), `research/reference/knowledge/index.toml` (Knowledge)
 - Canonical analyses: `research/reference/analysis/*.md`
 - Knowledge Artifacts: `research/reference/knowledge/{topic}/{year}_{author}_{slug}/`
-
-## Local Contract Note
-
-This checkout does not currently include local copies of the following assets that older intake workflow notes referenced:
-
-- `research/reference/knowledge/PAPER_TEMPLATE.md`
-- `research/reference/analysis/ANALYSIS_TEMPLATE.md`
-- `docs/reference/knowledge_taxonomy.toml`
-- `docs/reference/topics.md`
-- `scripts/check_reference_metadata_v2.py`
-- `scripts/check_reference_taxonomy_integrity.py`
-
-Until those assets are restored, reference intake in this repo operates in `primary-source manually validated` mode for knowledge artifacts. Use the required field/section contracts in this document rather than claiming validator-backed compliance.
+- Knowledge metadata template: `research/reference/knowledge/PAPER_TEMPLATE.md`
+- Analysis template: `research/reference/analysis/ANALYSIS_TEMPLATE.md`
+- Knowledge taxonomy/extension registry: `docs/reference/knowledge_taxonomy.toml`
 
 ## Constitutional Operating Mode
 
@@ -41,15 +31,16 @@ Until those assets are restored, reference intake in this repo operates in `prim
 2. Determine topic placement (`research/reference/knowledge/<topic>`).
 3. Create folder `research/reference/knowledge/<topic>/<year>_<author>_<slug>`.
 4. Place source files (PDF, LaTeX, TXT, etc.) in that folder.
-5. Create `metadata.md` with `schema_version: "2.0"` and the required fields listed below.
+5. Create `metadata.md` from `PAPER_TEMPLATE.md` using `schema_version: "2.0"`.
 6. Create/update analysis memo in `research/reference/analysis/<artifact-id>.md` using AnalysisV2 sections.
 7. Register path in `research/reference/knowledge/index.toml`.
-8. If local validator assets are restored, run them. Otherwise record the intake as `primary-source manually validated` and note any missing validator/tooling drift.
+8. Run validator: `python3 scripts/check_reference_metadata_v2.py --strict`.
 
-## Evolvability Contract (Current Local Mode)
-- Use the base artifact types documented here: `paper|book|standard|legal_doc`.
-- Prefer existing local topics unless a steward explicitly approves adding a new topic without a restored topic-registry file.
-- Restoring taxonomy/topic-registry files is a separate governance task; do not imply they are active until they exist in this checkout.
+## Evolvability Contract (Types + Categories)
+- Add new `artifact_type` values by updating `docs/reference/knowledge_taxonomy.toml` (`artifact_types.allowed`) or by using an approved custom prefix in `artifact_types.custom_prefixes`.
+- Add provisional out-of-scope topics in `docs/reference/knowledge_taxonomy.toml` under `topic_extensions.allowed`.
+- Promote provisional topics into `docs/reference/topics.md` once stable and steward-confirmed.
+- No validator code changes are required for taxonomy growth if updates are made via the registry file.
 
 ## Placement Rules
 - Place under an existing topic when `topic_fit >= 4`.
@@ -112,25 +103,25 @@ Until those assets are restored, reference intake in this repo operates in `prim
 - Add or update `research/reference/index.toml` and `research/reference/index.md` for repos.
 - Add or update `research/reference/knowledge/index.toml` for knowledge artifacts.
 - Add or update analysis memo in `research/reference/analysis/*.md`.
-- If a new topic is required before a local topic registry exists, escalate to a steward and record the decision.
+- If a new topic is created, update `docs/reference/topics.md`.
 - For sensitive actions, log decision entries in `research/097-nostra-cortex-alignment/DECISIONS.md`.
 - If classification policy changes, archive and update `AGENTS.md`.
 
-## Manual Validation Contract (Current Local Mode)
-Until validator assets are restored, knowledge intake must be closed out as `primary-source manually validated` and must manually verify:
+## Validator Contract (`scripts/check_reference_metadata_v2.py`)
+Prerequisite integrity guard:
+- `python3 scripts/check_reference_taxonomy_integrity.py --strict`
 
 Hard failures:
 1. Placeholder content in metadata (`TBD`, `{1-5}`, `Unknown`, `Risk 1`, etc.).
 2. Missing/invalid `source_files[].sha256`.
-3. Empty `initiative_refs` when `status` is `reviewed` or `adopted`.
-4. Missing confidence fields or `validation_proof`.
-5. Missing universal `standards_alignment` block.
-6. Analysis docs missing required AnalysisV2 sections.
-7. Analysis docs containing dead internal paths.
-8. Empty `validation_proof.evidence_refs` when `status` is `reviewed` or `adopted`.
+3. Topic not present in `docs/reference/topics.md`.
+4. Empty `initiative_refs` when `status` is `reviewed` or `adopted`.
+5. Missing confidence fields or `validation_proof`.
+6. Missing universal `standards_alignment` block.
+7. Analysis docs missing required AnalysisV2 sections.
+8. Analysis docs containing dead internal paths.
+9. Empty `validation_proof.evidence_refs` when `status` is `reviewed` or `adopted`.
 
 Warnings:
 1. Knowledge index entry without `metadata.md` sidecar.
-2. Intake claims validator-backed or fully protocol-compliant status without restored validator assets and an actual validator run.
-
-If validator and topic-registry assets are restored later, this section can be replaced with a validator-backed contract again.
+2. Knowledge topics used in `knowledge/index.toml` but absent from topic registry.

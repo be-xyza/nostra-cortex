@@ -103,6 +103,5 @@ This catalog tracks non-core repositories and topic collections moved under `res
 | inbox/infranodus | research/reference/topics/visualization/infranodus | repo |
 | inbox/nano-vllm | research/reference/topics/agent-systems/nano-vllm | repo |
 | inbox/hera | research/reference/knowledge/agent-systems/2026_Li_HERA | paper |
-| inbox/arXiv-2604.06169v1 | research/reference/knowledge/agent-systems/2026_he_in_place_ttt | paper |
 | inbox/nodepad | research/reference/repos/nodepad | repo |
 | pi-mono | research/reference/topics/agent-systems/pi-mono | repo |
