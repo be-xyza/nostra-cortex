@@ -66,6 +66,7 @@ impl AcpPolicyConfig {
         Self {
             allowed_roots,
             allowed_terminal_commands: HashSet::from_iter([
+                "bash".to_string(),
                 "cargo".to_string(),
                 "git".to_string(),
                 "dfx".to_string(),
@@ -190,5 +191,16 @@ pub fn map_session_update_to_projection(kind: AcpSessionUpdateKind) -> NostraPro
         AcpSessionUpdateKind::AvailableCommandsUpdate => NostraProjectionKind::CommandSetChanged,
         AcpSessionUpdateKind::CurrentModeUpdate => NostraProjectionKind::ModeChanged,
         AcpSessionUpdateKind::ConfigOptionUpdate => NostraProjectionKind::SessionConfigChanged,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn baseline_policy_allows_bash_for_terminal_wrappers() {
+        let cfg = AcpPolicyConfig::baseline(vec![PathBuf::from("/tmp")]);
+        assert!(cfg.allowed_terminal_commands.contains("bash"));
     }
 }

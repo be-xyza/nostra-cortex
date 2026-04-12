@@ -219,26 +219,6 @@ routing, agent orchestration, port traits (`StorageAdapter`, `NetworkAdapter`,
 
 #### `cortex-ic-adapter` (Layer 3 — Infrastructure)
 
----
-
-## ADR-020: Operator Terminal Hosts Remain Thin Adapters
-
-**Decision**: Any future `a2ui-terminal`, `cortex-tui`, or operator CLI/TUI surface must remain a thin Cortex host adapter over shared runtime outputs and shared payload contracts. It may summarize and hand off to `cortex-web`, but it must not redefine authority, invent terminal-only payload schemas, or replace the rich workbench host.
-
-**Rationale**: Initiative 118 establishes host neutrality as a structural requirement. The repo already contains terminal host plumbing in the Desktop and Eudaemon terminal services, but no first-class CLI product authority surface. Promoting terminal rendering as a host adapter preserves parity over duplication and keeps runtime logic substrate-neutral.
-
-**Status**: Accepted
-
----
-
-## ADR-021: Terminal Hosts Require a Strict Render Document Gate
-
-**Decision**: Terminal-capable Cortex hosts must validate their renderable document against a narrow `terminal_document_v1` contract before rendering. Invalid or unsupported documents must fail closed into summary and/or `cortex-web` handoff modes.
-
-**Rationale**: TAUI validation showed that strict schema gatekeeping is the portable architectural idea worth borrowing now, while TAUI's installed runtime in this repo did not yet prove raw-event normalization or production-ready host behavior. A local strict render gate preserves host neutrality, prevents best-effort rendering drift, and keeps `cortex-web` as the richer host for unsupported surfaces.
-
-**Status**: Accepted
-
 ICP-specific adapter implementation.
 
 **Dependencies**: `cortex-runtime`, `ic-agent`, `candid`.  

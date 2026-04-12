@@ -11,7 +11,6 @@ GitHub validates whether `main` is promotable, but production VPS mutation is op
 - [`docs/cortex/eudaemon-alpha-phase6-hetzner.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-hetzner.md)
 - [`docs/cortex/eudaemon-alpha-phase6-checklist.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-checklist.md)
 - [`docs/cortex/eudaemon-alpha-ssh-config.example`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-ssh-config.example)
-- [`docs/cortex/terminal-host-plan.md`](/Users/xaoj/ICP/docs/cortex/terminal-host-plan.md)
 - [`docs/architecture/standards.md`](/Users/xaoj/ICP/docs/architecture/standards.md)
 - [`docs/architecture/nostra-cortex-boundary.md`](/Users/xaoj/ICP/docs/architecture/nostra-cortex-boundary.md)
 - [`research/013-nostra-workflow-engine/`](/Users/xaoj/ICP/research/013-nostra-workflow-engine)
@@ -23,6 +22,4 @@ GitHub validates whether `main` is promotable, but production VPS mutation is op
 - workers, agents, and execution lifecycle
 - durable workflows and outbox patterns
 - runtime observability and operator surfaces
-- terminal host adapters and web handoff rules
-- strict terminal document validation for operator-side hosts
 - VPS authority, promotion, and sync integrity

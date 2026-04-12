@@ -1,0 +1,14 @@
+{
+  "artifactId": "example-workflow-handoff-001",
+  "title": "Workflow Handoff Example",
+  "routeHint": "workflows",
+  "workflowHref": "/api/cortex/workflow-instances/inst_demo_001/trace",
+  "surfaceJson": {
+    "payload_type": "a2ui",
+    "tree": {
+      "widget": "WorkflowInstanceTimeline",
+      "run_id": "inst_demo_001",
+      "projection_kind": "trace"
+    }
+  }
+}

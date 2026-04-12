@@ -1,0 +1,18 @@
+{
+  "artifactId": "example-gate-summary-001",
+  "title": "Gate Summary Example",
+  "routeHint": "explore",
+  "surfaceJson": {
+    "payload_type": "structured_data",
+    "structured_data": {
+      "schema_id": "nostra.heap.block.gate_summary.v1",
+      "overall_verdict": "FAILED",
+      "counts": {
+        "total_tests": 100,
+        "passed": 97,
+        "failed": 3,
+        "skipped": 0
+      }
+    }
+  }
+}

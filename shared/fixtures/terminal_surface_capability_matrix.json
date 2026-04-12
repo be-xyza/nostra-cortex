@@ -1,0 +1,87 @@
+{
+  "schema_version": "v1",
+  "generated_by": "codex/a2ui-terminal-eval-handoff",
+  "classification_modes": [
+    "terminal_render",
+    "terminal_summary",
+    "terminal_summary_with_handoff",
+    "web_handoff"
+  ],
+  "terminal_widget_subset": [
+    "Container",
+    "Box",
+    "Text",
+    "Spacer",
+    "SelectList"
+  ],
+  "web_required_widgets": [
+    "TldrawCanvas",
+    "CapabilityMatrixMap",
+    "CapabilityMapV2",
+    "WorkflowInstanceTimeline",
+    "WorkflowProjectionPreview",
+    "SchemaNodeEditor",
+    "ContributionGraphViewer",
+    "EvaluationDAGViewer"
+  ],
+  "payload_modes": [
+    {
+      "payload_type": "a2ui",
+      "default_mode": "terminal_render",
+      "fallback_mode": "web_handoff",
+      "rule": "Only terminal-safe widget subset may remain in terminal."
+    },
+    {
+      "payload_type": "rich_text",
+      "default_mode": "terminal_summary",
+      "fallback_mode": "terminal_summary_with_handoff",
+      "rule": "Readable text remains terminal-first."
+    },
+    {
+      "payload_type": "note",
+      "default_mode": "terminal_summary",
+      "fallback_mode": "terminal_summary_with_handoff",
+      "rule": "Readable text remains terminal-first."
+    },
+    {
+      "payload_type": "task",
+      "default_mode": "terminal_summary",
+      "fallback_mode": "terminal_summary_with_handoff",
+      "rule": "Readable task content remains terminal-first."
+    },
+    {
+      "payload_type": "structured_data",
+      "default_mode": "terminal_summary_with_handoff",
+      "fallback_mode": "web_handoff",
+      "rule": "Terminal may summarize, web handles deeper inspection."
+    },
+    {
+      "payload_type": "pointer",
+      "default_mode": "terminal_summary_with_handoff",
+      "fallback_mode": "web_handoff",
+      "rule": "Terminal previews pointer target and offers handoff."
+    },
+    {
+      "payload_type": "chart",
+      "default_mode": "terminal_summary_with_handoff",
+      "fallback_mode": "web_handoff",
+      "rule": "Charts are summary-first in terminal, rich in web."
+    },
+    {
+      "payload_type": "telemetry",
+      "default_mode": "terminal_summary_with_handoff",
+      "fallback_mode": "web_handoff",
+      "rule": "Telemetry summaries are allowed, detailed interaction stays web-side."
+    },
+    {
+      "payload_type": "media",
+      "default_mode": "terminal_summary_with_handoff",
+      "fallback_mode": "web_handoff",
+      "rule": "Media preview summary only in terminal."
+    }
+  ],
+  "handoff_routes": {
+    "artifact": "/explore?artifact_id=<artifact_id>",
+    "workflow": "/workflows?node_id=<url_encoded_gateway_api_path>"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "artifactId": "example-heap-note-001",
+  "title": "Heap Note Example",
+  "routeHint": "explore",
+  "surfaceJson": {
+    "payload_type": "note",
+    "text": "# Cortex Note\n\nThis is a real-envelope style note payload for terminal-first review."
+  }
+}
