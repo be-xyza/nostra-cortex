@@ -217,6 +217,16 @@ routing, agent orchestration, port traits (`StorageAdapter`, `NetworkAdapter`,
 **Dependencies**: `cortex-domain`, `tokio` (restricted), `async-trait`, `serde`.  
 **Forbidden**: `candid`, `ic-agent`, UI frameworks, HTTP frameworks.
 
+---
+
+## ADR-013: Cortex Desktop Uses a Thin ACP Gateway Host
+
+**Decision**: `cortex-desktop` exposes a thin `gateway_server` binary that packages the existing ACP protocol and terminal services without reviving the historical all-in-one gateway service surface.
+
+**Rationale**: The desktop restoration lane proved that the operator-facing requirement is a runnable ACP host with `/api/health`, `/api/acp/rpc`, and the ACP terminal lifecycle endpoints. Rebinding desktop packaging to a thin host preserves the existing ACP contract and terminal-host behavior without reintroducing the missing `cortex_ux`/`viewspec`/workflow service surface as a compile-time dependency.
+
+**Status**: Accepted
+
 #### `cortex-ic-adapter` (Layer 3 — Infrastructure)
 
 ---

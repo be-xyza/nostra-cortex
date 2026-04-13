@@ -82,8 +82,10 @@ TAUI remains a reference input for strict stateless document validation, not a r
 
 - desktop-first ACP integration remains the first promotion slice
 - the existing ACP terminal endpoints remain unchanged
-- the current live end-to-end proof was executed through an ACP-compatible `cortex-eudaemon` gateway
-- `cortex-desktop` already contains the relevant terminal service and ACP policy surfaces, but this branch does not yet expose it as a runnable gateway binary
-- the adapter must prove:
+- the current live end-to-end proof has been executed through both:
+  - an ACP-compatible `cortex-eudaemon` gateway
+  - a packaged `cortex-desktop` gateway binary on loopback
+- `cortex-desktop` now exposes the relevant terminal service and ACP policy surfaces as a runnable host entrypoint
+- the adapter has now proven:
   - terminal-safe note/task and structured-data flows through ACP
   - workflow-heavy surfaces emit a `cortex-web` handoff route
