@@ -156,13 +156,6 @@ Current stage evidence now shows Batch 1 materially advanced on the provider-run
 
 Older deployment notes reference an `eudaemon-alpha/` companion implementation repo, but that path is absent from this checkout and should be treated as unvalidated for this pass. Initiative 132 remains authoritative in the root repo.
 
-## Governed Evidence
-
-- [Evidence directory purpose](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/README.md)
-- [Promoted dirty inventory metadata](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260410T072110Z_dirty_inventory.json.meta.json)
-- [Batch 1 Decision Gate](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/BATCH1_DECISION_GATE.md)
-- [Phase 7 Execution Plan](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PHASE7_EXECUTION_PLAN.md)
-
 ## References
 
 - [Implementation Plan](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PLAN.md)

@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="${NOSTRA_WORKSPACE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 MODE="advisory"
 ALLOW_SYNTHETIC=false
+REQUIRE_PRESENT=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -13,6 +14,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --allow-synthetic-latest)
       ALLOW_SYNTHETIC=true
+      shift
+      ;;
+    --require-present)
+      REQUIRE_PRESENT=true
       shift
       ;;
     *)
@@ -30,7 +35,7 @@ case "$MODE" in
     ;;
 esac
 
-python3 - "$ROOT_DIR" "$MODE" "$ALLOW_SYNTHETIC" <<'PY'
+python3 - "$ROOT_DIR" "$MODE" "$ALLOW_SYNTHETIC" "$REQUIRE_PRESENT" <<'PY'
 from __future__ import annotations
 
 import json
@@ -40,6 +45,7 @@ from pathlib import Path
 root = Path(sys.argv[1])
 mode = sys.argv[2]
 allow_synthetic = sys.argv[3].lower() == "true"
+require_present = sys.argv[4].lower() == "true"
 
 logs = root / "logs" / "testing"
 catalog_path = logs / "test_catalog_latest.json"
@@ -49,7 +55,18 @@ runs_dir = logs / "runs"
 required = [catalog_path, summary_path, runs_dir]
 missing = [str(path) for path in required if not path.exists()]
 if missing:
-    print("FAIL: missing testing artifacts:")
+    if require_present:
+        print("FAIL: missing testing artifacts:")
+        for item in missing:
+            print(f" - {item}")
+        raise SystemExit(1)
+    if len(missing) == len(required):
+        print(
+            "PASS: test catalog artifacts absent "
+            f"(mode={mode}, artifact_state=absent)"
+        )
+        raise SystemExit(0)
+    print("FAIL: test catalog artifacts are partially present:")
     for item in missing:
         print(f" - {item}")
     raise SystemExit(1)
