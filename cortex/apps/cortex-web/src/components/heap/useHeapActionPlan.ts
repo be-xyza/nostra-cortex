@@ -136,7 +136,7 @@ function buildFallbackCompiledActionPlan({
 }
 
 export function useHeapActionPlan({
-    routeId = "/heap",
+    routeId = "/explore",
     pageType = "heap_board",
     zones,
     selection,

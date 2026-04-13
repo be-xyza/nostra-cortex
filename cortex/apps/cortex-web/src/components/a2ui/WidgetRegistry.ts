@@ -30,6 +30,11 @@ import {
 import { CapabilityInspectorBlock } from "../CapabilityInspectorBlock";
 import { RulesMatrixWidget } from "../RulesMatrixWidget";
 import { EvaluationDAGViewer } from "../evaluation/EvaluationDAGViewer";
+import { ConversationMessage } from "./ConversationMessage";
+import { NoteArtifact } from "./NoteArtifact";
+import { MediaArtifact } from "./MediaArtifact";
+import { GateSummary } from "./GateSummary";
+import { SpatialHeapGrid, type A2UIBlock } from "./SpatialHeapGrid";
 
 export type A2UIComponentProps = {
   id: string;
@@ -37,7 +42,7 @@ export type A2UIComponentProps = {
   children?: React.ReactNode;
 };
 
-function readProps(componentProperties: Record<string, unknown>, componentType: string): Record<string, unknown> {
+export function readProps(componentProperties: Record<string, unknown>, componentType: string): Record<string, unknown> {
   const typed = componentProperties[componentType];
   if (typed && typeof typed === "object" && !Array.isArray(typed)) {
     return typed as Record<string, unknown>;
@@ -282,7 +287,7 @@ async function executeWidgetAction(action: unknown, props: Record<string, unknow
   return handler(params, props);
 }
 
-function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React.ReactElement {
+export function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React.ReactElement {
   const navigate = useNavigate();
   const location = useLocation();
   const actorRole = useUiStore((state) => state.sessionUser?.role || "operator");
@@ -403,7 +408,29 @@ function CapabilityMapWidget({ componentProperties }: A2UIComponentProps): React
   );
 }
 
+const a2uiPlugins = import.meta.glob('./plugins/*.tsx', { eager: true });
+const dynamicPlugins: Record<string, React.FC<A2UIComponentProps>> = {};
+
+for (const path in a2uiPlugins) {
+  const mod = a2uiPlugins[path] as Record<string, any>;
+  const match = path.match(/\/([^/]+)\.tsx$/);
+  if (match) {
+    const componentName = match[1];
+    if (typeof mod.default === "function") {
+      dynamicPlugins[componentName] = mod.default as React.FC<A2UIComponentProps>;
+    } else if (typeof mod[componentName] === "function") {
+      dynamicPlugins[componentName] = mod[componentName] as React.FC<A2UIComponentProps>;
+    }
+  }
+}
+
 export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
+  ...dynamicPlugins,
+  SpatialHeapGrid: ({ componentProperties }) => {
+    const props = readProps(componentProperties, "SpatialHeapGrid");
+    const blocks = Array.isArray(props.blocks) ? (props.blocks as A2UIBlock[]) : [];
+    return React.createElement(SpatialHeapGrid, { blocks });
+  },
   Heading: ({ componentProperties }) => {
     const props = readProps(componentProperties, "Heading");
     return React.createElement("h3", { className: "text-lg font-bold mt-2 text-cortex-ink" }, String(props.text ?? ""));
@@ -649,7 +676,7 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
     const { columns, rows, rowHrefField, rowKeyField } = projectDataTable(props);
 
     if (columns.length === 0 || rows.length === 0) {
-      return React.createElement("div", { className: "text-sm text-cortex-ink-faint italic p-4" }, "No data to display");
+      return React.createElement("div", { className: "text-sm text-slate-500 italic p-6 text-center border border-white/5 rounded-2xl bg-slate-950/20" }, "No data to display");
     }
 
     const handleRowNavigation = async (href: string) => {
@@ -669,14 +696,14 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
       window.location.assign(href);
     };
 
-    return React.createElement("div", { className: "overflow-x-auto my-4 border border-cortex-line rounded-cortex" },
-      React.createElement("table", { className: "min-w-full text-sm text-left text-cortex-ink" }, [
-        React.createElement("thead", { key: "thead", className: "text-xs text-cortex-ink-muted uppercase bg-cortex-bg border-b border-cortex-line" },
+    return React.createElement("div", { className: "w-full overflow-x-auto min-h-0 border border-white/10 rounded-2xl bg-slate-950/30 shadow-2xl backdrop-blur-xl custom-scrollbar" },
+      React.createElement("table", { className: "w-full text-sm text-left text-slate-300" }, [
+        React.createElement("thead", { key: "thead", className: "text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 bg-slate-900/60 border-b border-white/10 backdrop-blur-md sticky top-0 z-10" },
           React.createElement("tr", {},
-            columns.map((col): React.ReactNode => React.createElement("th", { key: col, className: "px-4 py-3 font-medium" }, col))
+            columns.map((col): React.ReactNode => React.createElement("th", { key: col, className: "px-6 py-4 whitespace-nowrap" }, col))
           )
         ),
-        React.createElement("tbody", { key: "tbody", className: "divide-y divide-cortex-line" },
+        React.createElement("tbody", { key: "tbody", className: "divide-y divide-white/5 bg-transparent" },
           rows.map((row, idx): React.ReactNode => {
             const href =
               typeof row[rowHrefField] === "string" ? String(row[rowHrefField]) : "";
@@ -687,7 +714,7 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
             const clickable = href.trim().length > 0;
             return React.createElement("tr", {
               key,
-              className: `bg-cortex-bg-panel hover:bg-cortex-bg-elev ${clickable ? "cursor-pointer" : ""}`,
+              className: `group transition-all duration-200 ${clickable ? "cursor-pointer hover:bg-slate-800/50 hover:shadow-inner" : "hover:bg-slate-900/30"}`,
               onClick: clickable ? () => void handleRowNavigation(href) : undefined,
               role: clickable ? "link" : undefined,
               tabIndex: clickable ? 0 : undefined,
@@ -700,7 +727,17 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
                   }
                 : undefined,
             },
-              columns.map((col): React.ReactNode => React.createElement("td", { key: `${key}-${col}`, className: "px-4 py-3" }, String(row[col] || "")))
+              columns.map((col): React.ReactNode => {
+                const cellValue = String(row[col] || "");
+                if (col === "Title" && (row["Artifact ID"] || row["_row_id"])) {
+                  const idValue = String(row["Artifact ID"] || row["_row_id"]);
+                  return React.createElement("td", { key: `${key}-${col}`, className: "px-6 py-3.5 transition-colors group-hover:text-slate-200" }, [
+                    React.createElement("div", { key: "title", className: "font-medium" }, cellValue),
+                    React.createElement("div", { key: "id", className: "text-[10px] text-slate-500 font-mono mt-0.5" }, idValue)
+                  ]);
+                }
+                return React.createElement("td", { key: `${key}-${col}`, className: "px-6 py-3.5 transition-colors group-hover:text-slate-200" }, cellValue);
+              })
             );
           })
         )
@@ -745,7 +782,7 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
     });
   },
 
-  CapabilityMap: CapabilityMapWidget,
+  // CapabilityMap is now dynamically loaded from plugins/
   RulesMatrixWidget: RulesMatrixWidget,
   WorkbenchSummary: () => {
     const activeWorkbenchSession = useUiStore((state) => state.activeWorkbenchSession);
@@ -843,5 +880,12 @@ export const WidgetRegistry: Record<string, React.FC<A2UIComponentProps>> = {
       topology: props.topology as any,
       className: "h-[600px] w-full"
     });
-  }
+  },
+  conversation_message: ConversationMessage,
+  note: NoteArtifact,
+  file: MediaArtifact,
+  document: MediaArtifact,
+  image: MediaArtifact,
+  video: MediaArtifact,
+  dpub: MediaArtifact,
 };

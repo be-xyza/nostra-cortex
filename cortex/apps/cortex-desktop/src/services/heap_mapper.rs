@@ -646,7 +646,7 @@ pub fn canonicalize_emit_heap_block(
     })
 }
 
-pub fn map_emit_heap_block_to_agui_mutations(
+pub fn map_emit_heap_block_to_a2ui_mutations(
     request: &EmitHeapBlockRequest,
     canonical: &CanonicalizedHeapBlock,
 ) -> Result<Vec<AguiCrdtMutation>, HeapMapperError> {
@@ -1097,8 +1097,8 @@ mod tests {
     fn map_is_deterministic() {
         let payload = fixture_payload();
         let canonical = canonicalize_emit_heap_block(&payload).expect("canonical payload");
-        let first = map_emit_heap_block_to_agui_mutations(&payload, &canonical).expect("first");
-        let second = map_emit_heap_block_to_agui_mutations(&payload, &canonical).expect("second");
+        let first = map_emit_heap_block_to_a2ui_mutations(&payload, &canonical).expect("first");
+        let second = map_emit_heap_block_to_a2ui_mutations(&payload, &canonical).expect("second");
         assert_eq!(first, second);
     }
 }
