@@ -16,7 +16,6 @@
 - [ ] SIQ observe job runs and uploads `logs/siq/*` artifacts.
 - [ ] SIQ consistency check validates summary/run/projection linkage.
 - [ ] Deterministic replay fingerprint check passes for same input snapshot.
-- [ ] `scripts/check_test_catalog_consistency.sh --mode blocking` passes on a clean clone when test artifacts are absent, and `--require-present` enforces local evidence presence when needed.
 
 ### D. Host Intake (Read-Only)
 - [ ] SIQ read-only gateway endpoints return valid payloads.
@@ -58,6 +57,7 @@ CI warning-bypass policy exceptions:
 | `scripts/check_phase7_closeout_tasks.py` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
 | `scripts/check_strict_warning_profile.sh` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
 | `scripts/check_cortex_ux_fixture_drift.py` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
+| `scripts/check_test_catalog_consistency.sh` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by AGENTS + CI; keep tracked until restored. |
 | `scripts/test_catalog_refresh.sh` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by CI; keep tracked until restored. |
 | `nostra/scripts/verify_compliance.sh` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
 

@@ -12,24 +12,6 @@
       "enabled": true
     },
     {
-      "id": "workflow_declaration_parity_missing",
-      "rule_id": "workflow_declaration_parity",
-      "command_target": "scripts/check_workflow_declarations.sh",
-      "owner": "Systems Steward",
-      "reason": "Workflow declaration parity checker pending restoration.",
-      "expires_at": "2026-04-30",
-      "enabled": true
-    },
-    {
-      "id": "test_catalog_consistency_missing",
-      "rule_id": "test_catalog_consistency",
-      "command_target": "scripts/check_test_catalog_consistency.sh",
-      "owner": "Systems Steward",
-      "reason": "Test catalog consistency checker pending restoration.",
-      "expires_at": "2026-04-30",
-      "enabled": true
-    },
-    {
       "id": "role_semantics_missing",
       "rule_id": "role_semantics",
       "command_target": "scripts/check_role_semantics.py",
