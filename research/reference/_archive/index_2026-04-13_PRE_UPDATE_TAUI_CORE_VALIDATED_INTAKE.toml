@@ -3010,17 +3010,17 @@ status = "reference"
 tags = ["agents", "tui", "ui", "terminal", "standard", "reference"]
 description = "Core runtime logic for the Terminal Agent UI (TAUI) standard."
 upstream = "https://github.com/TAUI-Standards/taui-core.git"
-why_here = "Standardizes stateless JSON specification documents for terminal rendering. Highly relevant as a comparative reference for A2UI terminal-document validation and host-boundary design."
-links_to_nostra_cortex = ["A2UI terminal-document validation", "operator terminal host adapter patterns", "strict schema gatekeeping for terminal-safe payloads"]
+why_here = "Standardizes stateless JSON specification documents for terminal rendering. Highly relevant for comparing against Nostra's A2UI declarative state architecture."
+links_to_nostra_cortex = ["A2UI stateless architecture", "cortex-cli terminal rendering patterns", "event normalization boundaries"]
 review_date = "2026-05-01"
 
-known_risks = "Emerging terminal standard; may drift or introduce rigid constraints not suitable for spatial/web mediums, and the installed runtime here did not prove raw terminal event normalization."
-suggested_next_experiments = "Translate one real terminal-safe A2UI payload into a TAUI document and evaluate schema discipline and document lifecycle without assuming upstream raw-event normalization is production-ready."
+known_risks = "Emerging terminal standard; may drift or introduce rigid constraints not suitable for spatial/web mediums."
+suggested_next_experiments = "Create an interoperability adapter binding our A2UINode schemas to TAUI spec docs to evaluate structural compatibility."
 primary_steward = "Research Steward"
 authority_mode = "recommendation_only"
 escalation_path = "steward_review -> owner_decision"
 lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
-initiative_refs = ["118-cortex-runtime-extraction", "124-agui-heap-mode", "132-eudaemon-alpha-initiative"]
+initiative_refs = []
 [entry.scorecard]
 ecosystem_fit = 4
 adapter_value = 5

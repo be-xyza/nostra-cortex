@@ -1,6 +1,6 @@
 import { TAUIRuntime } from '@taui-standard/core';
 
-// Represents a comparative Nostra A2UI JSON node structurally migrated into TAUI spec format.
+// Represents a comparative Nostra A2UI-like payload translated into the TAUI document format.
 const mySpecDoc = {
     version: "1.0",
     screen: {
@@ -30,20 +30,28 @@ const mySpecDoc = {
 const runtime = new TAUIRuntime();
 
 console.log("Cortex TAUI Experiment Initializing...");
-console.log("Setting Stateless Document bounds...");
+console.log("Setting stateless document bounds...");
 runtime.setDocument(mySpecDoc);
 
 runtime.onEvent((event: any) => {
-    // Unlike A2UI over pi-tui, TAUI normalizes all events natively off the entire document.
     console.log(`\nHeadless Agent Loop intercepted TAUI Event:`, event);
     
     if (event.type === "action") {
-        console.log(`\nTest Passed: Action registered without manual focus tracking! Action: ${event.action}, Event: ${JSON.stringify(event)}`);
+        console.log(`\nObserved action event: ${event.action}, payload: ${JSON.stringify(event)}`);
         process.exit(0);
     }
 });
 
-// Simulate raw terminal CSI byte sequences coming from STDIN
-console.log("Simulating raw terminal byte payload ('\\x1B[B' -> 'down' navigate then '\\r' -> select)...");
-runtime.dispatchRawEvent('\x1B[B'); // Simulate DOWN arrow
-runtime.dispatchRawEvent('\r');     // Simulate ENTER key
+console.log("Simulating raw terminal byte payload ('\\x1B[B' then '\\r')...");
+
+try {
+    runtime.dispatchRawEvent('\x1B[B');
+    runtime.dispatchRawEvent('\r');
+    console.log("Runtime accepted raw terminal input without throwing.");
+} catch (error) {
+    console.error(
+        "Observed runtime limitation: raw terminal byte dispatch is not normalized successfully in the installed TAUI core package.",
+    );
+    console.error(error);
+    process.exit(0);
+}
