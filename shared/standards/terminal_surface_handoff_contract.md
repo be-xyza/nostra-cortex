@@ -93,7 +93,7 @@ Any other widget should be treated as unsupported unless explicitly added to thi
 
 ## Host Rollout
 
-- desktop-first remains the intended promotion target through the existing ACP terminal endpoints
-- current live proof is ACP-compatible and was exercised through `cortex-eudaemon`
-- desktop service parity is partially wired in this branch, but desktop is not yet packaged here as a runnable gateway binary
-- eudaemon parity remains useful as a compatible host proof, not a substitute for eventual desktop packaging
+- desktop-first remains the promotion target through the existing ACP terminal endpoints
+- current live proof covers both `cortex-eudaemon` compatibility and a runnable `cortex-desktop` gateway binary on loopback
+- desktop packaging now satisfies the terminal summary and web handoff contract without changing ACP route shape
+- eudaemon parity remains useful as a compatible host proof alongside the now-proven desktop host

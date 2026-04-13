@@ -19,8 +19,15 @@ case "${host_kind}" in
         --bin gateway_server
     ;;
   desktop)
-    echo "cortex-desktop is not packaged as a runnable gateway binary in this branch yet" >&2
-    exit 1
+    cd "${workspace_root}/nostra/apps/cortex-desktop"
+    exec env \
+      NOSTRA_WORKSPACE_ROOT="${workspace_root}" \
+      CORTEX_ACP_PILOT="${acp_pilot}" \
+      CORTEX_GATEWAY_PORT="${gateway_port}" \
+      cargo run \
+        --manifest-path "${workspace_root}/nostra/Cargo.toml" \
+        -p cortex-desktop \
+        --bin gateway_server
     ;;
   *)
     echo "unsupported CORTEX_ACP_HOST_KIND: ${host_kind}" >&2

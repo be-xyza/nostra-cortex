@@ -11,6 +11,7 @@ cortex_runtime_v0 = ["dep:cortex-runtime"]
 
 [dependencies]
 async-trait = "0.1"
+axum = { version = "0.7", features = ["json"] }
 chrono = { version = "0.4", features = ["serde"] }
 cortex-domain = { path = "../../libraries/cortex-domain" }
 cortex-runtime = { path = "../../libraries/cortex-runtime", optional = true }
@@ -24,8 +25,13 @@ serde_json = "1"
 sha2 = "0.10"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
+tracing-subscriber = "0.3"
 uuid = { version = "1", features = ["v4", "serde"] }
 walkdir = "2"
+
+[[bin]]
+name = "gateway_server"
+path = "src/bin/gateway_server.rs"
 
 [[test]]
 name = "gateway_parity"

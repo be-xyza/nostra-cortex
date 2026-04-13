@@ -79,7 +79,9 @@ Key rule:
   - [nostra/apps/cortex-desktop/src/services/terminal_service.rs](/Users/xaoj/ICP/nostra/apps/cortex-desktop/src/services/terminal_service.rs)
   - [cortex/apps/cortex-eudaemon/src/services/terminal_service.rs](/Users/xaoj/ICP/cortex/apps/cortex-eudaemon/src/services/terminal_service.rs)
 - keep the ACP terminal API shape unchanged and prove the first slice through `terminal/create`, `terminal/output`, and `terminal/wait_for_exit`
-- current live proof is ACP-compatible and exercised through `cortex-eudaemon`; desktop remains the intended promotion target, but this branch does not yet package `cortex-desktop` as a runnable gateway binary
+- current live proof now covers both:
+  - ACP-compatible validation through `cortex-eudaemon`
+  - runnable desktop ACP host packaging through `cortex-desktop --bin gateway_server`
 
 ### Phase 4: Promotion gate
 - benchmark one terminal-safe operator flow against the equivalent `cortex-web` flow
@@ -109,7 +111,7 @@ Use these operator-side entry points while the experiment remains the validation
 - `bash scripts/benchmark_a2ui_terminal.sh`
 - `bash scripts/check_a2ui_terminal_desktop_acp_smoke.sh`
 
-The ACP smoke wrapper targets any compatible Cortex ACP gateway host. In this branch, the live proof was run against `cortex-eudaemon` while the desktop crate remains service-wired but not yet exposed as a runnable gateway binary.
+The ACP smoke wrapper targets any compatible Cortex ACP gateway host. In this branch, the live proof has been run against both `cortex-eudaemon` and the packaged `cortex-desktop` gateway binary, with the desktop host now satisfying the same terminal summary and web handoff expectations on loopback.
 
 ## Naming Recommendation
 
