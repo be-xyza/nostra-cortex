@@ -1,5 +1,5 @@
 version = 1
-updated_at = "2026-04-12"
+updated_at = "2026-04-03"
 owner = "Systems Steward"
 purpose = "Discovery index for schema artifacts and versioned JSON standards under shared/standards."
 
@@ -38,18 +38,6 @@ aliases = ["cortex_runtime_authority.schema.json", "cortex-runtime-authority"]
 known_consumers = ["docs/architecture/standards.md", "scripts/check_vps_runtime_authority.sh", "docs/cortex/eudaemon-alpha-phase6-hetzner.md"]
 status = "active"
 notes = "Operational runtime authority schema used outside the knowledge-graphs contract family but governed by the same discovery index."
-
-[[schemas]]
-id = "nostra.cortex.terminal_document.v1"
-title = "Terminal Document Schema"
-group = "runtime"
-path = "shared/standards/terminal_document_v1.schema.json"
-purpose = "Strict terminal-safe render contract for operator-side terminal host planning and handoff."
-owner = "Systems Steward"
-aliases = ["terminal_document_v1.schema.json", "terminal-document-v1"]
-known_consumers = ["shared/standards/terminal_surface_handoff_contract.md", "docs/cortex/terminal-host-plan.md", "cortex/experiments/a2ui-terminal/src/terminalDocument.ts"]
-status = "active"
-notes = "Terminal-only validation boundary for supported A2UI projections; unsupported surfaces must hand off to cortex-web."
 
 [[schemas]]
 id = "nostra.knowledge_graphs.motoko_graph_snapshot.v1"
@@ -242,18 +230,6 @@ aliases = ["skill_policy_dispositions.json", "skill-policy-dispositions"]
 known_consumers = ["shared/standards/skill_policy.toml", "scripts/check_skill_policy.py"]
 status = "active"
 notes = "Governed JSON artifact referenced by the skill policy."
-
-[[artifacts]]
-id = "nostra.standards.antigravity_rule_dispositions.v1"
-title = "Antigravity Rule Dispositions"
-group = "governance"
-path = "shared/standards/antigravity_rule_dispositions.json"
-purpose = "Disposition registry for antigravity rule handling and skill replacement mapping."
-owner = "Systems Steward"
-aliases = ["antigravity_rule_dispositions.json", "antigravity-rule-dispositions"]
-known_consumers = ["shared/standards/antigravity_rule_policy.toml", "scripts/check_antigravity_rule_policy.py"]
-status = "active"
-notes = "Governed JSON artifact referenced by the antigravity policy."
 
 [[artifacts]]
 id = "nostra.standards.dynamic_source_exceptions.v1"
