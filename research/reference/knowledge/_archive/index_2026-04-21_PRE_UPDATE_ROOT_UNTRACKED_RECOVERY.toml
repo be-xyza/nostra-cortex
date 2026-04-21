@@ -1,9 +1,8 @@
 version = 1
-updated_at = "2026-04-21"
+updated_at = "2026-04-11"
 
 [[entry]]
 path = "research/reference/knowledge/agent-systems/2026_he_in_place_ttt"
-analysis_path = "research/reference/analysis/in-place-ttt.md"
 kind = "paper"
 status = "reviewed"
 tags = ["TTT", "inference", "fast-weights", "long-context", "agents"]
@@ -27,32 +26,4 @@ component_value = 2
 pattern_value = 5
 ux_value = 0
 future_optionality = 4
-topic_fit = 5
-
-[[entry]]
-path = "research/reference/knowledge/agent-systems/2026_balakrishnan_logact"
-analysis_path = "research/reference/analysis/paper-2026-balakrishnan-logact.md"
-kind = "paper"
-status = "reviewed"
-tags = ["agent-reliability", "shared-logs", "fault-tolerance", "agent-safety", "workflow-runtime"]
-description = "Primary-source paper on intent-first shared logs for reliable, auditable, and recoverable agent execution."
-upstream = "https://arxiv.org/html/2604.07988v1"
-why_here = "Provides reference patterns for typed execution logs, pre-execution voters, quorum decisions, supervisor introspection, and recovery surfaces in Cortex runtime."
-links_to_nostra_cortex = ["Cortex runtime intent logging", "agent approval gates", "workflow replay and recovery", "operator supervision"]
-review_date = "2026-04-13"
-known_risks = "Semantic recovery and LLM-based voters remain heuristic; broad shared-log adoption could add operational complexity or blur policy authority if not bounded by Nostra governance."
-suggested_next_experiments = "Prototype a narrow Cortex intent bus for one agent-run surface with typed intent, vote, decision, result, mail, and policy entries."
-primary_steward = "Systems Steward"
-authority_mode = "recommendation_only"
-escalation_path = "Systems Steward review -> owner decision"
-lineage_record = "Primary-source manually validated on 2026-04-13 against arXiv HTML v1; recovered from the root cleanup safety bundle on 2026-04-21."
-initiative_refs = ["118-cortex-runtime-extraction", "123-cortex-web-architecture", "125-system-integrity-quality"]
-
-[entry.scorecard]
-ecosystem_fit = 5
-adapter_value = 5
-component_value = 4
-pattern_value = 5
-ux_value = 3
-future_optionality = 5
 topic_fit = 5

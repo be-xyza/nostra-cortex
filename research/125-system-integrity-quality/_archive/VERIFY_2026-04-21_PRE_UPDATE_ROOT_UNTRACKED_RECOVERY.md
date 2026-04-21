@@ -52,6 +52,8 @@ CI warning-bypass policy exceptions:
 |---|---|---|---|---|---|
 | `scripts/check_docs_structure.sh` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
 | `scripts/check_reference_paths.sh` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
+| `scripts/check_reference_metadata_v2.py` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
+| `scripts/check_reference_taxonomy_integrity.py` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
 | `scripts/check_no_panic_paths.sh` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
 | `scripts/check_phase7_closeout_tasks.py` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
 | `scripts/check_strict_warning_profile.sh` | missing_referenced_script | Systems Steward | 2026-03-31 | open | Referenced by existing CI lint step. |
