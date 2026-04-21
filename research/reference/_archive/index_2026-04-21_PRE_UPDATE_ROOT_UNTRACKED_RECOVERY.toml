@@ -1,5 +1,5 @@
 version = 1
-updated_at = "2026-04-21"
+updated_at = "2026-03-27"
 
 [[entry]]
 path = "research/reference/topics/agent-systems/openresponses"
@@ -3029,30 +3029,3 @@ pattern_value = 5
 ux_value = 4
 future_optionality = 4
 topic_fit = 5
-
-[[entry]]
-path = "research/reference/repos/larql"
-kind = "repo"
-status = "reference"
-tags = ["query-language", "semantic-query", "patch-overlays", "rust", "reference"]
-description = "Rust workspace for querying and editing transformer-model knowledge through Lazarus Query Language and vindex artifacts."
-upstream = "https://github.com/chrishayuk/larql"
-why_here = "Provides useful reference patterns for grammar-first interaction, parser/executor separation, immutable base plus patch overlays, and multi-surface delivery from one semantic contract."
-links_to_nostra_cortex = ["Nostra contribution graph browse/mutate language", "Cortex adapter/runtime separation", "steward-reviewed patch proposal surfaces", "agent-facing command taxonomy"]
-review_date = "2026-04-14"
-
-known_risks = "High name-collision risk with unrelated PyPI package; model-internals vocabulary should not be imported into Nostra authority or Cortex runtime schemas."
-suggested_next_experiments = "Prototype a tiny Rust-native contribution-graph query or intent DSL and compare immutable patch overlays against steward-reviewed contribution/workflow changes."
-primary_steward = "Research Steward"
-authority_mode = "recommendation_only"
-escalation_path = "steward_review -> owner_decision"
-lineage_record = "Recovered from root cleanup safety bundle on 2026-04-21 after primary-source intake correction on 2026-04-14."
-initiative_refs = ["015-nostra-open-source-library", "097-nostra-cortex-alignment", "118-cortex-runtime-extraction", "123-cortex-web-architecture", "127-cortex-native-repo-ingestion"]
-[entry.scorecard]
-ecosystem_fit = 2
-adapter_value = 3
-component_value = 1
-pattern_value = 5
-ux_value = 3
-future_optionality = 4
-topic_fit = 3

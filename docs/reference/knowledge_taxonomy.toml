@@ -1,0 +1,21 @@
+schema_version = "1.0"
+
+[artifact_types]
+allowed = ["paper", "book", "standard", "legal_doc"]
+custom_prefixes = ["x-"]
+
+[topic_extensions]
+allowed = []
+
+[topics]
+allowed = [
+  "agent-systems",
+  "data-knowledge",
+  "editor-platforms",
+  "icp-core",
+  "misc",
+  "tableviews",
+  "temporal",
+  "ui-substrate",
+  "workflow-orchestration",
+]

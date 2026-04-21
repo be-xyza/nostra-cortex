@@ -107,5 +107,3 @@ This catalog tracks non-core repositories and topic collections moved under `res
 | inbox/nodepad | research/reference/repos/nodepad | repo |
 | pi-mono | research/reference/topics/agent-systems/pi-mono | repo |
 | taui-core | research/reference/topics/agent-systems/taui-core | repo |
-| larql | research/reference/repos/larql | repo |
-| arXiv-2604.07988v1 | research/reference/knowledge/agent-systems/2026_balakrishnan_logact | paper |
