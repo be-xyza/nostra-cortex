@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.dev/schemas/knowledge_graphs/knowledge_bundle.schema.json",
+  "title": "Nostra Space Knowledge Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "bundle_kind",
+    "space_id",
+    "ontology_ref",
+    "graph_snapshot_ref",
+    "provenance_root",
+    "retrieval_policy",
+    "compatibility",
+    "transport",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bundle_kind": {
+      "type": "string",
+      "enum": ["space_knowledge_bundle"]
+    },
+    "space_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ontology_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "graph_snapshot_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "embeddings_manifest_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provenance_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retrieval_policy": {
+      "$ref": "#/$defs/RetrievalPolicy"
+    },
+    "compatibility": {
+      "$ref": "#/$defs/Compatibility"
+    },
+    "transport": {
+      "$ref": "#/$defs/Transport"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "RetrievalPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_hops",
+        "authority_weights",
+        "freshness_window_seconds",
+        "allowed_predicates",
+        "named_graph_scopes",
+        "citation_required"
+      ],
+      "properties": {
+        "max_hops": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "authority_weights": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/AuthorityWeight"
+          }
+        },
+        "freshness_window_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowed_predicates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "named_graph_scopes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["system", "actor", "agent"]
+          }
+        },
+        "citation_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AuthorityWeight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "weight"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["system", "actor", "agent"]
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "Compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ontology_version",
+        "bundle_version",
+        "breaking_change_policy"
+      ],
+      "properties": {
+        "ontology_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bundle_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "breaking_change_policy": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interactive_protocol",
+        "bulk_protocol"
+      ],
+      "properties": {
+        "interactive_protocol": {
+          "type": "string",
+          "enum": ["json"]
+        },
+        "bulk_protocol": {
+          "type": "string",
+          "enum": ["msgpack"]
+        }
+      }
+    }
+  }
+}

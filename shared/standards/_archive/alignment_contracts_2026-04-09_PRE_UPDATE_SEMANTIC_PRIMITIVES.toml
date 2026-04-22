@@ -1,0 +1,174 @@
+version = 1
+updated_at = "2026-02-24"
+exceptions_path = "shared/standards/alignment_contract_exceptions.json"
+
+# Alignment contract registry
+# - severity: P0 (critical), P1 (high), P2 (monitoring)
+# - enforcement_mode:
+#   observe  -> advisory only
+#   softgate -> block on failed P0
+#   hardgate -> block on failed P0/P1
+
+[[rule]]
+id = "research_portfolio_consistency"
+description = "Research initiative status/index/portfolio invariants"
+owner = "Research Steward"
+severity = "P0"
+enabled = true
+enforcement_mode = "softgate"
+source_standard = "docs/architecture/standards.md"
+command = "bash scripts/run_repo_python.sh scripts/check_research_portfolio_consistency.py"
+
+[[rule]]
+id = "stewardship_metadata"
+description = "All PLAN.md files include valid stewardship metadata"
+owner = "Constitutional Steward"
+severity = "P0"
+enabled = true
+enforcement_mode = "softgate"
+source_standard = "docs/architecture/standards.md"
+command = "bash scripts/run_repo_python.sh scripts/check_stewardship_metadata.py --strict"
+
+[[rule]]
+id = "ci_warning_bypass_contract"
+description = "Active CI workflows must not bypass warning policy via suppression flags"
+owner = "Systems Steward"
+severity = "P0"
+enabled = true
+enforcement_mode = "softgate"
+source_standard = "research/125-system-integrity-quality/DECISIONS.md"
+command = "bash scripts/check_ci_warning_bypass.sh --strict"
+
+[[rule]]
+id = "reference_constitutional_contract"
+description = "Reference intake governance contract integrity"
+owner = "Research Steward"
+severity = "P0"
+enabled = true
+enforcement_mode = "softgate"
+source_standard = "docs/reference/README.md"
+command = "bash scripts/run_repo_python.sh scripts/check_reference_constitutional_contract.py --strict"
+exception_ref = "reference_constitutional_contract_missing"
+expires_at = "2026-03-31"
+
+[[rule]]
+id = "workflow_declaration_parity"
+description = "Workflow declaration parity between hyphen/underscore paths"
+owner = "Systems Steward"
+severity = "P0"
+enabled = true
+enforcement_mode = "softgate"
+source_standard = "docs/architecture/standards.md"
+command = "bash scripts/check_workflow_declarations.sh"
+exception_ref = "workflow_declaration_parity_missing"
+expires_at = "2026-03-31"
+
+[[rule]]
+id = "test_catalog_consistency"
+description = "Test artifact contract consistency in blocking mode"
+owner = "Systems Steward"
+severity = "P1"
+enabled = true
+enforcement_mode = "observe"
+source_standard = "AGENTS.md"
+command = "bash scripts/check_test_catalog_consistency.sh --mode blocking"
+exception_ref = "test_catalog_consistency_missing"
+expires_at = "2026-03-31"
+
+[[rule]]
+id = "role_semantics"
+description = "Civic-role naming guardrails"
+owner = "Constitutional Steward"
+severity = "P1"
+enabled = true
+enforcement_mode = "observe"
+source_standard = "shared/standards/ROLE_SEMANTICS.md"
+command = "bash scripts/run_repo_python.sh scripts/check_role_semantics.py"
+exception_ref = "role_semantics_missing"
+expires_at = "2026-03-31"
+
+[[rule]]
+id = "alignment_addendum"
+description = "Alignment Addendum coverage across research plans"
+owner = "Constitutional Steward"
+severity = "P1"
+enabled = true
+enforcement_mode = "observe"
+source_standard = "docs/architecture/standards.md"
+command = "bash scripts/run_repo_python.sh scripts/check_alignment_addendum.py --strict"
+
+[[rule]]
+id = "reference_path_hygiene"
+description = "Legacy reference root path regressions"
+owner = "Research Steward"
+severity = "P1"
+enabled = true
+enforcement_mode = "observe"
+source_standard = "docs/reference/README.md"
+command = "bash scripts/check_reference_paths.sh"
+exception_ref = "reference_path_hygiene_missing"
+expires_at = "2026-03-31"
+
+[[rule]]
+id = "docs_catalog_structure"
+description = "docs/_meta/catalog.toml and docs tree parity"
+owner = "Operational Steward"
+severity = "P1"
+enabled = true
+enforcement_mode = "observe"
+source_standard = "docs/architecture/standards.md"
+command = "bash scripts/check_docs_structure.sh"
+exception_ref = "docs_catalog_structure_missing"
+expires_at = "2026-03-31"
+
+[[rule]]
+id = "vps_runtime_authority_contract"
+description = "VPS runtime authority chain stays aligned across deploy, units, docs, and manifest schema"
+owner = "Systems Steward"
+severity = "P0"
+enabled = true
+enforcement_mode = "softgate"
+source_standard = "docs/cortex/eudaemon-alpha-phase6-hetzner.md"
+command = "bash scripts/check_vps_runtime_authority.sh --repo-contract"
+
+[[rule]]
+id = "core_standards_drift"
+description = "Detect hardcoded canister IDs and unguarded shared mutations"
+owner = "Systems Steward"
+severity = "P2"
+enabled = true
+enforcement_mode = "observe"
+source_standard = "docs/architecture/standards.md"
+command = "bash scripts/run_repo_python.sh scripts/check_core_standards_drift.py"
+exception_ref = "core_standards_drift_missing"
+expires_at = "2026-03-31"
+
+[[rule]]
+id = "siq_governance_execution_contract"
+description = "SIQ governance/execution gate evidence coverage and contract conformance"
+owner = "Systems Steward"
+severity = "P0"
+enabled = true
+enforcement_mode = "softgate"
+source_standard = "shared/standards/siq/siq_governance_gate.schema.json"
+command = "bash scripts/run_repo_python.sh scripts/siq_tools.py check-governance"
+
+[[rule]]
+id = "siq_host_parity_contract"
+description = "SIQ host parity linkage across runtime and web/desktop contract evidence"
+owner = "Systems Steward"
+severity = "P0"
+enabled = true
+enforcement_mode = "softgate"
+source_standard = "research/123-cortex-web-architecture/SPATIAL_PLANE_DESKTOP_PARITY_SPEC.md"
+command = "bash scripts/run_repo_python.sh scripts/siq_tools.py check-host-parity"
+
+[[rule]]
+id = "siq_graph_projection_contract"
+description = "SIQ graph projection contract validity and deterministic fingerprinting"
+owner = "Research Steward"
+severity = "P1"
+enabled = true
+enforcement_mode = "observe"
+source_standard = "shared/standards/siq/siq_graph_projection.schema.json"
+command = "bash scripts/run_repo_python.sh scripts/siq_tools.py check-graph-projection"

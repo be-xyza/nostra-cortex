@@ -197,22 +197,6 @@ Use this for any non-core repository entering the research reference extension.
 
 ---
 
-## SIQ Contract (Agents)
-
-Use this for System Integrity Quality checks and evidence surfaces.
-
-### Required Command Contract
-- `siq checks`:
-  1. Run `scripts/run_siq_checks.sh`.
-  2. Validate durable SIQ artifacts with `scripts/check_siq_artifact_consistency.sh`.
-  3. Keep generated mutable outputs local unless promoted as immutable governed evidence.
-
-### Failure Policy
-- If SIQ artifact generation or consistency checks fail, agents MUST mark the integrity operation incomplete and return explicit failure reasons.
-- Do not bypass SIQ gates by deleting generated evidence, muting checks, or moving runtime outputs into governed paths.
-
----
-
 ## Test Catalog Contract (Agents)
 
 Use this for all local IDE agent test execution evidence in v1.
@@ -224,11 +208,10 @@ Use this for all local IDE agent test execution evidence in v1.
 
 ### Required Command Contract
 - `test catalog refresh`:
-  1. Run `scripts/test_catalog_refresh.sh`.
-  2. Write/append run artifact under `logs/testing/runs/`.
-  3. Regenerate `test_catalog_latest.json`.
-  4. Recompute `test_gate_summary_latest.json`.
-  5. Run `scripts/check_test_catalog_consistency.sh` in requested mode.
+  1. Write/append run artifact under `logs/testing/runs/`.
+  2. Regenerate `test_catalog_latest.json`.
+  3. Recompute `test_gate_summary_latest.json`.
+  4. Run `scripts/check_test_catalog_consistency.sh` in requested mode.
 
 ### Required Fields
 - Catalog entries MUST include:

@@ -1,0 +1,78 @@
+version = 1
+updated_at = "2026-02-24"
+owner = "Systems Steward"
+description = "Tiered governance contract for Antigravity skill rules to prevent bloat, coercive instruction patterns, and counter-governance workflows."
+dispositions_path = "shared/standards/antigravity_rule_dispositions.json"
+report_path = "logs/alignment/antigravity_rule_policy_latest.json"
+
+[source]
+skills_root = "$HOME/.gemini/antigravity/skills"
+env_override = "NOSTRA_ANTIGRAVITY_SKILLS_ROOT"
+skill_glob = "*/SKILL.md"
+
+[policy]
+default_mode = "observe"
+hardgate_blocks_advisory = false
+
+[[rule]]
+id = "AGR-REQ-001"
+tier = "required"
+check = "skill_dependency_exists"
+failure_mode = "missing_skill_dependency"
+description = "using-skill:<skill-id> references must resolve to an existing Antigravity skill id."
+
+[[rule]]
+id = "AGR-REQ-002"
+tier = "required"
+check = "referenced_markdown_paths_exist"
+failure_mode = "missing_template_reference"
+description = "Local markdown references used as required templates must exist."
+
+[[rule]]
+id = "AGR-REQ-003"
+tier = "advisory"
+check = "frontmatter_name_hyphen_case"
+failure_mode = "invalid_skill_name_schema"
+description = "SKILL.md frontmatter name must be lower-case hyphen-case for cross-IDE portability."
+
+[[rule]]
+id = "AGR-FORBID-001"
+tier = "forbidden"
+check = "regex"
+failure_mode = "coercive_meta_rule"
+description = "Forbid coercive language that overrides local governance contracts."
+patterns = [
+  "(?i)not negotiable",
+  "(?i)automatic failure",
+  "(?i)you do not have a choice",
+  "(?i)absolutely must",
+]
+
+[[rule]]
+id = "AGR-FORBID-002"
+tier = "forbidden"
+check = "regex"
+failure_mode = "auto_commit_instruction"
+description = "Forbid direct commit/push instructions embedded in skills."
+patterns = [
+  "(?i)\\bgit\\s+commit\\b",
+  "(?i)\\bgit\\s+push\\b",
+]
+
+[[rule]]
+id = "AGR-FORBID-003"
+tier = "forbidden"
+check = "regex"
+failure_mode = "auto_install_instruction"
+description = "Forbid dependency installation commands in generic workflow skills."
+patterns = [
+  "(?i)\\b(?:pip|pip3|npm|pnpm|yarn|brew|apt|apt-get)\\s+install\\b",
+]
+
+[[rule]]
+id = "AGR-ADV-001"
+tier = "advisory"
+check = "word_count_max"
+failure_mode = "skill_bloat"
+description = "Flag oversized skill docs for decomposition and token-efficiency."
+max_words = 900

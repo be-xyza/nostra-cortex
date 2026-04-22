@@ -6,14 +6,14 @@
       "cargo_args": [
         "check"
       ],
-      "manifest": "nostra/backend/workflow_engine/Cargo.toml",
+      "manifest": "src/nostra_workflow_engine/Cargo.toml",
       "max_warnings": 0
     },
-    "governance": {
+    "backend": {
       "cargo_args": [
         "check"
       ],
-      "manifest": "nostra/backend/governance/Cargo.toml",
+      "manifest": "src/nostra_backend/Cargo.toml",
       "max_warnings": 0
     },
     "cortex_eudaemon": {
@@ -23,13 +23,6 @@
       ],
       "manifest": "cortex/apps/cortex-eudaemon/Cargo.toml",
       "max_warnings": 20
-    },
-    "frontend": {
-      "cargo_args": [
-        "check"
-      ],
-      "manifest": "nostra/frontend/Cargo.toml",
-      "max_warnings": 1
     }
   }
 }

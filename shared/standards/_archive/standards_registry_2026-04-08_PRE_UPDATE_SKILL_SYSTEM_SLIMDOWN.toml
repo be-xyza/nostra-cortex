@@ -1,0 +1,313 @@
+version = 1
+updated_at = "2026-04-03"
+owner = "Systems Steward"
+purpose = "Cross-standards discovery index for governed documents, root contracts, schema families, and delegated sub-registries under shared/standards."
+
+[[documents]]
+id = "nostra.standards.accessibility_doc.v1"
+title = "Accessibility Standard"
+path = "shared/standards/ACCESSIBILITY.md"
+purpose = "Constitutional accessibility doctrine and enforcement guidance."
+owner = "Systems Steward"
+aliases = ["ACCESSIBILITY.md", "accessibility-standard"]
+known_consumers = ["docs/architecture/standards.md", "AGENTS.md"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[documents]]
+id = "nostra.standards.local_first_doc.v1"
+title = "Local First Standard"
+path = "shared/standards/LOCAL_FIRST.md"
+purpose = "Local-first execution and offline resilience guidance."
+owner = "Systems Steward"
+aliases = ["LOCAL_FIRST.md", "local-first-standard"]
+known_consumers = ["docs/architecture/standards.md", "AGENTS.md"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[documents]]
+id = "nostra.standards.role_semantics_doc.v1"
+title = "Role Semantics Standard"
+path = "shared/standards/ROLE_SEMANTICS.md"
+purpose = "Shared semantics for steward, signer, reviewer, and worker authority."
+owner = "Systems Steward"
+aliases = ["ROLE_SEMANTICS.md", "role-semantics-standard"]
+known_consumers = ["docs/architecture/standards.md", "AGENTS.md"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[documents]]
+id = "nostra.standards.technology_neutrality_doc.v1"
+title = "Technology Neutrality Standard"
+path = "shared/standards/TECHNOLOGY_NEUTRALITY.md"
+purpose = "Boundary-first host-neutral architecture guidance."
+owner = "Systems Steward"
+aliases = ["TECHNOLOGY_NEUTRALITY.md", "technology-neutrality-standard"]
+known_consumers = ["docs/architecture/standards.md", "AGENTS.md"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[contracts]]
+id = "nostra.standards.agent_failure_modes.v1"
+title = "Agent Failure Modes Contract"
+path = "shared/standards/agent_failure_modes.toml"
+purpose = "Failure-mode registry for governed agent behavior and escalation."
+owner = "Systems Steward"
+aliases = ["agent_failure_modes.toml", "agent-failure-modes"]
+known_consumers = ["docs/architecture/standards.md", "scripts/check_dynamic_config_contract.sh"]
+initiative_refs = ["125-system-integrity-quality"]
+status = "active"
+
+[[contracts]]
+id = "nostra.standards.agent_preflight_contract.v1"
+title = "Agent Preflight Contract"
+path = "shared/standards/agent_preflight_contract.toml"
+purpose = "Required preflight contract for agent readiness and governance checks."
+owner = "Systems Steward"
+aliases = ["agent_preflight_contract.toml", "agent-preflight-contract"]
+known_consumers = ["docs/architecture/standards.md", "scripts/check_agent_preflight_contract.sh"]
+initiative_refs = ["125-system-integrity-quality"]
+status = "active"
+
+[[contracts]]
+id = "nostra.standards.alignment_contracts.v1"
+title = "Alignment Contracts"
+path = "shared/standards/alignment_contracts.toml"
+purpose = "Alignment contract index for repo-wide architecture and governance checks."
+owner = "Systems Steward"
+aliases = ["alignment_contracts.toml", "alignment-contracts"]
+known_consumers = ["docs/architecture/standards.md", "scripts/check_alignment_contract_targets.sh"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[contracts]]
+id = "nostra.standards.antigravity_rule_policy.v1"
+title = "Antigravity Rule Policy"
+path = "shared/standards/antigravity_rule_policy.toml"
+purpose = "Governed policy for antigravity rule handling and replacement behavior."
+owner = "Systems Steward"
+aliases = ["antigravity_rule_policy.toml", "antigravity-rule-policy"]
+known_consumers = ["docs/architecture/standards.md", "scripts/check_antigravity_rule_policy.sh"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[contracts]]
+id = "nostra.standards.dynamic_source_contract.v1"
+title = "Dynamic Source Contract"
+path = "shared/standards/dynamic_source_contract.toml"
+purpose = "Dynamic-source governance contract for runtime-bound values."
+owner = "Systems Steward"
+aliases = ["dynamic_source_contract.toml", "dynamic-source-contract"]
+known_consumers = ["docs/architecture/standards.md", "scripts/check_dynamic_config_contract.sh"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[groups]]
+id = "nostra.standards.branding_group.v1"
+title = "Branding Standards Group"
+path = "shared/standards/branding/README.md"
+purpose = "Brand policy schema and governed visual-state fixtures."
+owner = "Brand Steward"
+aliases = ["branding", "branding-standards-group"]
+known_consumers = ["shared/standards/README.md", "cortex/apps/cortex-web"]
+initiative_refs = ["123-cortex-web-architecture"]
+status = "active"
+
+[[groups]]
+id = "nostra.standards.heap_group.v1"
+title = "Heap Standards Group"
+path = "shared/standards/heap/README.md"
+purpose = "Heap-oriented renderable block contracts and validation surfaces."
+owner = "Runtime Steward"
+aliases = ["heap", "heap-standards-group"]
+known_consumers = ["shared/standards/README.md", "cortex/apps/cortex-web"]
+initiative_refs = ["136-cortex-explore-graph"]
+status = "active"
+
+[[groups]]
+id = "nostra.standards.knowledge_graphs_group.v1"
+title = "Knowledge Graphs Standards Group"
+path = "shared/standards/knowledge_graphs/README.md"
+purpose = "Knowledge-graph commons contracts plus legacy motoko-graph operational schemas."
+owner = "Research Steward"
+aliases = ["knowledge_graphs", "knowledge-graphs-standards-group"]
+known_consumers = ["shared/standards/README.md", "scripts/check_knowledge_graph_contract.sh"]
+initiative_refs = ["078-knowledge-graphs", "037-nostra-knowledge-engine", "042-vector-embedding-strategy", "051-rag-ingestion-pipeline", "136-cortex-explore-graph"]
+status = "active"
+registry_delegate = "shared/standards/knowledge_graphs/schema_registry.toml"
+
+[[groups]]
+id = "nostra.standards.siq_group.v1"
+title = "SIQ Standards Group"
+path = "shared/standards/siq/README.md"
+purpose = "System integrity quality governance and projection contracts."
+owner = "Systems Steward"
+aliases = ["siq", "siq-standards-group"]
+known_consumers = ["shared/standards/README.md", "scripts/check_siq_artifact_consistency.sh"]
+initiative_refs = ["125-system-integrity-quality"]
+status = "active"
+
+[[groups]]
+id = "nostra.standards.testing_group.v1"
+title = "Testing Standards Group"
+path = "shared/standards/testing/README.md"
+purpose = "Canonical test catalog, run, and gate-summary contracts."
+owner = "Testing Steward"
+aliases = ["testing", "testing-standards-group"]
+known_consumers = ["shared/standards/README.md", "scripts/check_test_catalog_consistency.sh"]
+initiative_refs = ["125-system-integrity-quality", "037-nostra-knowledge-engine"]
+status = "active"
+
+[[schemas]]
+id = "nostra.brand.policy.v1"
+title = "Brand Policy Schema"
+path = "shared/standards/branding/brand_policy.schema.json"
+purpose = "Governed brand kernel used by shell and theme renderers."
+owner = "Brand Steward"
+aliases = ["brand_policy.schema.json", "brand-policy"]
+known_consumers = ["shared/standards/branding/README.md", "cortex/apps/cortex-web/src/store/userPreferences.ts"]
+initiative_refs = ["123-cortex-web-architecture"]
+status = "active"
+
+[[schemas]]
+id = "nostra.heap.gate_summary.v1"
+title = "Heap Gate Summary Block Schema"
+path = "shared/standards/heap/gate_summary_block.schema.json"
+purpose = "Renderable gate summary payload for testing and SIQ surfaces."
+owner = "Runtime Steward"
+aliases = ["gate_summary_block.schema.json", "heap-gate-summary"]
+known_consumers = ["shared/standards/heap/README.md", "cortex/apps/cortex-web/src/components/heap/HeapBlockCard.tsx"]
+initiative_refs = ["136-cortex-explore-graph"]
+status = "active"
+
+[[schemas]]
+id = "nostra.cortex.runtime_authority.v1"
+title = "Cortex Runtime Authority Manifest Schema"
+path = "shared/standards/cortex_runtime_authority.schema.json"
+purpose = "Host-local runtime authority manifest for deploy roots, runtime executables, and governing operations documents."
+owner = "Systems Steward"
+aliases = ["cortex_runtime_authority.schema.json", "cortex-runtime-authority"]
+known_consumers = ["docs/architecture/standards.md", "scripts/check_vps_runtime_authority.sh"]
+initiative_refs = ["132-eudaemon-alpha-initiative"]
+status = "active"
+
+[[schemas]]
+id = "nostra.siq.governance_gate.v1"
+title = "SIQ Governance Gate Schema"
+path = "shared/standards/siq/siq_governance_gate.schema.json"
+purpose = "Governed SIQ gate summary contract for execution integrity checks."
+owner = "Systems Steward"
+aliases = ["siq_governance_gate.schema.json", "siq-gate"]
+known_consumers = ["shared/standards/siq/README.md", "scripts/check_siq_artifact_consistency.sh"]
+initiative_refs = ["125-system-integrity-quality"]
+status = "active"
+
+[[schemas]]
+id = "nostra.siq.graph_projection.v1"
+title = "SIQ Graph Projection Schema"
+path = "shared/standards/siq/siq_graph_projection.schema.json"
+purpose = "Deterministic graph projection used by SIQ and graph-ready visualizations."
+owner = "Systems Steward"
+aliases = ["siq_graph_projection.schema.json", "siq-graph-projection"]
+known_consumers = ["shared/standards/siq/README.md", "scripts/check_siq_artifact_consistency.sh"]
+initiative_refs = ["125-system-integrity-quality", "136-cortex-explore-graph"]
+status = "active"
+
+[[schemas]]
+id = "nostra.testing.test_catalog.v1"
+title = "Test Catalog Schema"
+path = "shared/standards/testing/test_catalog.schema.json"
+purpose = "Canonical filesystem contract for the test catalog."
+owner = "Testing Steward"
+aliases = ["test_catalog.schema.json", "test-catalog"]
+known_consumers = ["shared/standards/testing/README.md", "scripts/check_test_catalog_consistency.sh"]
+initiative_refs = ["125-system-integrity-quality"]
+status = "active"
+
+[[schemas]]
+id = "nostra.testing.test_run.v1"
+title = "Test Run Schema"
+path = "shared/standards/testing/test_run.schema.json"
+purpose = "Canonical filesystem contract for per-run test artifacts."
+owner = "Testing Steward"
+aliases = ["test_run.schema.json", "test-run"]
+known_consumers = ["shared/standards/testing/README.md", "scripts/check_test_catalog_consistency.sh"]
+initiative_refs = ["125-system-integrity-quality"]
+status = "active"
+
+[[schemas]]
+id = "nostra.testing.test_gate_summary.v1"
+title = "Test Gate Summary Schema"
+path = "shared/standards/testing/test_gate_summary.schema.json"
+purpose = "Derived gate-summary snapshot contract for test catalog validation."
+owner = "Testing Steward"
+aliases = ["test_gate_summary.schema.json", "test-gate-summary"]
+known_consumers = ["shared/standards/testing/README.md", "scripts/check_test_catalog_consistency.sh"]
+initiative_refs = ["125-system-integrity-quality"]
+status = "active"
+
+[[artifacts]]
+id = "nostra.standards.alignment_contract_exceptions.v1"
+title = "Alignment Contract Exceptions"
+path = "shared/standards/alignment_contract_exceptions.json"
+purpose = "Exception registry for alignment contract hardcoded-path and parity checks."
+owner = "Systems Steward"
+aliases = ["alignment_contract_exceptions.json", "alignment-contract-exceptions"]
+known_consumers = ["shared/standards/README.md", "scripts/check_alignment_contract_targets.sh"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[artifacts]]
+id = "nostra.standards.antigravity_rule_dispositions.v1"
+title = "Antigravity Rule Dispositions"
+path = "shared/standards/antigravity_rule_dispositions.json"
+purpose = "Disposition registry for antigravity rule handling and skill replacement mapping."
+owner = "Systems Steward"
+aliases = ["antigravity_rule_dispositions.json", "antigravity-rule-dispositions"]
+known_consumers = ["shared/standards/README.md", "scripts/check_antigravity_rule_policy.sh"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[artifacts]]
+id = "nostra.standards.dynamic_source_exceptions.v1"
+title = "Dynamic Source Exceptions"
+path = "shared/standards/dynamic_source_exceptions.json"
+purpose = "Exception registry for dynamic-source contract bypass allowances."
+owner = "Systems Steward"
+aliases = ["dynamic_source_exceptions.json", "dynamic-source-exceptions"]
+known_consumers = ["shared/standards/README.md", "scripts/check_dynamic_config_contract.sh"]
+initiative_refs = ["097-nostra-cortex-alignment"]
+status = "active"
+
+[[artifacts]]
+id = "nostra.brand.policy_fixture.v1"
+title = "Brand Policy Fixture"
+path = "shared/standards/branding/brand_policy_v1.json"
+purpose = "Governed brand policy fixture paired with the brand policy schema."
+owner = "Brand Steward"
+aliases = ["brand_policy_v1.json", "brand-policy-fixture"]
+known_consumers = ["shared/standards/branding/README.md", "cortex/apps/cortex-web"]
+initiative_refs = ["123-cortex-web-architecture"]
+status = "active"
+
+[[artifacts]]
+id = "nostra.brand.visual_state_cases.v1"
+title = "Brand Visual State Cases"
+path = "shared/standards/branding/brand_visual_state_cases_v1.json"
+purpose = "Governed visual-state fixtures for brand policy validation."
+owner = "Brand Steward"
+aliases = ["brand_visual_state_cases_v1.json", "brand-visual-state-cases"]
+known_consumers = ["shared/standards/branding/README.md", "cortex/apps/cortex-web"]
+initiative_refs = ["123-cortex-web-architecture"]
+status = "active"
+
+[[artifacts]]
+id = "nostra.standards.schema_guided_extraction_context.v1"
+title = "Schema-Guided Extraction Context"
+path = "shared/standards/schema_guided_extraction_context.json"
+purpose = "Maps extraction-oriented artifact families to the schema ids and commons contracts that govern them."
+owner = "Research Steward"
+aliases = ["schema_guided_extraction_context.json", "schema-guided-extraction-context"]
+known_consumers = ["research/051-rag-ingestion-pipeline/RESEARCH.md", "research/078-knowledge-graphs/PLAN.md", "scripts/validate_standards_registry.py"]
+initiative_refs = ["051-rag-ingestion-pipeline", "078-knowledge-graphs"]
+status = "draft"

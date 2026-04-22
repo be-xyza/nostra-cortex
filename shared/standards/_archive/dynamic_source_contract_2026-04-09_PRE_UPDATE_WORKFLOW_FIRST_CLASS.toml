@@ -1,0 +1,208 @@
+version = 1
+updated_at = "2026-03-04"
+owner = "Systems Steward"
+exceptions_path = "shared/standards/dynamic_source_exceptions.json"
+report_path = "logs/alignment/dynamic_config_contract_latest.json"
+
+[policy]
+default_mode = "observe"
+promote_to_softgate_if_runs = 3
+promote_to_softgate_if_unique_paths = 2
+promotion_window_days = 7
+promote_to_hardgate_repeat_window_days = 14
+demote_after_consecutive_green_runs = 14
+demote_requires_decision_log = true
+
+[[governed_values]]
+id = "canister_ids"
+required_source = "environment_or_dynamic_lookup"
+approved_access_patterns = [
+  "DFX_CANISTER_ID_",
+  "canister_ids.json",
+  "ConfigService",
+  "NOSTRA_",
+]
+forbidden_literal_patterns = [
+  "\\b[a-z0-9]{5}(?:-[a-z0-9]{5}){4}-cai\\b",
+]
+path_scopes = [
+  "nostra/**/*.mo",
+  "nostra/**/*.rs",
+  "cortex/**/*.rs",
+]
+failure_class = "hardcoded_canister_id"
+
+[[governed_values]]
+id = "workspace_root"
+required_source = "NOSTRA_WORKSPACE_ROOT_or_runtime_discovery"
+approved_access_patterns = [
+  "NOSTRA_WORKSPACE_ROOT",
+  "pwd",
+  "dirname",
+  "workspace_paths.sh",
+]
+forbidden_literal_patterns = [
+  "/Users/xaoj/ICP",
+]
+path_scopes = [
+  "scripts/**/*.sh",
+  "scripts/**/*.py",
+  "cortex/apps/cortex-desktop/src/gateway/server.rs",
+]
+failure_class = "hardcoded_workspace_root"
+
+[[governed_values]]
+id = "gateway_base_url"
+required_source = "CORTEX_GATEWAY_URL_or_CORTEX_GATEWAY_PORT"
+approved_access_patterns = [
+  "CORTEX_GATEWAY_URL",
+  "CORTEX_GATEWAY_PORT",
+  "VITE_CORTEX_GATEWAY_URL",
+]
+forbidden_literal_patterns = [
+  "http://127\\.0\\.0\\.1:3000",
+]
+path_scopes = [
+  "cortex/apps/cortex-desktop/src/**/*.rs",
+  "cortex/libraries/**/*.rs",
+]
+failure_class = "hardcoded_gateway_url"
+
+[[governed_values]]
+id = "provider_runtime_url"
+required_source = "CORTEX_PROVIDER_RUNTIME_URL_or_CORTEX_PROVIDER_RUNTIME_PORT"
+approved_access_patterns = [
+  "CORTEX_PROVIDER_RUNTIME_URL",
+  "CORTEX_PROVIDER_RUNTIME_HOST",
+  "CORTEX_PROVIDER_RUNTIME_PORT",
+]
+forbidden_literal_patterns = [
+  "http://127\\.0\\.0\\.1:8080",
+]
+path_scopes = [
+  "cortex/**/*.rs",
+  "scripts/**/*.sh",
+]
+failure_class = "hardcoded_gateway_url"
+
+[[governed_values]]
+id = "authority_mode"
+required_source = "governance_policy_or_contract"
+approved_access_patterns = [
+  "authority_mode",
+  "recommendation_only",
+  "execute_with_approval",
+]
+forbidden_literal_patterns = [
+  "authority_mode\\s*=\\s*\"execute_without_approval\"",
+]
+path_scopes = [
+  "scripts/**/*.py",
+  "cortex/**/*.rs",
+  "nostra/**/*.rs",
+]
+failure_class = "hardcoded_authority_mode"
+
+[[governed_values]]
+id = "enforcement_mode"
+required_source = "contract_policy_or_cli_mode"
+approved_access_patterns = [
+  "enforcement_mode",
+  "--mode",
+  "observe",
+  "softgate",
+  "hardgate",
+]
+forbidden_literal_patterns = [
+  "enforcement_mode\\s*=\\s*\"off\"",
+]
+path_scopes = [
+  "shared/standards/*.toml",
+  "scripts/**/*.sh",
+  "scripts/**/*.py",
+]
+failure_class = "hardcoded_policy_override"
+
+[[governed_values]]
+id = "steward_role_gate"
+required_source = "stewardship_metadata_or_role_contract"
+approved_access_patterns = [
+  "Systems Steward",
+  "Research Steward",
+  "Constitutional Steward",
+  "Operational Steward",
+]
+forbidden_literal_patterns = [
+  "allow_all_roles\\s*=\\s*true",
+]
+path_scopes = [
+  "scripts/**/*.py",
+  "shared/standards/*.toml",
+]
+failure_class = "bypassed_config_service"
+
+[[governed_values]]
+id = "policy_path"
+required_source = "shared/standards/alignment_contracts.toml_or_dynamic_contract"
+approved_access_patterns = [
+  "alignment_contracts.toml",
+  "dynamic_source_contract.toml",
+  "policy_path",
+]
+forbidden_literal_patterns = [
+  "policy_path\\s*=\\s*\"/tmp/",
+]
+path_scopes = [
+  "scripts/**/*.py",
+]
+failure_class = "hardcoded_policy_override"
+
+[[governed_values]]
+id = "ide_skill_install_root"
+required_source = "repo_relative_registry_path"
+approved_access_patterns = [
+  ".codex/skills",
+  ".claude/skills",
+  "resolve_with_override",
+  "install_root",
+]
+forbidden_literal_patterns = [
+  "/Users/xaoj/.codex/skills",
+  "/Users/xaoj/.claude/skills",
+]
+path_scopes = [
+  "nostra/commons/skills/*.toml",
+  "scripts/sync_skills*.py",
+  "scripts/sync_skills*.sh",
+]
+failure_class = "hardcoded_policy_override"
+
+[[governed_values]]
+id = "skill_validator_path"
+required_source = "NOSTRA_SKILL_VALIDATOR_or_repo_relative_default"
+approved_access_patterns = [
+  "NOSTRA_SKILL_VALIDATOR",
+  "scripts/quick_validate_registry_asset.py",
+]
+forbidden_literal_patterns = [
+  "/Users/xaoj/ICP/scripts/quick_validate_registry_asset.py",
+]
+path_scopes = [
+  "scripts/sync_skills*.py",
+]
+failure_class = "hardcoded_policy_override"
+
+[[governed_values]]
+id = "workflow_validator_path"
+required_source = "NOSTRA_WORKFLOW_VALIDATOR_or_repo_relative_default"
+approved_access_patterns = [
+  "NOSTRA_WORKFLOW_VALIDATOR",
+  "scripts/quick_validate_registry_asset.py",
+]
+forbidden_literal_patterns = [
+  "/Users/xaoj/ICP/scripts/quick_validate_registry_asset.py",
+]
+path_scopes = [
+  "scripts/sync_workflows*.py",
+]
+failure_class = "hardcoded_policy_override"

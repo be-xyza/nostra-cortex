@@ -94,14 +94,6 @@
       "reason": "Legacy CI reference pending implementation.",
       "expires_at": "2026-04-30",
       "enabled": true
-    },
-    {
-      "id": "gate_surface_initiative_graph_bootstrap",
-      "script_path": "scripts/check_initiative_graph_bootstrap.sh",
-      "owner": "Systems Steward",
-      "reason": "Legacy CI reference retained as optional skip while contribution-graph bootstrap validation is realigned.",
-      "expires_at": "2026-04-30",
-      "enabled": true
     }
   ]
 }
