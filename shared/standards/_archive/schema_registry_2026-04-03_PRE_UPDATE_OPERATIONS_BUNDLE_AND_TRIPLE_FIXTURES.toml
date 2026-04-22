@@ -1,0 +1,268 @@
+version = 1
+updated_at = "2026-04-03"
+owner = "Systems Steward"
+purpose = "Discovery index for schema artifacts and versioned JSON standards under shared/standards."
+
+[[schemas]]
+id = "nostra.brand.policy.v1"
+title = "Brand Policy Schema"
+group = "branding"
+path = "shared/standards/branding/brand_policy.schema.json"
+purpose = "Governed brand kernel used by shell and theme renderers."
+owner = "Brand Steward"
+aliases = ["brand_policy.schema.json", "brand-policy"]
+known_consumers = ["shared/a2ui/themes", "cortex/apps/cortex-web/src/store/userPreferences.ts"]
+status = "active"
+notes = "Stable JSON contract; additive changes only."
+
+[[schemas]]
+id = "nostra.heap.gate_summary.v1"
+title = "Heap Gate Summary Block Schema"
+group = "heap"
+path = "shared/standards/heap/gate_summary_block.schema.json"
+purpose = "Renderable gate summary payload for testing and SIQ surfaces."
+owner = "Runtime Steward"
+aliases = ["gate_summary_block.schema.json", "heap-gate-summary"]
+known_consumers = ["shared/standards/heap/README.md", "cortex/apps/cortex-web/src/components/heap/HeapBlockCard.tsx", "cortex/apps/cortex-web/tests/heapApiContract.test.ts"]
+status = "active"
+notes = "Shared gate-summary block used by multiple surfaces."
+
+[[schemas]]
+id = "nostra.cortex.runtime_authority.v1"
+title = "Cortex Runtime Authority Manifest Schema"
+group = "runtime"
+path = "shared/standards/cortex_runtime_authority.schema.json"
+purpose = "Host-local runtime authority manifest for deploy roots, runtime executables, and governing operations documents."
+owner = "Systems Steward"
+aliases = ["cortex_runtime_authority.schema.json", "cortex-runtime-authority"]
+known_consumers = ["docs/architecture/standards.md", "scripts/check_vps_runtime_authority.sh", "docs/cortex/eudaemon-alpha-phase6-hetzner.md"]
+status = "active"
+notes = "Operational runtime authority schema used outside the knowledge-graphs contract family but governed by the same discovery index."
+
+[[schemas]]
+id = "nostra.knowledge_graphs.motoko_graph_snapshot.v1"
+title = "Motoko Graph Snapshot Schema"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/motoko_graph_snapshot.schema.json"
+purpose = "Legacy operational snapshot for the motoko-graph evidence trail."
+owner = "Research Steward"
+aliases = ["motoko_graph_snapshot.schema.json", "kg-snapshot"]
+known_consumers = ["shared/standards/knowledge_graphs/README.md", "research/reference/analysis/trustgraph.md", "scripts/check_knowledge_graph_contract.sh"]
+status = "legacy"
+notes = "Retained for backward compatibility with the legacy operational contract."
+
+[[schemas]]
+id = "nostra.knowledge_graphs.motoko_graph_decision_event.v1"
+title = "Motoko Graph Decision Event Schema"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/motoko_graph_decision_event.schema.json"
+purpose = "Legacy decision-event capture for the motoko-graph evidence trail."
+owner = "Research Steward"
+aliases = ["motoko_graph_decision_event.schema.json", "kg-decision-event"]
+known_consumers = ["shared/standards/knowledge_graphs/README.md", "research/reference/analysis/trustgraph.md", "scripts/check_knowledge_graph_contract.sh"]
+status = "legacy"
+notes = "Retained for backward compatibility with the legacy operational contract."
+
+[[schemas]]
+id = "nostra.knowledge_graphs.motoko_graph_monitoring_run.v1"
+title = "Motoko Graph Monitoring Run Schema"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/motoko_graph_monitoring_run.schema.json"
+purpose = "Legacy monitoring-run artifact for the motoko-graph evidence trail."
+owner = "Research Steward"
+aliases = ["motoko_graph_monitoring_run.schema.json", "kg-monitoring-run"]
+known_consumers = ["shared/standards/knowledge_graphs/README.md", "research/reference/analysis/trustgraph.md", "scripts/check_knowledge_graph_contract.sh"]
+status = "legacy"
+notes = "Retained for backward compatibility with the legacy operational contract."
+
+[[schemas]]
+id = "nostra.knowledge_graphs.motoko_graph_monitoring_trend.v1"
+title = "Motoko Graph Monitoring Trend Schema"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/motoko_graph_monitoring_trend.schema.json"
+purpose = "Legacy monitoring-trend artifact for the motoko-graph evidence trail."
+owner = "Research Steward"
+aliases = ["motoko_graph_monitoring_trend.schema.json", "kg-monitoring-trend"]
+known_consumers = ["shared/standards/knowledge_graphs/README.md", "research/reference/analysis/trustgraph.md", "scripts/check_knowledge_graph_contract.sh"]
+status = "legacy"
+notes = "Retained for backward compatibility with the legacy operational contract."
+
+[[schemas]]
+id = "nostra.knowledge_graphs.ontology_manifest.v1"
+title = "Core Ontology Manifest Schema"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/ontology_manifest.schema.json"
+purpose = "Minimal Nostra ontology manifest for graph semantics and extension control."
+owner = "Research Steward"
+aliases = ["ontology_manifest.schema.json", "kg-ontology-manifest"]
+known_consumers = ["shared/ontology/core_ontology_v1.json", "shared/specs.md", "scripts/check_knowledge_graph_contract.sh"]
+status = "draft"
+notes = "Phase D contract artifact; runtime support follows separately."
+
+[[schemas]]
+id = "nostra.knowledge_graphs.space_knowledge_bundle.v1"
+title = "Space Knowledge Bundle Schema"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/knowledge_bundle.schema.json"
+purpose = "Portable manifest for ontology, graph snapshot, embeddings, provenance, and retrieval policy."
+owner = "Research Steward"
+aliases = ["knowledge_bundle.schema.json", "space-knowledge-bundle"]
+known_consumers = ["shared/specs.md", "shared/standards/knowledge_graphs/README.md", "scripts/check_knowledge_graph_contract.sh"]
+status = "draft"
+notes = "Phase D contract artifact; JSON is the default interactive transport."
+
+[[schemas]]
+id = "nostra.knowledge_graphs.triple_query_request.v1"
+title = "Triple Query Request Schema"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/triple_query_request.schema.json"
+purpose = "Read-only S-P-O query request contract with named graph scoping."
+owner = "Research Steward"
+aliases = ["triple_query_request.schema.json", "kg-triple-query-request"]
+known_consumers = ["shared/specs.md", "shared/standards/knowledge_graphs/README.md", "scripts/check_knowledge_graph_contract.sh"]
+status = "draft"
+notes = "Phase D contract artifact for read-only traversal."
+
+[[schemas]]
+id = "nostra.knowledge_graphs.triple_query_response.v1"
+title = "Triple Query Response Schema"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/triple_query_response.schema.json"
+purpose = "Read-only S-P-O query response contract with deterministic ordering and provenance visibility."
+owner = "Research Steward"
+aliases = ["triple_query_response.schema.json", "kg-triple-query-response"]
+known_consumers = ["shared/specs.md", "shared/standards/knowledge_graphs/README.md", "scripts/check_knowledge_graph_contract.sh"]
+status = "draft"
+notes = "Phase D contract artifact for read-only traversal."
+
+[[schemas]]
+id = "nostra.siq.governance_gate.v1"
+title = "SIQ Governance Gate Schema"
+group = "siq"
+path = "shared/standards/siq/siq_governance_gate.schema.json"
+purpose = "Governed SIQ gate summary contract for execution integrity checks."
+owner = "Systems Steward"
+aliases = ["siq_governance_gate.schema.json", "siq-gate"]
+known_consumers = ["shared/standards/siq/README.md", "scripts/check_siq_artifact_consistency.sh", "scripts/siq_tools.py"]
+status = "active"
+notes = "Stable SIQ contract."
+
+[[schemas]]
+id = "nostra.siq.graph_projection.v1"
+title = "SIQ Graph Projection Schema"
+group = "siq"
+path = "shared/standards/siq/siq_graph_projection.schema.json"
+purpose = "Deterministic graph projection used by SIQ and graph-ready visualizations."
+owner = "Systems Steward"
+aliases = ["siq_graph_projection.schema.json", "siq-graph-projection"]
+known_consumers = ["docs/architecture/standards.md", "scripts/check_siq_artifact_consistency.sh", "scripts/siq_tools.py"]
+status = "active"
+notes = "Stable SIQ projection contract."
+
+[[schemas]]
+id = "nostra.testing.test_catalog.v1"
+title = "Test Catalog Schema"
+group = "testing"
+path = "shared/standards/testing/test_catalog.schema.json"
+purpose = "Canonical filesystem contract for the test catalog."
+owner = "Testing Steward"
+aliases = ["test_catalog.schema.json", "test-catalog"]
+known_consumers = ["shared/standards/testing/README.md", "scripts/generate_test_catalog.sh", "scripts/check_test_catalog_consistency.sh"]
+status = "active"
+notes = "Stable catalog contract for local IDE agents and CI."
+
+[[schemas]]
+id = "nostra.testing.test_run.v1"
+title = "Test Run Schema"
+group = "testing"
+path = "shared/standards/testing/test_run.schema.json"
+purpose = "Canonical filesystem contract for per-run test artifacts."
+owner = "Testing Steward"
+aliases = ["test_run.schema.json", "test-run"]
+known_consumers = ["shared/standards/testing/README.md", "scripts/test_catalog_refresh.sh", "scripts/check_test_catalog_consistency.sh"]
+status = "active"
+notes = "Stable run-artifact contract."
+
+[[schemas]]
+id = "nostra.testing.test_gate_summary.v1"
+title = "Test Gate Summary Schema"
+group = "testing"
+path = "shared/standards/testing/test_gate_summary.schema.json"
+purpose = "Derived gate-summary snapshot contract for test catalog validation."
+owner = "Testing Steward"
+aliases = ["test_gate_summary.schema.json", "test-gate-summary"]
+known_consumers = ["shared/standards/testing/README.md", "scripts/check_test_catalog_consistency.sh", "scripts/test_catalog_refresh.sh"]
+status = "active"
+notes = "Stable gate-summary contract."
+
+[[artifacts]]
+id = "nostra.standards.alignment_contract_exceptions.v1"
+title = "Alignment Contract Exceptions"
+group = "governance"
+path = "shared/standards/alignment_contract_exceptions.json"
+purpose = "Exception registry for alignment contract hardcoded-path and parity checks."
+owner = "Systems Steward"
+aliases = ["alignment_contract_exceptions.json", "alignment-contract-exceptions"]
+known_consumers = ["shared/standards/alignment_contracts.toml", "scripts/check_alignment_contract_targets.sh", "scripts/check_governance_bypass_hardcodes.py"]
+status = "active"
+notes = "Append-only exception registry consumed by governance checkers."
+
+[[artifacts]]
+id = "nostra.standards.antigravity_rule_dispositions.v1"
+title = "Antigravity Rule Dispositions"
+group = "governance"
+path = "shared/standards/antigravity_rule_dispositions.json"
+purpose = "Disposition registry for antigravity rule handling and skill replacement mapping."
+owner = "Systems Steward"
+aliases = ["antigravity_rule_dispositions.json", "antigravity-rule-dispositions"]
+known_consumers = ["shared/standards/antigravity_rule_policy.toml", "scripts/check_antigravity_rule_policy.py"]
+status = "active"
+notes = "Governed JSON artifact referenced by the antigravity policy."
+
+[[artifacts]]
+id = "nostra.standards.dynamic_source_exceptions.v1"
+title = "Dynamic Source Exceptions"
+group = "governance"
+path = "shared/standards/dynamic_source_exceptions.json"
+purpose = "Exception registry for dynamic-source contract bypass allowances."
+owner = "Systems Steward"
+aliases = ["dynamic_source_exceptions.json", "dynamic-source-exceptions"]
+known_consumers = ["shared/standards/dynamic_source_contract.toml", "scripts/check_governance_bypass_hardcodes.py"]
+status = "active"
+notes = "Append-only exception registry consumed by dynamic-source checks."
+
+[[artifacts]]
+id = "nostra.knowledge_graphs.research_space_bundle_example.v1"
+title = "Research Space Knowledge Bundle Example"
+group = "knowledge_graphs"
+path = "shared/standards/knowledge_graphs/examples/research_space_knowledge_bundle_v1.json"
+purpose = "Example Space Knowledge Bundle fixture used to validate the portable bundle contract against a realistic research-space scenario."
+owner = "Research Steward"
+aliases = ["research_space_knowledge_bundle_v1.json", "kg-research-space-bundle-example"]
+known_consumers = ["shared/standards/knowledge_graphs/README.md", "scripts/check_knowledge_graph_contract.sh", "research/078-knowledge-graphs/CHECKLIST.md"]
+status = "draft"
+notes = "Example fixture; not a canonical runtime artifact."
+
+[[artifacts]]
+id = "nostra.brand.policy.v1_data"
+title = "Brand Policy Runtime JSON"
+group = "branding"
+path = "shared/standards/branding/brand_policy_v1.json"
+purpose = "Runtime brand policy payload consumed by brand renderers and desktop/web shells."
+owner = "Brand Steward"
+aliases = ["brand_policy_v1.json", "brand-policy-runtime"]
+known_consumers = ["cortex/apps/cortex-desktop/src/gateway/server.rs", "cortex/apps/cortex-eudaemon/src/gateway/server.rs", "cortex/libraries/cortex-domain/src/brand/policy.rs", "nostra/brand-policy-registry/src/lib.rs"]
+status = "active"
+notes = "Versioned JSON policy data, distinct from the brand policy schema."
+
+[[artifacts]]
+id = "nostra.brand.visual_state_cases.v1"
+title = "Brand Visual State Cases"
+group = "branding"
+path = "shared/standards/branding/brand_visual_state_cases_v1.json"
+purpose = "Runtime visual-state cases used to validate brand policy rendering."
+owner = "Brand Steward"
+aliases = ["brand_visual_state_cases_v1.json", "brand-visual-state-cases"]
+known_consumers = ["cortex/apps/cortex-web/tests/brandLogoPolicy.test.ts", "cortex/libraries/cortex-domain/src/brand/policy.rs"]
+status = "active"
+notes = "Versioned JSON test/data artifact for brand policy projections."

@@ -1,0 +1,33 @@
+version = 1
+updated_at = "2026-02-24"
+owner = "Systems Steward"
+
+[failure_policy]
+default_mode = "observe"
+promote_to_softgate_if_runs = 3
+promote_to_softgate_if_unique_paths = 2
+promotion_window_days = 7
+promote_to_hardgate_repeat_window_days = 14
+demote_after_consecutive_green_runs = 14
+demote_requires_decision_log = true
+
+[[failure_mode]]
+id = "FM-009"
+name = "governance-bypass-hardcode"
+severity = "P1"
+status = "active"
+description = "Hardcoded values were introduced where governed or dynamic sources are required by design."
+classes = [
+  "hardcoded_canister_id",
+  "hardcoded_workspace_root",
+  "hardcoded_gateway_url",
+  "hardcoded_authority_mode",
+  "hardcoded_policy_override",
+  "bypassed_config_service",
+]
+remediation = [
+  "Move literal values to config/env/governance-backed sources.",
+  "Update dynamic source contract patterns and scopes if gaps are discovered.",
+  "Add or update regression tests and contract checks.",
+  "For recurrence, record escalation decision in DECISIONS.md.",
+]

@@ -1,0 +1,31 @@
+version = 1
+updated_at = "2026-04-09"
+owner = "Systems Steward"
+
+[preflight]
+required_steps = [
+  "classify_scope",
+  "load_relevant_research_plan",
+  "validate_repo_python_runtime",
+  "validate_nostra_cortex_boundary",
+  "validate_dynamic_sources",
+  "validate_skill_registry_when_skill_sources_touched",
+  "validate_skill_policy_when_skill_sources_touched",
+  "validate_workflow_declarations_when_workflow_sources_touched",
+  "run_alignment_target_checks",
+]
+
+required_commands = [
+  "bash scripts/check_repo_python_runtime.sh",
+  "bash scripts/check_agent_preflight_contract.sh",
+  "bash scripts/check_dynamic_config_contract.sh",
+  "bash scripts/check_alignment_contract_targets.sh",
+  "bash scripts/check_skill_registry_integrity.sh",
+  "bash scripts/check_skill_policy.sh",
+  "bash scripts/check_workflow_declarations.sh",
+]
+
+required_evidence_sections = [
+  "Preflight Evidence",
+  "Dynamic Source Evidence",
+]
