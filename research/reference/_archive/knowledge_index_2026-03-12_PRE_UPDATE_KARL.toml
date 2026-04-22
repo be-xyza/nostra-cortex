@@ -1,0 +1,238 @@
+version = 1
+updated_at = "2026-03-11"
+
+# Knowledge Library Index
+# Maps static knowledge artifacts (Papers, Books, Standards) to Nostra Topics.
+
+# Example Entry:
+# [[entry]]
+# path = "research/reference/knowledge/agent-systems/2025_Google_Agents.md"
+# title = "DeepMind Agent Systems"
+# type = "paper"
+# tags = ["agents", "architecture"]
+# checksum = "sha256:..."
+# topic = "agent-systems"
+
+[[entry]]
+path = "research/reference/knowledge/agent-systems/2025_Google_DeepMind_Agent_Systems"
+title = "Scalable Agent Systems"
+type = "paper_folder"
+tags = ["agents", "architecture", "scaling"]
+checksum = "diff_folder"
+topic = "agent-systems"
+
+[[entry]]
+path = "research/reference/knowledge/agent-systems/2025_MemEvolve"
+title = "MemEvolve: Memory Evolution in Agent Systems"
+type = "paper_folder"
+tags = ["agents", "memory", "evolution"]
+checksum = "diff_folder"
+topic = "agent-systems"
+
+[[entry]]
+path = "research/reference/knowledge/benchmarks/2023_GAIA_Benchmark"
+title = "GAIA: A Benchmark for General AI Assistants"
+type = "paper_folder"
+tags = ["agents", "benchmark", "evaluation"]
+checksum = "diff_folder"
+topic = "benchmarks"
+
+[[entry]]
+path = "research/reference/knowledge/agent-systems/2026_PaperBanana"
+title = "PaperBanana: Automating Academic Illustration for AI Scientists"
+type = "paper_folder"
+tags = ["agents", "visualization", "multimodal"]
+checksum = "diff_folder"
+topic = "agent-systems"
+
+[[entry]]
+path = "research/reference/knowledge/legal/2018_EU_General_Data_Protection_Regulation"
+title = "General Data Protection Regulation (GDPR)"
+type = "legal_doc"
+tags = ["legal", "privacy", "regulation"]
+checksum = "diff_folder"
+topic = "legal"
+
+[[entry]]
+path = "research/reference/knowledge/ui-substrate/2024_Apple_Biscuit"
+title = "Biscuit: Scaffolding LLM-Generated Code with Ephemeral UIs"
+type = "paper_folder"
+tags = ["ui", "llm", "ephemeral"]
+checksum = "diff_folder"
+topic = "ui-substrate"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Logic_Augmented_Generation"
+title = "Logic Augmented Generation"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_2302.11509v2"
+title = "2302.11509v2"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Procedural_knowledge_management_in_Industry_5_0__Challeng"
+title = "Procedural knowledge management in Industry 5 0  Challeng"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_On_the_role_of_knowledge_graphs_in_AI_based_scienti"
+title = "On the role of knowledge graphs in AI based scienti"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Towards_leveraging_explicit_negative_statements_in_kno"
+title = "Towards leveraging explicit negative statements in kno"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Leveraging_Knowledge_Graphs_for_AI_System_Auditing_a"
+title = "Leveraging Knowledge Graphs for AI System Auditing a"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Process_Knowledge_Graphs__PKG___Towards_unpacking_and_"
+title = "Process Knowledge Graphs  PKG   Towards unpacking and "
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Pattern_based_engineering_of_Neurosymbolic_AI_Sys"
+title = "Pattern based engineering of Neurosymbolic AI Sys"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Education_in_the_era_of_Neurosymbolic_AI"
+title = "Education in the era of Neurosymbolic AI"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Knowledge_Graphs_as_a_source_of_trust_for_LLM_powered_e"
+title = "Knowledge Graphs as a source of trust for LLM powered e"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Opportunities_for_Knowledge_Graphs_in_the_AI_landscape__"
+title = "Opportunities for Knowledge Graphs in the AI landscape  "
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_KG_GOV__Knowledge_graphs_as_the_backbone_of_data_gov"
+title = "KG GOV  Knowledge graphs as the backbone of data gov"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Accelerating_knowledge_graph_and_ontology_engineering_"
+title = "Accelerating knowledge graph and ontology engineering "
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Enhancing_foundation_models_for_scientific_discovery_via_"
+title = "Enhancing foundation models for scientific discovery via "
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Knowledge_Graphs__Large_Language_Models__and_Hallucina"
+title = "Knowledge Graphs  Large Language Models  and Hallucina"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Serendipitous_knowledge_discovery_on_the_Web_of_Wisdom_based"
+title = "Serendipitous knowledge discovery on the Web of Wisdom based"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_On_the_legal_implications_of_Large_Language_Model_answers__A"
+title = "On the legal implications of Large Language Model answers  A"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Integrating_Knowledge_Graphs_with_Symbolic_AI__The_Path_t"
+title = "Integrating Knowledge Graphs with Symbolic AI  The Path t"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_LLM_experimentation_through_knowledge_graphs__Towards_impr"
+title = "LLM experimentation through knowledge graphs  Towards impr"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/web-semantics/2025_JWS_Knowledge_Graphs_and_their_Role_in_the_Knowledge_Engineering"
+title = "Knowledge Graphs and their Role in the Knowledge Engineering"
+type = "paper_folder"
+tags = ["web-semantics", "knowledge-graphs"]
+checksum = "diff_folder"
+topic = "web-semantics"
+
+[[entry]]
+path = "research/reference/knowledge/agent-systems/2025_gcc_git_context_controller"
+title = "Git Context Controller"
+type = "paper_folder"
+tags = ["agents", "memory", "git", "fs"]
+checksum = "diff_folder"
+topic = "agent-systems"
+
+[[entry]]
+path = "research/reference/knowledge/workflow-orchestration/2026_Liu_MASFactory"
+title = "MASFactory: A Graph-centric Framework for Orchestrating LLM-Based Multi-Agent Systems with Vibe Graphing"
+type = "paper_folder"
+tags = ["workflow", "agents", "orchestration", "graph", "visualization"]
+checksum = "diff_folder"
+topic = "workflow-orchestration"

@@ -24,6 +24,7 @@ target
 .worktrees/
 .DS_Store
 .agent/
+.cache/
 .cargo/
 .cargo-target/
 .claude/
