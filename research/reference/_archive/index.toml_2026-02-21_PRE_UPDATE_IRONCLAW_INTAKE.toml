@@ -1,0 +1,2144 @@
+version = 1
+updated_at = "2026-02-15"
+
+[[entry]]
+path = "research/reference/topics/agent-systems/Auto-Claude"
+kind = "repo"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = "https://github.com/AndyMik90/Auto-Claude.git"
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/BMAD-METHOD"
+kind = "repo"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = "https://github.com/bmad-code-org/BMAD-METHOD.git"
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/data-knowledge/OpenSPG"
+kind = "collection"
+status = "reference"
+tags = ["data", "knowledge", "indexing", "reference"]
+description = "Knowledge systems, databases, and query and modeling references."
+upstream = ""
+why_here = "Supports Nostra knowledge substrate, indexing strategies, and interoperability patterns."
+links_to_nostra_cortex = ["entity and schema modeling", "indexing and retrieval patterns", "interop adapters for external systems"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/temporal"
+kind = "topic_bundle"
+status = "reference"
+tags = ["workflow", "temporal", "ecosystem", "reference"]
+description = "Temporal ecosystem collection maintained as a dedicated vendor topic bundle."
+upstream = ""
+why_here = "Temporal references are grouped to evaluate durable execution and workflow orchestration patterns."
+links_to_nostra_cortex = ["workflow engine durability", "scheduling and retries", "execution history and recovery"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 4
+component_value = 3
+pattern_value = 5
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/_bmad"
+kind = "collection"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = ""
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/_bmad-output"
+kind = "collection"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = ""
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-core/agent-rs"
+kind = "repo"
+status = "reference"
+tags = ["icp", "core", "canisters", "reference"]
+description = "ICP and DFINITY core primitives and SDK references."
+upstream = "https://github.com/dfinity/agent-rs.git"
+why_here = "Provides baseline ICP contract, agent, and SDK patterns that inform Nostra and Cortex runtime integration."
+links_to_nostra_cortex = ["canister interfaces and agent transport", "build and deploy conventions", "ic-agent and cdk adapter patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/agent-zero"
+kind = "repo"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = "https://github.com/agent0ai/agent-zero.git"
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/airweave"
+kind = "repo"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = "https://github.com/airweave-ai/airweave.git"
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/baml"
+kind = "repo"
+status = "reference"
+tags = ["agents", "workflow", "prompt-language", "tool-calling", "runtime", "reference"]
+description = "BoundaryML BAML: DSL and compiler toolchain for typed LLM functions, provider abstraction, retries/fallbacks, and multi-language SDK generation."
+upstream = "https://github.com/BoundaryML/baml.git"
+why_here = "Provides a concrete language/runtime pattern for schema-first prompt definitions, typed client generation, and provider-agnostic execution that can inform Cortex workflow and agent authoring."
+links_to_nostra_cortex = ["typed workflow function contracts", "provider abstraction and fallback policies", "streaming and partial-result semantics", "codegen-driven SDK boundaries", "prompt asset versioning in repo"]
+review_date = "2026-08-15"
+
+known_risks = "BAML is an external DSL with its own runtime model; direct adoption could introduce lock-in and schema drift from Nostra contracts. Rapid upstream cadence may break assumptions."
+suggested_next_experiments = "Prototype one Cortex workflow node with BAML-style typed function schema and compare against current A2UI/workflow DSL. Evaluate adapter strategy for provider fallbacks and retries."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = ["118-cortex-runtime-extraction"]
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 4
+component_value = 4
+pattern_value = 5
+ux_value = 4
+future_optionality = 5
+topic_fit = 4
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/awesome-lit"
+kind = "repo"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = "https://github.com/web-padawan/awesome-lit.git"
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/misc/backend"
+kind = "collection"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = ""
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/misc/benchmarks"
+kind = "collection"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = ""
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/icp-core/cdk-rs"
+kind = "repo"
+status = "reference"
+tags = ["icp", "core", "canisters", "reference"]
+description = "ICP and DFINITY core primitives and SDK references."
+upstream = "https://github.com/dfinity/cdk-rs.git"
+why_here = "Provides baseline ICP contract, agent, and SDK patterns that inform Nostra and Cortex runtime integration."
+links_to_nostra_cortex = ["canister interfaces and agent transport", "build and deploy conventions", "ic-agent and cdk adapter patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/claude-brain"
+kind = "repo"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = "https://github.com/memvid/claude-brain.git"
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/data-knowledge/cobudget"
+kind = "repo"
+status = "reference"
+tags = ["data", "knowledge", "indexing", "reference"]
+description = "Knowledge systems, databases, and query and modeling references."
+upstream = "https://github.com/cobudget/cobudget.git"
+why_here = "Supports Nostra knowledge substrate, indexing strategies, and interoperability patterns."
+links_to_nostra_cortex = ["entity and schema modeling", "indexing and retrieval patterns", "interop adapters for external systems"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/data-knowledge/comms"
+kind = "collection"
+status = "reference"
+tags = ["data", "knowledge", "indexing", "reference"]
+description = "Knowledge systems, databases, and query and modeling references."
+upstream = ""
+why_here = "Supports Nostra knowledge substrate, indexing strategies, and interoperability patterns."
+links_to_nostra_cortex = ["entity and schema modeling", "indexing and retrieval patterns", "interop adapters for external systems"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/visualization/cytoscape.js"
+kind = "repo"
+status = "reference"
+tags = ["visualization", "graph", "interaction", "reference"]
+description = "Graph and visualization engines for knowledge and workflow views."
+upstream = "https://github.com/cytoscape/cytoscape.js.git"
+why_here = "Supports Nostra knowledge graph UX and Cortex operator observability surfaces."
+links_to_nostra_cortex = ["knowledge graph rendering", "interaction performance patterns", "progressive layout and zoom semantics"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 1
+component_value = 4
+pattern_value = 4
+ux_value = 5
+future_optionality = 3
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/visualization/d3"
+kind = "repo"
+status = "reference"
+tags = ["visualization", "graph", "interaction", "reference"]
+description = "Graph and visualization engines for knowledge and workflow views."
+upstream = "https://github.com/d3/d3.git"
+why_here = "Supports Nostra knowledge graph UX and Cortex operator observability surfaces."
+links_to_nostra_cortex = ["knowledge graph rendering", "interaction performance patterns", "progressive layout and zoom semantics"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 1
+component_value = 4
+pattern_value = 4
+ux_value = 5
+future_optionality = 3
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/dioxus"
+kind = "repo"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = "https://github.com/DioxusLabs/dioxus.git"
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/dioxus-free-icons"
+kind = "repo"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = "https://github.com/dioxus-community/dioxus-free-icons.git"
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/repos/dylint"
+kind = "repo"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = "https://github.com/trailofbits/dylint.git"
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/data-knowledge/elasticsearch"
+kind = "repo"
+status = "reference"
+tags = ["data", "knowledge", "indexing", "reference"]
+description = "Knowledge systems, databases, and query and modeling references."
+upstream = "https://github.com/elastic/elasticsearch.git"
+why_here = "Supports Nostra knowledge substrate, indexing strategies, and interoperability patterns."
+links_to_nostra_cortex = ["entity and schema modeling", "indexing and retrieval patterns", "interop adapters for external systems"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/data-knowledge/elna-vector-db"
+kind = "repo"
+status = "reference"
+tags = ["data", "knowledge", "indexing", "reference"]
+description = "Knowledge systems, databases, and query and modeling references."
+upstream = "https://github.com/elna-ai/elna-vector-db.git"
+why_here = "Supports Nostra knowledge substrate, indexing strategies, and interoperability patterns."
+links_to_nostra_cortex = ["entity and schema modeling", "indexing and retrieval patterns", "interop adapters for external systems"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/data-knowledge/elna_RAG"
+kind = "repo"
+status = "reference"
+tags = ["data", "knowledge", "indexing", "reference"]
+description = "Knowledge systems, databases, and query and modeling references."
+upstream = "https://github.com/elna-ai/elna_RAG.git"
+why_here = "Supports Nostra knowledge substrate, indexing strategies, and interoperability patterns."
+links_to_nostra_cortex = ["entity and schema modeling", "indexing and retrieval patterns", "interop adapters for external systems"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-core/examples"
+kind = "repo"
+status = "reference"
+tags = ["icp", "core", "canisters", "reference"]
+description = "ICP and DFINITY core primitives and SDK references."
+upstream = "https://github.com/dfinity/examples.git"
+why_here = "Provides baseline ICP contract, agent, and SDK patterns that inform Nostra and Cortex runtime integration."
+links_to_nostra_cortex = ["canister interfaces and agent transport", "build and deploy conventions", "ic-agent and cdk adapter patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/misc/experiments"
+kind = "collection"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = ""
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/misc/files"
+kind = "collection"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = ""
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/agent-systems/gastown"
+kind = "repo"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = "https://github.com/steveyegge/gastown.git"
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/graphiti"
+kind = "repo"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = "https://github.com/getzep/graphiti.git"
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-realtime/ic-websocket-cdk-mo"
+kind = "repo"
+status = "reference"
+tags = ["icp", "realtime", "websocket", "reference"]
+description = "Realtime transport and gateway implementations for ICP."
+upstream = "https://github.com/omnia-network/ic-websocket-cdk-mo.git"
+why_here = "Supports Cortex execution streams, notifications, and event forwarding patterns needed by Nostra workflows."
+links_to_nostra_cortex = ["streaming and push transport", "gateway resiliency and delivery", "A2UI live update transport"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 3
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-realtime/ic-websocket-cdk-rs"
+kind = "repo"
+status = "reference"
+tags = ["icp", "realtime", "websocket", "reference"]
+description = "Realtime transport and gateway implementations for ICP."
+upstream = "https://github.com/omnia-network/ic-websocket-cdk-rs.git"
+why_here = "Supports Cortex execution streams, notifications, and event forwarding patterns needed by Nostra workflows."
+links_to_nostra_cortex = ["streaming and push transport", "gateway resiliency and delivery", "A2UI live update transport"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 3
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-realtime/ic-websocket-gateway"
+kind = "repo"
+status = "reference"
+tags = ["icp", "realtime", "websocket", "reference"]
+description = "Realtime transport and gateway implementations for ICP."
+upstream = "https://github.com/omnia-network/ic-websocket-gateway.git"
+why_here = "Supports Cortex execution streams, notifications, and event forwarding patterns needed by Nostra workflows."
+links_to_nostra_cortex = ["streaming and push transport", "gateway resiliency and delivery", "A2UI live update transport"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 3
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-core/icp-calculator"
+kind = "repo"
+status = "reference"
+tags = ["icp", "core", "canisters", "reference"]
+description = "ICP and DFINITY core primitives and SDK references."
+upstream = "https://github.com/dfinity/icp-calculator.git"
+why_here = "Provides baseline ICP contract, agent, and SDK patterns that inform Nostra and Cortex runtime integration."
+links_to_nostra_cortex = ["canister interfaces and agent transport", "build and deploy conventions", "ic-agent and cdk adapter patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/visualization/infinite-canvas-tutorial"
+kind = "repo"
+status = "reference"
+tags = ["visualization", "graph", "interaction", "reference"]
+description = "Graph and visualization engines for knowledge and workflow views."
+upstream = "https://github.com/xiaoiver/infinite-canvas-tutorial.git"
+why_here = "Supports Nostra knowledge graph UX and Cortex operator observability surfaces."
+links_to_nostra_cortex = ["knowledge graph rendering", "interaction performance patterns", "progressive layout and zoom semantics"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 1
+component_value = 4
+pattern_value = 4
+ux_value = 5
+future_optionality = 3
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/misc/labs"
+kind = "collection"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = ""
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/lit"
+kind = "repo"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = "https://github.com/lit/lit.git"
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-core/memory64"
+kind = "repo"
+status = "reference"
+tags = ["icp", "core", "canisters", "reference"]
+description = "ICP and DFINITY core primitives and SDK references."
+upstream = "https://github.com/WebAssembly/memory64.git"
+why_here = "Provides baseline ICP contract, agent, and SDK patterns that inform Nostra and Cortex runtime integration."
+links_to_nostra_cortex = ["canister interfaces and agent transport", "build and deploy conventions", "ic-agent and cdk adapter patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 4
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/workflow-orchestration/motia"
+kind = "repo"
+status = "reference"
+tags = ["workflow", "orchestration", "durability", "reference"]
+description = "Durable workflow engines and orchestration ecosystems."
+upstream = "https://github.com/MotiaDev/motia.git"
+why_here = "Provides execution semantics and reliability patterns that can refine Cortex runtime and workflow boundaries."
+links_to_nostra_cortex = ["durable state transitions", "task retries and idempotency", "outbox and command flow design"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 4
+component_value = 3
+pattern_value = 5
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/workflow-orchestration/n8n"
+kind = "repo"
+status = "reference"
+tags = ["workflow", "orchestration", "durability", "reference"]
+description = "Durable workflow engines and orchestration ecosystems."
+upstream = "https://github.com/n8n-io/n8n.git"
+why_here = "Provides execution semantics and reliability patterns that can refine Cortex runtime and workflow boundaries."
+links_to_nostra_cortex = ["durable state transitions", "task retries and idempotency", "outbox and command flow design"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 4
+component_value = 3
+pattern_value = 5
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/workflow-orchestration/node-red"
+kind = "repo"
+status = "reference"
+tags = ["workflow", "orchestration", "durability", "reference"]
+description = "Durable workflow engines and orchestration ecosystems."
+upstream = "https://github.com/node-red/node-red.git"
+why_here = "Provides execution semantics and reliability patterns that can refine Cortex runtime and workflow boundaries."
+links_to_nostra_cortex = ["durable state transitions", "task retries and idempotency", "outbox and command flow design"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 4
+component_value = 3
+pattern_value = 5
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/open-responses"
+kind = "repo"
+status = "reference"
+tags = ["agents", "automation", "patterns", "reference"]
+description = "Agent frameworks, memory systems, and orchestration methods."
+upstream = "https://github.com/open-responses/open-responses.git"
+why_here = "Provides comparative patterns for role semantics, memory, and multi-agent execution relevant to Cortex."
+links_to_nostra_cortex = ["agent role boundaries", "memory and context management", "tool orchestration and safety controls"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/agent-client-protocol"
+kind = "repo"
+status = "reference"
+tags = ["protocol", "agents", "editor-clients", "interop", "reference"]
+description = "Protocol spec and SDKs for client-agent interoperability in code editing environments."
+upstream = "https://github.com/agentclientprotocol/agent-client-protocol.git"
+why_here = "Evaluates ACP as an interoperable boundary for Cortex client integrations and Nostra-aligned execution controls."
+links_to_nostra_cortex = ["cortex client-agent protocol boundary", "permission and tool execution policy mapping", "event projection for workflow and lineage", "extensibility and trace propagation conventions"]
+review_date = "2026-05-01"
+
+known_risks = "trusted-local assumptions, extension drift, and mismatch with Nostra durability/authority constraints"
+suggested_next_experiments = "run a minimal ACP adapter spike with policy-enforced fs/terminal wrappers and verify event projection gates from initiative 103"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = ["103"]
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 5
+component_value = 4
+pattern_value = 5
+ux_value = 4
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/opensass"
+kind = "collection"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = ""
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/misc/opentelemetry"
+kind = "collection"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = ""
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/repos/polar"
+kind = "repo"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = "https://github.com/polarsource/polar.git"
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/remotion"
+kind = "repo"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = "https://github.com/remotion-dev/remotion.git"
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/workflow-orchestration/rete"
+kind = "collection"
+status = "reference"
+tags = ["workflow", "orchestration", "durability", "reference"]
+description = "Durable workflow engines and orchestration ecosystems."
+upstream = ""
+why_here = "Provides execution semantics and reliability patterns that can refine Cortex runtime and workflow boundaries."
+links_to_nostra_cortex = ["durable state transitions", "task retries and idempotency", "outbox and command flow design"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 4
+component_value = 3
+pattern_value = 5
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/repos/rust-derive-builder"
+kind = "repo"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = "https://github.com/colin-kiegel/rust-derive-builder.git"
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/misc/specification"
+kind = "collection"
+status = "reference"
+tags = ["reference", "misc"]
+description = "Reference material retained for exploratory or cross domain use."
+upstream = ""
+why_here = "Retained as reference to preserve optionality while intake evidence matures."
+links_to_nostra_cortex = ["cross domain exploration", "pattern harvesting", "future initiative support"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 1
+component_value = 2
+pattern_value = 3
+ux_value = 2
+future_optionality = 3
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/tableviews"
+kind = "topic_bundle"
+status = "reference"
+tags = ["tables", "workflows", "data-products", "reference"]
+description = "Table and data app ecosystem collection for composable operational UX patterns."
+upstream = ""
+why_here = "Groups table centric products to evaluate structured data interaction and workflow UX for Nostra."
+links_to_nostra_cortex = ["tabular workflow UX", "schema driven interfaces", "data app integration patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 4
+pattern_value = 4
+ux_value = 4
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/theme"
+kind = "repo"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = "https://github.com/opensass/theme.git"
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/ui"
+kind = "repo"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = "https://github.com/shadcn-ui/ui.git"
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/editor-platforms/vscode"
+kind = "repo"
+status = "reference"
+tags = ["editor", "platform", "tooling", "reference"]
+description = "Developer editor platform references for UX and extension architecture."
+upstream = "https://github.com/microsoft/vscode.git"
+why_here = "Provides reference patterns for shell UX, extension systems, and developer experience components."
+links_to_nostra_cortex = ["extension lifecycle", "workspace models", "command palette and interaction primitives"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 3
+pattern_value = 4
+ux_value = 4
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/webawesome"
+kind = "repo"
+status = "reference"
+tags = ["ui", "frontend", "components", "reference"]
+description = "UI framework, component libraries, and rendering substrate references."
+upstream = "https://github.com/shoelace-style/webawesome.git"
+why_here = "Informs A2UI rendering, component composition, and frontend execution model for Nostra and Cortex apps."
+links_to_nostra_cortex = ["A2UI renderer architecture", "component library interoperability", "design system and accessibility patterns"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 5
+pattern_value = 4
+ux_value = 5
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/workflow-orchestration/workflow-rs"
+kind = "repo"
+status = "reference"
+tags = ["workflow", "orchestration", "durability", "reference"]
+description = "Durable workflow engines and orchestration ecosystems."
+upstream = "https://github.com/workflow-rs/workflow-rs.git"
+why_here = "Provides execution semantics and reliability patterns that can refine Cortex runtime and workflow boundaries."
+links_to_nostra_cortex = ["durable state transitions", "task retries and idempotency", "outbox and command flow design"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 5
+adapter_value = 4
+component_value = 3
+pattern_value = 5
+ux_value = 2
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/editor-platforms/zed"
+kind = "repo"
+status = "reference"
+tags = ["editor", "platform", "tooling", "reference"]
+description = "Developer editor platform references for UX and extension architecture."
+upstream = "https://github.com/zed-industries/zed.git"
+why_here = "Provides reference patterns for shell UX, extension systems, and developer experience components."
+links_to_nostra_cortex = ["extension lifecycle", "workspace models", "command palette and interaction primitives"]
+review_date = "2026-05-01"
+
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 3
+pattern_value = 4
+ux_value = 4
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/data-knowledge/motoko-graph"
+kind = "repo"
+status = "reference"
+tags = ["data", "knowledge", "graph", "motoko", "reference"]
+description = "Motoko graph data model prototype and pattern reference for ordered multigraph persistence."
+upstream = "https://github.com/matthewhammer/motoko-graph.git"
+why_here = "Provides Motoko-native graph modeling patterns for Nostra knowledge graph architecture and lineage semantics."
+links_to_nostra_cortex = ["graph relation modeling in Motoko canisters", "deterministic edge identity and ordering patterns", "typed traversal abstractions for schema adapters"]
+review_date = "2026-05-01"
+
+known_risks = "maintenance stagnation, implementation incompleteness, context transplant risk, unresolved mops migration compatibility for legacy sequence/crud deps, and schema-evolution continuity dependent on strict staged migration procedure"
+suggested_next_experiments = "M20 continuous observability enabled: run weekly trend-backed monitoring bundle (snapshot -> trend -> contract -> governance), use next-action resolver outputs for operator follow-through, and reopen progression only via explicit steward/owner decision under recommendation-only authority"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = ["037", "041", "078"]
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 2
+pattern_value = 4
+ux_value = 0
+future_optionality = 3
+topic_fit = 4
+
+[[entry]]
+path = "research/reference/repos"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/ui-substrate/biscuit"
+kind = "repo"
+status = "reference"
+tags = ["ui", "hci", "llm", "reference", "paper"]
+description = "Research paper source package for BISCUIT UI-centric scaffolding patterns."
+upstream = "https://arxiv.org/abs/2404.07387"
+why_here = "Provides validated HITL UI scaffolding patterns that inform Nostra-native ViewSpec governance and A2UI candidate workflows."
+links_to_nostra_cortex = ["ViewSpec candidate lifecycle", "human-in-the-loop UI synthesis posture", "hybrid text-and-UI interaction patterns"]
+review_date = "2026-05-01"
+
+known_risks = "paper-scope mismatch risk, notebook-context transfer limits, and overextension beyond evidenced claims"
+suggested_next_experiments = "evaluate ViewSpec lock/fork/propose workflow against operator friction and candidate quality metrics"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = ["074-cortex-ui-substrate", "109-cortex-desktop-ux-system", "110-cortex-studio-artifacts-production-loop", "115-cortex-viewspec-governed-ui-synthesis"]
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 3
+component_value = 2
+pattern_value = 4
+ux_value = 4
+future_optionality = 3
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/analysis"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/inbox"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/data-knowledge"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/editor-platforms"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-core"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/icp-realtime"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/misc"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/ui-substrate"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/visualization"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/workflow-orchestration"
+kind = "container"
+status = "reference"
+tags = ["reference", "container"]
+description = "Reference container path for organized catalog content."
+upstream = ""
+why_here = "Provides stable organization boundaries for reference intake and classification workflows."
+links_to_nostra_cortex = ["catalog governance", "intake workflows", "traceable classification"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference"
+kind = "container"
+status = "reference"
+tags = ["reference", "root"]
+description = "Reference root container for non-core repositories and intake metadata."
+upstream = ""
+why_here = "Provides a single root for all non-core repository organization and governance."
+links_to_nostra_cortex = ["catalog governance", "reference intake", "future option tracking"]
+review_date = "2026-05-01"
+
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 1
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 4
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/repos/unstract"
+kind = "repo"
+status = "reference"
+tags = ["data", "etl", "unstructured", "agents"]
+description = "Platform for ETL of unstructured data using LLM agents."
+upstream = "https://github.com/unstract/unstract"
+why_here = "Reference for data ingestion and processing pipelines relevant to Cortex Knowledge Engine."
+links_to_nostra_cortex = ["data pipeline architecture", "unstructured data handling"]
+review_date = "2026-02-14"
+known_risks = "upstream drift, context mismatch, and semantic transplant risk"
+suggested_next_experiments = "validate with an initiative-scoped experiment and capture adoption decision"
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 4
+component_value = 4
+pattern_value = 4
+ux_value = 3
+future_optionality = 4
+topic_fit = 4
+
+[[entry]]
+path = "research/reference/repos/uv"
+kind = "repo"
+status = "reference"
+tags = ["rust", "architecture", "workspace", "crate-separation", "patterns", "reference"]
+description = "Extremely fast Python package manager written in Rust. 66-crate workspace demonstrating trait-hub pattern for breaking circular dependencies — directly informs Cortex Runtime Extraction crate architecture."
+upstream = "https://github.com/astral-sh/uv.git"
+why_here = "Production-proven 66-crate Rust workspace architecture with trait-hub (uv-types), dispatch orchestrator (uv-dispatch), and SharedState patterns that directly validate Research 118 Onion Architecture extraction strategy."
+links_to_nostra_cortex = ["trait-hub pattern for cortex-domain", "dispatch orchestrator for cortex-runtime", "SharedState Arc pattern for CRDT sharing", "platform crate separation for host adapters", "cycle detection for governance engines"]
+review_date = "2026-08-01"
+
+known_risks = "Python-specific domain logic has no direct reuse; only architectural patterns transfer. Upstream evolving rapidly."
+suggested_next_experiments = "Map BuildContext trait surface to cortex-domain planned traits. Compare SharedState::fork() against CRDT state management."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = ["118-cortex-runtime-extraction"]
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 2
+component_value = 2
+pattern_value = 5
+ux_value = 1
+future_optionality = 4
+topic_fit = 3
+
+[[entry]]
+path = "research/reference/repos/x-algorithm"
+kind = "repo"
+status = "reference"
+tags = ["rust", "python", "ml", "recommendation", "pipeline", "scoring", "patterns", "reference"]
+description = "X/Twitter For You feed recommendation algorithm. Composable Rust pipeline framework, Grok-based transformer ranking, in-memory post store with backpressure. Pattern reference for post-118 Cortex Runtime pipeline architecture."
+upstream = "https://github.com/xai-org/x-algorithm"
+why_here = "Production-proven composable pipeline architecture (Source → Hydrator → Filter → Scorer → Selector), candidate isolation for deterministic scoring, weighted multi-signal scoring, and semaphore-based backpressure — all directly applicable to post-118 Cortex Runtime."
+links_to_nostra_cortex = ["composable pipeline framework for ViewSpec evaluation", "candidate isolation for deterministic scoring (Purity Contract #14)", "weighted multi-signal UX scoring", "semaphore backpressure for gateway admission control", "stage-level EventBus observability"]
+review_date = "2026-08-01"
+
+known_risks = "Cloud-scale server-side architecture (Kafka, gRPC, distributed ML) does not map to Cortex local-first model. Phoenix ML stack (JAX/Python) irrelevant to Rust/WASM runtime. Premature adoption during 118 would add scope."
+suggested_next_experiments = "Prototype cortex-runtime/pipeline/ module using CandidatePipeline trait pattern post-118. Evaluate weighted multi-signal scoring for cortex_ux.rs."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = ["118-cortex-runtime-extraction"]
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 3
+component_value = 3
+pattern_value = 5
+ux_value = 2
+future_optionality = 4
+topic_fit = 2
+
+[[entry]]
+path = "research/reference/topics/agent-systems/deepmind-agent-systems"
+kind = "paper"
+status = "reference"
+tags = ["agents", "scaling-laws", "multi-agent", "coordination", "benchmarking", "patterns", "reference"]
+description = "DeepMind Agents Systems paper (arXiv-2512.08296v2). Quantitative scaling laws for multi-agent systems: tool-coordination trade-offs, capability saturation, topology-dependent error amplification."
+upstream = "https://arxiv.org/abs/2512.08296v2"
+why_here = "Foundational scaling principles for agent architecture selection. Directly informed Research 091 analysis and Cortex orchestrator design."
+links_to_nostra_cortex = ["agent topology selection (centralized vs decentralized)", "validation bottleneck architecture", "coordination overhead metrics", "SAS-first design principle"]
+review_date = "2026-08-01"
+
+known_risks = "Academic paper — patterns only, no runnable code. Benchmarks use cloud-scale LLM infrastructure not applicable to local-first Cortex."
+suggested_next_experiments = "Implement Nostra Bench task classifier per Research 091 Section 4. Validate SAS >45% threshold against Cortex tasks."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = ["091-deepmind-agent-systems-analysis", "118-cortex-runtime-extraction"]
+[entry.scorecard]
+ecosystem_fit = 2
+adapter_value = 2
+component_value = 2
+pattern_value = 5
+ux_value = 1
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/agent-labs"
+kind = "repo"
+status = "reference"
+tags = ["agents", "scaling-laws", "multi-agent", "coordination", "benchmarking", "arena", "patterns", "reference"]
+description = "Brainqub3 Agent Arena — open-source implementation of DeepMind Agents Systems scaling principles (arXiv-2512.08296v2). All 5 paper architectures, Table 4 prediction model, coordination metrics, elasticity scaling, and evaluator-first testing."
+upstream = "https://github.com/brainqub3/agent-labs"
+why_here = "Reference implementation of the DeepMind paper's scaling laws. Provides runnable code for all 5 topologies, coordination metrics, and the predictive model. Code companion to the paper reference at topics/agent-systems/deepmind-agent-systems/."
+links_to_nostra_cortex = ["BaseOrchestrator abstraction for WorkflowExecutor", "coordination metrics for agent telemetry", "Evaluator protocol for acceptance testing", "run immutability for Chronicle alignment", "elasticity scaling for Nostra Bench"]
+review_date = "2026-08-01"
+
+known_risks = "Anthropic-specific (claude-agent-sdk dependency). Early-stage v0.1.0 with active development. Evaluator strategies are basic. Scaling model uses paper defaults — re-standardisation needed for Cortex."
+suggested_next_experiments = "Run hello_world task to validate pipeline. Prototype Cortex-specific TaskSpec. Extract coordination metric formulas into WorkflowExecutor telemetry."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = "research/REFERENCE_MIGRATION_LINEAGE.md"
+initiative_refs = ["091-deepmind-agent-systems-analysis", "118-cortex-runtime-extraction"]
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 4
+component_value = 4
+pattern_value = 5
+ux_value = 3
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/data-knowledge/surrealdb"
+kind = "repo"
+status = "reference"
+tags = ["data", "knowledge", "indexing", "graph", "reference"]
+description = "A scalable, distributed, collaborative, document-graph database."
+upstream = "https://github.com/surrealdb/surrealdb.git"
+why_here = "Provides architectural validation for Cortex's StorageAdapter KV abstraction and Nostra's graph edges as documents pattern. Demonstrates limits of KV temporal versioning vs Git-backed Memory FS."
+links_to_nostra_cortex = ["StorageAdapter KV abstraction", "Graph edge documents", "Temporal versioning metadata"]
+review_date = "2026-08-20"
+
+known_risks = "Heavyweight Rust monorepo; patterns must be abstracted rather than directly imported to avoid bloat."
+suggested_next_experiments = "Apply the RecordType::Edge pattern to the Nostra Graph refactoring"
+primary_steward = "Systems Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = ""
+initiative_refs = ["118-cortex-runtime-extraction", "121-cortex-memory-fs"]
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 2
+component_value = 2
+pattern_value = 5
+ux_value = 1
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/OneContext"
+kind = "repo"
+status = "reference"
+tags = ["agents", "memory", "context", "reference"]
+description = "A CLI-based Agent Self-Managed Context layer for sharing robust context sessions."
+upstream = "https://github.com/onecontext/onecontext.git"
+why_here = "Provides comparative patterns for agent-to-agent session portability vs internal cognitive trajectory."
+links_to_nostra_cortex = ["ACP handoffs", "Session portability"]
+review_date = "2026-08-20"
+
+known_risks = "Focuses on portability over cognitive capability."
+suggested_next_experiments = "None"
+primary_steward = "Systems Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = ""
+initiative_refs = ["121-cortex-memory-fs"]
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 4
+component_value = 2
+pattern_value = 4
+ux_value = 2
+future_optionality = 3
+topic_fit = 4
+
+[[entry]]
+path = "research/reference/topics/agent-systems/ag-ui"
+kind = "repo"
+status = "reference"
+tags = ["agents", "ui", "protocol", "interaction", "reference"]
+description = "AG-UI is an open, lightweight, event-based protocol that standardizes how AI agents connect to user-facing applications."
+upstream = "https://github.com/ag-ui-protocol/ag-ui.git"
+why_here = "Provides a standard protocol for Agent-to-User interaction (state, UI intents, streaming) which complements A2UI generative UI concepts."
+links_to_nostra_cortex = ["agent interaction protocols", "streaming and interrupts", "A2UI payload wrappers"]
+review_date = "2026-08-15"
+
+known_risks = "upstream drift, changing rapidly as a new CopilotKit protocol"
+suggested_next_experiments = "Prototype AG-UI event handling around A2UI components in Cortex Desktop."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = ""
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 4
+adapter_value = 4
+component_value = 4
+pattern_value = 5
+ux_value = 5
+future_optionality = 5
+topic_fit = 5
+
+[[entry]]
+path = "research/reference/topics/agent-systems/CopilotKit"
+kind = "repo"
+status = "reference"
+tags = ["agents", "ui", "framework", "reference"]
+description = "SDK for building full-stack agentic applications, Generative UI, and chat applications. Implementations of AG-UI."
+upstream = "https://github.com/CopilotKit/CopilotKit.git"
+why_here = "Provides reference implementations of complex agentic UI patterns, shared state, and human-in-the-loop interventions."
+links_to_nostra_cortex = ["generative UI application layer", "agent state synchronization", "frontend tool calls"]
+review_date = "2026-08-15"
+
+known_risks = "React-heavy SDK; Cortex is primarily Rust/Dioxus, meaning patterns must be adapted, not code."
+suggested_next_experiments = "Examine how CopilotKit synchronizes shared state to inform Nostra entity synchronization."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = ""
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 2
+component_value = 3
+pattern_value = 5
+ux_value = 5
+future_optionality = 5
+topic_fit = 4
+
+[[entry]]
+path = "research/reference/topics/agent-systems/open-ag-ui-canvas"
+kind = "repo"
+status = "reference"
+tags = ["agents", "ui", "framework", "reference", "demo"]
+description = "Demo applications of AG-UI showcasing frontend-driven Generative UI with CopilotKit and Mastra alongside CrewAI/LangGraph backends."
+upstream = "https://github.com/ag-ui-protocol/open-ag-ui-canvas.git"
+why_here = "Demonstrates how AG-UI events from backend graphs (like LangGraph emits) are bound to explicit frontend React components via CopilotKit hooks, contrasting with A2UI's macro-component serialization."
+links_to_nostra_cortex = ["generative UI application layer", "agent state synchronization", "frontend tool calls"]
+review_date = "2026-08-15"
+
+known_risks = "Heavy React-based abstraction tying generative states to explicit UI components, opposed to A2UI's UI structure streaming."
+suggested_next_experiments = "Examine how CopilotKit synchronizes shared state in `useCopilotAction` to inform Nostra's frontend bindings."
+primary_steward = "Research Steward"
+authority_mode = "recommendation_only"
+escalation_path = "steward_review -> owner_decision"
+lineage_record = ""
+initiative_refs = []
+[entry.scorecard]
+ecosystem_fit = 3
+adapter_value = 2
+component_value = 3
+pattern_value = 5
+ux_value = 5
+future_optionality = 5
+topic_fit = 4
