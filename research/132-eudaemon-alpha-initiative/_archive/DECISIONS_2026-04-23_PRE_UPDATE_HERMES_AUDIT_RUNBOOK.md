@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-23 — Hermes Runbooks Automate Ritual, Not Agency
-
-**Decision**
-
-Add a local `HermesAuditRunbookV1` planning contract under `/Users/xaoj/hermes` to standardize the operator-mediated ritual around Hermes advisory passes: preflight validation, one bounded Hermes pass, postflight validation, optional evidence drafting, and manual promotion.
-
-This runbook may generate or reuse a bounded prompt template, but it does not enable unattended execution, schedules, webhooks, subagents, MCP connectors, provider jobs, browser automation, code execution, skill installation, repository mutation, runtime mutation, or execution adapters.
-
-**Why**
-
-- The first activation and capability-discovery passes proved that the envelope is useful but still too manual for repeatable use.
-- Automating the ritual reduces operator error while preserving the current governance boundary.
-- Initiative 132 needs repeatable advisory passes before any future Initiative 134 adapter work is justified.
-
-**Consequences**
-
-- Hermes runbooks are local planning artifacts, not public Cortex APIs or workflow authority.
-- The operator remains responsible for preflight, postflight, evidence promotion, commits, and pushes.
-- Any future unattended scheduler, background worker, or runtime adapter remains separate Initiative 134 work.
-
 ## 2026-04-23 — Hermes Capability Discovery Envelope Is Planning-Only
 
 **Decision**

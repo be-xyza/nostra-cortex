@@ -22,8 +22,6 @@ Hermes is adopted for the next local pass only as a local advisory meta-observer
 
 The Hermes Capability & Discovery Envelope adds a second local planning layer for missing observer lanes and realistic capability expectations. It may classify Hermes-native features, map system cartography and boundary-integrity lanes, translate external-agent patterns into Cortex-native design notes, and draft skill-improvement proposals. It does not enable new tools, activate skills, schedule jobs, run batch infrastructure, or introduce execution adapters.
 
-Hermes runbooks may automate the operator ritual around advisory passes: preflight, one bounded pass, postflight, optional evidence drafting, and manual promotion. They do not grant Hermes unattended agency or mutation authority.
-
 Developer worktree isolation, checkpointing, and immutable evidence promotion are now explicit operator safety controls around Initiative 132. They protect the system-definition layer and steward continuity, but they are not themselves runtime heap, closeout-ledger, or workflow primitives.
 
 ## Objectives
@@ -97,7 +95,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Cognitive audit posture**: external batch cognition is advisory only; Eudaemon is the architect and synthesizer for audit loops, not the direct high-volume analyzer
 - **Hermes posture**: Hermes may be used locally as a read-only meta-observer, with one bounded auditable pass, source-linked findings plus synthesis output, and no live batch-provider execution or repository/runtime mutation
 - **Hermes capability discovery posture**: Hermes may classify capabilities and propose observer lanes or skill improvements, but the result is local planning material only; feature enablement and execution adapters require later governed decisions
-- **Hermes runbook posture**: local runbooks may standardize bounded pass operation, but preflight/postflight, evidence promotion, commits, and pushes remain operator-mediated
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
 - **Developer isolation posture**: request work belongs in clean `.worktrees/`; the shared root worktree is reserved for repo-wide stewardship tasks

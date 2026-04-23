@@ -64,13 +64,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Skill architecture follows the hybrid companion strategy: `nostra-cortex-dev-core` remains the lean governance gate, while `nostra-platform-knowledge` may be proposed as a progressive-disclosure knowledge skill with eval prompts.
 - The capability discovery envelope produces local planning artifacts only; it does not create public Cortex APIs, workflow authority, runtime adapters, skill registry changes, or unattended execution.
 
-### 8. Hermes bounded audit runbook
-- A local runbook may automate the repeatable ritual around Hermes passes: operator preflight, one bounded Hermes pass, operator postflight, optional evidence drafting, and manual promotion.
-- The runbook is a planning contract, not a scheduler, workflow authority, execution adapter, or background worker.
-- Hermes may use a prompt template only when explicit source manifest, audit unit, session output, and synthesis output paths are supplied for that run.
-- Preflight, postflight, evidence promotion, commits, and pushes remain operator-mediated.
-- Unattended execution, cron/webhook activation, MCP connectors, subagents, browser automation, code execution, skill installation, provider jobs, queue runners, and batch runners remain out of scope.
-
 ## Resolved Stage Architecture
 
 ### Notes
@@ -110,7 +103,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Initiative plan -> ContributionGraph lineage and portfolio governance
 - Hermes advisory artifact -> source-linked findings + synthesis -> heap/proposal/closeout/workflow/chronicle candidate after steward review
 - Hermes capability artifact -> lane/capability/skill proposal -> steward-reviewed governance candidate only
-- Hermes runbook artifact -> repeatable operator ritual -> bounded local pass only
 
 ## Principles for This Stage
 
@@ -123,7 +115,6 @@ Scope: Initiative 132 readiness review before further implementation
 7. Developer hygiene stays operator-side: request worktree isolation and evidence promotion protect the repo, but they do not redefine Cortex runtime primitives.
 8. Hermes stays observer-side: batch context can shape advisory audit design, but provider execution belongs to a later governed adapter path.
 9. Hermes capability discovery stays planning-side: it can classify strengths and draft proposals, but it cannot enable tools, skills, scheduled jobs, memory authority, or execution behavior.
-10. Hermes runbooks stay operator-mediated: they can reduce pass setup errors, but they cannot create unattended agency or mutation authority.
 
 ## Consequences for Initiative 132
 
