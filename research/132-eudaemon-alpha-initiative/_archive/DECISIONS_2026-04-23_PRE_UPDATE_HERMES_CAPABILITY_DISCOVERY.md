@@ -1,26 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-23 — Hermes Capability Discovery Envelope Is Planning-Only
-
-**Decision**
-
-Add a second local Hermes planning envelope beside the strict activation lane: the Hermes Capability & Discovery Envelope. This envelope may classify Hermes features, name observer lanes, design capability-discovery source manifests, and draft skill-improvement proposals, but it remains read-only, one-pass, source-linked, local, and recommendation-only.
-
-The useful content from the original Hermes analysis is adopted as observer pipeline design: system cartography, component/dependency mapping, boundary integrity review, pattern extraction, adapter translation, test synthesis, skill architecture, capability inventory, event/lifecycle logging, memory/continuity posture, batch design/aggregation, and final synthesis. It is not adopted as an action-loop plan, runtime-authority plan, or permission to activate external execution behavior.
-
-**Why**
-
-- The first Hermes activation pass proved the strict advisory envelope, but it intentionally suppressed broader Hermes capabilities that should still be inventoried for realistic expectations.
-- The original analysis contains useful lane and pipeline structure, especially adapter translation and pattern extraction, without requiring external action-loop activation.
-- Initiative 133 already identifies a skill-architecture gap: `nostra-cortex-dev-core` should remain a lean governance gate, while platform knowledge should move into a progressive-disclosure companion proposal.
-
-**Consequences**
-
-- `/Users/xaoj/hermes` may contain local planning contracts for `HermesLaneCatalogV1`, `HermesCapabilityMatrixV1`, and `SkillImprovementProposalV1`.
-- Capability discovery may classify Hermes skills, memory, session search, cron/webhooks, MCP, subagents, gateway delivery, terminal tooling, and batch-runner concepts, but it must not enable them for Initiative 132.
-- The selected skill strategy is hybrid companion: keep `nostra-cortex-dev-core` as the governance/preflight skill and draft a `nostra-platform-knowledge` proposal with eval prompts before any registry change.
-- Any future live scheduler, execution adapter, distributed execution layer, provider job control, or Cortex-native workflow integration remains separate Initiative 134 work.
-
 ## 2026-04-23 — Hermes Activation Uses Root ICP Authority and Workspace Guardrails
 
 **Decision**

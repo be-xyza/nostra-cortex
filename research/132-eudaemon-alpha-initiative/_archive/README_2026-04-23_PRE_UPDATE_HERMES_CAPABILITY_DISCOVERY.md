@@ -20,8 +20,6 @@ The newly reviewed Doubleword batch-strategy transcript is adopted here only as 
 
 Hermes is adopted for the next local pass only as a local advisory meta-observer: it may receive Initiative 132, Doubleword, architecture, and provider batch-policy references as read-only source material for architecture observation, contradiction detection, drift detection, bounded audit-unit analysis, and recommendation synthesis, but it must not receive provider credentials, submit batch jobs, poll batch APIs, or perform repository/runtime mutation. Each Hermes pass must remain bounded, deterministic, and auditable, and it must produce only source-linked local findings plus a synthesis artifact.
 
-The Hermes Capability & Discovery Envelope adds a second local planning layer for missing observer lanes and realistic capability expectations. It may classify Hermes-native features, map system cartography and boundary-integrity lanes, translate external-agent patterns into Cortex-native design notes, and draft skill-improvement proposals. It does not enable new tools, activate skills, schedule jobs, run batch infrastructure, or introduce execution adapters.
-
 Developer worktree isolation, checkpointing, and immutable evidence promotion are now explicit operator safety controls around Initiative 132. They protect the system-definition layer and steward continuity, but they are not themselves runtime heap, closeout-ledger, or workflow primitives.
 
 ## Objectives
@@ -94,7 +92,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Security Posture**: Phase 6 remains a governed Hetzner `systemd` runtime with operator-local SSH promotion; OS-level sandboxing becomes mandatory for the executor slice that runs untrusted code or broader autonomous contribution loops
 - **Cognitive audit posture**: external batch cognition is advisory only; Eudaemon is the architect and synthesizer for audit loops, not the direct high-volume analyzer
 - **Hermes posture**: Hermes may be used locally as a read-only meta-observer, with one bounded auditable pass, source-linked findings plus synthesis output, and no live batch-provider execution or repository/runtime mutation
-- **Hermes capability discovery posture**: Hermes may classify capabilities and propose observer lanes or skill improvements, but the result is local planning material only; feature enablement and execution adapters require later governed decisions
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
 - **Developer isolation posture**: request work belongs in clean `.worktrees/`; the shared root worktree is reserved for repo-wide stewardship tasks
@@ -150,7 +147,6 @@ Older deployment notes reference an `eudaemon-alpha/` companion implementation r
 - [Promoted dirty inventory metadata](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260410T072110Z_dirty_inventory.json.meta.json)
 - [Batch 1 Decision Gate](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/BATCH1_DECISION_GATE.md)
 - [Phase 7 Execution Plan](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PHASE7_EXECUTION_PLAN.md)
-- [Hermes first advisory activation](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260423T083435Z_hermes_first_advisory_activation.md)
 
 ## References
 

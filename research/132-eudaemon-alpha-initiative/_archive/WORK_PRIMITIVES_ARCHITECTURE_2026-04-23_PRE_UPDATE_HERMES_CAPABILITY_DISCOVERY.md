@@ -57,13 +57,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Hermes is not a Cortex runtime primitive, workflow authority, provider adapter, or execution substrate at this stage.
 - Live batch API submission/polling, provider credentials, and execution-control work remain out of scope.
 
-### 7. Hermes capability discovery context
-- A second local planning envelope may classify Hermes capabilities and define missing observer lanes without enabling new runtime behavior.
-- Planned lanes include system cartography, component/dependency mapping, boundary integrity, pattern extraction, adapter translation, test synthesis, skill architecture, capability inventory, event/lifecycle logging, memory/continuity posture, batch design/aggregation, and final synthesis.
-- Capability discovery may inventory skills, memory, session search, cron/webhooks, MCP, subagents, gateway delivery, terminal tooling, and batch-runner concepts, but feature enablement requires a later governed decision.
-- Skill architecture follows the hybrid companion strategy: `nostra-cortex-dev-core` remains the lean governance gate, while `nostra-platform-knowledge` may be proposed as a progressive-disclosure knowledge skill with eval prompts.
-- The capability discovery envelope produces local planning artifacts only; it does not create public Cortex APIs, workflow authority, runtime adapters, skill registry changes, or unattended execution.
-
 ## Resolved Stage Architecture
 
 ### Notes
@@ -102,7 +95,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Workflow draft -> definition -> instance
 - Initiative plan -> ContributionGraph lineage and portfolio governance
 - Hermes advisory artifact -> source-linked findings + synthesis -> heap/proposal/closeout/workflow/chronicle candidate after steward review
-- Hermes capability artifact -> lane/capability/skill proposal -> steward-reviewed governance candidate only
 
 ## Principles for This Stage
 
@@ -114,7 +106,6 @@ Scope: Initiative 132 readiness review before further implementation
 6. Kickoff approval is approval-first and bounded: it is not a generic "start initiative" affordance.
 7. Developer hygiene stays operator-side: request worktree isolation and evidence promotion protect the repo, but they do not redefine Cortex runtime primitives.
 8. Hermes stays observer-side: batch context can shape advisory audit design, but provider execution belongs to a later governed adapter path.
-9. Hermes capability discovery stays planning-side: it can classify strengths and draft proposals, but it cannot enable tools, skills, scheduled jobs, memory authority, or execution behavior.
 
 ## Consequences for Initiative 132
 

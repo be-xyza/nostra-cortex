@@ -198,13 +198,10 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Define a `SourceManifest` contract that records exact sources and authority tier for every audit unit.
 - Define `HermesObserverSession` as the local advisory session envelope for pass name, model config, input audit units, and output artifact references.
 - Use Hermes locally as a meta-observer for architecture observation, contradiction detection, drift detection, bounded audit-unit analysis, and recommendation synthesis.
-- Add a local Hermes Capability & Discovery Envelope for system cartography, component/dependency mapping, boundary integrity, pattern extraction, adapter translation, test synthesis, skill architecture, capability inventory, event/lifecycle logging, memory/continuity posture, batch design/aggregation, and final synthesis.
 - Activate Hermes only through the dedicated `/Users/xaoj/hermes` workspace and its workspace-local `.hermes.md`; treat promoted root `ICP` docs as authority and `~/.hermes` profiles/SOUL as non-authoritative convenience state.
 - Keep each Hermes session to one bounded, deterministic, auditable pass with explicit `SourceManifest` and `AuditUnit` inputs, `maxSteps = 1`, and `writeAccess = false`.
 - Allow normal advisory inference for Hermes reasoning, but keep batch-provider submission, polling, queue runners, and execution-adapter behavior out of scope.
 - Require each Hermes pass to emit one session record, zero or more source-linked findings, and one local synthesis artifact containing summary, contradictions or drift, recommendations, and source references.
-- Treat `HermesLaneCatalogV1`, `HermesCapabilityMatrixV1`, and `SkillImprovementProposalV1` as local planning contracts only, not public runtime APIs.
-- Use the hybrid companion skill strategy: keep `nostra-cortex-dev-core` lean as the governance/preflight gate and draft `nostra-platform-knowledge` as a progressive-disclosure proposal before any skill registry change.
 - Use Hermes locally to reason over batch-design references without provider execution; any later external batch backend must remain advisory cognition behind Initiative 134.
 - Re-enter Eudaemon Alpha for synthesis, prioritization, contradiction review, and recommendation drafting.
 - Publish outputs through heap blocks, proposals, closeout work, workflow drafts, or chronicle drafts instead of direct authority mutation.
@@ -229,7 +226,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 7. The live cognition lane is explicitly primary for Phase 6 communication, while the batch audit lane remains secondary and advisory.
 8. Developer worktree isolation, closeout hygiene, and evidence promotion are explicitly separated from heap, closeout-ledger, and workflow primitives.
 9. Hermes activation resolves only promoted root `ICP` authority sources, runs through the dedicated local activation workspace, and emits bounded source-linked session/synthesis artifacts without repo or runtime mutation.
-10. Hermes capability discovery is documented as a local planning layer that classifies features and drafts lane/skill proposals without enabling tools, skills, scheduled jobs, batch infrastructure, execution adapters, or runtime mutation.
 
 ### 6.2 LLM API Connection
 Promote the live LLM path from an activity-side workaround into the canonical pattern-detection contract:
