@@ -1,42 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-23 — Hermes Uses Source Packets and Existing Cortex Visibility Surfaces
-
-**Decision**
-
-Adopt `HermesSourcePacketV1` as a local planning/runtime input for bounded Hermes passes when deterministic excerpts or validated facts are preferable to direct file inspection. Also adopt the existing Cortex Web heap, A2UI approval, steward-gate, viewspec proposal, workflow-draft proposal, and agent-contribution approval surfaces as the intended future visibility and approval route for Hermes outputs.
-
-Hermes does not get a bespoke UI control plane in this stage. It remains a local observer whose outputs may later be projected into those existing Cortex surfaces after separate steward review.
-
-**Why**
-
-- The first runbook validation showed that direct Hermes file inspection can drift into shell/code-style behavior even when the pass only needs bounded facts.
-- The repo already contains the user-visibility and approval primitives we want: heap solicitations, steward feedback, A2UI approval tracking, steward-gate validation/apply, and proposal review routes.
-- Reusing existing Cortex visibility surfaces keeps Hermes aligned with current architecture instead of inventing another authority lane.
-
-**Consequences**
-
-- Source packets become the preferred bounded excerpt/fact layer when they are sufficient for a pass.
-- Source packets are local inputs only; if they deserve durable lineage, their content should be promoted into governed evidence, heap artifacts, or Nostra-native contributions through normal review.
-- Hermes visibility work should target projection into heap/proposal/approval surfaces, not direct execution, approval bypass, or a new standalone runtime UI.
-
-## 2026-04-23 — Hermes Stage Stabilization Must Stay Explicit
-
-**Decision**
-
-Track Hermes readiness for Initiative 132 through explicit green/yellow/red stabilization signals rather than intuition. The stage remains active only while Hermes continues to provide bounded architectural value with acceptable operator overhead and no authority confusion.
-
-**Why**
-
-- The current envelope is useful, but it is still a staged advisory system rather than a mature platform primitive.
-- We need legible criteria for when to tighten Hermes, when to expand its role, and when to retire it after its core jobs are absorbed elsewhere.
-
-**Consequences**
-
-- `/Users/xaoj/hermes/stabilization/` may contain local stage-status artifacts describing update, upgrade, and deprecate thresholds.
-- A clean bounded pass count, guardrail reliability, input discipline, user visibility, and net architectural value are now first-class stage signals.
-- Hermes should be deprecated for this stage if Cortex-native primitives absorb the same observation/synthesis job more directly or if the operator burden remains higher than the value returned.
-
 ## 2026-04-23 — Hermes Runbooks Automate Ritual, Not Agency
 
 **Decision**

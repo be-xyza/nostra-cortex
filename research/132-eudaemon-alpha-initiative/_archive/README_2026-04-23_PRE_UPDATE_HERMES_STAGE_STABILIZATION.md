@@ -24,8 +24,6 @@ The Hermes Capability & Discovery Envelope adds a second local planning layer fo
 
 Hermes runbooks may automate the operator ritual around advisory passes: preflight, one bounded pass, postflight, optional evidence drafting, and manual promotion. They do not grant Hermes unattended agency or mutation authority.
 
-Hermes source packets are now the preferred bounded excerpt/fact layer when a pass does not need broad direct file reading. If Hermes outputs are later surfaced to the user in Cortex Web, the intended route is through existing heap, steward-gate, A2UI approval, and proposal-review primitives rather than a bespoke Hermes control plane.
-
 Developer worktree isolation, checkpointing, and immutable evidence promotion are now explicit operator safety controls around Initiative 132. They protect the system-definition layer and steward continuity, but they are not themselves runtime heap, closeout-ledger, or workflow primitives.
 
 ## Objectives
@@ -66,7 +64,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 
 - **124 (Polymorphic Heap Mode)**: Eudaemon emits heap blocks through `POST /api/cortex/studio/heap/emit`, reads block lists through `GET /api/cortex/studio/heap/blocks`, and packages canonical context through `POST /api/cortex/studio/heap/blocks/context`.
 - **126 (Agent Harness)**: Operates at **Authority L1**. Emits `AgentExecutionLifecycle` records each cycle and treats identity enforcement as a production requirement.
-- **Visibility and approvals**: existing heap solicitations, steward feedback, A2UI approval telemetry, steward-gate validate/apply, viewspec proposal review, workflow-draft proposal review, and agent-contribution approval surfaces are the correct future projection path for Hermes outputs if user-facing visibility is added later.
 - **127 (Cortex Repo Ingestion)**: Code search remains constrained to sandbox roots rather than raw repo mutation.
 - **121 (Cortex Memory FS)**: Internal episodic memory remains Git-backed and local to the host.
 - **125 (SIQ)**: Deterministic SIQ gates remain authoritative. Any batch-audit layer is evidence enrichment, not release authority.

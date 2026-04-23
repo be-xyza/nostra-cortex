@@ -71,23 +71,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Preflight, postflight, evidence promotion, commits, and pushes remain operator-mediated.
 - Unattended execution, cron/webhook activation, MCP connectors, subagents, browser automation, code execution, skill installation, provider jobs, queue runners, and batch runners remain out of scope.
 
-### 9. Hermes source packets and stabilization
-- A local source packet may supply bounded excerpts, validated facts, or operator observations when a Hermes pass does not need broad direct file reading.
-- Source packets reduce drift toward shell/code-style inspection and keep the pass deterministic.
-- A source packet is not a new authority primitive. It remains subordinate to root `ICP` authority docs, explicit validation results, and the source manifest.
-- If packet content deserves durable lineage, promote it into governed evidence, a heap artifact, or a Nostra-native contribution through normal review. The closest Nostra-native long-term fit is a Proposal-backed bounded bundle or a durable Artifact/Report, with Chronicle or GlobalEvent recording creation/review/promotion rather than storing the packet itself.
-- Hermes stage readiness should be tracked explicitly through green/yellow/red stabilization signals covering bounded-pass reliability, guardrail integrity, input discipline, user visibility, and net architectural value.
-
-### 10. Hermes visibility and approval projection
-- If Hermes becomes more visible to the user, the correct route is the existing Cortex stack:
-  - heap artifacts and solicitations for visibility
-  - steward feedback and steward-gate for review
-  - A2UI approval telemetry for interaction state
-  - viewspec/workflow proposal routes for durable follow-on changes
-  - agent-contribution approval routes for bounded execution review
-- Hermes should help shape this layer by producing better summaries, contradiction framing, and approval rationale.
-- Hermes should not become a direct viewspec executor, workflow authority, approval bypass, or bespoke UI control plane.
-
 ## Resolved Stage Architecture
 
 ### Notes
@@ -128,7 +111,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Hermes advisory artifact -> source-linked findings + synthesis -> heap/proposal/closeout/workflow/chronicle candidate after steward review
 - Hermes capability artifact -> lane/capability/skill proposal -> steward-reviewed governance candidate only
 - Hermes runbook artifact -> repeatable operator ritual -> bounded local pass only
-- Hermes source packet -> bounded local excerpt/fact layer -> promoted evidence/artifact/report only if separately reviewed
 
 ## Principles for This Stage
 
@@ -142,8 +124,6 @@ Scope: Initiative 132 readiness review before further implementation
 8. Hermes stays observer-side: batch context can shape advisory audit design, but provider execution belongs to a later governed adapter path.
 9. Hermes capability discovery stays planning-side: it can classify strengths and draft proposals, but it cannot enable tools, skills, scheduled jobs, memory authority, or execution behavior.
 10. Hermes runbooks stay operator-mediated: they can reduce pass setup errors, but they cannot create unattended agency or mutation authority.
-11. Hermes source packets stay input-side: they improve deterministic ingestion, but they do not become authority on their own.
-12. Hermes visibility should reuse existing Cortex approval and projection primitives rather than introducing a parallel control plane.
 
 ## Consequences for Initiative 132
 
