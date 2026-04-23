@@ -1,0 +1,59 @@
+{
+  "name": "cortex",
+  "version": "1.0.0",
+  "fonts": {
+    "display": "Bricolage Grotesque",
+    "body": "Spline Sans",
+    "mono": "IBM Plex Mono"
+  },
+  "colors": {
+    "background": "#0F172A",
+    "surface": "#0B1220",
+    "surface_alt": "#111827",
+    "text": "#F8FAFC",
+    "text_on_accent": "#F8FAFC",
+    "text_muted": "#94A3B8",
+    "border": "#1E293B",
+    "accent": "#14B8A6",
+    "accent_soft": "rgba(20, 184, 166, 0.18)",
+    "critical": "#F97316",
+    "critical_soft": "rgba(249, 115, 22, 0.18)",
+    "warning": "#F59E0B",
+    "warning_soft": "rgba(245, 158, 11, 0.18)",
+    "info": "#38BDF8",
+    "info_soft": "rgba(56, 189, 248, 0.18)",
+    "success": "#22C55E",
+    "success_soft": "rgba(34, 197, 94, 0.18)",
+    "focus": "#38BDF8"
+  },
+  "radius": {
+    "sm": "6px",
+    "md": "10px",
+    "lg": "16px"
+  },
+  "spacing": {
+    "xs": "0.25rem",
+    "sm": "0.5rem",
+    "md": "1rem",
+    "lg": "1.5rem",
+    "xl": "2rem"
+  },
+  "policy": {
+    "default_allowlist_id": "host-default",
+    "supported_token_version": "1.0.0",
+    "default_motion_policy": "system",
+    "default_contrast_preference": "system"
+  },
+  "profiles": {
+    "cortex-ops": {
+      "tone": "critical",
+      "density": "compact",
+      "intent": "primary"
+    },
+    "cortex-focus": {
+      "tone": "neutral",
+      "density": "regular",
+      "intent": "secondary"
+    }
+  }
+}

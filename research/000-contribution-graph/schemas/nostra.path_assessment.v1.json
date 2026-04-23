@@ -1,0 +1,46 @@
+{
+  "$id": "nostra.path_assessment.v1",
+  "properties": {
+    "blocking_nodes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "candidate_paths": {
+      "type": "array"
+    },
+    "goal": {
+      "type": "string"
+    },
+    "recommended_path": {
+      "type": "object"
+    },
+    "risk_score": {
+      "type": "integer"
+    },
+    "rule_violations": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_id": {
+      "const": "nostra.path_assessment.v1"
+    },
+    "score_breakdown": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_id",
+    "goal",
+    "candidate_paths",
+    "recommended_path",
+    "risk_score",
+    "blocking_nodes",
+    "score_breakdown",
+    "rule_violations"
+  ],
+  "type": "object"
+}

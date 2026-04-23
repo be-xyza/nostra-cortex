@@ -1,0 +1,27 @@
+{
+  "$id": "nostra.path_assessment_bundle.v1",
+  "properties": {
+    "assessments": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "graph_root_hash": {
+      "type": "string"
+    },
+    "schema_id": {
+      "const": "nostra.path_assessment_bundle.v1"
+    }
+  },
+  "required": [
+    "schema_id",
+    "generated_at",
+    "graph_root_hash",
+    "assessments"
+  ],
+  "type": "object"
+}

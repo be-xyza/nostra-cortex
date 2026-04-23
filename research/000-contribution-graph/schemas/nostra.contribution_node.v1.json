@@ -1,0 +1,95 @@
+{
+  "$id": "nostra.contribution_node.v1",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "initiative",
+        "pr",
+        "bounty",
+        "decision",
+        "question",
+        "task"
+      ],
+      "type": "string"
+    },
+    "layer": {
+      "type": "string"
+    },
+    "portfolio_role": {
+      "enum": [
+        "anchor",
+        "satellite",
+        "reference",
+        "placeholder"
+      ],
+      "type": "string"
+    },
+    "resource_ref": {
+      "type": "string"
+    },
+    "schema_id": {
+      "const": "nostra.contribution_node.v1"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "source_paths": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "active",
+        "paused",
+        "deferred",
+        "completed",
+        "superseded",
+        "archived",
+        "placeholder"
+      ],
+      "type": "string"
+    },
+    "stewardship": {
+      "type": "object"
+    },
+    "structural_pivot_impact": {
+      "enum": [
+        "none",
+        "minor",
+        "major",
+        "superseded"
+      ],
+      "type": "string"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_id",
+    "id",
+    "title",
+    "kind",
+    "status",
+    "layer",
+    "portfolio_role",
+    "structural_pivot_impact",
+    "tags",
+    "stewardship",
+    "source_paths",
+    "source_hash"
+  ],
+  "type": "object"
+}

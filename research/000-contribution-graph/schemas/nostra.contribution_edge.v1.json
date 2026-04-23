@@ -1,0 +1,51 @@
+{
+  "$id": "nostra.contribution_edge.v1",
+  "properties": {
+    "confidence": {
+      "type": "number"
+    },
+    "edge_kind": {
+      "type": "string"
+    },
+    "evidence_lines": {
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "evidence_ref": {
+      "type": "string"
+    },
+    "extracted_at": {
+      "type": "string"
+    },
+    "extracted_by": {
+      "type": "string"
+    },
+    "from": {
+      "type": "string"
+    },
+    "is_explicit": {
+      "type": "boolean"
+    },
+    "schema_id": {
+      "const": "nostra.contribution_edge.v1"
+    },
+    "to": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_id",
+    "from",
+    "to",
+    "edge_kind",
+    "evidence_ref",
+    "evidence_lines",
+    "confidence",
+    "is_explicit",
+    "extracted_by",
+    "extracted_at"
+  ],
+  "type": "object"
+}

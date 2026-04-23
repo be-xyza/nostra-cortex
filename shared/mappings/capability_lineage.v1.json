@@ -1,0 +1,10 @@
+{
+  "schema_id": "nostra.capability_lineage.v1",
+  "entries": [
+    {
+      "capability_id": "route:/system",
+      "contribution_id": "074",
+      "predicate": "derives_from"
+    }
+  ]
+}
