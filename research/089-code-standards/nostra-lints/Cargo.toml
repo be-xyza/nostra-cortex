@@ -1,0 +1,5 @@
+[workspace]
+members = ["no_mutation"]
+
+[workspace.dependencies]
+dylint_linting = "3.2.0"

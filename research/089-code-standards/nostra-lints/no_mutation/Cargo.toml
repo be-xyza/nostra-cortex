@@ -1,0 +1,18 @@
+[package]
+name = "no_mutation"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+clippy_utils = { git = "https://github.com/rust-lang/rust-clippy", rev = "f111816f1943896dfa9c7b953d6d370155734e9e" }
+dylint_linting = { workspace = true, features = ["confidence"] }
+
+[dev-dependencies]
+dylint_testing = "3.2.0"
+
+[package.metadata.rust-analyzer]
+rustc_private = true

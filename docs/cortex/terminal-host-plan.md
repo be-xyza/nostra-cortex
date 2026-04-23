@@ -27,7 +27,7 @@ This host plan follows:
 - [docs/architecture/nostra-cortex-boundary.md](/Users/xaoj/ICP/docs/architecture/nostra-cortex-boundary.md)
 - [docs/architecture/standards.md](/Users/xaoj/ICP/docs/architecture/standards.md)
 - [research/118-cortex-runtime-extraction/RESEARCH.md](/Users/xaoj/ICP/research/118-cortex-runtime-extraction/RESEARCH.md)
-- [research/124-agui-heap-mode/PLAN.md](/Users/xaoj/ICP/research/124-agui-heap-mode/PLAN.md)
+- [research/124-polymorphic-heap-mode/PLAN.md](/Users/xaoj/ICP/research/124-polymorphic-heap-mode/PLAN.md)
 - [research/132-eudaemon-alpha-initiative/PLAN.md](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PLAN.md)
 
 Key rule:

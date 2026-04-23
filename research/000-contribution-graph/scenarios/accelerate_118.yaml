@@ -1,0 +1,26 @@
+scenario:
+  id: "accelerate_118"
+  name: "Accelerate 118"
+  seed: 118
+  commons_version: "nostra-core-v1"
+  siqs_version: "1.0.0"
+constraints:
+  max_mutations: 32
+  max_rounds: 8
+  max_runtime_ms: 128
+rounds:
+  - round: 1
+    actions:
+      - actor: "steward"
+        action: "add_node"
+        node_id: "initiative-118-focus"
+        node_type: "initiative"
+        attributes:
+          status: "active"
+  - round: 2
+    actions:
+      - actor: "steward"
+        action: "add_edge"
+        source: "initiative-118-focus"
+        target: "118"
+        edge_kind: "depends_on"

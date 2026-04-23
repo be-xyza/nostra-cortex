@@ -1,0 +1,39 @@
+# Template: Personal Agent Memory Library
+
+**Archetype**: Personal
+**Purpose**: Storage for agent observations, decisions, and knowledge.
+
+## Structure
+
+```yaml
+id: "memory.agent.{agent_id}"
+name: "Agent Memory - {agent_name}"
+description: "Personal memory graph for agent {agent_id}"
+version: "1.0.0"
+archetype: "personal"
+owner: "{agent_principal}"
+
+# KIP Type Capsules this library implements/uses
+capsules:
+  - "types/observation.kip"
+
+# Chronicle Event Log
+chronicle:
+  enabled: true
+  retention: "eternal"
+
+# Pre-seeded Entities (Bootstrap)
+entities:
+  - id: "bootstrap-001"
+    type: "discovery"
+    name: "Memory Initialized"
+    description: "Agent memory library created and initialized."
+    tags: ["system", "init"]
+
+# External Connections (Log Registry)
+external_connections:
+  endpoints:
+    - id: "log_registry"
+      canister_id: "{log_registry_canister_id}"
+      method: "get_logs_by_id"
+```

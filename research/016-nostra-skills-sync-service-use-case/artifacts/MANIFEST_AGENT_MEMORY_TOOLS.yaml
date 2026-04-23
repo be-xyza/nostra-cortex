@@ -1,0 +1,70 @@
+# Manifest: Agent Memory Tools
+
+**ID**: `nostra.agent-memory-tools`
+**Version**: `0.1.0`
+**Description**: Tools for accessing and managing agent memory (Personal Library).
+
+## Parameters
+All tools implicitly operate on the `memory.agent.{agent_id}` library mounted in the agent's context.
+
+## Tools
+
+### 1. `recall`
+Search past observations by semantic similarity or text match.
+
+```yaml
+name: recall
+description: Search agent memory for relevant observations
+parameters:
+  query:
+    type: string
+    description: The search query (e.g., "how did we fix CORS?")
+    required: true
+  type:
+    type: string
+    description: Filter by observation type (e.g., "bugfix", "decision")
+    enum: ["discovery", "decision", "problem", "solution", "pattern", "warning", "success", "refactor", "bugfix", "feature"]
+  limit:
+    type: number
+    default: 5
+```
+
+### 2. `get_context`
+Get observations related to a specific context (entities or logs).
+
+```yaml
+name: get_context
+description: Retrieve observations linked to specific entities or logs
+parameters:
+  entity_ids:
+    type: array
+    items: { type: string }
+    description: List of Entity IDs to find related observations for
+  log_ids:
+    type: array
+    items: { type: string }
+    description: List of Log IDs to find related observations for
+```
+
+### 3. `remember`
+Explicitly Store a new observation (usually handled auto-hook, but manual is allowed).
+
+```yaml
+name: remember
+description: Store a new observation in memory
+parameters:
+  summary:
+    type: string
+    required: true
+  content:
+    type: string
+    required: true
+  type:
+    type: string
+    required: true
+    enum: ["discovery", "decision", "problem", "solution", "pattern", "warning", "success", "refactor", "bugfix", "feature"]
+  log_refs:
+    type: array
+    items: { type: string }
+    description: IDs of logs related to this observation
+```

@@ -14,7 +14,7 @@ Analyze `pi-mono` as a reference repository for modular agent tooling. The valid
 
 ## Initiative Links
 - `118-cortex-runtime-extraction`: relevant for event buses, agent/tool lifecycle boundaries, and provider abstraction.
-- `124-agui-heap-mode`: relevant for host-side projection and workbench/UI consumption patterns.
+- `124-polymorphic-heap-mode`: relevant for host-side projection and workbench/UI consumption patterns.
 - `132-eudaemon-alpha-initiative`: relevant for live-provider boundaries, agent loop evolution, and future A2UI feedback surfaces.
 
 ## Pattern Extraction

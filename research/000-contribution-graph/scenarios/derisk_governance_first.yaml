@@ -1,0 +1,18 @@
+scenario:
+  id: "derisk_governance_first"
+  name: "De-risk Governance Dependencies First"
+  seed: 42
+  commons_version: "nostra-core-v1"
+  siqs_version: "1.0.0"
+constraints:
+  max_mutations: 32
+  max_rounds: 8
+  max_runtime_ms: 128
+rounds:
+  - round: 1
+    actions:
+      - actor: "steward"
+        action: "add_edge"
+        source: "119"
+        target: "118"
+        edge_kind: "constitutional_basis"
