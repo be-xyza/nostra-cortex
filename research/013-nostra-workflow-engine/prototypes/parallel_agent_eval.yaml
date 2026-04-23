@@ -1,0 +1,103 @@
+id: a-b-agent-eval-workflow
+version: '1.0'
+specVersion: '0.8'
+name: Comparative Agent Evaluation Template
+description: >-
+  Executes two agents in parallel against the same prompt, runs deterministic graders, and pauses for A2UI human review if confidence is low.
+start: GenerateCandidates
+
+functions:
+  - name: invokeAgentA
+    operation: agent.invoke
+  - name: invokeAgentB
+    operation: agent.invoke
+  - name: evaluateBenchmarkA
+    operation: grader.evaluate
+  - name: evaluateBenchmarkB
+    operation: grader.evaluate
+  - name: renderA2UIFeedback
+    operation: a2ui.userTask
+
+states:
+  - name: GenerateCandidates
+    type: parallel
+    branches:
+      - name: AgentABranch
+        actions:
+          - name: runAgentA
+            functionRef:
+              refName: invokeAgentA
+              arguments:
+                prompt: "${ .prompt }"
+                model: "claude-3-5-sonnet-20241022"
+                temperature: 0.1
+            actionDataFilter:
+              toStateData: "${ .candidates.agentA.output }"
+          - name: evalAgentA
+            functionRef:
+              refName: evaluateBenchmarkA
+              arguments:
+                output: "${ .candidates.agentA.output }"
+                assertions: "${ .assertions }"
+            actionDataFilter:
+              toStateData: "${ .candidates.agentA.benchmark }"
+
+      - name: AgentBBranch
+        actions:
+          - name: runAgentB
+            functionRef:
+              refName: invokeAgentB
+              arguments:
+                prompt: "${ .prompt }"
+                model: "claude-3-5-sonnet-20241022"
+                temperature: 0.9
+            actionDataFilter:
+              toStateData: "${ .candidates.agentB.output }"
+          - name: evalAgentB
+            functionRef:
+              refName: evaluateBenchmarkB
+              arguments:
+                output: "${ .candidates.agentB.output }"
+                assertions: "${ .assertions }"
+            actionDataFilter:
+              toStateData: "${ .candidates.agentB.benchmark }"
+    transition: EvaluateResults
+
+  - name: EvaluateResults
+    type: switch
+    dataConditions:
+      - condition: "${ .candidates.agentA.benchmark.passRate == 1.0 and .candidates.agentA.benchmark.latencyMs < .candidates.agentB.benchmark.latencyMs }"
+        transition: SelectAgentA
+      - condition: "${ .candidates.agentB.benchmark.passRate == 1.0 }"
+        transition: SelectAgentB
+    defaultCondition:
+      transition: RequestHumanReview
+
+  - name: SelectAgentA
+    type: inject
+    data:
+      selectedOutput: "${ .candidates.agentA.output }"
+      selectedBenchmark: "${ .candidates.agentA.benchmark }"
+    end: true
+
+  - name: SelectAgentB
+    type: inject
+    data:
+      selectedOutput: "${ .candidates.agentB.output }"
+      selectedBenchmark: "${ .candidates.agentB.benchmark }"
+    end: true
+
+  - name: RequestHumanReview
+    type: operation
+    actions:
+      - name: projectA2UIViewer
+        functionRef:
+          refName: renderA2UIFeedback
+          arguments:
+            schema: "nostra://schemas/a2ui/eval_viewer_v1"
+            data:
+              candidates: "${ .candidates }"
+              prompt: "${ .prompt }"
+        actionDataFilter:
+          toStateData: "${ .humanFeedback }"
+    end: true

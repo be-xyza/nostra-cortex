@@ -11,7 +11,7 @@ Analyze TAUI (Terminal Agent UI) standard and its core runtime as a comparative 
 - **Strict Schema Gatekeeping**: The installed validator rejects unsupported nodes and versions up front, which is directly relevant to the terminal-document boundary we are adding around A2UI terminal-safe payloads.
 
 ## Initiative Links
-- Relates to `118-cortex-runtime-extraction`, `124-agui-heap-mode`, and operator terminal-host promotion work such as a future `cortex-tui` or `cortex-operator-cli`.
+- Relates to `118-cortex-runtime-extraction`, `124-polymorphic-heap-mode`, and operator terminal-host promotion work such as a future `cortex-tui` or `cortex-operator-cli`.
 
 ## Pattern Extraction
 - **Stateless Architecture**: `setDocument(spec)` completely obliterates and rewrites UI bounds without requiring component-level focus or internal React/TUI state.

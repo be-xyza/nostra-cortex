@@ -1,0 +1,18 @@
+scenario:
+  id: "delay_013_bridge"
+  name: "Delay Workflow Bridge 013"
+  seed: 13
+  commons_version: "nostra-core-v1"
+  siqs_version: "1.0.0"
+constraints:
+  max_mutations: 32
+  max_rounds: 8
+  max_runtime_ms: 128
+rounds:
+  - round: 1
+    actions:
+      - actor: "operator"
+        action: "modify_attribute"
+        node_id: "013"
+        key: "status"
+        value: "deferred"
