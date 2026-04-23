@@ -1,0 +1,43 @@
+{
+  "$id": "nostra.contribution_graph.v1",
+  "properties": {
+    "build_report": {
+      "type": "object"
+    },
+    "edges": {
+      "type": "array"
+    },
+    "extraction_report": {
+      "type": "object"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "graph_root_hash": {
+      "type": "string"
+    },
+    "integrity_report": {
+      "type": "object"
+    },
+    "nodes": {
+      "type": "array"
+    },
+    "path_assessment": {
+      "type": "object"
+    },
+    "schema_id": {
+      "const": "nostra.contribution_graph.v1"
+    }
+  },
+  "required": [
+    "schema_id",
+    "nodes",
+    "edges",
+    "graph_root_hash",
+    "integrity_report",
+    "build_report",
+    "extraction_report",
+    "path_assessment"
+  ],
+  "type": "object"
+}

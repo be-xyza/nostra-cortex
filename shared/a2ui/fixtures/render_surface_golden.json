@@ -1,0 +1,53 @@
+{
+  "type": "RenderSurface",
+  "surfaceId": "golden_surface_1",
+  "title": "Golden Surface",
+  "root": "root",
+  "meta": {
+    "theme": "nostra",
+    "context": "inbox",
+    "priority": "p1",
+    "tone": "warning",
+    "density": "compact",
+    "intent": "secondary",
+    "token_version": "1.0.0",
+    "motion_policy": "reduced",
+    "safe_mode": true,
+    "theme_allowlist_id": "trusted-core",
+    "contrast_preference": "more",
+    "workflow_id": "wf-1",
+    "mutation_id": "mut-1",
+    "source": "fixture",
+    "custom_flag": "golden"
+  },
+  "components": [
+    {
+      "id": "root",
+      "type": "Container",
+      "props": {
+        "description": "root container"
+      },
+      "children": ["msg", "cta"]
+    },
+    {
+      "id": "msg",
+      "type": "Text",
+      "props": {
+        "text": "Hello parity",
+        "tone": "info"
+      },
+      "meta": {
+        "severity": "info"
+      }
+    },
+    {
+      "id": "cta",
+      "type": "Button",
+      "props": {
+        "label": "Acknowledge",
+        "action": "decision_ack:mut-1",
+        "intent": "primary"
+      }
+    }
+  ]
+}
