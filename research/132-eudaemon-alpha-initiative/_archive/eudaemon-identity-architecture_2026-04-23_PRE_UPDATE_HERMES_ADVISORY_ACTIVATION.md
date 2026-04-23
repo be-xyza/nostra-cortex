@@ -72,18 +72,16 @@ This solves cross-space sovereignty — spaces explicitly consent to be observed
 NOSTRA_AGENT_ID = "agent:eudaemon-alpha-01"
 Phase 6 host: Hetzner VPS
 Gateway: Rust cortex-gateway on the same host
-Worker: Rust cortex_worker under the active VPS authority contract
+Worker: Python Eudaemon Alpha loop
 ```
 
 The agent ID follows existing Cortex conventions (`agent:` prefix, resolution chain: header → payload → env → default). The `-01` suffix enables versioning as the agent runtime evolves.
-
-Older Python `eudaemon-alpha/` companion references are historical/unvalidated in this checkout until separately restored and verified.
 
 ### Agent Evolution Across Stages
 
 | Stage | Agent Identity | Runtime | Institution Status |
 |-------|---------------|---------|-------------------|
-| 1: External Research | `agent:eudaemon-alpha-01` | `cortex_worker` on Hetzner + local Rust gateway | `Emergent` |
+| 1: External Research | `agent:eudaemon-alpha-01` | Python worker on Hetzner + local Rust gateway | `Emergent` |
 | 2: Multi-Agent | `agent:eudaemon-alpha-{N}` | Specialized hosted agents | `Emergent` |
 | 3: Native Workers | `agent:eudaemon-cortex-{N}` | Rust Cortex workers | `Operational` |
 | 4: Institutional | Internal to Cortex runtime | Native | `Operational` |

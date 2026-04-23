@@ -42,7 +42,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-04-23"
+updated: "2026-04-10"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -54,11 +54,9 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 Current validated reality for this pass:
 - Gateway parity passes locally in this checkout.
 - The root repo is the authoritative source for this planning pass.
-- The companion `eudaemon-alpha/` repo path is absent here and should be treated as historical/unvalidated until it is restored or mirrored.
-- The active VPS deployment contract is `cortex-gateway` plus `cortex_worker`, rendered and checked through the Hetzner runbook and runtime authority manifest.
+- The companion `eudaemon-alpha/` repo path is absent here and should be treated as unvalidated until it is restored or mirrored.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
-- Hermes is allowed only as a local, read-only advisory meta-observer for batch-design planning; live batch-provider execution and execution-adapter logic remain out of scope.
 
 ## Phase 6 Runtime Resolution
 
@@ -66,13 +64,13 @@ For the current implementation slice, the Phase 6 target is:
 
 1. **Host**: Hetzner VPS
 2. **Gateway**: Rust `cortex-gateway` on the same host, bound to `127.0.0.1:3000`
-3. **Worker**: Rust `cortex_worker` in `nostra/worker`; older Python companion worker references are historical/unvalidated in this checkout
+3. **Agent loop**: Python worker in `eudaemon-alpha/agent`
 4. **Service model**: Linux `systemd`
 5. **Auth posture**:
    - `NOSTRA_AUTHZ_DEV_MODE=0`
    - `NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER=0`
    - `NOSTRA_AGENT_IDENTITY_ENFORCEMENT=1`
-6. **Migration posture**: Rust-native `cortex-eudaemon` remains the Phase 7+ parity target; do not shift runtime authority until parity is proven
+6. **Migration posture**: Rust-native `cortex-eudaemon` remains the Phase 7+ parity target, not the Phase 6 primary runtime
 
 At this stage:
 - Nostra remains authority for initiatives, contributions, DPub lineage, and institutional identity.
@@ -122,15 +120,13 @@ The Doubleword transcript is adopted in 132 only as a recommendation-only patter
 5. ChatGPT Pro does not act as a generic API-credit source for Eudaemon. If adopted, it must enter through an explicit Codex subscription adapter path.
 6. Durable orchestration belongs to Cortex workflow artifacts and adapters under Initiative 134.
 7. Current Phase 6 runs must enter and exit through the real stack already present in the repo:
+   - Python Eudaemon worker
    - Rust gateway
-   - `cortex_worker`
    - low-latency live cognition provider invocation
    - heap/context endpoints
    - lifecycle and benchmark artifacts
 8. Findings publish first as heap blocks, proposals, closeout follow-through, workflow drafts, or chronicle drafts. They do not directly mutate Nostra graph authority.
 9. Core-graph bootstrap ideas from the transcript are limited to semantic discovery and normalization. They do not authorize direct graph creation from external batch outputs.
-10. Hermes source bundles may include Doubleword and provider batch-policy references only to design `AuditUnit`/`SourceManifest` boundaries; they must not include provider credentials, API submission logic, polling instructions, execution-adapter logic, or repo mutation authority.
-11. Hermes activation must run from a dedicated local workspace under `/Users/xaoj/hermes`, using a workspace-local `.hermes.md` guardrail file; each session is one bounded, deterministic, auditable pass that emits a session record, optional source-linked findings, and one synthesis artifact.
 
 See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 
@@ -145,7 +141,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 7. Integrate a recommendation-only cognitive audit path that uses typed audit units, batch reasoning, and governed synthesis without bypassing SIQ, workflow, or steward review.
 8. Formalize a live-provider boundary that supports `api_key` and `codex_subscription` lanes without making browser-subscription auth the runtime authority.
 9. Treat clean request worktrees, durable checkpointing, and immutable evidence promotion as operator safety controls for the system-definition layer.
-10. Define a local Hermes observer envelope as a planned advisory environment rather than a Cortex runtime component, with a dedicated activation workspace and local synthesis outputs.
 
 ## Out of Scope
 
@@ -155,7 +150,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 4. Autonomous promotion beyond recommendation-only boundaries.
 5. Direct creation or mutation of the Nostra core graph from external batch analysis output.
 6. Treating developer Git worktree state as a Cortex runtime primitive.
-7. Running live Doubleword or other batch-provider APIs, queue workers, polling loops, or execution-control extraction as part of the Hermes advisory pass.
 
 ## Delivery Phases
 
@@ -196,13 +190,7 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 ### Phase G: Cognitive Audit Pipeline
 - Define an `AuditUnit` manifest over governed sources such as architecture standards, active initiative plans, heap context bundles, lifecycle events, and workflow artifacts.
 - Define a `SourceManifest` contract that records exact sources and authority tier for every audit unit.
-- Define `HermesObserverSession` as the local advisory session envelope for pass name, model config, input audit units, and output artifact references.
-- Use Hermes locally as a meta-observer for architecture observation, contradiction detection, drift detection, bounded audit-unit analysis, and recommendation synthesis.
-- Activate Hermes only through the dedicated `/Users/xaoj/hermes` workspace and its workspace-local `.hermes.md`; treat promoted root `ICP` docs as authority and `~/.hermes` profiles/SOUL as non-authoritative convenience state.
-- Keep each Hermes session to one bounded, deterministic, auditable pass with explicit `SourceManifest` and `AuditUnit` inputs, `maxSteps = 1`, and `writeAccess = false`.
-- Allow normal advisory inference for Hermes reasoning, but keep batch-provider submission, polling, queue runners, and execution-adapter behavior out of scope.
-- Require each Hermes pass to emit one session record, zero or more source-linked findings, and one local synthesis artifact containing summary, contradictions or drift, recommendations, and source references.
-- Use Hermes locally to reason over batch-design references without provider execution; any later external batch backend must remain advisory cognition behind Initiative 134.
+- Run structural, constitutional, risk, and optimization passes through an external batch backend only as advisory cognition.
 - Re-enter Eudaemon Alpha for synthesis, prioritization, contradiction review, and recommendation drafting.
 - Publish outputs through heap blocks, proposals, closeout work, workflow drafts, or chronicle drafts instead of direct authority mutation.
 - Keep deterministic SIQ checks and steward review as the release-gating authority.
@@ -225,7 +213,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 6. The cognitive audit path is explicitly routed through current heap, lifecycle, SIQ, and workflow surfaces rather than treated as a direct mutation engine.
 7. The live cognition lane is explicitly primary for Phase 6 communication, while the batch audit lane remains secondary and advisory.
 8. Developer worktree isolation, closeout hygiene, and evidence promotion are explicitly separated from heap, closeout-ledger, and workflow primitives.
-9. Hermes activation resolves only promoted root `ICP` authority sources, runs through the dedicated local activation workspace, and emits bounded source-linked session/synthesis artifacts without repo or runtime mutation.
 
 ### 6.2 LLM API Connection
 Promote the live LLM path from an activity-side workaround into the canonical pattern-detection contract:
@@ -283,8 +270,8 @@ Implement the self-scaffolding pipeline from the Graph-Native Architecture desig
 - Human developer merges → container rebuilds → agent awakens with new capability.
 
 ### 7.5 Rust-Native Runtime Parity & Protocol Hardening
-Transition the Eudaemon-facing capabilities into parity-backed `cortex-eudaemon` Rust slices. Validation against the current repo and external pattern sources supports this as a constrained migration program, not a wholesale Phase 7 replatform. This phase mandates:
-- **Parity-Backed Migration**: Preserve the active Phase 6 `cortex_worker` + Rust gateway deployment authority until Rust slices prove behavioral parity against current heap, lifecycle, workflow, and provider contracts.
+Transition the current `eudaemon-alpha` Python worker into a parity-backed `cortex-eudaemon` Rust slice. Validation against the current repo and external pattern sources supports this as a constrained migration program, not a wholesale Phase 7 replatform. This phase mandates:
+- **Parity-Backed Migration**: Preserve the Phase 6 Python worker + Rust gateway deployment model until the Rust slice proves behavioral parity against current heap, lifecycle, workflow, and provider contracts.
 - **Existing Boundary Reuse**: Follow the current workspace seams in `cortex-domain`, `cortex-runtime`, `cortex-ic-adapter`, and `cortex-eudaemon` rather than inventing a new core crate taxonomy.
 - **Strict Payload Boundaries**: Harden external Gateway and A2UI DTOs with discriminated unions where the domain is variant-shaped, consistent `camelCase` serialization, and contract-synchronized TypeScript bindings.
 - **Protocol Fidelity**: Remove ad hoc cross-language payload drift on the highest-risk network boundaries first, while preserving explicitly governed compatibility fields where current contracts still require them.
@@ -337,10 +324,10 @@ Critical items identified during Initiative 132 gap analysis that must be resolv
 
 Blocking preflight work before live deployment:
 
-- [x] **Canonical Runtime Split**: `cortex_worker` + Rust gateway is the active VPS deployment target; the older companion repo path remains historical/unvalidated in this checkout
+- [x] **Canonical Runtime Split**: Python agent + Rust gateway remains the Phase 6 deployment target, with the companion repo path still unvalidated in this checkout
 - [x] **Canonical Env Contract**: loopback gateway URL, production auth flags, explicit Temporal target
-- [x] **Linux Service Assets**: root repo owns `cortex-gateway.service` and `cortex-worker.service`
-- [x] **Hetzner Runbook**: promotion, deploy, systemd, SSH, and runtime-authority guidance live in the root repo
+- [x] **Linux Service Assets**: root repo owns `cortex-gateway.service`; the companion repo service unit is a planned boundary, not a validated checkout fact
+- [x] **Hetzner Runbook**: bootstrap script, env template, and SSH guidance added to the repo
 - [x] **Deployment Hygiene**: ignore workstation artifacts (`venv`, `__pycache__`, `.pytest_cache`, `.DS_Store`, `.worktrees`)
 - [x] **Repo Boundary**: Initiative 132 stays in root repo; `eudaemon-alpha/` is the planned companion boundary but is not validated in this checkout
 - [ ] **Live Box Validation**: verify SSH alias/host, install deps on Hetzner, enable services, and complete one end-to-end bootstrap cycle
@@ -373,7 +360,7 @@ To ensure the Eudaemon Alpha loop can be tested end-to-end without mocks before 
 5. Live provider preflight fails when the selected Phase 6 cognition lane is under-configured.
 6. Main-cycle analysis uses the native live cognition lane; any batch audit lane remains optional and advisory.
 7. Security boundary test rejects path traversal outside sandbox.
-8. Historical Python companion tests are run only if the companion repo is restored and validated; current repo gates use Rust/gateway checks.
+8. `pytest agent/tests/` passes in the managed virtual environment.
 9. Grader assertions correctly PASS/FAIL/PARTIAL grade analysis outputs.
 10. `AgentBenchmarkRecord` serializes/deserializes correctly via Pydantic.
 11. SelfOptimizer proposes PROMPT edits after 3 consecutive FAIL benchmarks.
@@ -384,16 +371,11 @@ To ensure the Eudaemon Alpha loop can be tested end-to-end without mocks before 
 16. Git-backed memory: commits survive working directory resets; linear history maintained.
 17. Context bundle assembly uses `POST /api/cortex/studio/heap/blocks/context`.
 18. Governance bootstrap writes or validates `agent:eudaemon-alpha-01` in actor and space registries.
-19. Hermes source manifests resolve only promoted root `ICP` authority paths and do not fall back to request-worktree governance files.
-20. Hermes activation loads its workspace-local `.hermes.md` guardrail file from `/Users/xaoj/hermes`.
-21. `HermesObserverSession` enforces `maxSteps = 1` and `writeAccess = false` for the advisory pass.
-22. Each Hermes activation pass emits a local session record, optional source-linked findings, and one synthesis artifact with summary, contradictions or drift, recommendations, and source references.
-23. Hermes may use a normal advisory inference lane, but no batch submission, polling, queueing, or execution-adapter behavior is invoked.
 
 ### Manual (Phases 6-7)
 1. SSH login works to the Hetzner host using the documented alias or explicit host and local private key.
-2. If and when the companion repo is restored, it is validated separately before becoming a deployment dependency again.
-3. `cortex-gateway.service` and `cortex-worker.service` start cleanly under `systemd`.
+2. If and when the companion repo is restored, `git clone --recurse-submodules` produces the expected deployment workspace shape.
+3. `cortex-gateway.service` and `eudaemon-alpha-agent.service` start cleanly under `systemd`.
 4. The actor registry contains `agent:eudaemon-alpha-01`.
 5. The target Space includes the agent in `members` with the intended `archetype`.
 6. Steward reviews the `ConfigProposalBlock` after first boot.

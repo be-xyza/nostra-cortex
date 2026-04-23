@@ -2,7 +2,7 @@
 
 **Status**: Active
 **Created**: 2026-03-07
-**Updated**: 2026-04-23
+**Updated**: 2026-04-10
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -11,21 +11,19 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 
 - **Host**: Hetzner VPS
 - **Gateway**: Rust `cortex-gateway` on the same host, bound to `127.0.0.1:3000`
-- **Worker**: Rust `cortex_worker` from `nostra/worker` is the active VPS worker declared by the current deploy authority; the older Python companion path is historical and unvalidated here
+- **Agent loop**: Python Eudaemon Alpha worker in `/Users/xaoj/ICP/eudaemon-alpha/agent` is the historical Phase 6 target, but this checkout does not validate that companion repo path
 - **Runtime posture**: Linux `systemd` services, production auth enabled, no Docker assumption
 
-Gateway parity passes locally in this checkout. The companion `eudaemon-alpha/` path is absent here and should be treated as historical/unvalidated until it is restored or mirrored. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. Prompt override also remains unverified in this checkout, so it should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
+Gateway parity passes locally in this checkout. The companion `eudaemon-alpha/` path is absent here and should be treated as unvalidated until it is restored or mirrored. Prompt override also remains unverified in this checkout, so it should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
-
-Hermes is adopted for the next local pass only as a local advisory meta-observer: it may receive Initiative 132, Doubleword, architecture, and provider batch-policy references as read-only source material for architecture observation, contradiction detection, drift detection, bounded audit-unit analysis, and recommendation synthesis, but it must not receive provider credentials, submit batch jobs, poll batch APIs, or perform repository/runtime mutation. Each Hermes pass must remain bounded, deterministic, and auditable, and it must produce only source-linked local findings plus a synthesis artifact.
 
 Developer worktree isolation, checkpointing, and immutable evidence promotion are now explicit operator safety controls around Initiative 132. They protect the system-definition layer and steward continuity, but they are not themselves runtime heap, closeout-ledger, or workflow primitives.
 
 ## Objectives
 
 1. **Continuous Improvement**: Analyze architecture, critique designs, and propose governance-safe improvements as graph contributions.
-2. **Hetzner Bring-Up**: Keep the Rust gateway plus `cortex_worker` VPS contract deployable and repeatable without architecture guesswork.
+2. **Hetzner Bring-Up**: Make the Python agent plus Rust gateway deployable and repeatable on Hetzner without architecture guesswork.
 3. **Migration Readiness**: Preserve parity with the future Rust-native Cortex worker path rather than fork a separate product line.
 4. **Chronicle**: Maintain a living DPub documenting ecosystem evolution from genesis.
 
@@ -38,7 +36,8 @@ Developer worktree isolation, checkpointing, and immutable evidence promotion ar
 
 `agent:eudaemon-alpha-01` is now a hard deployment contract across:
 
-- Runtime env, gateway auth headers, and worker identity enforcement
+- Python agent config and env templates
+- Gateway auth headers and identity enforcement
 - Actor registry state
 - Space membership bootstrapping
 
@@ -49,7 +48,7 @@ Before continuing implementation, Initiative 132 is resolved around the followin
 - **Exploratory working material**: Heap blocks and context bundles (`124`)
 - **Operational follow-through**: closeout ledgers and workflow checkpoints (`126`, `134`)
 - **Executable intent**: workflow artifact pipeline plus compiled action/navigation plans (`130`, `134`)
-- **Hosted Phase 6 stack**: Hetzner VPS with loopback-local Rust gateway and `cortex_worker`; historical Python companion references are unvalidated in this checkout
+- **Hosted Phase 6 stack**: Hetzner VPS with loopback-local Rust gateway and Python agent worker
 - **Future migration target**: Rust-native Cortex worker parity slice, not Phase 6’s primary runtime
 
 Detailed analysis lives in [WORK_PRIMITIVES_ARCHITECTURE.md](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/WORK_PRIMITIVES_ARCHITECTURE.md).
@@ -63,7 +62,7 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **127 (Cortex Repo Ingestion)**: Code search remains constrained to sandbox roots rather than raw repo mutation.
 - **121 (Cortex Memory FS)**: Internal episodic memory remains Git-backed and local to the host.
 - **125 (SIQ)**: Deterministic SIQ gates remain authoritative. Any batch-audit layer is evidence enrichment, not release authority.
-- **122 (Agent Runtime Kernel)**: The Rust-native runtime remains the long-term target; the active VPS worker contract now uses `cortex_worker`, while older Python companion references are historical/unvalidated here.
+- **122 (Agent Runtime Kernel)**: The Rust-native runtime remains the long-term target; Phase 6 uses the Python worker as the transitional loop.
 - **047 (Temporal Architecture)**: Durable workflow semantics remain the execution model, even while hosted externally on Hetzner.
 - **080 (DPub Standard)**: Chronicle drafting stays local in Phase 6; governed promotion remains the next integration step.
 - **130 / 133 / 134**: Space capability governance, evaluation, and workflow artifacts remain the controlling portfolio surfaces for any future cognitive audit pipeline.
@@ -74,14 +73,14 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 
 | Stage | Description | Runtime |
 |-------|------------|---------|
-| 1 | External research node | Hetzner `cortex_worker` + loopback-local Rust gateway; historical Python companion path unvalidated |
+| 1 | External research node | Python Eudaemon Alpha worker on Hetzner + local Rust gateway |
 | 2 | Multi-agent research system | Specialized hosted agents sharing the same governed gateway |
 | 3 | Native Cortex workers | Parity-backed Rust slices (Temporal pattern, stricter typed API boundaries) |
 | 4 | Institutional intelligence | Fully native, with OS-level sandboxing required for untrusted execution paths |
 
 ## Key Decisions
 
-- **Canonical Phase 6 runtime**: `cortex_worker` plus Rust gateway on the same Hetzner host; older Python companion assets are not current checkout authority
+- **Canonical Phase 6 runtime**: Python Eudaemon Alpha worker plus Rust gateway on the same Hetzner host
 - **Canonical gateway URL**: `http://127.0.0.1:3000/api/cortex/studio`
 - **Deployment model**: direct Linux services via `systemd`; no Docker requirement for Phase 6
 - **Promotion authority**: operator-local SSH via [`scripts/promote_eudaemon_alpha_vps.sh`](/Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh); GitHub signals promotability only
@@ -91,7 +90,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Migration posture**: `cortex-eudaemon` is the future parity target, but Phase 7 should advance through parity-backed Rust slices and measured extraction from the current `cortex-eudaemon` surface rather than a wholesale replatform
 - **Security Posture**: Phase 6 remains a governed Hetzner `systemd` runtime with operator-local SSH promotion; OS-level sandboxing becomes mandatory for the executor slice that runs untrusted code or broader autonomous contribution loops
 - **Cognitive audit posture**: external batch cognition is advisory only; Eudaemon is the architect and synthesizer for audit loops, not the direct high-volume analyzer
-- **Hermes posture**: Hermes may be used locally as a read-only meta-observer, with one bounded auditable pass, source-linked findings plus synthesis output, and no live batch-provider execution or repository/runtime mutation
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
 - **Developer isolation posture**: request work belongs in clean `.worktrees/`; the shared root worktree is reserved for repo-wide stewardship tasks
@@ -130,16 +128,33 @@ The practical consequences are:
 - mutable `logs/*_latest.*` outputs are reproducible local artifacts, not durable Git authority
 - evidence that matters should be promoted into governed initiative surfaces and remain source-linked
 
+## Validated Phase 7 Sequencing
+
+The validated next-step order for Initiative 132 is:
+
+1. **Contract hardening now**: tighten Rust/TypeScript DTO sync, discriminated payloads, and network-boundary serialization on the currently exposed Gateway and A2UI contracts.
+2. **Parity-backed Rust slice next**: port the highest-value Eudaemon loop capabilities into `cortex-eudaemon` without changing the canonical Phase 6 deployment authority model until parity is proven.
+3. **Executor isolation before untrusted execution**: apply OS-level sandboxing to the execution slice that runs generated shell/code or broader autonomous contribution actions before those capabilities become real.
+
+The first extraction seams worth pursuing in the current repo are:
+
+- **Provider runtime surface**: provider registry/runtime/client/policy logic
+- **ACP / terminal execution surface**: ACP protocol, terminal control, and permission-ledger enforcement
+- **Workbench UX / heap projection surface**: heap/workbench/viewspec projection and UX orchestration
+
+Current stage evidence now shows Batch 1 materially advanced on the provider-runtime surface: remote runtime-host discovery moved behind `provider_runtime::discovery`, provider-admin auth-binding helper logic moved behind `gateway::provider_admin`, and the governed parity/operator checks remained green after the extraction. ACP and workbench extraction remain deferred by default rather than being pulled into the same batch.
+
 ## Deployment Surfaces
 
+- Canonical env template: [`.env.hetzner.example`](/Users/xaoj/ICP/eudaemon-alpha/agent/.env.hetzner.example)
+- Local env template: [`.env.example`](/Users/xaoj/ICP/eudaemon-alpha/agent/.env.example)
 - Hetzner runbook: [`eudaemon-alpha-phase6-hetzner.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-hetzner.md)
 - Local promotion command: [`scripts/promote_eudaemon_alpha_vps.sh`](/Users/xaoj/ICP/scripts/promote_eudaemon_alpha_vps.sh)
-- On-host deploy script: [`ops/hetzner/deploy.sh`](/Users/xaoj/ICP/ops/hetzner/deploy.sh)
-- Gateway unit template: [`cortex-gateway.service`](/Users/xaoj/ICP/ops/hetzner/systemd/cortex-gateway.service)
-- Worker unit template: [`cortex-worker.service`](/Users/xaoj/ICP/ops/hetzner/systemd/cortex-worker.service)
-- Runtime authority check: [`scripts/check_vps_runtime_authority.sh`](/Users/xaoj/ICP/scripts/check_vps_runtime_authority.sh)
+- Companion repo bootstrap script: [`bootstrap_eudaemon_alpha_hetzner.sh`](/Users/xaoj/ICP/eudaemon-alpha/scripts/bootstrap_eudaemon_alpha_hetzner.sh)
+- Production gateway launcher: [`run_cortex_gateway_production.sh`](/Users/xaoj/ICP/scripts/run_cortex_gateway_production.sh)
+- Companion repo agent launcher: [`run_eudaemon_alpha_agent.sh`](/Users/xaoj/ICP/eudaemon-alpha/scripts/run_eudaemon_alpha_agent.sh)
 
-Older deployment notes reference an `eudaemon-alpha/` companion implementation repo, but that path is absent from this checkout and should be treated as historical/unvalidated for this pass. Initiative 132 remains authoritative in the root repo, and the active VPS deployment contract is the current runbook plus runtime authority manifest.
+Older deployment notes reference an `eudaemon-alpha/` companion implementation repo, but that path is absent from this checkout and should be treated as unvalidated for this pass. Initiative 132 remains authoritative in the root repo.
 
 ## Governed Evidence
 

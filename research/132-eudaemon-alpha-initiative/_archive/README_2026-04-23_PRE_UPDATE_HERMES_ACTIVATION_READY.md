@@ -130,6 +130,22 @@ The practical consequences are:
 - mutable `logs/*_latest.*` outputs are reproducible local artifacts, not durable Git authority
 - evidence that matters should be promoted into governed initiative surfaces and remain source-linked
 
+## Validated Phase 7 Sequencing
+
+The validated next-step order for Initiative 132 is:
+
+1. **Contract hardening now**: tighten Rust/TypeScript DTO sync, discriminated payloads, and network-boundary serialization on the currently exposed Gateway and A2UI contracts.
+2. **Parity-backed Rust slice next**: port the highest-value Eudaemon loop capabilities into `cortex-eudaemon` without changing the canonical Phase 6 deployment authority model until parity is proven.
+3. **Executor isolation before untrusted execution**: apply OS-level sandboxing to the execution slice that runs generated shell/code or broader autonomous contribution actions before those capabilities become real.
+
+The first extraction seams worth pursuing in the current repo are:
+
+- **Provider runtime surface**: provider registry/runtime/client/policy logic
+- **ACP / terminal execution surface**: ACP protocol, terminal control, and permission-ledger enforcement
+- **Workbench UX / heap projection surface**: heap/workbench/viewspec projection and UX orchestration
+
+Current stage evidence now shows Batch 1 materially advanced on the provider-runtime surface: remote runtime-host discovery moved behind `provider_runtime::discovery`, provider-admin auth-binding helper logic moved behind `gateway::provider_admin`, and the governed parity/operator checks remained green after the extraction. ACP and workbench extraction remain deferred by default rather than being pulled into the same batch.
+
 ## Deployment Surfaces
 
 - Hetzner runbook: [`eudaemon-alpha-phase6-hetzner.md`](/Users/xaoj/ICP/docs/cortex/eudaemon-alpha-phase6-hetzner.md)

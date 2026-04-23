@@ -1,13 +1,13 @@
 # Initiative 132 Batch 1 Decision Gate
 
 **Date**: 2026-04-01
-**Outcome**: `Batch 1 Accepted; Broader Execution Follow-On Deferred`
+**Outcome**: `Batch 1 Accepted; Batch 2 Deferred`
 
 ## Decision
 
 Batch 1 provider-runtime extraction is accepted as current-stage implementation progress. The provider-admin discovery, record-shaping, and auth-binding helper paths now sit behind narrower `provider_runtime` and `provider_admin` boundaries, and the governed parity checks are green after the move.
 
-Initiative 132 should not start broader execution-control extraction in the same stage pass by default.
+Initiative 132 should not start Batch 2 ACP / terminal execution-control extraction in the same stage pass by default.
 
 ## Why
 
@@ -20,7 +20,7 @@ Initiative 132 should not start broader execution-control extraction in the same
    - non-executable providers are still rejected from execution-binding writes
    - `gateway_parity` is green after the extraction
 3. The current stage rule still applies:
-   - a broader follow-on batch should not begin merely because Batch 1 stayed green
+   - Batch 2 should not begin merely because Batch 1 stayed green
    - ACP remains the next seam, but it is not blocking the provider-runtime move that just landed
 
 ## Answers Required By The Gate
@@ -73,4 +73,4 @@ The previously known heap/workbench compatibility cleanup remains real, but it d
 
 ## Next Step For This Stage
 
-Record Batch 1 as materially advanced, keep the broader execution follow-on deferred by default, and only begin ACP / terminal execution-control extraction as its own governed batch rather than smuggling it into the provider-runtime closeout.
+Record Batch 1 as materially advanced, keep Batch 2 deferred by default, and only begin ACP / terminal execution-control extraction as its own governed batch rather than smuggling it into the provider-runtime closeout.

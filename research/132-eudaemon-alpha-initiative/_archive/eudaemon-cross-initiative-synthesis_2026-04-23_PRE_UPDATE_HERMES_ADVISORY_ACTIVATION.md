@@ -2,7 +2,7 @@
 
 > How Eudaemon Alpha integrates with the current Nostra/Cortex stack after the Phase 6 Hetzner resolution.
 >
-> Current validated reality for this pass: gateway parity passes locally, the root repo is authoritative, the active VPS runtime contract is `cortex-gateway` plus `cortex_worker`, the `eudaemon-alpha/` companion path is historical/unvalidated here, prompt override remains unverified, and Meta-Harness is recommendation-only.
+> Current validated reality for this pass: gateway parity passes locally, the root repo is authoritative, the `eudaemon-alpha/` companion path is absent/unvalidated here, prompt override remains unverified, and Meta-Harness is recommendation-only.
 
 ---
 
@@ -12,15 +12,13 @@ Eudaemon Alpha is not a standalone VPS experiment anymore. It is now treated as 
 
 - a **Hetzner VPS**
 - a **Rust `cortex-gateway`** as the canonical API surface
-- a **Rust `cortex_worker`** as the current hosted worker contract
+- a **Python Eudaemon worker** as the current hosted agent loop
 - a **future Rust-native migration path** for Phase 7+
 
 The important synthesis is that Initiative 132 no longer treats the old `ZeroClaw + Hostinger + Docker` framing as current authority.
 For this pass, root-repo validation takes precedence over any companion-repo assumption.
 
 The newer Doubleword transcript also does not change that authority. Its value is narrower: it offers a useful pattern for recommendation-only cognitive audit loops if those loops are routed through the current heap, lifecycle, workflow, and publication surfaces.
-
-The Hermes advisory observer pass follows the same rule. Hermes may consume Doubleword and provider batch-policy references as read-only batch-design context, but it acts only as a local meta-observer for architecture observation, contradiction detection, drift detection, bounded audit-unit analysis, and recommendation synthesis. Each pass remains bounded, deterministic, and auditable, producing only source-linked local findings plus one synthesis artifact; Hermes does not submit or poll batch-provider APIs, receive provider credentials, or mutate the repo or runtime.
 
 ## 1. Workspace and Context: Initiative 124
 
@@ -95,7 +93,7 @@ Initiative 125 is the guardrail that keeps transcript-inspired audit work from o
 
 Initiative 122 still defines the end-state: a Rust-native Cortex runtime. The new resolution is narrower:
 
-- **Phase 6**: `cortex_worker` + Rust gateway on Hetzner; older Python companion references are historical/unvalidated
+- **Phase 6**: Python worker + Rust gateway on Hetzner
 - **Phase 7+**: parity-backed migration into Rust-native Cortex execution
 
 That keeps current delivery practical without confusing the prototype host with the long-term platform runtime.
@@ -127,7 +125,6 @@ Phase 6 still needs a primary live cognition path separate from any later batch 
 - latest ZeroClaw is relevant only as a possible sidecar/profile broker for Codex subscription auth
 - ChatGPT Pro does not become generic worker billing; it matters only if the Codex subscription path is explicitly adopted
 - Doubleword remains the stronger fit for the secondary batch audit lane because it is API-key based and batch-oriented
-- Hermes can reason about that secondary lane locally as advisory design context only; it is not a live batch adapter, batch scheduler, or distributed execution layer.
 
 ## 9. Model Constitution: Initiative 062
 
@@ -144,7 +141,7 @@ Prompting and disclosure remain governed locally:
 | Workspace | Heap blocks and context bundles | 124 |
 | Authority | L1 plus production identity enforcement | 126 |
 | Runtime model | Temporal-style workflow plus activity separation | 047 |
-| Hosted runtime | `cortex_worker` on Hetzner, Rust gateway local to host; Python companion path not validated in this checkout | 132 / 122 transition |
+| Hosted runtime | Python worker on Hetzner, Rust gateway local to host; companion path not validated in this checkout | 132 / 122 transition |
 | Memory | Git-backed host-local memory root | 121 |
 | Ingestion | Sandbox-root constrained search and tooling | 127 |
 | Chronicle | Local draft now, governed promotion later | 080 |
@@ -158,4 +155,3 @@ Prompting and disclosure remain governed locally:
 4. Use that parity slice as the baseline for future Rust-native migration work.
 5. Treat any future cognitive audit pipeline as a governed execution slice, not as a new authority plane.
 6. Keep the live provider lane deployment-ready before investing in batch audit throughput or subscription-sidecar expansions.
-7. Use Hermes only to shape source manifests, audit units, contradiction/drift findings, and synthesis rules until a governed Initiative 134 adapter exists.

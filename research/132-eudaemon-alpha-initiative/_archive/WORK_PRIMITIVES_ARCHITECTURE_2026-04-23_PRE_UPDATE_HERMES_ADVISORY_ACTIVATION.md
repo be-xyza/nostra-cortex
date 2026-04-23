@@ -48,15 +48,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Knowledge artifacts live in `research/reference/knowledge/index.toml` plus per-artifact `metadata.md`.
 - These references should inform Initiative 132 decisions, but they do not replace Nostra or Cortex authority surfaces.
 
-### 6. Hermes advisory batch context
-- A local Hermes observer envelope may consume governed source bundles for batch-design planning.
-- Hermes acts as a meta-observer for architecture observation, contradiction detection, drift detection, bounded audit-unit analysis, and recommendation synthesis.
-- Doubleword and provider batch-policy material are read-only references for shaping audit units, source manifests, and synthesis rules.
-- The activation guardrail surface lives in `/Users/xaoj/hermes/.hermes.md`; `~/.hermes` profiles and SOUL may shape ergonomics but do not redefine authority.
-- Each Hermes session is one bounded, deterministic, auditable pass that consumes explicit source manifests and audit units and emits source-linked findings plus one synthesis artifact.
-- Hermes is not a Cortex runtime primitive, workflow authority, provider adapter, or execution substrate at this stage.
-- Live batch API submission/polling, provider credentials, and execution-control work remain out of scope.
-
 ## Resolved Stage Architecture
 
 ### Notes
@@ -94,7 +85,6 @@ Scope: Initiative 132 readiness review before further implementation
 - Closeout task -> verified completion artifact
 - Workflow draft -> definition -> instance
 - Initiative plan -> ContributionGraph lineage and portfolio governance
-- Hermes advisory artifact -> source-linked findings + synthesis -> heap/proposal/closeout/workflow/chronicle candidate after steward review
 
 ## Principles for This Stage
 
@@ -105,11 +95,10 @@ Scope: Initiative 132 readiness review before further implementation
 5. References inform design; they do not outrank local authority artifacts.
 6. Kickoff approval is approval-first and bounded: it is not a generic "start initiative" affordance.
 7. Developer hygiene stays operator-side: request worktree isolation and evidence promotion protect the repo, but they do not redefine Cortex runtime primitives.
-8. Hermes stays observer-side: batch context can shape advisory audit design, but provider execution belongs to a later governed adapter path.
 
 ## Consequences for Initiative 132
 
 1. The previous artifact-only workspace framing is no longer correct for this stage.
 2. The previous git-branch submission framing is no longer the primary architecture.
 3. Initiative 132 should integrate with Initiatives 124, 126, 127, 130, 133, and 134 as the active primitive stack.
-4. The next implementation work for 132 should target heap integration, lifecycle emission, closeout linkage, workflow-backed promotion paths, and source-manifested Hermes advisory audit design.
+4. The next implementation work for 132 should target heap integration, lifecycle emission, closeout linkage, and workflow-backed promotion paths.

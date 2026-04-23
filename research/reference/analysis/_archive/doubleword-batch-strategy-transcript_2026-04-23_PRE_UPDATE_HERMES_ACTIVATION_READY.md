@@ -23,7 +23,7 @@ stewardship:
   primary_steward: "Research Steward"
   domain: "Agent Systems"
 created: "2026-03-19"
-updated: "2026-04-23"
+updated: "2026-03-19"
 ---
 
 # Doubleword Batch Strategy Transcript Analysis
@@ -63,12 +63,12 @@ Repo-grounded validation:
 - Heap publication surfaces already exist at `/api/cortex/studio/heap/emit`, `/api/cortex/studio/heap/blocks`, and `/api/cortex/studio/heap/blocks/context` in the current gateway and web contract tests.
 - Workflow artifact contracts already exist as `WorkflowIntentV1`, `WorkflowDraftV1`, `WorkflowDefinitionV1`, and `WorkflowInstanceV1`.
 - Agent lifecycle telemetry already exists through `AgentExecutionLifecycle` / `AgentExecutionRecord`.
-- The March 2026 analysis treated Python Eudaemon `prompt_override` ingestion as the available companion path; current Initiative 132 authority should be checked before treating that as an active runtime dependency.
+- The Python Eudaemon worker already supports `prompt_override` ingestion from heap context, which means audit prompts can be governed locally instead of hardcoded forever.
 - Actor and space registry surfaces exist, so audit publication can remain tied to steward-visible space context.
 
 Critical corrections against the transcript:
 - There is no current `cortex-audit-worker` or Doubleword adapter in the repo. That part is a future implementation direction, not present state.
-- As of the 2026-03-19 transcript review, the assumed Phase 6 runtime was a Python Eudaemon worker plus Rust gateway on Hetzner. As of the 2026-04-23 Initiative 132 decisions, the active VPS contract is `cortex-gateway` plus Rust `cortex_worker`; this reference analysis is retained only for batch-design patterns and must not override the newer runtime authority.
+- Initiative 132's current Phase 6 runtime is still the Python Eudaemon worker plus Rust gateway on Hetzner, so near-term integration should run through that split rather than assume a new Rust audit worker already exists.
 - The repo does not currently expose a single unified "Cortex spec" document. Any extractor must use an explicit source manifest across architecture docs, active plans, standards, and runtime evidence.
 - The transcript's "publish into Nostra" step must be translated into current local surfaces: heap blocks, proposals, closeout ledgers, workflow drafts, and chronicle drafts before any governed promotion.
 - `docs/reference/README.md` currently points at taxonomy/topic files that are not present in this checkout, so intake governance itself still has some drift that must be treated carefully.

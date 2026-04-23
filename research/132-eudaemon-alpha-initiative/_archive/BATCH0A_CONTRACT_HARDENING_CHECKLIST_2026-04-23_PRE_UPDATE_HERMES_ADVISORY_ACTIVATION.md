@@ -89,7 +89,7 @@ Harden the network boundary first:
 1. Identify ACP payloads where ambiguity currently creates the most maintenance risk.
 2. Prioritize JSON-RPC request/response/update envelopes over deeper execution internals.
 3. Do not attempt to fully redesign ACP in this batch.
-4. Produce a clear follow-up list for a later governed batch where broader ACP extraction can be evaluated.
+4. Produce a clear follow-up list for Batch 2 where broader ACP extraction begins.
 
 **Expected output**
 

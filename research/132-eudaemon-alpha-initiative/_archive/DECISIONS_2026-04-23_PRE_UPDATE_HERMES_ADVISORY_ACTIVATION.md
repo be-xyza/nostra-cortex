@@ -1,48 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-23 — Hermes Activation Uses Root ICP Authority and Workspace Guardrails
-
-**Decision**
-
-Activate Hermes only after promoting the approved Initiative 132 Hermes language into root `ICP`, and treat root `ICP` as the sole governed authority source for Hermes activation. Hermes activates from `/Users/xaoj/hermes` through a workspace-local `.hermes.md` guardrail file and operates only as a local advisory meta-observer.
-
-Hermes may use normal advisory inference to reason over explicit `SourceManifestV1` and `AuditUnitV1` inputs, but each session must remain one bounded, deterministic, auditable pass that emits one session record, zero or more source-linked findings, and one synthesis artifact. `~/.hermes` config, SOUL, and profiles remain non-authoritative convenience state and must not redefine Initiative 132 governance boundaries.
-
-**Why**
-
-- Root `ICP` is the durable institutional authority surface; the request worktree is staging only.
-- The strongest surviving value from the original Hermes analysis is the meta-observer role plus synthesis discipline, not the earlier external action-loop framing.
-- Workspace-local context files are the most reliable place to enforce activation guardrails, whereas generic runtime profiles are designed for ergonomics rather than governance.
-
-**Consequences**
-
-- Hermes source bundles must resolve only promoted root `ICP` authority files.
-- `/Users/xaoj/hermes/.hermes.md` becomes the runtime control surface for activation guardrails.
-- Advisory inference is allowed, but batch-provider submission, polling, queue runners, execution adapters, repo mutation, and runtime mutation remain out of scope.
-- Hermes outputs remain local and source-linked until promoted through governed Initiative 132 surfaces.
-
-## 2026-04-23 — Hermes Advisory Batch Context Has No Provider Execution
-
-**Decision**
-
-Adopt the next local Hermes pass as advisory batch-design context only. Hermes may receive governed Initiative 132, Doubleword, architecture, Nostra/Cortex boundary, and provider batch-policy references as read-only source material, but it must not receive provider credentials, submit Doubleword or other batch-provider jobs, poll batch APIs, or mutate the repo or runtime.
-
-The active VPS runtime authority for this stage is also clarified as `cortex-gateway` plus `cortex_worker` under the current Hetzner runbook and runtime authority manifest. Older Python `eudaemon-alpha/` companion references remain historical/unvalidated in this checkout until separately restored and verified.
-
-**Why**
-
-- The strongest useful pattern from the batch strategy work is the manifest-driven split: extractor/source manifest -> typed audit units -> advisory cognition -> Eudaemon synthesis -> governed publication.
-- Initiative 132 already requires live cognition first, with batch audit secondary and advisory rather than boot-critical.
-- Live provider APIs and execution-adapter logic would introduce action behavior before the source-manifest and audit-unit boundaries are accepted.
-- Current deployment authority has moved to the repo-local gateway/worker contract, so older companion-worker wording should not steer the next implementation pass.
-
-**Consequences**
-
-- `SourceManifestV1`, `AuditUnitV1`, and `HermesObserverSessionV1` are planning-level contracts only, not public runtime APIs.
-- Any future live batch adapter belongs under Initiative 134 after the advisory design stage is accepted.
-- Hermes outputs may be promoted only through heap blocks, proposals, closeout follow-through, workflow drafts, or chronicle drafts.
-- Broader execution-surface work remains deferred until opened as its own governed stage.
-
 ## 2026-04-03 — Meta-Harness Intake Reality Sync
 
 **Decision**
@@ -234,7 +191,7 @@ Initiative 132 accepts the current Batch 1 provider-runtime extraction slice as 
 
 - The provider-runtime surface now has a smaller import and behavior footprint inside `gateway/server.rs`.
 - Provider discovery merge behavior, host-scoped provider identity synthesis, and probe-key precedence are now tested closer to the modules that own them.
-- Batch 1 can be considered materially advanced for the current stage, but broader execution-surface work remains deferred until it is opened as its own governed batch.
+- Batch 1 can be considered materially advanced for the current stage, but Batch 2 ACP / terminal extraction remains deferred until it is started as its own governed batch.
 - The current stage closeout should reference [`BATCH1_DECISION_GATE.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/BATCH1_DECISION_GATE.md) as the authoritative evidence record for this extraction slice.
 
 ## 2026-04-10 — Developer Worktree Hygiene and Evidence Promotion Stay Operator-Side
