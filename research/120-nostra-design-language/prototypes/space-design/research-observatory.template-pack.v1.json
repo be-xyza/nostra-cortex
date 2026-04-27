@@ -1,0 +1,31 @@
+{
+  "schema_version": "SpaceTemplatePackV1",
+  "template_pack_id": "space-template-pack:research-observatory-draft",
+  "authority_mode": "recommendation_only",
+  "space_archetype": "research_observatory",
+  "profile_defaults_ref": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.space-profile.v1.json",
+  "allowed_surface_scope": [
+    "space_shell",
+    "workbench",
+    "artifact_viewer",
+    "proposal_preview",
+    "hybrid_surface"
+  ],
+  "included_import_refs": [
+    "research/120-nostra-design-language/prototypes/space-design/research-observatory.design-import.v1.json"
+  ],
+  "promotion_gate": {
+    "required_recommendation": "needs_steward_review",
+    "required_checks": [
+      "locked_reality_snapshot",
+      "space_design_profile",
+      "design_element_imports",
+      "brand_policy",
+      "accessibility",
+      "a2ui_theme_policy",
+      "space_capability_alignment",
+      "hermes_advisory_only"
+    ]
+  },
+  "notes": "Draft template pack for evaluating reusable Research Observatory defaults. It is not a runtime template registry entry."
+}

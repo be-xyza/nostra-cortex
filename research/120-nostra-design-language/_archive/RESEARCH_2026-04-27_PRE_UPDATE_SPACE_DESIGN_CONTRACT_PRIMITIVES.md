@@ -89,7 +89,7 @@ To ensure the Surface Boundary Doctrine is legally binding across the entire Nos
 
 ## 5. Conclusion
 
-The implementation of the Surface Boundary Doctrine secures Nostra platform authority surfaces against AI-driven UI spoofing while maintaining the creative flexibility required for future DApps, games, and autonomous agents. The distinction between "Truth" (Constitutional) and "Play" (Execution) is now physically, visually, and speculatively enforced.
+The implementation of the Surface Boundary Doctrine successfully secures the Nostra runtime against AI-driven UI spoofing while maintaining 100% of the creative flexibility required for future DApps, games, and autonomous agents. The distinction between "Truth" (Constitutional) and "Play" (Execution) is now physically, visually, and speculatively enforced.
 
 ---
 
@@ -124,8 +124,6 @@ External design systems, token packs, templates, and component recipes may be us
 - which accessibility and governance risks remain,
 - whether the recommendation is adopt, adapt, reject, or steward review.
 
-`SpaceTemplatePackV1` groups Space archetype defaults only after those defaults resolve to a `SpaceDesignProfileV1` record and any included imports resolve to `DesignElementImportV1` records. Template packs remain recommendation-only until a promotion gate explicitly records the required checks and steward lineage.
-
 ### 6.4 Hermes Role
 
-Hermes is appropriate for meta-cognition here only if it receives a bounded `DesignAuditUnitV1` containing the profile, import candidate, template pack candidate, locked reality snapshot, and applicable initiative/standard references. Hermes output remains advisory. It cannot approve, mutate, enforce, import, or publish Space design profiles.
+Hermes is appropriate for meta-cognition here only if it receives a bounded `DesignAuditUnitV1` containing the profile or import candidate, the locked reality snapshot, and the applicable initiative/standard references. Hermes output remains advisory. It cannot approve, mutate, enforce, import, or publish Space design profiles.

@@ -1,0 +1,34 @@
+{
+  "schema_version": "DesignElementImportV1",
+  "import_id": "design-import:research-observatory-editorial-density",
+  "authority_mode": "recommendation_only",
+  "source_kind": "component_recipe",
+  "source_name": "Editorial density and evidence-label recipe",
+  "source_authority": "candidate_material",
+  "provenance_ref": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.md",
+  "candidate_materials": [
+    {
+      "material_id": "evidence-label-contrast",
+      "material_kind": "component_recipe",
+      "description": "Compact source-linked label treatment for evidence annotations.",
+      "mapped_space_token": "components.evidence-label"
+    },
+    {
+      "material_id": "archive-table-density",
+      "material_kind": "layout_rule",
+      "description": "Dense side-by-side research layout with restrained gutters and readable measure.",
+      "mapped_space_token": "spacing.gutter"
+    }
+  ],
+  "adoption_status": "candidate",
+  "required_checks": [
+    "locked_reality_snapshot",
+    "brand_policy",
+    "accessibility",
+    "ndl_surface_boundary",
+    "a2ui_theme_policy",
+    "space_capability_alignment",
+    "license_or_lineage"
+  ],
+  "notes": "This import is a candidate recipe extracted from the local Research Observatory profile. It does not import an external component library or grant runtime authority."
+}

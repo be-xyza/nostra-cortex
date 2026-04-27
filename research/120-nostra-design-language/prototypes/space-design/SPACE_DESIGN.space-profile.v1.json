@@ -1,6 +1,6 @@
 {
-  "schema_version": "NdlDesignProfileV1",
-  "profile_id": "ndl-profile:space-research-observatory",
+  "schema_version": "SpaceDesignProfileV1",
+  "profile_id": "space-design-profile:space-research-observatory",
   "profile_version": "v0.1.0",
   "space_id": "space:research-observatory",
   "authority_mode": "recommendation_only",

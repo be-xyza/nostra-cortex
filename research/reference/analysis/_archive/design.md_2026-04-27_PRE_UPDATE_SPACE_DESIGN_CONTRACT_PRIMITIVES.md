@@ -57,7 +57,7 @@ Useful patterns to adopt:
 4. **Export adapters**: Tailwind and DTCG export provide a model for host-neutral token compilation.
 5. **Lenient preservation**: unknown sections are preserved and unknown component properties warn rather than fail. This supports modular extension.
 
-Required Nostra platform and Cortex runtime extensions before adoption:
+Required Nostra/Cortex extensions before adoption:
 
 1. `surface_type` and NDL tier checks so execution surfaces cannot spoof constitutional components.
 2. Provenance fields tying a profile to a Space, steward, version, hash, and approval state.
@@ -92,8 +92,7 @@ The repo should not become the canonical Nostra design framework. It is best use
 ## Suggested Next Experiments
 
 1. Create one `SPACE_DESIGN.md` prototype for a non-constitutional Space and run upstream `lint`, `diff`, and `export`.
-2. Promote `SpaceDesignProfileV1` as a JSON schema that wraps or imports the `DESIGN.md` token model while adding Nostra authority metadata.
-3. Add `DesignElementImportV1` and `SpaceTemplatePackV1` candidate records before any established design element enters runtime consideration.
-4. Add a local linter spike with checks for `surface_scope`, Tier 1 component spoofing, unsafe governance affordances, missing provenance, reduced-motion, keyboard focus, and minimum contrast.
-5. Add a Hermes source-packet template for design profile audits: inputs are the profile, imports, template packs, NDL rules, A2UI theme policy, Space capability overlay, and target host.
-6. Compare Tailwind export against `cortex-web` theme compilation to see whether profile tokens can generate deterministic host theme artifacts.
+2. Draft `NdlDesignProfileV1` as a JSON schema that wraps or imports the `DESIGN.md` token model while adding Nostra authority metadata.
+3. Add a local linter spike with checks for `surface_scope`, Tier 1 component spoofing, unsafe governance affordances, missing provenance, reduced-motion, keyboard focus, and minimum contrast.
+4. Add a Hermes source-packet template for design profile audits: inputs are the profile, NDL rules, A2UI theme policy, Space capability overlay, and target host.
+5. Compare Tailwind export against `cortex-web` theme compilation to see whether profile tokens can generate deterministic host theme artifacts.
