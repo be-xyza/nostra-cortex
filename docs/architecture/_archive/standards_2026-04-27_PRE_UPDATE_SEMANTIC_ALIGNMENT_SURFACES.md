@@ -45,10 +45,9 @@ This document is the canonical index for architecture-level standards referenced
 14. `/Users/xaoj/ICP/scripts/check_skill_policy.sh`
 15. `/Users/xaoj/ICP/scripts/check_workflow_declarations.sh`
 16. `/Users/xaoj/ICP/scripts/check_semantic_primitives.py`
-17. `/Users/xaoj/ICP/scripts/check_semantic_alignment_surfaces.py`
-18. `/Users/xaoj/ICP/scripts/check_role_semantics.py`
-19. `/Users/xaoj/ICP/scripts/check_knowledge_graph_contract.sh`
-20. `/Users/xaoj/ICP/scripts/check_standards_discovery_index.sh`
-21. `/Users/xaoj/ICP/scripts/check_vps_runtime_authority.sh`
-22. `/Users/xaoj/ICP/scripts/check_clean_worktree.sh`
-23. `/Users/xaoj/ICP/scripts/check_tracked_generated_artifacts.sh`
+17. `/Users/xaoj/ICP/scripts/check_role_semantics.py`
+18. `/Users/xaoj/ICP/scripts/check_knowledge_graph_contract.sh`
+19. `/Users/xaoj/ICP/scripts/check_standards_discovery_index.sh`
+20. `/Users/xaoj/ICP/scripts/check_vps_runtime_authority.sh`
+21. `/Users/xaoj/ICP/scripts/check_clean_worktree.sh`
+22. `/Users/xaoj/ICP/scripts/check_tracked_generated_artifacts.sh`
