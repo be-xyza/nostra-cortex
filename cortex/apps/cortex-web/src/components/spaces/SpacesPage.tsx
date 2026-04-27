@@ -42,6 +42,8 @@ import {
   resolveSpaceArchetypeProfile,
   type SpaceArchetypeIconKey,
 } from "./spaceArchetypeProfiles";
+import { SpaceDesignProfilePreviewPanel } from "./SpaceDesignProfilePreviewPanel";
+import type { SpaceDesignProfilePreviewFixture } from "../../store/spaceDesignProfilePreviewContract";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -526,6 +528,8 @@ export const SpacesPage: React.FC = () => {
   const setActiveSpaceIds = useUiStore((state) => state.setActiveSpaceIds);
   const [searchQuery, setSearchQuery] = useState("");
   const [reviewCounts, setReviewCounts] = useState<Record<string, number>>({});
+  const [spaceDesignPreview, setSpaceDesignPreview] = useState<SpaceDesignProfilePreviewFixture | null>(null);
+  const [spaceDesignPreviewLoading, setSpaceDesignPreviewLoading] = useState(false);
   const navigate = useNavigate();
   const registryMode = useUserPreferences((state) => state.registryMode);
   const setRegistryMode = useUserPreferences((state) => state.setRegistryMode);
@@ -617,6 +621,31 @@ export const SpacesPage: React.FC = () => {
     };
   }, [sovereignSpaces]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setSpaceDesignPreviewLoading(true);
+    workbenchApi.getSpaceDesignProfilePreview()
+      .then((preview) => {
+        if (!cancelled) {
+          setSpaceDesignPreview(preview);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSpaceDesignPreview(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSpaceDesignPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="flex-1 overflow-y-auto px-6 py-8 max-w-6xl mx-auto">
       {/* Header */}
@@ -699,6 +728,11 @@ export const SpacesPage: React.FC = () => {
           <AlertTriangle className="w-2.5 h-2.5" /> Not Ready
         </span>
       </div>
+
+      <SpaceDesignProfilePreviewPanel
+        preview={spaceDesignPreview}
+        loading={spaceDesignPreviewLoading}
+      />
 
       {/* ═══════════════ Workbenches Section ═══════════════ */}
       <div className="mb-8">
