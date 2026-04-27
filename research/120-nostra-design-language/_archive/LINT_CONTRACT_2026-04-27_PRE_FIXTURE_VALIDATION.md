@@ -20,15 +20,6 @@ python3 scripts/check_ndl_design_profiles.py
 
 The command defaults to all Initiative 120 prototype profiles, design imports, and template packs. It can also receive explicit profile JSON paths plus optional `--imports` and `--templates` lists.
 
-By default, the command also validates profile compatibility against the effective A2UI theme/render truth:
-
-- `shared/a2ui/themes/*`
-- `shared/a2ui/fixtures/*`
-- `cortex/libraries/cortex-domain/src/theme/policy.rs`
-- `cortex/apps/cortex-eudaemon/src/services/theme_policy.rs`
-
-This fixture validation is recommendation-only. It checks that a draft Space profile can be evaluated beside Cortex Web render fixtures without claiming runtime theme allowlist authority, runtime token-version authority, runtime enforcement, or Tier 1 governance state.
-
 ## Upstream-Compatible Checks
 
 These can be delegated to an upstream-style `design.md` lint pass:
@@ -62,8 +53,6 @@ These must be enforced by a Nostra-owned lint pass before runtime adoption:
 - template packs must require `needs_steward_review` as their draft promotion recommendation.
 - template pack promotion gates must include locked reality snapshot, profile validation, import validation, brand policy, accessibility, A2UI theme policy, Space capability alignment, and Hermes advisory-only checks.
 - template packs may include only recommendation-only imports whose adoption status remains candidate, adapt-only, or needs-steward-review.
-- A2UI fixture validation must prove that existing themed render fixtures reference known A2UI themes, supported runtime token versions, safe mode, accepted motion policy, and accepted contrast preference.
-- Space design profile tokens must not reuse runtime or fixture theme allowlist IDs, claim runtime A2UI token versions, claim runtime enforcement, or encode Tier 1 governance state.
 
 ## Accessibility Checks
 
@@ -91,5 +80,3 @@ A Space design profile can move from draft to steward-approved only after:
 4. accessibility checks cover contrast, focus visibility, keyboard reachability, reduced motion, text fit, and non-color state communication,
 5. the Design Systems Steward records approval lineage,
 6. Cortex Web renders the profile through a fixture or preview without allowing Tier 1 spoofing.
-
-The current A2UI fixture validation satisfies only the draft compatibility evidence for item 6. It does not activate runtime profile selection, import an external design system, or wire profile tokens into Cortex Web rendering.

@@ -16,6 +16,10 @@ DEFAULT_TEMPLATE_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/Sp
 DEFAULT_PROFILE_GLOB = "research/120-nostra-design-language/prototypes/**/*.space-profile.v1.json"
 DEFAULT_IMPORT_GLOB = "research/120-nostra-design-language/prototypes/**/*.design-import.v1.json"
 DEFAULT_TEMPLATE_GLOB = "research/120-nostra-design-language/prototypes/**/*.template-pack.v1.json"
+DEFAULT_A2UI_THEME_DIR = ROOT / "shared/a2ui/themes"
+DEFAULT_A2UI_FIXTURE_DIR = ROOT / "shared/a2ui/fixtures"
+DEFAULT_DOMAIN_THEME_POLICY = ROOT / "cortex/libraries/cortex-domain/src/theme/policy.rs"
+DEFAULT_EUDAEMON_THEME_POLICY = ROOT / "cortex/apps/cortex-eudaemon/src/services/theme_policy.rs"
 
 EXPECTED_SECTIONS = [
     "Overview",
@@ -89,6 +93,15 @@ PROHIBITED_ELEVATION_TERMS = {
     "approved",
     "steward_approved",
     "steward-approved",
+}
+PROHIBITED_PROFILE_TOKEN_CLAIM_TERMS = PROHIBITED_TOKEN_TERMS | {
+    "allowlist",
+    "theme_allowlist",
+    "runtime_contract",
+    "runtime-enforced",
+    "runtime_enforced",
+    "tier1",
+    "tier_1",
 }
 STATUS_COLOR_KEYS = {
     "evidence",
@@ -349,6 +362,36 @@ def check_layout_accessibility(profile_path: Path, tokens: dict[str, Any]) -> No
         fail(f"{profile_path}: design_tokens.spacing.measure {measure:g} exceeds the 80 character readability bound")
 
 
+def collect_token_claim_terms(value: Any, path: str = "design_tokens") -> list[str]:
+    violations = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_path = f"{path}.{key}"
+            lowered_key = str(key).lower()
+            for term in PROHIBITED_PROFILE_TOKEN_CLAIM_TERMS:
+                if term in lowered_key:
+                    violations.append(f"{key_path} contains {term}")
+            violations.extend(collect_token_claim_terms(child, key_path))
+    elif isinstance(value, list):
+        for idx, child in enumerate(value):
+            violations.extend(collect_token_claim_terms(child, f"{path}[{idx}]"))
+    elif isinstance(value, str):
+        lowered_value = value.lower()
+        for term in PROHIBITED_PROFILE_TOKEN_CLAIM_TERMS:
+            if term in lowered_value:
+                violations.append(f"{path} contains {term}")
+    return violations
+
+
+def check_profile_token_claims(profile_path: Path, tokens: dict[str, Any]) -> None:
+    violations = collect_token_claim_terms(tokens)
+    if violations:
+        fail(
+            f"{profile_path}: design_tokens must not claim theme allowlist, runtime, "
+            f"or Tier 1 governance authority: {violations[:6]}"
+        )
+
+
 def check_token_parity(profile_path: Path, profile_tokens: dict[str, Any], front: dict[str, Any]) -> None:
     for field in ("name", "description"):
         if profile_tokens.get(field) != front.get(field):
@@ -361,6 +404,7 @@ def check_token_parity(profile_path: Path, profile_tokens: dict[str, Any], front
 
 
 def check_design_tokens(profile_path: Path, tokens: dict[str, Any]) -> None:
+    check_profile_token_claims(profile_path, tokens)
     symbols = build_symbol_table(tokens)
     colors = tokens.get("colors", {})
     if "primary" not in colors:
@@ -462,7 +506,144 @@ def check_sections(profile_path: Path, lineage_path: Path, profile: dict[str, An
         fail(f"{profile_path}: design_sections headings out of order or incomplete: {profile_sections}")
 
 
-def check_profile(profile_path: Path, schema_path: Path) -> None:
+def load_a2ui_theme_truth(theme_dir: Path) -> dict[str, set[str]]:
+    if not theme_dir.exists():
+        fail(f"missing A2UI theme directory {theme_dir}")
+    theme_paths = sorted(theme_dir.glob("*.json"))
+    if not theme_paths:
+        fail(f"no A2UI theme files found under {theme_dir}")
+
+    truth = {
+        "theme_names": set(),
+        "runtime_allowlist_ids": set(),
+        "supported_token_versions": set(),
+        "motion_policies": {"system", "reduced", "full"},
+        "contrast_preferences": {"system", "more", "less"},
+    }
+    for theme_path in theme_paths:
+        theme = load_json(theme_path)
+        if not isinstance(theme, dict):
+            fail(f"{theme_path}: A2UI theme must be an object")
+        name = theme.get("name")
+        if not isinstance(name, str) or not name:
+            fail(f"{theme_path}: A2UI theme missing name")
+        truth["theme_names"].add(name)
+
+        policy = theme.get("policy", {})
+        if not isinstance(policy, dict):
+            fail(f"{theme_path}: A2UI theme policy must be an object")
+        allowlist_id = policy.get("default_allowlist_id")
+        if isinstance(allowlist_id, str) and allowlist_id:
+            truth["runtime_allowlist_ids"].add(allowlist_id)
+        supported_version = policy.get("supported_token_version")
+        if isinstance(supported_version, str) and supported_version:
+            truth["supported_token_versions"].add(supported_version)
+        for field, allowed_key in (
+            ("default_motion_policy", "motion_policies"),
+            ("default_contrast_preference", "contrast_preferences"),
+        ):
+            value = policy.get(field)
+            if isinstance(value, str) and value:
+                truth[allowed_key].add(value)
+
+    if not truth["supported_token_versions"]:
+        fail(f"{theme_dir}: A2UI themes do not declare supported token versions")
+    return truth
+
+
+def check_a2ui_fixture_truth(fixture_dir: Path, truth: dict[str, set[str]]) -> int:
+    if not fixture_dir.exists():
+        fail(f"missing A2UI fixture directory {fixture_dir}")
+    fixture_paths = sorted(fixture_dir.glob("*.json"))
+    if not fixture_paths:
+        fail(f"no A2UI fixtures found under {fixture_dir}")
+
+    checked = 0
+    for fixture_path in fixture_paths:
+        fixture = load_json(fixture_path)
+        if not isinstance(fixture, dict):
+            fail(f"{fixture_path}: A2UI fixture must be an object")
+        meta = fixture.get("meta", {})
+        if not isinstance(meta, dict) or "theme" not in meta:
+            continue
+        checked += 1
+        theme_name = meta.get("theme")
+        if theme_name not in truth["theme_names"]:
+            fail(f"{fixture_path}: fixture theme {theme_name!r} is not present in shared/a2ui/themes")
+        token_version = meta.get("token_version")
+        if token_version not in truth["supported_token_versions"]:
+            fail(f"{fixture_path}: fixture token_version {token_version!r} is not supported by A2UI themes")
+        if meta.get("safe_mode") is not True:
+            fail(f"{fixture_path}: themed A2UI fixtures must keep safe_mode true")
+        allowlist_id = meta.get("theme_allowlist_id")
+        if isinstance(allowlist_id, str) and allowlist_id:
+            truth["runtime_allowlist_ids"].add(allowlist_id)
+        motion_policy = meta.get("motion_policy")
+        if motion_policy not in truth["motion_policies"]:
+            fail(f"{fixture_path}: fixture motion_policy {motion_policy!r} is not accepted by theme policy")
+        contrast_preference = meta.get("contrast_preference")
+        if contrast_preference not in truth["contrast_preferences"]:
+            fail(f"{fixture_path}: fixture contrast_preference {contrast_preference!r} is not accepted by theme policy")
+
+    if checked == 0:
+        fail(f"{fixture_dir}: no themed A2UI fixture metadata found")
+    return checked
+
+
+def check_rust_theme_policy(domain_policy_path: Path, eudaemon_policy_path: Path) -> None:
+    for path in (domain_policy_path, eudaemon_policy_path):
+        if not path.exists():
+            fail(f"missing theme policy source {path}")
+    domain_text = domain_policy_path.read_text()
+    eudaemon_text = eudaemon_policy_path.read_text()
+    for value in ("system", "reduced", "full", "more", "less"):
+        if f'"{value}"' not in domain_text:
+            fail(f"{domain_policy_path}: theme policy normalization missing {value!r}")
+    if "ThemeName::Cortex" not in eudaemon_text:
+        fail(f"{eudaemon_policy_path}: desktop theme default must remain tied to the Cortex theme")
+    if "domain_theme_policy::normalize_preferences" not in eudaemon_text:
+        fail(f"{eudaemon_policy_path}: desktop theme policy must delegate normalization to cortex-domain")
+
+
+def build_a2ui_truth(
+    theme_dir: Path,
+    fixture_dir: Path,
+    domain_policy_path: Path,
+    eudaemon_policy_path: Path,
+) -> tuple[dict[str, set[str]], int]:
+    truth = load_a2ui_theme_truth(theme_dir)
+    fixture_count = check_a2ui_fixture_truth(fixture_dir, truth)
+    check_rust_theme_policy(domain_policy_path, eudaemon_policy_path)
+    return truth, fixture_count
+
+
+def check_profile_a2ui_compatibility(profile_path: Path, profile: dict[str, Any], truth: dict[str, set[str]]) -> None:
+    if profile.get("authority_mode") == "runtime_enforced":
+        fail(f"{profile_path}: Space design profile fixture validation does not authorize runtime_enforced profiles")
+    tier_policy = profile.get("ndl_tier_policy", {})
+    if tier_policy.get("tier1_components_allowed") is not False:
+        fail(f"{profile_path}: Space design profile fixture validation does not authorize Tier 1 components")
+
+    theme_policy = profile.get("a2ui_theme_policy", {})
+    token_version = theme_policy.get("token_version")
+    if token_version in truth["supported_token_versions"]:
+        fail(
+            f"{profile_path}: a2ui_theme_policy.token_version must remain an NDL recommendation marker, "
+            "not a runtime A2UI token version"
+        )
+    allowlist_id = theme_policy.get("theme_allowlist_id")
+    if allowlist_id in truth["runtime_allowlist_ids"]:
+        fail(
+            f"{profile_path}: a2ui_theme_policy.theme_allowlist_id {allowlist_id!r} "
+            "reuses a runtime or fixture allowlist id"
+        )
+    if theme_policy.get("motion_policy") not in truth["motion_policies"]:
+        fail(f"{profile_path}: a2ui_theme_policy.motion_policy is not accepted by A2UI theme policy")
+    if theme_policy.get("contrast_preference") not in truth["contrast_preferences"]:
+        fail(f"{profile_path}: a2ui_theme_policy.contrast_preference is not accepted by A2UI theme policy")
+
+
+def check_profile(profile_path: Path, schema_path: Path, a2ui_truth: dict[str, set[str]]) -> None:
     profile = load_json(profile_path)
     validate_with_schema(schema_path, profile_path, profile)
 
@@ -472,6 +653,7 @@ def check_profile(profile_path: Path, schema_path: Path) -> None:
     lineage_path = ROOT / lineage_ref
 
     check_nostra_policy(profile_path, profile, lineage_path)
+    check_profile_a2ui_compatibility(profile_path, profile, a2ui_truth)
     check_sections(profile_path, lineage_path, profile)
 
     front = read_front_matter(lineage_path)
@@ -561,6 +743,18 @@ def main() -> int:
     parser.add_argument("--template-schema", default=str(DEFAULT_TEMPLATE_SCHEMA), help="SpaceTemplatePackV1 schema path.")
     parser.add_argument("--imports", nargs="*", default=None, help="Design import JSON files. Defaults to prototypes.")
     parser.add_argument("--templates", nargs="*", default=None, help="Template pack JSON files. Defaults to prototypes.")
+    parser.add_argument("--a2ui-theme-dir", default=str(DEFAULT_A2UI_THEME_DIR), help="A2UI theme directory used as effective theme truth.")
+    parser.add_argument("--a2ui-fixture-dir", default=str(DEFAULT_A2UI_FIXTURE_DIR), help="A2UI render fixture directory used as effective render truth.")
+    parser.add_argument(
+        "--domain-theme-policy",
+        default=str(DEFAULT_DOMAIN_THEME_POLICY),
+        help="cortex-domain Rust theme policy source used for normalization truth.",
+    )
+    parser.add_argument(
+        "--eudaemon-theme-policy",
+        default=str(DEFAULT_EUDAEMON_THEME_POLICY),
+        help="cortex-eudaemon Rust theme policy adapter source used for default policy truth.",
+    )
     args = parser.parse_args()
 
     schema_path = Path(args.schema)
@@ -581,6 +775,18 @@ def main() -> int:
     if not template_schema_path.exists():
         print(f"FAIL: missing schema {template_schema_path}", file=sys.stderr)
         return 1
+    a2ui_theme_dir = Path(args.a2ui_theme_dir)
+    if not a2ui_theme_dir.is_absolute():
+        a2ui_theme_dir = ROOT / a2ui_theme_dir
+    a2ui_fixture_dir = Path(args.a2ui_fixture_dir)
+    if not a2ui_fixture_dir.is_absolute():
+        a2ui_fixture_dir = ROOT / a2ui_fixture_dir
+    domain_theme_policy_path = Path(args.domain_theme_policy)
+    if not domain_theme_policy_path.is_absolute():
+        domain_theme_policy_path = ROOT / domain_theme_policy_path
+    eudaemon_theme_policy_path = Path(args.eudaemon_theme_policy)
+    if not eudaemon_theme_policy_path.is_absolute():
+        eudaemon_theme_policy_path = ROOT / eudaemon_theme_policy_path
 
     profiles = profile_paths(args)
     if not profiles:
@@ -590,10 +796,16 @@ def main() -> int:
     templates = sorted(ROOT.glob(DEFAULT_TEMPLATE_GLOB)) if args.templates is None else template_paths(args)
 
     try:
+        a2ui_truth, a2ui_fixture_count = build_a2ui_truth(
+            a2ui_theme_dir,
+            a2ui_fixture_dir,
+            domain_theme_policy_path,
+            eudaemon_theme_policy_path,
+        )
         for path in profiles:
             if not path.exists():
                 fail(f"missing profile {path}")
-            check_profile(path, schema_path)
+            check_profile(path, schema_path, a2ui_truth)
         for path in imports:
             if not path.exists():
                 fail(f"missing design import {path}")
@@ -608,7 +820,8 @@ def main() -> int:
 
     print(
         "PASS: Space design contract checks "
-        f"({len(profiles)} profile(s), {len(imports)} import(s), {len(templates)} template pack(s))"
+        f"({len(profiles)} profile(s), {len(imports)} import(s), {len(templates)} template pack(s), "
+        f"{len(a2ui_truth['theme_names'])} A2UI theme(s), {a2ui_fixture_count} themed fixture(s))"
     )
     return 0
 
