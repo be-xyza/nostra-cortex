@@ -47,6 +47,50 @@ test("workflow api methods hit canonical gateway endpoints", async () => {
   );
 });
 
+test("workflow definition fetch preserves typed definition payload", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        schema_version: "1.0.0",
+        generated_at: "2026-03-11T00:00:00Z",
+        definition: {
+          schemaVersion: "1.0.0",
+          definitionId: "definition-1",
+          scope: { spaceId: "space-alpha" },
+          intent: "Typed definition payload",
+          motifKind: "sequential",
+          constraints: [],
+          graph: { nodes: [], edges: [] },
+          contextContract: { allowedSections: ["inputs"] },
+          confidence: { score: 0.9, rationale: "fixture" },
+          lineage: { mergeRefs: [] },
+          policy: {
+            recommendationOnly: false,
+            requireReview: true,
+            allowShadowExecution: false,
+          },
+          provenance: {
+            createdBy: "tester",
+            createdAt: "2026-03-11T00:00:00Z",
+            sourceMode: "fixture",
+          },
+          digest: "sha256:typed-definition",
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    )) as typeof fetch;
+
+  try {
+    const response = await workbenchApi.getWorkflowDefinition("definition-1");
+    assert.equal(response.definition.motifKind, "sequential");
+    assert.equal(response.definition.digest, "sha256:typed-definition");
+    assert.equal(response.definition.scope.spaceId, "space-alpha");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("openGatewayApiArtifact resolves inline workflow artifacts through typed fetches", async () => {
   const originalFetch = globalThis.fetch;
   const calls: string[] = [];

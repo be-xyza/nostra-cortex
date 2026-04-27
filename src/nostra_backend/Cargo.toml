@@ -3,8 +3,11 @@ name = "nostra_backend"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-candid = "0.9"
+candid = "0.10"
 ic-cdk = "0.13"
 ic-cdk-macros = "0.13"
 serde = "1.0"
@@ -13,3 +16,4 @@ nostra_core = { path = "../nostra_core" }
 nostra_vfs = { path = "../nostra_vfs" }
 nostra_workflow_engine = { path = "../nostra_workflow_engine" }
 async-trait = "0.1.89"
+cortex-domain = { path = "../../cortex/libraries/cortex-domain" }

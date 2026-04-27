@@ -10,7 +10,7 @@
     "check": "tsc --noEmit",
     "test:contributions": "node --experimental-strip-types --test tests/contributionsCockpitContract.test.ts",
     "test:contributions-playwright": "npx playwright test -c playwright.heap.config.ts tests/playwright/contributions-cockpit.spec.ts",
-    "test:workflow": "node --experimental-strip-types --test tests/workflowApiContract.test.ts tests/workflowArtifactRouting.test.ts tests/workflowWidgetProjection.test.ts",
+    "test:workflow": "node --experimental-strip-types --test tests/workflowApiContract.test.ts tests/workflowArtifactRouting.test.ts tests/workflowWidgetProjection.test.ts tests/workflowDefinitionSummary.test.ts",
     "test:spatial": "node --experimental-strip-types --test tests/spatialReplay.test.ts tests/spatialMapper.test.ts tests/spatialEventContract.test.ts tests/heapApiContract.test.ts tests/capabilityGraphApiContract.test.ts tests/capabilityOverlayModel.test.ts tests/chatSocketContract.test.ts tests/shellNavigationModel.test.ts tests/requestScope.test.ts tests/brandPolicyApiContract.test.ts tests/brandLogoPolicy.test.ts",
     "test:spatial-playwright": "npx playwright test -c playwright.heap.config.ts tests/playwright/execution-canvas.spec.ts",
     "test:heap-renderer-contract": "node --experimental-strip-types --test tests/gateSummaryRendererContract.test.ts tests/dataTableContract.test.ts tests/navSectionsContract.test.ts",

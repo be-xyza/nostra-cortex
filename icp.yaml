@@ -1,0 +1,9 @@
+canisters:
+  - name: workflow_engine
+    build:
+      steps:
+        - type: script
+          commands:
+            - cargo build --package nostra_backend --target wasm32-unknown-unknown --release
+            - cp .cache/cargo-target/root-workspace/wasm32-unknown-unknown/release/nostra_backend.wasm "$ICP_WASM_OUTPUT_PATH"
+            - did="$(mktemp)" && candid-extractor "$ICP_WASM_OUTPUT_PATH" > "$did" && ic-wasm "$ICP_WASM_OUTPUT_PATH" -o "$ICP_WASM_OUTPUT_PATH" metadata candid:service -f "$did" -v public --keep-name-section

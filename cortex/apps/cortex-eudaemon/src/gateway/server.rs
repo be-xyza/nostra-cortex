@@ -172,12 +172,13 @@ use cortex_domain::workflow::{
     WorkflowExecutionBindingV1, WorkflowExecutionPlanV1, WorkflowExecutionProfileKind,
     WorkflowGenerationMode, WorkflowGovernanceRef, WorkflowInstanceV1, WorkflowIntentV1,
     WorkflowMotifKind, WorkflowOutcomeV1, WorkflowProposalDecisionRecord, WorkflowProposalEnvelope,
-    WorkflowProposalReviewRecord, WorkflowProposalStatus, WorkflowScope,
+    WorkflowProposalReviewRecord, WorkflowProposalStatus, WorkflowScope, WorkflowSnapshotV1,
     WorkflowScopeAdoptionRecord, WorkflowSignalV1, WorkflowTraceEventV1, WorkflowValidationResult,
     compile_workflow_draft, compute_candidate_input_hash as compute_workflow_candidate_input_hash,
     generate_candidate_set as generate_workflow_candidate_set, scope_key as workflow_scope_key,
     validate_workflow_draft,
 };
+use cortex_ic_adapter::workflow::WorkflowEngineCanisterExecutionAdapter;
 use cortex_runtime::ports::TimeProvider as RuntimeTimeProvider;
 use cortex_runtime::workflow::adapter::WorkflowExecutionAdapter;
 use cortex_runtime::workflow::local_durable_worker::LocalDurableWorkerAdapter;
@@ -569,6 +570,9 @@ struct CortexA2uiFeedbackResponse {
     artifact_id: String,
     feedback_artifact_id: String,
     stored_at: String,
+    review_outcome_mode: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    follow_up_block_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     follow_up_artifact_id: Option<String>,
 }
@@ -1434,12 +1438,23 @@ const WORKFLOW_DRAFT_INDEX_KEY: &str = "/cortex/workflows/drafts/current/index.j
 const WORKFLOW_PROPOSAL_INDEX_KEY: &str = "/cortex/workflows/drafts/proposals/index.json";
 const WORKFLOW_ACTIVE_SCOPE_INDEX_KEY: &str = "/cortex/workflows/definitions/active/index.json";
 const WORKFLOW_REPLAY_INDEX_KEY: &str = "/cortex/workflows/replay/index.json";
+const WORKFLOW_INSTANCE_INDEX_KEY: &str = "/cortex/workflows/instances/index.json";
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 struct ViewSpecProposalIndexEntry {
     proposal_id: String,
     scope_key: String,
+    updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowInstanceIndexEntry {
+    instance_id: String,
+    adapter: WorkflowExecutionAdapterKind,
+    scope_key: String,
+    definition_id: String,
     updated_at: String,
 }
 
@@ -6465,11 +6480,26 @@ impl RuntimeTimeProvider for GatewayWorkflowTimeProvider {
     }
 }
 
-fn workflow_runtime_adapter() -> LocalDurableWorkerAdapter<GatewayWorkflowTimeProvider> {
+fn local_workflow_runtime_adapter() -> LocalDurableWorkerAdapter<GatewayWorkflowTimeProvider> {
     LocalDurableWorkerAdapter::new(
         temporal_runtime_root(),
         Arc::new(GatewayWorkflowTimeProvider),
     )
+}
+
+async fn workflow_runtime_adapter(
+    adapter: WorkflowExecutionAdapterKind,
+) -> Result<Box<dyn WorkflowExecutionAdapter>, String> {
+    match adapter {
+        WorkflowExecutionAdapterKind::LocalDurableWorkerV1 => {
+            Ok(Box::new(local_workflow_runtime_adapter()))
+        }
+        WorkflowExecutionAdapterKind::WorkflowEngineCanisterV1 => Ok(Box::new(
+            WorkflowEngineCanisterExecutionAdapter::from_env()
+                .await
+                .map_err(|err| err.to_string())?,
+        )),
+    }
 }
 
 fn parse_workflow_execution_profile(value: Option<&str>) -> WorkflowExecutionProfileKind {
@@ -6488,6 +6518,10 @@ fn workflow_runtime_error_is_not_found(err: &cortex_runtime::RuntimeError) -> bo
         err,
         cortex_runtime::RuntimeError::Storage(message)
             if message.contains("No such file") || message.contains("not found")
+    ) || matches!(
+        err,
+        cortex_runtime::RuntimeError::Domain(message)
+            if message.to_ascii_lowercase().contains("not found")
     )
 }
 
@@ -6504,15 +6538,10 @@ fn build_workflow_execution_binding(
         None | Some("local_durable_worker_v1") => {
             WorkflowExecutionAdapterKind::LocalDurableWorkerV1
         }
-        Some("workflow_engine_canister_v1") => {
-            return Err(
-                "workflow_engine_canister_v1 is not validated for execution in this slice."
-                    .to_string(),
-            );
-        }
+        Some("workflow_engine_canister_v1") => WorkflowExecutionAdapterKind::WorkflowEngineCanisterV1,
         Some(other) => {
             return Err(format!(
-                "adapter must be local_durable_worker_v1; received '{}'.",
+                "adapter must be local_durable_worker_v1 or workflow_engine_canister_v1; received '{}'.",
                 other
             ));
         }
@@ -6588,6 +6617,28 @@ fn build_workflow_execution_binding(
             source_mode: "runtime".to_string(),
         },
     })
+}
+
+async fn resolve_workflow_instance_adapter_kind(
+    instance_id: &str,
+) -> Result<WorkflowExecutionAdapterKind, String> {
+    let index = read_workflow_instance_index().await?;
+    Ok(index
+        .get(instance_id)
+        .map(|entry| entry.adapter.clone())
+        .unwrap_or(WorkflowExecutionAdapterKind::LocalDurableWorkerV1))
+}
+
+async fn load_workflow_snapshot_for_instance(
+    instance_id: &str,
+) -> Result<WorkflowSnapshotV1, cortex_runtime::RuntimeError> {
+    let adapter_kind = resolve_workflow_instance_adapter_kind(instance_id)
+        .await
+        .map_err(cortex_runtime::RuntimeError::Storage)?;
+    let adapter = workflow_runtime_adapter(adapter_kind)
+        .await
+        .map_err(cortex_runtime::RuntimeError::Network)?;
+    adapter.snapshot(instance_id).await
 }
 
 async fn read_workflow_intent_index() -> Result<BTreeMap<String, WorkflowIntentIndexEntry>, String>
@@ -6698,6 +6749,43 @@ async fn write_workflow_replay_index(
     index: &BTreeMap<String, WorkflowReplayIndexEntry>,
 ) -> Result<(), String> {
     store_write_json(WORKFLOW_REPLAY_INDEX_KEY, index).await
+}
+
+async fn read_workflow_instance_index()
+-> Result<BTreeMap<String, WorkflowInstanceIndexEntry>, String> {
+    Ok(
+        store_read_json::<BTreeMap<String, WorkflowInstanceIndexEntry>>(WORKFLOW_INSTANCE_INDEX_KEY)
+            .await?
+            .unwrap_or_default(),
+    )
+}
+
+async fn write_workflow_instance_index(
+    index: &BTreeMap<String, WorkflowInstanceIndexEntry>,
+) -> Result<(), String> {
+    store_write_json(WORKFLOW_INSTANCE_INDEX_KEY, index).await
+}
+
+async fn store_workflow_instance_index_entry(
+    instance: &WorkflowInstanceV1,
+) -> Result<(), String> {
+    let mut index = read_workflow_instance_index().await?;
+    index.insert(
+        instance.instance_id.clone(),
+        WorkflowInstanceIndexEntry {
+            instance_id: instance.instance_id.clone(),
+            adapter: match instance.source_of_truth.as_str() {
+                "workflow_engine_canister_v1" => {
+                    WorkflowExecutionAdapterKind::WorkflowEngineCanisterV1
+                }
+                _ => WorkflowExecutionAdapterKind::LocalDurableWorkerV1,
+            },
+            scope_key: workflow_scope_key(&instance.scope),
+            definition_id: instance.definition_id.clone(),
+            updated_at: instance.updated_at.clone(),
+        },
+    );
+    write_workflow_instance_index(&index).await
 }
 
 async fn store_workflow_intent(intent: &WorkflowIntentV1) -> Result<(), String> {
@@ -11674,8 +11762,18 @@ async fn post_cortex_workflow_instance_start(
             );
         }
     };
-    let adapter = workflow_runtime_adapter();
-    let plan = match adapter.compile(&artifact.definition, &binding) {
+    let adapter = match workflow_runtime_adapter(binding.adapter.clone()).await {
+        Ok(adapter) => adapter,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_ADAPTER_RESOLUTION_FAILED",
+                "Failed to resolve workflow execution adapter.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    };
+    let plan = match adapter.compile(&artifact.definition, &binding).await {
         Ok(plan) => plan,
         Err(err) => {
             return cortex_ux_error(
@@ -11697,6 +11795,14 @@ async fn post_cortex_workflow_instance_start(
             );
         }
     };
+    if let Err(err) = store_workflow_instance_index_entry(&instance).await {
+        return cortex_ux_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "WORKFLOW_INSTANCE_INDEX_WRITE_FAILED",
+            "Failed to persist workflow instance routing metadata.",
+            Some(json!({ "reason": err })),
+        );
+    }
     let _ = append_workflow_event(
         "workflow_instance_started",
         None,
@@ -11721,8 +11827,7 @@ async fn post_cortex_workflow_instance_start(
 }
 
 async fn get_cortex_workflow_instance(Path(instance_id): Path<String>) -> axum::response::Response {
-    let adapter = workflow_runtime_adapter();
-    match adapter.snapshot(instance_id.as_str()).await {
+    match load_workflow_snapshot_for_instance(instance_id.as_str()).await {
         Ok(snapshot) => Json(WorkflowInstanceResponse {
             schema_version: "1.0.0".to_string(),
             generated_at: viewspec_now_iso(),
@@ -11747,8 +11852,7 @@ async fn get_cortex_workflow_instance(Path(instance_id): Path<String>) -> axum::
 async fn get_cortex_workflow_instance_trace(
     Path(instance_id): Path<String>,
 ) -> axum::response::Response {
-    let adapter = workflow_runtime_adapter();
-    match adapter.snapshot(instance_id.as_str()).await {
+    match load_workflow_snapshot_for_instance(instance_id.as_str()).await {
         Ok(snapshot) => Json(WorkflowTraceResponse {
             schema_version: "1.0.0".to_string(),
             generated_at: viewspec_now_iso(),
@@ -11773,8 +11877,7 @@ async fn get_cortex_workflow_instance_trace(
 async fn get_cortex_workflow_instance_checkpoints(
     Path(instance_id): Path<String>,
 ) -> axum::response::Response {
-    let adapter = workflow_runtime_adapter();
-    match adapter.snapshot(instance_id.as_str()).await {
+    match load_workflow_snapshot_for_instance(instance_id.as_str()).await {
         Ok(snapshot) => Json(WorkflowCheckpointResponse {
             schema_version: "1.0.0".to_string(),
             generated_at: viewspec_now_iso(),
@@ -11808,7 +11911,28 @@ async fn post_cortex_workflow_instance_signal(
             None,
         );
     }
-    let adapter = workflow_runtime_adapter();
+    let adapter_kind = match resolve_workflow_instance_adapter_kind(instance_id.as_str()).await {
+        Ok(kind) => kind,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_ADAPTER_LOOKUP_FAILED",
+                "Failed to resolve workflow instance adapter.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    };
+    let adapter = match workflow_runtime_adapter(adapter_kind).await {
+        Ok(adapter) => adapter,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_ADAPTER_RESOLUTION_FAILED",
+                "Failed to resolve workflow instance adapter.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    };
     if let Err(err) = adapter.snapshot(instance_id.as_str()).await {
         if workflow_runtime_error_is_not_found(&err) {
             return cortex_ux_error(
@@ -11880,7 +12004,28 @@ async fn post_cortex_workflow_instance_cancel(
             None,
         );
     }
-    let adapter = workflow_runtime_adapter();
+    let adapter_kind = match resolve_workflow_instance_adapter_kind(instance_id.as_str()).await {
+        Ok(kind) => kind,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_ADAPTER_LOOKUP_FAILED",
+                "Failed to resolve workflow instance adapter.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    };
+    let adapter = match workflow_runtime_adapter(adapter_kind).await {
+        Ok(adapter) => adapter,
+        Err(err) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "WORKFLOW_ADAPTER_RESOLUTION_FAILED",
+                "Failed to resolve workflow instance adapter.",
+                Some(json!({ "reason": err })),
+            );
+        }
+    };
     if let Err(err) = adapter.snapshot(instance_id.as_str()).await {
         if workflow_runtime_error_is_not_found(&err) {
             return cortex_ux_error(
@@ -11912,8 +12057,7 @@ async fn post_cortex_workflow_instance_cancel(
 async fn get_cortex_workflow_instance_outcome(
     Path(instance_id): Path<String>,
 ) -> axum::response::Response {
-    let adapter = workflow_runtime_adapter();
-    match adapter.snapshot(instance_id.as_str()).await {
+    match load_workflow_snapshot_for_instance(instance_id.as_str()).await {
         Ok(snapshot) => Json(WorkflowOutcomeResponse {
             schema_version: "1.0.0".to_string(),
             generated_at: viewspec_now_iso(),
@@ -16641,20 +16785,23 @@ async fn post_cortex_heap_block_a2ui_feedback(
 
     match emit_heap_block_core(emit_request, actor_id.clone(), actor_role.clone()) {
         Ok(_) => {
-            let follow_up_artifact_id = maybe_emit_initiative_kickoff_follow_up_task(
-                &parent_projection,
-                &feedback_artifact_id,
-                &stored_at,
-                &actor_id,
-                &actor_role,
-                decision,
-            );
+            let (review_outcome_mode, follow_up_block_type, follow_up_artifact_id) =
+                resolve_heap_feedback_follow_up(
+                    &parent_projection,
+                    &feedback_artifact_id,
+                    &stored_at,
+                    &actor_id,
+                    &actor_role,
+                    decision,
+                );
 
             Json(CortexA2uiFeedbackResponse {
                 accepted: true,
                 artifact_id,
                 feedback_artifact_id,
                 stored_at,
+                review_outcome_mode,
+                follow_up_block_type,
                 follow_up_artifact_id,
             })
             .into_response()
@@ -16663,8 +16810,68 @@ async fn post_cortex_heap_block_a2ui_feedback(
     }
 }
 
-fn maybe_emit_initiative_kickoff_follow_up_task(
+fn resolve_heap_feedback_follow_up_mode(parent_projection: &HeapProjectionRecord) -> String {
+    parent_projection
+        .surface_json
+        .get("structured_data")
+        .and_then(Value::as_object)
+        .and_then(|structured| structured.get("review_outcome_mode"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            parent_projection
+                .projection
+                .attributes
+                .as_ref()
+                .and_then(|attrs| attrs.get("review_outcome_mode"))
+                .map(String::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+        .or_else(|| {
+            parent_projection
+                .projection
+                .attributes
+                .as_ref()
+                .and_then(|attrs| attrs.get("approval_kind"))
+                .filter(|value| value.as_str() == "initiative_kickoff")
+                .map(|_| "emit_task".to_string())
+        })
+        .unwrap_or_else(|| "record_only".to_string())
+}
+
+fn resolve_heap_feedback_follow_up(
     parent_projection: &HeapProjectionRecord,
+    feedback_artifact_id: &str,
+    stored_at: &str,
+    actor_id: &str,
+    actor_role: &str,
+    decision: &str,
+) -> (String, Option<String>, Option<String>) {
+    let review_outcome_mode = resolve_heap_feedback_follow_up_mode(parent_projection);
+    if review_outcome_mode != "emit_task" {
+        return (review_outcome_mode, None, None);
+    }
+
+    let follow_up_artifact_id = maybe_emit_heap_feedback_follow_up_task(
+        parent_projection,
+        &review_outcome_mode,
+        feedback_artifact_id,
+        stored_at,
+        actor_id,
+        actor_role,
+        decision,
+    );
+    let follow_up_block_type = follow_up_artifact_id.as_ref().map(|_| "task".to_string());
+    (review_outcome_mode, follow_up_block_type, follow_up_artifact_id)
+}
+
+fn maybe_emit_heap_feedback_follow_up_task(
+    parent_projection: &HeapProjectionRecord,
+    review_outcome_mode: &str,
     feedback_artifact_id: &str,
     stored_at: &str,
     actor_id: &str,
@@ -16676,10 +16883,7 @@ fn maybe_emit_initiative_kickoff_follow_up_task(
         return None;
     }
 
-    let attributes = parent_projection.projection.attributes.as_ref()?;
-    if attributes.get("approval_kind").map(String::as_str) != Some("initiative_kickoff") {
-        return None;
-    }
+    let attributes = parent_projection.projection.attributes.as_ref();
 
     if let Some(existing) = read_heap_projection_store()
         .into_iter()
@@ -16690,7 +16894,9 @@ fn maybe_emit_initiative_kickoff_follow_up_task(
                     .projection
                     .attributes
                     .as_ref()
-                    .and_then(|attrs| attrs.get("kickoff_approval_artifact_id"))
+                    .and_then(|attrs| {
+                        attrs.get("review_source_artifact_id").or_else(|| attrs.get("kickoff_approval_artifact_id"))
+                    })
                     .map(String::as_str)
                     == Some(parent_projection.projection.artifact_id.as_str())
         })
@@ -16703,34 +16909,160 @@ fn maybe_emit_initiative_kickoff_follow_up_task(
         .surface_json
         .get("structured_data")
         .and_then(Value::as_object)?;
-    if structured.get("solicitation_kind").and_then(Value::as_str)
-        != Some("initiative_kickoff_approval")
-    {
-        return None;
-    }
+    let is_initiative_kickoff = attributes
+        .and_then(|attrs| attrs.get("approval_kind"))
+        .map(String::as_str)
+        == Some("initiative_kickoff")
+        || structured.get("solicitation_kind").and_then(Value::as_str)
+            == Some("initiative_kickoff_approval");
 
     let title = structured
-        .get("title")
+        .get("follow_up_title")
         .and_then(Value::as_str)
         .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            structured
+                .get("title")
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+        })
         .unwrap_or_else(|| {
             parent_projection
                 .projection
                 .title
-                .strip_suffix(" Approval")
+                .strip_suffix(" Setup Review")
+                .or_else(|| parent_projection.projection.title.strip_suffix(" Approval"))
                 .unwrap_or(parent_projection.projection.title.as_str())
         });
     let task_body = structured
-        .get("description")
+        .get("follow_up_task")
         .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())?;
-    let task_context = attributes.get("task_context")?;
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            structured
+                .get("description")
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+        })?;
 
-    let kickoff_artifact_id = format!(
-        "kickoff_{}_{}",
+    let follow_up_artifact_id = format!(
+        "follow_up_{}_{}",
         parent_projection.projection.artifact_id,
         Utc::now().timestamp_millis()
     );
+
+    let mut block_attributes = serde_json::Map::new();
+    block_attributes.insert(
+        "review_outcome_mode".to_string(),
+        Value::String(review_outcome_mode.to_string()),
+    );
+    block_attributes.insert(
+        "review_source_artifact_id".to_string(),
+        Value::String(parent_projection.projection.artifact_id.clone()),
+    );
+    block_attributes.insert(
+        "review_feedback_artifact_id".to_string(),
+        Value::String(feedback_artifact_id.to_string()),
+    );
+    block_attributes.insert(
+        "review_approved_at".to_string(),
+        Value::String(stored_at.to_string()),
+    );
+    block_attributes.insert(
+        "review_approved_by".to_string(),
+        Value::String(actor_id.to_string()),
+    );
+
+    if is_initiative_kickoff {
+        let requested_agent_role = attributes
+            .and_then(|attrs| attrs.get("requested_agent_role"))
+            .cloned()
+            .unwrap_or_else(|| {
+                structured
+                    .get("requested_agent_role")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string()
+            });
+        block_attributes.insert(
+            "initiative_id".to_string(),
+            Value::String(
+                attributes
+                    .and_then(|attrs| attrs.get("initiative_id"))
+                    .cloned()
+                    .unwrap_or_default(),
+            ),
+        );
+        block_attributes.insert(
+            "initiative_kickoff_template_id".to_string(),
+            Value::String(
+                attributes
+                    .and_then(|attrs| attrs.get("initiative_kickoff_template_id"))
+                    .cloned()
+                    .unwrap_or_default(),
+            ),
+        );
+        block_attributes.insert("agent_role".to_string(), Value::String(requested_agent_role.clone()));
+        block_attributes.insert(
+            "requested_agent_role".to_string(),
+            Value::String(requested_agent_role),
+        );
+        block_attributes.insert(
+            "required_capabilities".to_string(),
+            Value::String(
+                attributes
+                    .and_then(|attrs| attrs.get("required_capabilities"))
+                    .cloned()
+                    .unwrap_or_default(),
+            ),
+        );
+        block_attributes.insert(
+            "reference_paths".to_string(),
+            Value::String(
+                attributes
+                    .and_then(|attrs| attrs.get("reference_paths"))
+                    .cloned()
+                    .unwrap_or_default(),
+            ),
+        );
+        block_attributes.insert(
+            "task_context_version".to_string(),
+            Value::String(
+                attributes
+                    .and_then(|attrs| attrs.get("task_context_version"))
+                    .cloned()
+                    .unwrap_or_default(),
+            ),
+        );
+        if let Some(task_context) = attributes.and_then(|attrs| attrs.get("task_context")) {
+            block_attributes.insert("task_context".to_string(), Value::String(task_context.clone()));
+        }
+        block_attributes.insert(
+            "routing_decision_mode".to_string(),
+            Value::String(
+                attributes
+                    .and_then(|attrs| attrs.get("routing_decision_mode"))
+                    .cloned()
+                    .unwrap_or_default(),
+            ),
+        );
+        block_attributes.insert(
+            "kickoff_approval_artifact_id".to_string(),
+            Value::String(parent_projection.projection.artifact_id.clone()),
+        );
+        block_attributes.insert(
+            "kickoff_feedback_artifact_id".to_string(),
+            Value::String(feedback_artifact_id.to_string()),
+        );
+        block_attributes.insert(
+            "kickoff_approved_at".to_string(),
+            Value::String(stored_at.to_string()),
+        );
+        block_attributes.insert(
+            "kickoff_approved_by".to_string(),
+            Value::String(actor_id.to_string()),
+        );
+    }
 
     let payload = json!({
         "schema_version": "1.0.0",
@@ -16738,58 +17070,14 @@ fn maybe_emit_initiative_kickoff_follow_up_task(
         "workspace_id": parent_projection.projection.workspace_id.clone(),
         "source": {
             "agent_id": actor_id,
-            "request_id": format!("kickoff_follow_up_{}_{}", parent_projection.projection.artifact_id, Utc::now().timestamp_millis()),
+            "request_id": format!("heap_feedback_follow_up_{}_{}", parent_projection.projection.artifact_id, Utc::now().timestamp_millis()),
             "emitted_at": stored_at,
-            "session_id": format!("heap_kickoff_follow_up:{}", parent_projection.projection.workspace_id),
+            "session_id": format!("heap_feedback_follow_up:{}", parent_projection.projection.workspace_id),
         },
         "block": {
             "type": "task",
             "title": title,
-            "attributes": {
-                "initiative_id": attributes.get("initiative_id").cloned().unwrap_or_default(),
-                "initiative_kickoff_template_id": attributes
-                    .get("initiative_kickoff_template_id")
-                    .cloned()
-                    .unwrap_or_default(),
-                "agent_role": attributes
-                    .get("requested_agent_role")
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        structured
-                            .get("requested_agent_role")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string()
-                    }),
-                "requested_agent_role": attributes
-                    .get("requested_agent_role")
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        structured
-                            .get("requested_agent_role")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string()
-                    }),
-                "required_capabilities": attributes
-                    .get("required_capabilities")
-                    .cloned()
-                    .unwrap_or_default(),
-                "reference_paths": attributes.get("reference_paths").cloned().unwrap_or_default(),
-                "task_context_version": attributes
-                    .get("task_context_version")
-                    .cloned()
-                    .unwrap_or_default(),
-                "task_context": task_context,
-                "routing_decision_mode": attributes
-                    .get("routing_decision_mode")
-                    .cloned()
-                    .unwrap_or_default(),
-                "kickoff_approval_artifact_id": parent_projection.projection.artifact_id.clone(),
-                "kickoff_feedback_artifact_id": feedback_artifact_id.to_string(),
-                "kickoff_approved_at": stored_at.to_string(),
-                "kickoff_approved_by": actor_id.to_string()
-            },
+            "attributes": block_attributes,
             "behaviors": ["task", "actionable"]
         },
         "content": {
@@ -16802,7 +17090,7 @@ fn maybe_emit_initiative_kickoff_follow_up_task(
             "files_key_format": "hash:file_size"
         },
         "crdt_projection": {
-            "artifact_id": kickoff_artifact_id
+            "artifact_id": follow_up_artifact_id
         }
     });
 
@@ -35122,6 +35410,86 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn heap_block_a2ui_feedback_reports_record_only_mode() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "cortex-web".parse().expect("actor header"),
+        );
+
+        let payload = heap_emit_fixture(
+            "req-feedback-record-only",
+            "Record Only Block",
+            "2026-03-18T01:00:00Z",
+            true,
+            "hash:file_size",
+        );
+        let emit_response = post_cortex_heap_emit(headers.clone(), Json(payload)).await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path("artifact-req-feedback-record-only".to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Record only.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["reviewOutcomeMode"], "record_only");
+        assert_eq!(body["followUpArtifactId"], Value::Null);
+        assert_eq!(body["followUpBlockType"], Value::Null);
+    }
+
+    fn generic_emit_task_parent_payload(title: &str, task_body: &str, request_id: &str) -> Value {
+        json!({
+            "schema_version": "1.0.0",
+            "mode": "heap",
+            "workspace_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "source": {
+                "agent_id": "cortex-web",
+                "request_id": request_id,
+                "emitted_at": "2026-03-26T00:00:00Z",
+                "session_id": format!("heap:{request_id}")
+            },
+            "block": {
+                "type": "agent_solicitation",
+                "title": format!("{title} Setup Review"),
+                "behaviors": ["awaiting_approval"]
+            },
+            "content": {
+                "payload_type": "structured_data",
+                "structured_data": {
+                    "type": "agent_solicitation",
+                    "solicitation_kind": "hermes_advisory_review",
+                    "title": title,
+                    "role": "hermes.advisory",
+                    "requested_agent_role": "steward",
+                    "authority_scope": "review_only",
+                    "review_outcome_mode": "emit_task",
+                    "summary": "Generic review request with task follow-up.",
+                    "description": task_body
+                }
+            },
+            "crdt_projection": {
+                "artifact_id": request_id
+            }
+        })
+    }
+
     fn initiative_kickoff_parent_payload(
         initiative_id: &str,
         template_id: &str,
@@ -35194,6 +35562,144 @@ mod tests {
                 "artifact_id": request_id
             }
         })
+    }
+
+    #[tokio::test]
+    async fn approved_emit_task_review_mode_emits_generic_follow_up_task() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "cortex-web".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            headers.clone(),
+            Json(generic_emit_task_parent_payload(
+                "Generic Review",
+                "# Generic Follow Up\n- [ ] Do the bounded next step.",
+                "generic-emit-task-parent",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "approved".to_string(),
+                feedback: Some("Approved generic follow-up.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["reviewOutcomeMode"], "emit_task");
+        assert_eq!(body["followUpBlockType"], "task");
+        let follow_up_artifact_id = body["followUpArtifactId"]
+            .as_str()
+            .expect("follow-up artifact id");
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 1);
+        assert_eq!(
+            query_body["items"][0]["projection"]["artifactId"],
+            follow_up_artifact_id
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["review_source_artifact_id"],
+            parent_artifact_id
+        );
+        assert_eq!(
+            query_body["items"][0]["projection"]["attributes"]["review_outcome_mode"],
+            "emit_task"
+        );
+        assert_eq!(
+            query_body["items"][0]["surfaceJson"]["task"],
+            "# Generic Follow Up\n- [ ] Do the bounded next step."
+        );
+    }
+
+    #[tokio::test]
+    async fn rejected_emit_task_review_mode_records_feedback_without_follow_up_task() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = EnvVarGuard::set(
+            "NOSTRA_CORTEX_UX_LOG_DIR",
+            temp.path().display().to_string().as_str(),
+        );
+        let _authz_dev = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "1");
+        let _authz_unverified = EnvVarGuard::set("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER", "1");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-cortex-role", "operator".parse().expect("role header"));
+        headers.insert(
+            "x-cortex-actor",
+            "cortex-web".parse().expect("actor header"),
+        );
+
+        let emit_response = post_cortex_heap_emit(
+            headers.clone(),
+            Json(generic_emit_task_parent_payload(
+                "Generic Review Rejection",
+                "# Generic Follow Up\n- [ ] This should not be emitted.",
+                "generic-emit-task-rejected-parent",
+            )),
+        )
+        .await;
+        assert_eq!(emit_response.status(), StatusCode::OK);
+        let parent_body = response_json(emit_response).await;
+        let parent_artifact_id = parent_body["artifactId"]
+            .as_str()
+            .expect("parent artifact id");
+
+        let response = post_cortex_heap_block_a2ui_feedback(
+            headers,
+            Path(parent_artifact_id.to_string()),
+            Json(CortexA2uiFeedbackRequest {
+                decision: "rejected".to_string(),
+                feedback: Some("Rejected generic follow-up.".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["reviewOutcomeMode"], "emit_task");
+        assert_eq!(body["followUpBlockType"], Value::Null);
+        assert_eq!(body["followUpArtifactId"], Value::Null);
+
+        let query_response = get_cortex_heap_blocks(Query(HeapBlocksQuery {
+            space_id: Some("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()),
+            block_type: Some("task".to_string()),
+            limit: Some(10),
+            ..HeapBlocksQuery::default()
+        }))
+        .await;
+        assert_eq!(query_response.status(), StatusCode::OK);
+        let query_body = response_json(query_response).await;
+        assert_eq!(query_body["count"], 0);
     }
 
     #[tokio::test]
@@ -39993,6 +40499,61 @@ mod tests {
         (definition_id, proposal_id, scope_key, space_id)
     }
 
+    fn sample_workflow_definition_for_binding_tests() -> WorkflowDefinitionV1 {
+        WorkflowDefinitionV1 {
+            schema_version: "1.0.0".to_string(),
+            definition_id: "workflow_definition_binding_test".to_string(),
+            scope: WorkflowScope {
+                space_id: Some("workflow-space-binding-test".to_string()),
+                route_id: Some("/workflows".to_string()),
+                role: Some("operator".to_string()),
+            },
+            intent_ref: None,
+            intent: "Binding test".to_string(),
+            motif_kind: WorkflowMotifKind::Sequential,
+            constraints: Vec::new(),
+            graph: cortex_domain::workflow::WorkflowGraphV1 {
+                nodes: vec![cortex_domain::workflow::WorkflowNodeV1 {
+                    node_id: "node-checkpoint".to_string(),
+                    label: "Checkpoint".to_string(),
+                    kind: cortex_domain::workflow::WorkflowNodeKind::HumanCheckpoint,
+                    reads: Vec::new(),
+                    writes: Vec::new(),
+                    evidence_outputs: Vec::new(),
+                    authority_requirements: Vec::new(),
+                    checkpoint_policy: Some(WorkflowCheckpointPolicyV1 {
+                        resume_allowed: true,
+                        cancel_allowed: true,
+                        pause_allowed: true,
+                        timeout_seconds: Some(120),
+                    }),
+                    loop_policy: None,
+                    subflow_ref: None,
+                    config: json!({}),
+                }],
+                edges: Vec::new(),
+            },
+            context_contract: cortex_domain::workflow::ContextContractV1::default(),
+            confidence: cortex_domain::workflow::WorkflowConfidence {
+                score: 0.9,
+                rationale: "test".to_string(),
+            },
+            lineage: cortex_domain::workflow::WorkflowLineage::default(),
+            policy: cortex_domain::workflow::WorkflowDraftPolicyV1 {
+                recommendation_only: false,
+                require_review: true,
+                allow_shadow_execution: false,
+            },
+            provenance: cortex_domain::workflow::WorkflowProvenance {
+                created_by: "tester".to_string(),
+                created_at: viewspec_now_iso(),
+                source_mode: "test".to_string(),
+            },
+            governance_ref: None,
+            digest: Some("sha256:binding-test".to_string()),
+        }
+    }
+
     #[tokio::test]
     async fn workflow_candidate_stage_rejects_hash_mismatch() {
         let _lock = acquire_testing_env_lock();
@@ -40404,7 +40965,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn workflow_instance_start_returns_queued_instance_without_snapshot() {
+    async fn workflow_binding_accepts_canister_adapter() {
+        let definition = sample_workflow_definition_for_binding_tests();
+        let binding = build_workflow_execution_binding(
+            &definition,
+            &WorkflowInstanceStartRequest {
+                definition_id: definition.definition_id.clone(),
+                binding_id: Some("workflow_binding_canister_test".to_string()),
+                instance_id: Some("workflow_instance_canister_test".to_string()),
+                adapter: Some("workflow_engine_canister_v1".to_string()),
+                execution_profile: Some("async".to_string()),
+                checkpoint_policy: Some(WorkflowCheckpointPolicyV1 {
+                    resume_allowed: true,
+                    cancel_allowed: true,
+                    pause_allowed: true,
+                    timeout_seconds: Some(120),
+                }),
+                runtime_limits: BTreeMap::new(),
+                started_by: Some("tester".to_string()),
+            },
+        )
+        .expect("binding");
+
+        assert_eq!(
+            binding.adapter,
+            WorkflowExecutionAdapterKind::WorkflowEngineCanisterV1
+        );
+        assert_eq!(
+            binding.runtime_limits["instanceId"],
+            json!("workflow_instance_canister_test")
+        );
+    }
+
+    #[tokio::test]
+    async fn workflow_instance_start_materializes_local_snapshot_without_bridge_snapshot() {
         let _lock = acquire_testing_env_lock();
         let temp = TestTempDir::new();
         let _guard = DecisionSurfaceLogDirGuard::set(temp.path());
@@ -40440,7 +41034,7 @@ mod tests {
             .as_str()
             .expect("instance id")
             .to_string();
-        assert_eq!(start_body["instance"]["status"], "queued");
+        assert_eq!(start_body["instance"]["status"], "completed");
         assert_eq!(
             start_body["plan"]["projection"]["runtime"],
             "local_durable_worker_v1"
@@ -40452,7 +41046,23 @@ mod tests {
         assert_eq!(get_response.status(), StatusCode::OK);
         let get_body = response_json(get_response).await;
         assert_eq!(get_body["instance"]["instanceId"], instance_id);
-        assert_eq!(get_body["instance"]["status"], "queued");
+        assert_eq!(get_body["instance"]["status"], "completed");
+
+        let trace_response = get_cortex_workflow_instance_trace(Path(instance_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(trace_response.status(), StatusCode::OK);
+        let trace_body = response_json(trace_response).await;
+        assert_eq!(trace_body["trace"].as_array().expect("trace").len(), 2);
+        assert_eq!(trace_body["trace"][0]["eventType"], "workflow_started");
+        assert_eq!(trace_body["trace"][1]["eventType"], "workflow_completed");
+
+        let outcome_response = get_cortex_workflow_instance_outcome(Path(instance_id.clone()))
+            .await
+            .into_response();
+        assert_eq!(outcome_response.status(), StatusCode::OK);
+        let outcome_body = response_json(outcome_response).await;
+        assert_eq!(outcome_body["outcome"]["status"], "completed");
 
         let start_commands_dir = temp
             .path()

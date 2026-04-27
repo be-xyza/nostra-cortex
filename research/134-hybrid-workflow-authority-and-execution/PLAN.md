@@ -21,7 +21,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Workflow Architecture"
 created: "2026-03-11"
-updated: "2026-03-19"
+updated: "2026-04-27"
 ---
 
 # Initiative 134: Hybrid Workflow Authority and Execution
@@ -61,11 +61,16 @@ The canonical workflow substrate is an artifact pipeline plus execution adapter 
 
 ### Phase 4: Execution Adapter Hardening
 - Promote the local durable worker path to the first real adapter.
-- Keep the canister path optional until build/runtime validation is real.
+- Implement the canister execution adapter path behind explicit adapter selection.
+- Keep the local durable worker as the default until live cross-adapter parity is proven.
+- **Status 2026-04-27**: Complete for static implementation and main-tree verification. `workflow_engine_canister_v1` is implemented, gateway/workbench routing is adapter-aware, and ICP CLI-first operator surfaces are aligned. Live canister deployment remains Phase 5 work.
 
 ### Phase 5: Cross-Adapter Parity
+- Deploy the workflow canister through the current ICP CLI path (`icp`).
 - Run identical definitions across worker and canister adapters.
-- Keep the canister as authority/projection service only if parity fails.
+- Assert parity on trace, checkpoints, snapshots, cancellation, and outcomes.
+- Keep the canister path gated until live gateway-to-canister execution and parity are demonstrated.
+- **Status 2026-04-27**: Not complete. No live ICP CLI deployment or gateway-to-canister end-to-end run has been performed yet.
 
 ## Immediate Implementation Slice
 - Successor initiative docs.
@@ -88,5 +93,6 @@ The canonical workflow substrate is an artifact pipeline plus execution adapter 
 - Canonical workflow contracts compile and test in `cortex-domain`.
 - Deterministic compile emits stable projections for bounded motifs.
 - Runtime artifact services can generate, persist, and reload candidate sets.
-- No architecture claim assumes the dedicated `workflow_engine` canister is the canonical executor until local build/runtime parity exists.
+- Execution adapter routing supports both `local_durable_worker_v1` and explicit `workflow_engine_canister_v1`.
+- No architecture claim assumes the dedicated `workflow_engine` canister is the canonical executor until live ICP CLI deployment and cross-adapter parity exist.
 - Subscription-auth sidecars such as ZeroClaw remain provider brokers only and do not become workflow authority.

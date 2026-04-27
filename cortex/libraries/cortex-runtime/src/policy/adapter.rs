@@ -69,6 +69,7 @@ impl AcpPolicyConfig {
                 "bash".to_string(),
                 "cargo".to_string(),
                 "git".to_string(),
+                "icp".to_string(),
                 "dfx".to_string(),
                 "ls".to_string(),
                 "cat".to_string(),

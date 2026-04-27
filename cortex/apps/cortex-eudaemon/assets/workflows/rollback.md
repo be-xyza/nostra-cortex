@@ -7,13 +7,13 @@
 > snapshot list --last
 
 - [ ] Stop Running Canisters
-> dfx canister stop nostra_backend
+> icp canister stop nostra_backend
 
 - [ ] Restore Snapshot
 > snapshot restore last local
 
 - [ ] Restart Canisters
-> dfx canister start nostra_backend
+> icp canister start nostra_backend
 
 - [ ] Verify System Health
-> dfx canister status nostra_backend
+> icp canister status nostra_backend

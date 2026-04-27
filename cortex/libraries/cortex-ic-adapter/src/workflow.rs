@@ -7,6 +7,11 @@ use cortex_runtime::ports::{
     DecisionClass, DecisionLineage, EpistemicAssessment, ExecutionProfile, ExecutionTopology,
     FileMetadata, GateOutcome, ReplayContract, TrustBoundary, WorkflowAdapter,
 };
+use cortex_runtime::workflow::adapter::WorkflowExecutionAdapter;
+use cortex_domain::workflow::{
+    WorkflowCheckpointResultV1, WorkflowDefinitionV1, WorkflowExecutionBindingV1,
+    WorkflowExecutionPlanV1, WorkflowInstanceV1, WorkflowSignalV1, WorkflowSnapshotV1,
+};
 use ic_agent::identity::AnonymousIdentity;
 use ic_agent::Agent;
 use serde::Serialize;
@@ -156,6 +161,12 @@ struct EpistemicAssessmentCandid {
     created_at: u64,
 }
 
+#[derive(CandidType, candid::Deserialize, Clone, Debug, PartialEq, Eq)]
+struct TextOperationResult {
+    ok: Option<String>,
+    err: Option<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct WorkflowCanisterClient {
     host: String,
@@ -191,6 +202,111 @@ impl WorkflowCanisterClient {
                 .map_err(|err| RuntimeError::Network(format!("failed to fetch root key: {err}")))?;
         }
         Ok(agent)
+    }
+
+    async fn query_text_result<T>(&self, method: &str, arg: Vec<u8>) -> Result<T, RuntimeError>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let agent = self.agent().await?;
+        let bytes = agent
+            .query(&self.canister_id, method)
+            .with_arg(arg)
+            .call()
+            .await
+            .map_err(|err| RuntimeError::Network(format!("query failed: {err}")))?;
+        let result = Decode!(&bytes, TextOperationResult)
+            .map_err(|err| RuntimeError::Serialization(format!("decode failed: {err}")))?;
+        match (result.ok, result.err) {
+            (Some(raw), None) => serde_json::from_str(&raw)
+                .map_err(|err| RuntimeError::Serialization(format!("json decode failed: {err}"))),
+            (None, Some(err)) => Err(RuntimeError::Domain(err)),
+            _ => Err(RuntimeError::Serialization(format!(
+                "{method} returned an invalid canister result envelope"
+            ))),
+        }
+    }
+
+    async fn update_text_result<T>(&self, method: &str, arg: Vec<u8>) -> Result<T, RuntimeError>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let agent = self.agent().await?;
+        let bytes = agent
+            .update(&self.canister_id, method)
+            .with_arg(arg)
+            .call_and_wait()
+            .await
+            .map_err(|err| RuntimeError::Network(format!("update failed: {err}")))?;
+        let result = Decode!(&bytes, TextOperationResult)
+            .map_err(|err| RuntimeError::Serialization(format!("decode failed: {err}")))?;
+        match (result.ok, result.err) {
+            (Some(raw), None) => serde_json::from_str(&raw)
+                .map_err(|err| RuntimeError::Serialization(format!("json decode failed: {err}"))),
+            (None, Some(err)) => Err(RuntimeError::Domain(err)),
+            _ => Err(RuntimeError::Serialization(format!(
+                "{method} returned an invalid canister result envelope"
+            ))),
+        }
+    }
+
+    pub async fn compile_workflow_execution_plan(
+        &self,
+        definition: &WorkflowDefinitionV1,
+        binding: &WorkflowExecutionBindingV1,
+    ) -> Result<WorkflowExecutionPlanV1, RuntimeError> {
+        let definition_json = serde_json::to_string(definition)
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        let binding_json = serde_json::to_string(binding)
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        let arg = Encode!(&definition_json, &binding_json)
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        self.query_text_result("compile_workflow_v1", arg).await
+    }
+
+    pub async fn start_workflow_instance(
+        &self,
+        definition: &WorkflowDefinitionV1,
+        binding: &WorkflowExecutionBindingV1,
+    ) -> Result<WorkflowInstanceV1, RuntimeError> {
+        let definition_json = serde_json::to_string(definition)
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        let binding_json = serde_json::to_string(binding)
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        let arg = Encode!(&definition_json, &binding_json)
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        self.update_text_result("start_workflow_v1", arg).await
+    }
+
+    pub async fn signal_workflow_instance(
+        &self,
+        instance_id: &str,
+        signal: &WorkflowSignalV1,
+    ) -> Result<WorkflowCheckpointResultV1, RuntimeError> {
+        let signal_json = serde_json::to_string(signal)
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        let arg = Encode!(&instance_id.to_string(), &signal_json)
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        self.update_text_result("signal_workflow_v1", arg).await
+    }
+
+    pub async fn snapshot_workflow_instance(
+        &self,
+        instance_id: &str,
+    ) -> Result<WorkflowSnapshotV1, RuntimeError> {
+        let arg = Encode!(&instance_id.to_string())
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        self.query_text_result("snapshot_workflow_v1", arg).await
+    }
+
+    pub async fn cancel_workflow_instance(
+        &self,
+        instance_id: &str,
+        reason: &str,
+    ) -> Result<WorkflowCheckpointResultV1, RuntimeError> {
+        let arg = Encode!(&instance_id.to_string(), &reason.to_string())
+            .map_err(|err| RuntimeError::Serialization(err.to_string()))?;
+        self.update_text_result("cancel_workflow_v1", arg).await
     }
 }
 
@@ -516,5 +632,385 @@ fn map_epistemic_assessment(source: EpistemicAssessmentCandid) -> EpistemicAsses
         },
         reasons: source.reasons,
         created_at: source.created_at,
+    }
+}
+
+#[async_trait]
+pub trait WorkflowExecutionCanister: Send + Sync {
+    async fn compile(
+        &self,
+        definition: &WorkflowDefinitionV1,
+        binding: &WorkflowExecutionBindingV1,
+    ) -> Result<WorkflowExecutionPlanV1, RuntimeError>;
+
+    async fn start(
+        &self,
+        definition: &WorkflowDefinitionV1,
+        binding: &WorkflowExecutionBindingV1,
+    ) -> Result<WorkflowInstanceV1, RuntimeError>;
+
+    async fn signal(
+        &self,
+        instance_id: &str,
+        signal: &WorkflowSignalV1,
+    ) -> Result<WorkflowCheckpointResultV1, RuntimeError>;
+
+    async fn snapshot(&self, instance_id: &str) -> Result<WorkflowSnapshotV1, RuntimeError>;
+
+    async fn cancel(
+        &self,
+        instance_id: &str,
+        reason: &str,
+    ) -> Result<WorkflowCheckpointResultV1, RuntimeError>;
+}
+
+#[async_trait]
+impl WorkflowExecutionCanister for WorkflowCanisterClient {
+    async fn compile(
+        &self,
+        definition: &WorkflowDefinitionV1,
+        binding: &WorkflowExecutionBindingV1,
+    ) -> Result<WorkflowExecutionPlanV1, RuntimeError> {
+        self.compile_workflow_execution_plan(definition, binding).await
+    }
+
+    async fn start(
+        &self,
+        definition: &WorkflowDefinitionV1,
+        binding: &WorkflowExecutionBindingV1,
+    ) -> Result<WorkflowInstanceV1, RuntimeError> {
+        self.start_workflow_instance(definition, binding).await
+    }
+
+    async fn signal(
+        &self,
+        instance_id: &str,
+        signal: &WorkflowSignalV1,
+    ) -> Result<WorkflowCheckpointResultV1, RuntimeError> {
+        self.signal_workflow_instance(instance_id, signal).await
+    }
+
+    async fn snapshot(&self, instance_id: &str) -> Result<WorkflowSnapshotV1, RuntimeError> {
+        self.snapshot_workflow_instance(instance_id).await
+    }
+
+    async fn cancel(
+        &self,
+        instance_id: &str,
+        reason: &str,
+    ) -> Result<WorkflowCheckpointResultV1, RuntimeError> {
+        self.cancel_workflow_instance(instance_id, reason).await
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct WorkflowEngineCanisterExecutionAdapter<C = WorkflowCanisterClient> {
+    client: C,
+}
+
+impl WorkflowEngineCanisterExecutionAdapter<WorkflowCanisterClient> {
+    pub async fn from_env() -> Result<Self, RuntimeError> {
+        Ok(Self {
+            client: WorkflowCanisterClient::from_env().await?,
+        })
+    }
+}
+
+impl<C> WorkflowEngineCanisterExecutionAdapter<C> {
+    pub fn new(client: C) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl<C> WorkflowExecutionAdapter for WorkflowEngineCanisterExecutionAdapter<C>
+where
+    C: WorkflowExecutionCanister + Send + Sync,
+{
+    async fn compile(
+        &self,
+        definition: &WorkflowDefinitionV1,
+        binding: &WorkflowExecutionBindingV1,
+    ) -> Result<WorkflowExecutionPlanV1, RuntimeError> {
+        validate_supported_definition(definition)?;
+        self.client.compile(definition, binding).await
+    }
+
+    async fn start(
+        &self,
+        definition: &WorkflowDefinitionV1,
+        binding: &WorkflowExecutionBindingV1,
+    ) -> Result<WorkflowInstanceV1, RuntimeError> {
+        self.client.start(definition, binding).await
+    }
+
+    async fn signal(
+        &self,
+        instance_id: &str,
+        signal: WorkflowSignalV1,
+    ) -> Result<WorkflowCheckpointResultV1, RuntimeError> {
+        self.client.signal(instance_id, &signal).await
+    }
+
+    async fn snapshot(&self, instance_id: &str) -> Result<WorkflowSnapshotV1, RuntimeError> {
+        self.client.snapshot(instance_id).await
+    }
+
+    async fn cancel(
+        &self,
+        instance_id: &str,
+        reason: &str,
+    ) -> Result<WorkflowCheckpointResultV1, RuntimeError> {
+        self.client.cancel(instance_id, reason).await
+    }
+}
+
+fn validate_supported_definition(definition: &WorkflowDefinitionV1) -> Result<(), RuntimeError> {
+    let unsupported = definition
+        .graph
+        .nodes
+        .iter()
+        .filter_map(|node| {
+            let code = match node.kind {
+                cortex_domain::workflow::WorkflowNodeKind::EvaluationGate => Some("evaluation_gate"),
+                cortex_domain::workflow::WorkflowNodeKind::Parallel => Some("parallel"),
+                cortex_domain::workflow::WorkflowNodeKind::Switch => Some("switch"),
+                cortex_domain::workflow::WorkflowNodeKind::SubflowRef => Some("subflow_ref"),
+                _ => None,
+            }?;
+            Some(format!(
+                "WF_CANISTER_UNSUPPORTED_NODE_KIND:{}:{}",
+                node.node_id, code
+            ))
+        })
+        .collect::<Vec<_>>();
+
+    if unsupported.is_empty() {
+        Ok(())
+    } else {
+        Err(RuntimeError::Domain(format!(
+            "workflow_engine_canister_v1 cannot compile unsupported node kinds: {}",
+            unsupported.join(", ")
+        )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cortex_domain::workflow::{
+        ContextContractV1, WorkflowCheckpointPolicyV1, WorkflowCheckpointStatus,
+        WorkflowConfidence, WorkflowDraftPolicyV1, WorkflowExecutionAdapterKind,
+        WorkflowExecutionProfileKind, WorkflowGraphV1, WorkflowInstanceStatus,
+        WorkflowMotifKind, WorkflowNodeKind, WorkflowNodeV1, WorkflowProvenance, WorkflowScope,
+    };
+    use serde_json::json;
+
+    #[derive(Clone, Default)]
+    struct FakeExecutionCanister;
+
+    #[async_trait]
+    impl WorkflowExecutionCanister for FakeExecutionCanister {
+        async fn compile(
+            &self,
+            definition: &WorkflowDefinitionV1,
+            binding: &WorkflowExecutionBindingV1,
+        ) -> Result<WorkflowExecutionPlanV1, RuntimeError> {
+            Ok(WorkflowExecutionPlanV1 {
+                plan_id: "plan-1".to_string(),
+                definition_id: definition.definition_id.clone(),
+                binding_id: binding.binding_id.clone(),
+                adapter: binding.adapter.clone(),
+                projection: json!({ "runtime": "workflow_engine_canister_v1" }),
+            })
+        }
+
+        async fn start(
+            &self,
+            definition: &WorkflowDefinitionV1,
+            binding: &WorkflowExecutionBindingV1,
+        ) -> Result<WorkflowInstanceV1, RuntimeError> {
+            Ok(WorkflowInstanceV1 {
+                schema_version: "1.0.0".to_string(),
+                instance_id: "instance-1".to_string(),
+                definition_id: definition.definition_id.clone(),
+                binding_id: binding.binding_id.clone(),
+                status: WorkflowInstanceStatus::WaitingCheckpoint,
+                scope: definition.scope.clone(),
+                created_at: "1".to_string(),
+                updated_at: "1".to_string(),
+                definition_digest: "sha256:def".to_string(),
+                binding_digest: "sha256:binding".to_string(),
+                source_of_truth: "workflow_engine_canister_v1".to_string(),
+                replay_contract_ref: None,
+                lineage_id: None,
+                degraded_reason: None,
+            })
+        }
+
+        async fn signal(
+            &self,
+            instance_id: &str,
+            _signal: &WorkflowSignalV1,
+        ) -> Result<WorkflowCheckpointResultV1, RuntimeError> {
+            Ok(WorkflowCheckpointResultV1 {
+                instance_id: instance_id.to_string(),
+                checkpoint_id: Some("checkpoint-1".to_string()),
+                status: WorkflowCheckpointStatus::Resolved,
+                updated_at: "2".to_string(),
+            })
+        }
+
+        async fn snapshot(&self, instance_id: &str) -> Result<WorkflowSnapshotV1, RuntimeError> {
+            Ok(WorkflowSnapshotV1 {
+                instance: WorkflowInstanceV1 {
+                    schema_version: "1.0.0".to_string(),
+                    instance_id: instance_id.to_string(),
+                    definition_id: "definition-1".to_string(),
+                    binding_id: "binding-1".to_string(),
+                    status: WorkflowInstanceStatus::Completed,
+                    scope: WorkflowScope {
+                        space_id: Some("space-alpha".to_string()),
+                        route_id: None,
+                        role: None,
+                    },
+                    created_at: "1".to_string(),
+                    updated_at: "2".to_string(),
+                    definition_digest: "sha256:def".to_string(),
+                    binding_digest: "sha256:binding".to_string(),
+                    source_of_truth: "workflow_engine_canister_v1".to_string(),
+                    replay_contract_ref: None,
+                    lineage_id: None,
+                    degraded_reason: None,
+                },
+                trace: Vec::new(),
+                checkpoints: Vec::new(),
+                outcome: None,
+            })
+        }
+
+        async fn cancel(
+            &self,
+            instance_id: &str,
+            _reason: &str,
+        ) -> Result<WorkflowCheckpointResultV1, RuntimeError> {
+            Ok(WorkflowCheckpointResultV1 {
+                instance_id: instance_id.to_string(),
+                checkpoint_id: Some("checkpoint-1".to_string()),
+                status: WorkflowCheckpointStatus::Cancelled,
+                updated_at: "3".to_string(),
+            })
+        }
+    }
+
+    fn sample_definition() -> WorkflowDefinitionV1 {
+        WorkflowDefinitionV1 {
+            schema_version: "1.0.0".to_string(),
+            definition_id: "definition-1".to_string(),
+            scope: WorkflowScope {
+                space_id: Some("space-alpha".to_string()),
+                route_id: None,
+                role: None,
+            },
+            intent_ref: None,
+            intent: "test".to_string(),
+            motif_kind: WorkflowMotifKind::Sequential,
+            constraints: Vec::new(),
+            graph: WorkflowGraphV1 {
+                nodes: vec![WorkflowNodeV1 {
+                    node_id: "node-1".to_string(),
+                    label: "Checkpoint".to_string(),
+                    kind: WorkflowNodeKind::HumanCheckpoint,
+                    reads: Vec::new(),
+                    writes: Vec::new(),
+                    evidence_outputs: Vec::new(),
+                    authority_requirements: Vec::new(),
+                    checkpoint_policy: Some(WorkflowCheckpointPolicyV1 {
+                        resume_allowed: true,
+                        cancel_allowed: true,
+                        pause_allowed: true,
+                        timeout_seconds: Some(120),
+                    }),
+                    loop_policy: None,
+                    subflow_ref: None,
+                    config: json!({}),
+                }],
+                edges: Vec::new(),
+            },
+            context_contract: ContextContractV1::default(),
+            confidence: WorkflowConfidence {
+                score: 0.9,
+                rationale: "test".to_string(),
+            },
+            lineage: Default::default(),
+            policy: WorkflowDraftPolicyV1 {
+                recommendation_only: false,
+                require_review: true,
+                allow_shadow_execution: false,
+            },
+            provenance: WorkflowProvenance {
+                created_by: "tester".to_string(),
+                created_at: "0".to_string(),
+                source_mode: "test".to_string(),
+            },
+            governance_ref: None,
+            digest: Some("sha256:def".to_string()),
+        }
+    }
+
+    fn sample_binding() -> WorkflowExecutionBindingV1 {
+        WorkflowExecutionBindingV1 {
+            schema_version: "1.0.0".to_string(),
+            binding_id: "binding-1".to_string(),
+            definition_id: "definition-1".to_string(),
+            adapter: WorkflowExecutionAdapterKind::WorkflowEngineCanisterV1,
+            execution_profile: WorkflowExecutionProfileKind::Async,
+            checkpoint_policy: None,
+            runtime_limits: Default::default(),
+            governance_ref: None,
+            provenance: WorkflowProvenance {
+                created_by: "tester".to_string(),
+                created_at: "0".to_string(),
+                source_mode: "test".to_string(),
+            },
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn execution_adapter_round_trips_through_canister_client_trait() {
+        let adapter = WorkflowEngineCanisterExecutionAdapter::new(FakeExecutionCanister);
+        let definition = sample_definition();
+        let binding = sample_binding();
+
+        let plan = adapter.compile(&definition, &binding).await.expect("compile");
+        assert_eq!(plan.projection["runtime"], "workflow_engine_canister_v1");
+
+        let instance = adapter.start(&definition, &binding).await.expect("start");
+        assert_eq!(instance.source_of_truth, "workflow_engine_canister_v1");
+
+        let signal = adapter
+            .signal(
+                instance.instance_id.as_str(),
+                WorkflowSignalV1 {
+                    signal_type: "approve".to_string(),
+                    checkpoint_id: Some("checkpoint-1".to_string()),
+                    payload: json!({ "decision": "approve" }),
+                },
+            )
+            .await
+            .expect("signal");
+        assert_eq!(signal.status, WorkflowCheckpointStatus::Resolved);
+
+        let snapshot = adapter
+            .snapshot(instance.instance_id.as_str())
+            .await
+            .expect("snapshot");
+        assert_eq!(snapshot.instance.status, WorkflowInstanceStatus::Completed);
+
+        let cancelled = adapter
+            .cancel(instance.instance_id.as_str(), "because")
+            .await
+            .expect("cancel");
+        assert_eq!(cancelled.status, WorkflowCheckpointStatus::Cancelled);
     }
 }

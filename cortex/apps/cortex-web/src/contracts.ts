@@ -600,6 +600,112 @@ export interface WorkflowConstraintRule {
   locked?: boolean;
 }
 
+export type WorkflowNodeKind =
+  | "capability_call"
+  | "human_checkpoint"
+  | "evaluation_gate"
+  | "parallel"
+  | "switch"
+  | "loop"
+  | "subflow_ref"
+  | "terminal";
+
+export interface WorkflowCheckpointPolicy {
+  resumeAllowed: boolean;
+  cancelAllowed: boolean;
+  pauseAllowed?: boolean;
+  timeoutSeconds?: number;
+}
+
+export interface WorkflowLoopPolicy {
+  maxIterations?: number;
+  terminationExpression?: string;
+}
+
+export interface WorkflowNode {
+  nodeId: string;
+  label: string;
+  kind: WorkflowNodeKind;
+  reads: string[];
+  writes: string[];
+  evidenceOutputs: string[];
+  authorityRequirements: string[];
+  checkpointPolicy?: WorkflowCheckpointPolicy;
+  loopPolicy?: WorkflowLoopPolicy;
+  subflowRef?: string;
+  config: Json;
+}
+
+export interface WorkflowEdge {
+  edgeId: string;
+  from: string;
+  to: string;
+  relation: string;
+}
+
+export interface WorkflowGraph {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}
+
+export interface WorkflowContextContract {
+  allowedSections: string[];
+}
+
+export interface WorkflowConfidence {
+  score: number;
+  rationale: string;
+}
+
+export interface WorkflowLineage {
+  parentWorkflowDraftId?: string;
+  parentDefinitionId?: string;
+  forkReason?: string;
+  mergeRefs: string[];
+}
+
+export interface WorkflowDraftPolicy {
+  recommendationOnly: boolean;
+  requireReview: boolean;
+  allowShadowExecution: boolean;
+}
+
+export interface WorkflowProvenance {
+  createdBy: string;
+  createdAt: string;
+  sourceMode: string;
+}
+
+export interface WorkflowGovernanceRef {
+  gateLevel: string;
+  gateStatus: string;
+  decisionGateId: string;
+  replayContractRef: string;
+  sourceOfTruth: string;
+  lineageId: string;
+  degradedReason?: string;
+  definitionDigest: string;
+  bindingDigest: string;
+}
+
+export interface WorkflowDefinition {
+  schemaVersion: string;
+  definitionId: string;
+  scope: WorkflowScope;
+  intentRef?: string;
+  intent: string;
+  motifKind: WorkflowMotifKind;
+  constraints: WorkflowConstraintRule[];
+  graph: WorkflowGraph;
+  contextContract: WorkflowContextContract;
+  confidence: WorkflowConfidence;
+  lineage: WorkflowLineage;
+  policy: WorkflowDraftPolicy;
+  provenance: WorkflowProvenance;
+  governanceRef?: WorkflowGovernanceRef;
+  digest?: string;
+}
+
 export interface WorkflowDraftEnvelope {
   [key: string]: unknown;
 }
@@ -703,7 +809,7 @@ export interface WorkflowProposeRequest {
 export interface WorkflowDefinitionResponse {
   schema_version: string;
   generated_at: string;
-  definition: Json;
+  definition: WorkflowDefinition;
 }
 
 export interface WorkflowProjectionResponse {

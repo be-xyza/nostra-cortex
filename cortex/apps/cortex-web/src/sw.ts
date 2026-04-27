@@ -228,11 +228,31 @@ async function routeCortexRequest(request: Request): Promise<Response> {
   if (defMatch && request.method === "GET") {
     if (!previewFixturesEnabled) return fetch(request);
     return new Response(JSON.stringify({
-      definitionId: defMatch[1],
+      schema_version: "1.0.0",
+      generated_at: new Date().toISOString(),
       definition: {
-        id: defMatch[1],
+        schemaVersion: "1.0.0",
+        definitionId: defMatch[1],
+        scope: { spaceId: "preview-space" },
+        intent: "Preview workflow definition",
+        intentRef: null,
+        constraints: [],
+        graph: { nodes: [], edges: [] },
+        contextContract: { allowedSections: ["inputs", "artifacts"] },
+        confidence: { score: 0.8, rationale: "preview fixture" },
+        lineage: { mergeRefs: [] },
+        policy: {
+          recommendationOnly: false,
+          requireReview: true,
+          allowShadowExecution: false
+        },
+        provenance: {
+          createdBy: "preview-fixture",
+          createdAt: new Date().toISOString(),
+          sourceMode: "fixture"
+        },
         digest: "sha256:mock-digest-" + defMatch[1].substring(0, 8),
-        motif_kind: "sequential_agent_loop"
+        motifKind: "sequential"
       }
     }), { status: 200, headers: { "Content-Type": "application/json" } });
   }
