@@ -11,6 +11,7 @@ This prototype defines the lint shape for NDL-compatible Space design profiles i
 - `SpaceDesignProfileV1.schema.json`: structural schema for the wrapper.
 - `*.design-import.v1.json`: recommendation-only candidate material records for palettes, recipes, layout rules, token packs, or other established design elements.
 - `*.template-pack.v1.json`: recommendation-only Space archetype bundles that reference profile defaults and import candidates.
+- `*.promotion-gate.v1.json`: recommendation-only evidence requirements before a Space profile can request steward approval.
 
 ## Local Command
 
@@ -62,6 +63,7 @@ These must be enforced by a Nostra-owned lint pass before runtime adoption:
 - template packs must require `needs_steward_review` as their draft promotion recommendation.
 - template pack promotion gates must include locked reality snapshot, profile validation, import validation, brand policy, accessibility, A2UI theme policy, Space capability alignment, and Hermes advisory-only checks.
 - template packs may include only recommendation-only imports whose adoption status remains candidate, adapt-only, or needs-steward-review.
+- promotion gates must reference an existing recommendation-only profile, resolve source evidence refs, require the full promotion evidence set, keep steward approval unclaimed until recorded, and leave runtime activation disabled.
 - A2UI fixture validation must prove that existing themed render fixtures reference known A2UI themes, supported runtime token versions, safe mode, accepted motion policy, and accepted contrast preference.
 - Space design profile tokens must not reuse runtime or fixture theme allowlist IDs, claim runtime A2UI token versions, claim runtime enforcement, or encode Tier 1 governance state.
 
@@ -93,3 +95,5 @@ A Space design profile can move from draft to steward-approved only after:
 6. Cortex Web renders the profile through a fixture or preview without allowing Tier 1 spoofing.
 
 The current A2UI fixture validation satisfies only the draft compatibility evidence for item 6. It does not activate runtime profile selection, import an external design system, or wire profile tokens into Cortex Web rendering.
+
+`DesignPromotionGateV1` records these requirements as evidence, not authority. A draft gate cannot mark a profile approved, reuse a runtime theme allowlist, enable profile selection, apply profile tokens, switch themes, or treat Hermes findings as steward approval.

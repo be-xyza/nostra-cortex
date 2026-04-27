@@ -13,9 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/SpaceDesignProfileV1.schema.json"
 DEFAULT_IMPORT_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/DesignElementImportV1.schema.json"
 DEFAULT_TEMPLATE_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/SpaceTemplatePackV1.schema.json"
+DEFAULT_PROMOTION_GATE_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/DesignPromotionGateV1.schema.json"
 DEFAULT_PROFILE_GLOB = "research/120-nostra-design-language/prototypes/**/*.space-profile.v1.json"
 DEFAULT_IMPORT_GLOB = "research/120-nostra-design-language/prototypes/**/*.design-import.v1.json"
 DEFAULT_TEMPLATE_GLOB = "research/120-nostra-design-language/prototypes/**/*.template-pack.v1.json"
+DEFAULT_PROMOTION_GATE_GLOB = "research/120-nostra-design-language/prototypes/**/*.promotion-gate.v1.json"
 DEFAULT_A2UI_THEME_DIR = ROOT / "shared/a2ui/themes"
 DEFAULT_A2UI_FIXTURE_DIR = ROOT / "shared/a2ui/fixtures"
 DEFAULT_DOMAIN_THEME_POLICY = ROOT / "cortex/libraries/cortex-domain/src/theme/policy.rs"
@@ -82,6 +84,19 @@ REQUIRED_TEMPLATE_GATE_CHECKS = {
     "a2ui_theme_policy",
     "space_capability_alignment",
     "hermes_advisory_only",
+}
+REQUIRED_PROFILE_PROMOTION_EVIDENCE = {
+    "locked_reality_snapshot_current",
+    "upstream_compatible_lint_passed",
+    "nostra_specific_lint_passed",
+    "candidate_imports_recommendation_only",
+    "template_packs_recommendation_only",
+    "accessibility_checks_passed",
+    "a2ui_fixture_validation_passed",
+    "cortex_web_preview_metadata_only",
+    "tier1_spoofing_blocked",
+    "hermes_advisory_only",
+    "steward_approval_lineage_recorded",
 }
 ALLOWED_IMPORT_STATUSES = {
     "candidate",
@@ -801,6 +816,52 @@ def check_template_pack(template_path: Path, schema_path: Path) -> None:
             fail(f"{template_path}: included import {import_ref} has incompatible adoption_status")
 
 
+def check_promotion_gate(gate_path: Path, schema_path: Path) -> None:
+    gate = load_json(gate_path)
+    validate_with_schema(schema_path, gate_path, gate)
+    if gate.get("authority_mode") != "recommendation_only":
+        fail(f"{gate_path}: promotion gates must remain recommendation_only until steward approval is recorded")
+
+    target_profile_ref = gate.get("target_profile_ref")
+    if not isinstance(target_profile_ref, str):
+        fail(f"{gate_path}: target_profile_ref must be a string")
+    target_profile_path = ROOT / target_profile_ref
+    if not target_profile_path.exists():
+        fail(f"{gate_path}: target_profile_ref does not resolve: {target_profile_ref}")
+    target_profile = load_json(target_profile_path)
+    if target_profile.get("authority_mode") != "recommendation_only":
+        fail(f"{gate_path}: target profile must remain recommendation_only while promotion gate is draft")
+
+    evidence_refs = gate.get("source_evidence_refs", [])
+    for evidence_ref in evidence_refs:
+        evidence_path = ROOT / evidence_ref
+        if not evidence_path.exists():
+            fail(f"{gate_path}: source_evidence_ref does not resolve: {evidence_ref}")
+
+    required_evidence = set(gate.get("required_evidence", []))
+    missing_evidence = sorted(REQUIRED_PROFILE_PROMOTION_EVIDENCE - required_evidence)
+    if missing_evidence:
+        fail(f"{gate_path}: required_evidence missing {missing_evidence}")
+
+    steward_approval = gate.get("steward_approval", {})
+    if steward_approval.get("required") is not True:
+        fail(f"{gate_path}: steward_approval.required must be true")
+    if steward_approval.get("status") == "approved" and not steward_approval.get("approved_by"):
+        fail(f"{gate_path}: approved promotion gates must record approved_by")
+    if steward_approval.get("status") != "approved" and steward_approval.get("approved_by"):
+        fail(f"{gate_path}: draft promotion gates must not record approved_by before approval")
+
+    runtime_activation = gate.get("runtime_activation", {})
+    for field in (
+        "profile_selection_enabled",
+        "token_application_enabled",
+        "theme_switching_enabled",
+        "allowlist_reuse_authorized",
+    ):
+        if runtime_activation.get(field) is not False:
+            fail(f"{gate_path}: runtime_activation.{field} must remain false")
+
+
 def profile_paths(args: argparse.Namespace) -> list[Path]:
     if args.profiles:
         return [Path(path) if Path(path).is_absolute() else ROOT / path for path in args.profiles]
@@ -815,14 +876,29 @@ def template_paths(args: argparse.Namespace) -> list[Path]:
     return [Path(path) if Path(path).is_absolute() else ROOT / path for path in args.templates]
 
 
+def promotion_gate_paths(args: argparse.Namespace) -> list[Path]:
+    return [Path(path) if Path(path).is_absolute() else ROOT / path for path in args.promotion_gates]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate Space design contract prototypes.")
     parser.add_argument("profiles", nargs="*", help="Profile JSON files. Defaults to Initiative 120 prototypes.")
     parser.add_argument("--schema", default=str(DEFAULT_SCHEMA), help="SpaceDesignProfileV1 JSON schema path.")
     parser.add_argument("--import-schema", default=str(DEFAULT_IMPORT_SCHEMA), help="DesignElementImportV1 schema path.")
     parser.add_argument("--template-schema", default=str(DEFAULT_TEMPLATE_SCHEMA), help="SpaceTemplatePackV1 schema path.")
+    parser.add_argument(
+        "--promotion-gate-schema",
+        default=str(DEFAULT_PROMOTION_GATE_SCHEMA),
+        help="DesignPromotionGateV1 schema path.",
+    )
     parser.add_argument("--imports", nargs="*", default=None, help="Design import JSON files. Defaults to prototypes.")
     parser.add_argument("--templates", nargs="*", default=None, help="Template pack JSON files. Defaults to prototypes.")
+    parser.add_argument(
+        "--promotion-gates",
+        nargs="*",
+        default=None,
+        help="Promotion gate JSON files. Defaults to prototypes.",
+    )
     parser.add_argument("--a2ui-theme-dir", default=str(DEFAULT_A2UI_THEME_DIR), help="A2UI theme directory used as effective theme truth.")
     parser.add_argument("--a2ui-fixture-dir", default=str(DEFAULT_A2UI_FIXTURE_DIR), help="A2UI render fixture directory used as effective render truth.")
     parser.add_argument(
@@ -860,6 +936,12 @@ def main() -> int:
     if not template_schema_path.exists():
         print(f"FAIL: missing schema {template_schema_path}", file=sys.stderr)
         return 1
+    promotion_gate_schema_path = Path(args.promotion_gate_schema)
+    if not promotion_gate_schema_path.is_absolute():
+        promotion_gate_schema_path = ROOT / promotion_gate_schema_path
+    if not promotion_gate_schema_path.exists():
+        print(f"FAIL: missing schema {promotion_gate_schema_path}", file=sys.stderr)
+        return 1
     a2ui_theme_dir = Path(args.a2ui_theme_dir)
     if not a2ui_theme_dir.is_absolute():
         a2ui_theme_dir = ROOT / a2ui_theme_dir
@@ -882,6 +964,9 @@ def main() -> int:
         return 1
     imports = sorted(ROOT.glob(DEFAULT_IMPORT_GLOB)) if args.imports is None else import_paths(args)
     templates = sorted(ROOT.glob(DEFAULT_TEMPLATE_GLOB)) if args.templates is None else template_paths(args)
+    promotion_gates = (
+        sorted(ROOT.glob(DEFAULT_PROMOTION_GATE_GLOB)) if args.promotion_gates is None else promotion_gate_paths(args)
+    )
 
     try:
         a2ui_truth, a2ui_fixture_count = build_a2ui_truth(
@@ -911,6 +996,10 @@ def main() -> int:
             if not path.exists():
                 fail(f"missing template pack {path}")
             check_template_pack(path, template_schema_path)
+        for path in promotion_gates:
+            if not path.exists():
+                fail(f"missing promotion gate {path}")
+            check_promotion_gate(path, promotion_gate_schema_path)
     except CheckFailure as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
@@ -918,6 +1007,7 @@ def main() -> int:
     print(
         "PASS: Space design contract checks "
         f"({len(profiles)} profile(s), {len(imports)} import(s), {len(templates)} template pack(s), "
+        f"{len(promotion_gates)} promotion gate(s), "
         f"{len(a2ui_truth['theme_names'])} A2UI theme(s), {a2ui_fixture_count} themed fixture(s))"
     )
     return 0
