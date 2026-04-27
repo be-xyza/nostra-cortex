@@ -10,7 +10,6 @@ authors:
 tags: ["ndl", "ui", "governance", "a2ui", "verified-projection", "surface-boundaries"]
 created: "2026-02-19"
 updated: "2026-02-20"
-meta_scope_updated: "2026-04-27"
 related:
   - "074-cortex-ui-substrate"
   - "103-agent-client-protocol-alignment"
@@ -90,40 +89,3 @@ To ensure the Surface Boundary Doctrine is legally binding across the entire Nos
 ## 5. Conclusion
 
 The implementation of the Surface Boundary Doctrine successfully secures the Nostra runtime against AI-driven UI spoofing while maintaining 100% of the creative flexibility required for future DApps, games, and autonomous agents. The distinction between "Truth" (Constitutional) and "Play" (Execution) is now physically, visually, and speculatively enforced.
-
----
-
-## 6. Space-Level Design Standards Meta-Cognition
-
-### 6.1 Current Reality as Truth
-
-Future Space design standards must begin by treating current NDL, A2UI, brand, accessibility, ViewSpec, Cortex Web, and Space capability contracts as locked design reality. Candidate Space profiles do not redefine those contracts. They describe allowable visual identity inside the boundary those contracts already define.
-
-This matters because Space-level design is inherently tempting: richer visual identity can make Spaces feel alive, but the same freedom can blur authority, spoof governance, or create inaccessible decision paths. The right cognition is therefore evaluative before generative.
-
-### 6.2 Evaluation Questions
-
-Every Space design profile, imported design element, or template pack should be evaluated against these questions:
-
-1. Does it preserve the NDL surface boundary and avoid Tier 1 spoofing?
-2. Does it preserve A2UI theme-policy metadata and host-neutral rendering?
-3. Does it preserve brand policy rather than replacing official brand authority?
-4. Does it meet accessibility invariants for perceivability, operability, comprehensibility, and adaptability?
-5. Does it fit the Space capability overlay and navigation context?
-6. Does it leave generated UI artifacts under ViewSpec governance?
-7. Does it provide enough lineage for steward review and later promotion?
-
-### 6.3 Import and Template Posture
-
-External design systems, token packs, templates, and component recipes may be useful as candidate materials. They should enter as `DesignElementImportV1` records, not as direct runtime dependencies or authority sources. Import analysis should classify:
-
-- what primitive is being imported,
-- which Space archetype it supports,
-- which local contract it maps to,
-- which claims must be stripped or rewritten,
-- which accessibility and governance risks remain,
-- whether the recommendation is adopt, adapt, reject, or steward review.
-
-### 6.4 Hermes Role
-
-Hermes is appropriate for meta-cognition here only if it receives a bounded `DesignAuditUnitV1` containing the profile or import candidate, the locked reality snapshot, and the applicable initiative/standard references. Hermes output remains advisory. It cannot approve, mutate, enforce, import, or publish Space design profiles.

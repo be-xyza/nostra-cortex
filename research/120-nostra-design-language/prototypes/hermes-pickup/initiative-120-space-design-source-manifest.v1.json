@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "1.0.0",
+  "manifestId": "initiative-120-space-design-source-manifest",
+  "sources": [
+    {
+      "path": "/Users/xaoj/hermes/.hermes.md",
+      "authorityTier": "local_guardrail",
+      "excerptScope": "Hermes advisory activation rules, source-manifest requirements, writeAccess=false posture, and source-packet preference",
+      "freshnessNote": "Activation guardrail for bounded Hermes sessions."
+    },
+    {
+      "path": "/Users/xaoj/hermes/runbooks/hermes-bounded-audit-runbook.v1.json",
+      "authorityTier": "local_planning_contract",
+      "excerptScope": "operator-mediated preflight, one bounded pass, postflight, and evidence drafting ritual",
+      "freshnessNote": "Local runbook only; not runtime authority."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/PLAN.md",
+      "authorityTier": "governed_initiative",
+      "excerptScope": "NDL authority, locked design reality addendum, Space design meta-scope, initiative alignment, and drift note",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/RESEARCH.md",
+      "authorityTier": "governed_research",
+      "excerptScope": "surface boundary doctrine and Space-level design standards meta-cognition",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/DECISIONS.md",
+      "authorityTier": "governed_decisions",
+      "excerptScope": "Space design wrapper decision and locked design reality decision",
+      "freshnessNote": "Use latest dated entries for present state."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/schemas/NdlDesignProfileV1.schema.json",
+      "authorityTier": "prototype_contract",
+      "excerptScope": "Space design profile wrapper schema and authority metadata",
+      "freshnessNote": "Prototype until steward-promoted as SpaceDesignProfileV1."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/schemas/DesignRealitySnapshotV1.schema.json",
+      "authorityTier": "prototype_contract",
+      "excerptScope": "locked design reality snapshot primitive",
+      "freshnessNote": "Prototype planning primitive."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/schemas/DesignAuditUnitV1.schema.json",
+      "authorityTier": "prototype_contract",
+      "excerptScope": "design audit unit primitive for local/Hermes analysis",
+      "freshnessNote": "Prototype planning primitive."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.md",
+      "authorityTier": "candidate",
+      "excerptScope": "candidate Space design profile prose and upstream-compatible token front matter",
+      "freshnessNote": "Draft profile only; not approved design authority."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.ndl-profile.v1.json",
+      "authorityTier": "candidate",
+      "excerptScope": "candidate NDL profile wrapper for Research Observatory Space",
+      "freshnessNote": "Draft profile only; not approved design authority."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/design-reality-snapshot.v1.json",
+      "authorityTier": "candidate",
+      "excerptScope": "locked-source set for this design audit pass",
+      "freshnessNote": "Draft audit input; use only after root promotion."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/design-audit-unit.v1.json",
+      "authorityTier": "candidate",
+      "excerptScope": "candidate design audit unit for the Research Observatory Space profile",
+      "freshnessNote": "Draft audit input; use only after root promotion."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/LINT_CONTRACT.md",
+      "authorityTier": "candidate",
+      "excerptScope": "local lint command, Nostra-specific checks, Hermes use constraints, and promotion gate",
+      "freshnessNote": "Draft lint contract."
+    },
+    {
+      "path": "/Users/xaoj/ICP/scripts/check_ndl_design_profiles.py",
+      "authorityTier": "local_check",
+      "excerptScope": "current local NDL design profile validation behavior",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/074-cortex-ui-substrate/PLAN.md",
+      "authorityTier": "governed_initiative",
+      "excerptScope": "A2UI theme policy hardening, safe mode, motion, contrast, and token-version requirements",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/115-cortex-viewspec-governed-ui-synthesis/PLAN.md",
+      "authorityTier": "governed_initiative",
+      "excerptScope": "ViewSpec governance, generated UI constraints, and proposal promotion boundaries",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/123-cortex-web-architecture/PLAN.md",
+      "authorityTier": "governed_initiative",
+      "excerptScope": "Cortex Web Workbench host role and runtime-authoritative surface consumption",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/130-space-capability-graph-governance/PLAN.md",
+      "authorityTier": "governed_initiative",
+      "excerptScope": "Space capability overlay and compiled navigation/surfacing plan authority",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PLAN.md",
+      "authorityTier": "governed_initiative",
+      "excerptScope": "Hermes advisory-only boundaries and source-manifest discipline",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/shared/standards/ACCESSIBILITY.md",
+      "authorityTier": "constitutional_standard",
+      "excerptScope": "accessibility and authority containment invariants",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/shared/standards/branding/README.md",
+      "authorityTier": "governed_standard",
+      "excerptScope": "branding standards contract roles and canonical artifacts",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/shared/standards/branding/brand_policy.schema.json",
+      "authorityTier": "runtime_contract",
+      "excerptScope": "brand policy schema and mode/host defaults",
+      "freshnessNote": "Use promoted root ICP only."
+    },
+    {
+      "path": "/Users/xaoj/ICP/shared/a2ui/themes",
+      "authorityTier": "runtime_contract",
+      "excerptScope": "effective A2UI theme token truth while docs/architecture/a2ui-theme-policy.md is absent",
+      "freshnessNote": "Directory source; inspect only as needed for theme-policy drift."
+    },
+    {
+      "path": "/Users/xaoj/ICP/shared/a2ui/fixtures",
+      "authorityTier": "runtime_contract",
+      "excerptScope": "effective A2UI render-surface metadata fixtures while docs/architecture/a2ui-theme-policy.md is absent",
+      "freshnessNote": "Directory source; inspect only as needed for fixture-policy drift."
+    }
+  ]
+}

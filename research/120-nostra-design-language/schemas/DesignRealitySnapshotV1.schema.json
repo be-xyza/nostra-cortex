@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/design-reality-snapshot-v1.schema.json",
+  "title": "DesignRealitySnapshotV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "created_at",
+    "authority_mode",
+    "locked_sources",
+    "required_checks"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "DesignRealitySnapshotV1"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^design-reality:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "authority_mode": {
+      "enum": [
+        "recommendation_only",
+        "steward_approved"
+      ]
+    },
+    "locked_sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "path",
+          "authority_tier",
+          "initiative_ref"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authority_tier": {
+            "enum": [
+              "constitutional",
+              "architecture",
+              "runtime_contract",
+              "reference",
+              "prototype"
+            ]
+          },
+          "initiative_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "required_checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ndl_surface_boundary",
+          "a2ui_theme_policy",
+          "brand_policy",
+          "accessibility",
+          "viewspec_governance",
+          "space_capability_alignment",
+          "hermes_advisory_only"
+        ]
+      }
+    }
+  }
+}

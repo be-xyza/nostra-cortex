@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0.0",
+  "auditUnitId": "initiative-120-space-design-meta-scope",
+  "auditUnitType": "bounded_advisory",
+  "scope": "Review the promoted Initiative 120 Space design meta-scope, the Research Observatory profile prototype, DesignRealitySnapshotV1, DesignAuditUnitV1, and the local NDL profile linter. Determine whether the work correctly treats current design/theme contracts as locked truth and whether Hermes has enough bounded input to provide recommendations for Space-level design standards, templates, and imported design elements without approving, mutating, or enforcing anything.",
+  "inputManifests": [
+    "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/hermes-pickup/initiative-120-space-design-source-manifest.v1.json"
+  ],
+  "expectedOutputArtifactTypes": [
+    "HermesObserverSessionV1",
+    "synthesis_artifact"
+  ],
+  "passName": "initiative_120_space_design_meta_scope",
+  "requiredQuestions": [
+    "Does the plan correctly treat current NDL, A2UI, brand, accessibility, ViewSpec, Cortex Web, Space capability, and Hermes boundaries as locked design reality?",
+    "Does NdlDesignProfileV1 contain the right authority metadata for Space-level design profiles, or should it be renamed/promoted to SpaceDesignProfileV1 first?",
+    "What is missing before DesignElementImportV1 and SpaceTemplatePackV1 can be safely introduced?",
+    "Does the local linter enforce the right first-pass safety checks?",
+    "Are there contradictions or drift between Initiative 120, Initiative 074, Initiative 115, Initiative 123, Initiative 130, Initiative 132, shared branding, and accessibility standards?",
+    "What should the next recommendation-only implementation slice be?"
+  ],
+  "governanceNotes": "Hermes must remain read-only and recommendation-only. It must not edit files, approve profiles, import design systems, mutate runtime state, activate skills, or treat request-worktree paths as authority. Use only promoted root ICP paths and local Hermes guardrails."
+}
