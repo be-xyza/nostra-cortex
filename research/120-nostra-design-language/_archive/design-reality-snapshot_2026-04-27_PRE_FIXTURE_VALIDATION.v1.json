@@ -23,24 +23,6 @@
       "initiative_ref": "074-cortex-ui-substrate"
     },
     {
-      "source_id": "a2ui-render-fixtures",
-      "path": "shared/a2ui/fixtures",
-      "authority_tier": "runtime_contract",
-      "initiative_ref": "123-cortex-web-architecture"
-    },
-    {
-      "source_id": "a2ui-domain-theme-policy",
-      "path": "cortex/libraries/cortex-domain/src/theme/policy.rs",
-      "authority_tier": "runtime_contract",
-      "initiative_ref": "074-cortex-ui-substrate"
-    },
-    {
-      "source_id": "a2ui-eudaemon-theme-policy",
-      "path": "cortex/apps/cortex-eudaemon/src/services/theme_policy.rs",
-      "authority_tier": "runtime_contract",
-      "initiative_ref": "074-cortex-ui-substrate"
-    },
-    {
       "source_id": "brand-policy",
       "path": "shared/standards/branding/brand_policy.schema.json",
       "authority_tier": "runtime_contract",
@@ -74,7 +56,6 @@
   "required_checks": [
     "ndl_surface_boundary",
     "a2ui_theme_policy",
-    "a2ui_fixture_validation",
     "brand_policy",
     "accessibility",
     "viewspec_governance",
