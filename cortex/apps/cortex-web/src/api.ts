@@ -88,6 +88,7 @@ import type {
   SystemProviderRuntimeStatusResponse,
 } from "./contracts.ts";
 import { filterPreviewDeletedBlocks, filterPreviewHeapBlocks } from "./store/previewFixtureCatalog.ts";
+import type { SpaceDesignProfilePreviewFixture } from "./store/spaceDesignProfilePreviewContract.ts";
 import { readPreviewFixturesEnabledFromStorage } from "./shared/previewFixtures.ts";
 import {
   getLocalDevBootstrapHeapBlocks,
@@ -356,6 +357,8 @@ export const workbenchApi = {
   getGraph: (spaceId: string) => request<ContributionGraph>(`/api/kg/spaces/${encodeURIComponent(spaceId)}/contribution-graph/graph?mode=d3-force`),
   getCapabilityGraph: () => request<PlatformCapabilityGraph>(`/api/system/capability-graph`),
   getCapabilityCatalog: () => request<PlatformCapabilityCatalog>(`/api/system/capability-catalog`),
+  getSpaceDesignProfilePreview: () =>
+    request<SpaceDesignProfilePreviewFixture>("/api/system/ux/space-design-profiles"),
   getSpaces: () => request<SpacesListResponse>(`/api/spaces`),
   getSpaceReadiness: (spaceId: string) =>
     request<{

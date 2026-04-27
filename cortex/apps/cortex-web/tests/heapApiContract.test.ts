@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { workbenchApi } from "../src/api.ts";
+import { SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID } from "../src/store/spaceDesignProfilePreviewContract.ts";
 
 test("getHeapBlocks forwards desktop parity filters and cursor", async () => {
   const originalFetch = globalThis.fetch;
@@ -56,6 +57,69 @@ test("getHeapBlocks forwards desktop parity filters and cursor", async () => {
   assert.ok(capturedUrl.includes("includeDeleted=true"));
   assert.ok(capturedUrl.includes("limit=25"));
   assert.ok(capturedUrl.includes("cursor=cursor-1"));
+  assert.equal(capturedInit?.method, undefined);
+});
+
+test("getSpaceDesignProfilePreview targets metadata-only preview endpoint", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedInit: RequestInit | undefined;
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    capturedUrl = String(input);
+    capturedInit = init;
+    return new Response(
+      JSON.stringify({
+        schema_version: "CortexWebSpaceDesignProfilePreviewFixtureV1",
+        snapshot_id: SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID,
+        source_mode: "fixture",
+        generated_from_profile_ref: "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.space-profile.v1.json",
+        runtime_binding: "none",
+        runtime_policy: {
+          recommendation_only: true,
+          applies_tokens_to_cortex_web: false,
+          runtime_theme_selection: false,
+          requires_verified_projection_for_governance: true,
+        },
+        prohibited_runtime_claims: ["approved"],
+        profiles: [
+          {
+            profile_id: "space-design-profile:space-research-observatory",
+            profile_version: "v0.1.0",
+            space_id: "space:research-observatory",
+            authority_mode: "recommendation_only",
+            review_status: "draft",
+            approved_by_count: 0,
+            lineage_ref: "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.md",
+            surface_scope: ["workbench"],
+            a2ui_theme_policy: {
+              token_version: "ndl-token-v1",
+              safe_mode: true,
+              theme_allowlist_id: "ndl-space-profile-draft",
+              motion_policy: "system",
+              contrast_preference: "system",
+            },
+            preview_status: "metadata_only",
+            preview_note: "Metadata only.",
+          },
+        ],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }) as typeof fetch;
+
+  try {
+    const response = await workbenchApi.getSpaceDesignProfilePreview();
+    assert.equal(response.snapshot_id, SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID);
+    assert.equal(response.runtime_binding, "none");
+    assert.equal(response.runtime_policy.applies_tokens_to_cortex_web, false);
+    assert.equal(response.runtime_policy.runtime_theme_selection, false);
+    assert.equal(response.profiles[0]?.preview_status, "metadata_only");
+    assert.equal("design_tokens" in response.profiles[0]!, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.ok(capturedUrl.endsWith("/api/system/ux/space-design-profiles"));
   assert.equal(capturedInit?.method, undefined);
 });
 
@@ -668,7 +732,7 @@ test("heap emit canonicalizes legacy workspace_id payloads to space_id before ne
       },
       block: {
         type: "note",
-        title: "Legacy workspace alias"
+        title: "Legacy scope alias"
       },
       content: {
         payload_type: "rich_text",
