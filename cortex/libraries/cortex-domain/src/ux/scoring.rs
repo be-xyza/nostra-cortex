@@ -9,9 +9,9 @@ use crate::ux::types::{
     NavigationGraphSpec, PageType, PatternContract, PersistedNavigationGraphSpec,
     PersistedShellLayoutSpec, ShellLayoutSpec, SurfaceZone, ToolbarActionConfirmation,
     ToolbarActionDescriptor, ToolbarActionEmphasis, ToolbarActionGroup, ToolbarActionKind,
-    ToolbarActionSelectionConstraints, ToolbarActionStewardGate, UX_STATUS_CANDIDATE,
-    UxCandidateEvaluation, UxLayoutEvaluationRequest, ViewCapabilityManifest,
-    ViewCapabilityMatrixRow,
+    ToolbarActionSelectionConstraints, ToolbarActionStewardGate, UxCandidateEvaluation,
+    UxLayoutEvaluationRequest, ViewCapabilityManifest, ViewCapabilityMatrixRow,
+    UX_STATUS_CANDIDATE,
 };
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -939,6 +939,7 @@ fn nav_meta(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cap(
     route_id: &str,
     route_label: &str,
@@ -1706,11 +1707,10 @@ mod tests {
             "1000",
         );
         assert!(plan.surfacing.primary_core.contains(&"/spaces".to_string()));
-        assert!(
-            plan.surfacing
-                .contextual_deep
-                .contains(&"/logs".to_string())
-        );
+        assert!(plan
+            .surfacing
+            .contextual_deep
+            .contains(&"/logs".to_string()));
         assert!(!plan.surfacing.primary_core.contains(&"/logs".to_string()));
     }
 
@@ -1845,10 +1845,8 @@ mod tests {
 
     #[test]
     fn compile_action_plan_respects_requested_zones() {
-        let request = test_action_plan_request(
-            vec![SurfaceZone::HeapPageBar, SurfaceZone::HeapCardMenu],
-            1,
-        );
+        let request =
+            test_action_plan_request(vec![SurfaceZone::HeapPageBar, SurfaceZone::HeapCardMenu], 1);
 
         let plan = compile_action_plan(
             &PlatformCapabilityCatalog::default(),
@@ -1857,7 +1855,8 @@ mod tests {
             &request,
         );
 
-        let zone_set: HashSet<SurfaceZone> = plan.zones.iter().map(|zone| zone.zone.clone()).collect();
+        let zone_set: HashSet<SurfaceZone> =
+            plan.zones.iter().map(|zone| zone.zone.clone()).collect();
         assert_eq!(zone_set.len(), 2);
         assert!(zone_set.contains(&SurfaceZone::HeapPageBar));
         assert!(zone_set.contains(&SurfaceZone::HeapCardMenu));
@@ -1880,7 +1879,11 @@ mod tests {
             .iter()
             .find(|zone| zone.zone == SurfaceZone::HeapCardMenu)
             .expect("card menu zone");
-        let action_ids: Vec<String> = card_zone.actions.iter().map(|action| action.action.clone()).collect();
+        let action_ids: Vec<String> = card_zone
+            .actions
+            .iter()
+            .map(|action| action.action.clone())
+            .collect();
         assert_eq!(
             action_ids,
             vec![
@@ -1891,13 +1894,11 @@ mod tests {
             ]
         );
         assert!(card_zone.actions.iter().all(|action| action.visible));
-        assert!(
-            card_zone
-                .actions
-                .iter()
-                .filter(|action| action.action != "view_discussion")
-                .all(|action| action.enabled)
-        );
+        assert!(card_zone
+            .actions
+            .iter()
+            .filter(|action| action.action != "view_discussion")
+            .all(|action| action.enabled));
     }
 
     #[test]

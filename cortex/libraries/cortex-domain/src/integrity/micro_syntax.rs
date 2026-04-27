@@ -1,6 +1,6 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
@@ -132,8 +132,7 @@ struct DurationExtractor;
 struct PullRequestExtractor;
 
 static MENTION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)(?P<raw>@[A-Za-z0-9_][A-Za-z0-9_\-]{1,63})")
-        .expect("mention regex is valid")
+    Regex::new(r"(?m)(?P<raw>@[A-Za-z0-9_][A-Za-z0-9_\-]{1,63})").expect("mention regex is valid")
 });
 
 static TAG_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -256,7 +255,10 @@ impl MicroSyntaxExtractor for DurationExtractor {
                     matched_text: raw.as_str().to_string(),
                     start: raw.start(),
                     end: raw.end(),
-                    captures: BTreeMap::from([("duration".to_string(), raw.as_str().to_ascii_lowercase())]),
+                    captures: BTreeMap::from([(
+                        "duration".to_string(),
+                        raw.as_str().to_ascii_lowercase(),
+                    )]),
                 })
             })
             .collect()

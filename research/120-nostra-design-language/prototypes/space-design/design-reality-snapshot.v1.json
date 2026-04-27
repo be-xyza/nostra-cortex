@@ -1,0 +1,65 @@
+{
+  "schema_version": "DesignRealitySnapshotV1",
+  "snapshot_id": "design-reality:space-design-meta-2026-04-27",
+  "created_at": "2026-04-27T00:00:00Z",
+  "authority_mode": "recommendation_only",
+  "locked_sources": [
+    {
+      "source_id": "ndl-plan",
+      "path": "research/120-nostra-design-language/PLAN.md",
+      "authority_tier": "constitutional",
+      "initiative_ref": "120-nostra-design-language"
+    },
+    {
+      "source_id": "ndl-research",
+      "path": "research/120-nostra-design-language/RESEARCH.md",
+      "authority_tier": "constitutional",
+      "initiative_ref": "120-nostra-design-language"
+    },
+    {
+      "source_id": "a2ui-themes",
+      "path": "shared/a2ui/themes",
+      "authority_tier": "runtime_contract",
+      "initiative_ref": "074-cortex-ui-substrate"
+    },
+    {
+      "source_id": "brand-policy",
+      "path": "shared/standards/branding/brand_policy.schema.json",
+      "authority_tier": "runtime_contract",
+      "initiative_ref": "shared-standards-branding"
+    },
+    {
+      "source_id": "accessibility-standard",
+      "path": "shared/standards/ACCESSIBILITY.md",
+      "authority_tier": "constitutional",
+      "initiative_ref": "088-accessibility-strategy"
+    },
+    {
+      "source_id": "viewspec-plan",
+      "path": "research/115-cortex-viewspec-governed-ui-synthesis/PLAN.md",
+      "authority_tier": "architecture",
+      "initiative_ref": "115-cortex-viewspec-governed-ui-synthesis"
+    },
+    {
+      "source_id": "space-capability-plan",
+      "path": "research/130-space-capability-graph-governance/PLAN.md",
+      "authority_tier": "architecture",
+      "initiative_ref": "130-space-capability-graph-governance"
+    },
+    {
+      "source_id": "hermes-boundary",
+      "path": "research/132-eudaemon-alpha-initiative/PLAN.md",
+      "authority_tier": "architecture",
+      "initiative_ref": "132-eudaemon-alpha-initiative"
+    }
+  ],
+  "required_checks": [
+    "ndl_surface_boundary",
+    "a2ui_theme_policy",
+    "brand_policy",
+    "accessibility",
+    "viewspec_governance",
+    "space_capability_alignment",
+    "hermes_advisory_only"
+  ]
+}

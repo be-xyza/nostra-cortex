@@ -1,0 +1,41 @@
+{
+  "schema_version": "DesignAuditUnitV1",
+  "audit_unit_id": "design-audit:research-observatory-profile-2026-04-27",
+  "authority_mode": "recommendation_only",
+  "target": {
+    "kind": "space_design_profile",
+    "path": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.ndl-profile.v1.json"
+  },
+  "reality_snapshot_ref": "research/120-nostra-design-language/prototypes/space-design/design-reality-snapshot.v1.json",
+  "inputs": [
+    {
+      "input_id": "candidate-profile",
+      "path": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.ndl-profile.v1.json",
+      "authority_tier": "candidate"
+    },
+    {
+      "input_id": "profile-markdown",
+      "path": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.md",
+      "authority_tier": "candidate"
+    },
+    {
+      "input_id": "lint-contract",
+      "path": "research/120-nostra-design-language/prototypes/space-design/LINT_CONTRACT.md",
+      "authority_tier": "candidate"
+    },
+    {
+      "input_id": "locked-reality",
+      "path": "research/120-nostra-design-language/prototypes/space-design/design-reality-snapshot.v1.json",
+      "authority_tier": "locked_truth"
+    }
+  ],
+  "expected_output": {
+    "format": "DesignRecommendationV1",
+    "allowed_decisions": [
+      "adopt",
+      "adapt",
+      "reject",
+      "needs_steward_review"
+    ]
+  }
+}

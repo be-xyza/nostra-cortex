@@ -1,7 +1,5 @@
-use cortex_domain::workflow::{
-    WorkflowDefinitionV1, WorkflowExecutionBindingV1, WorkflowSignalV1,
-};
 use candid::CandidType;
+use cortex_domain::workflow::{WorkflowDefinitionV1, WorkflowExecutionBindingV1, WorkflowSignalV1};
 use ic_cdk_macros::{export_candid, init, query, update};
 use nostra_workflow_engine::execution::StateMachine;
 use nostra_workflow_engine::registry::WorkflowRegistry;
@@ -78,10 +76,12 @@ fn compile_workflow_v1(definition_json: String, binding_json: String) -> TextOpe
         Err(err) => return err_result(err),
     };
 
-    ENGINE.with(|engine| match engine.borrow().compile_cortex_workflow(definition, binding) {
-        Ok(plan) => ok_json(&plan),
-        Err(err) => err_result(err),
-    })
+    ENGINE.with(
+        |engine| match engine.borrow().compile_cortex_workflow(definition, binding) {
+            Ok(plan) => ok_json(&plan),
+            Err(err) => err_result(err),
+        },
+    )
 }
 
 #[update]
@@ -126,9 +126,14 @@ fn signal_workflow_v1(instance_id: String, signal_json: String) -> TextOperation
 
 #[query]
 fn snapshot_workflow_v1(instance_id: String) -> TextOperationResult {
-    ENGINE.with(|engine| match engine.borrow().snapshot_cortex_workflow(instance_id.as_str()) {
-        Ok(snapshot) => ok_json(&snapshot),
-        Err(err) => err_result(err),
+    ENGINE.with(|engine| {
+        match engine
+            .borrow()
+            .snapshot_cortex_workflow(instance_id.as_str())
+        {
+            Ok(snapshot) => ok_json(&snapshot),
+            Err(err) => err_result(err),
+        }
     })
 }
 
@@ -263,24 +268,36 @@ mod tests {
     #[test]
     fn compile_start_snapshot_signal_and_cancel_contracts_work() {
         reset_engine();
-        let definition = serde_json::to_string(&sample_definition(WorkflowNodeKind::HumanCheckpoint))
-            .expect("definition");
+        let definition =
+            serde_json::to_string(&sample_definition(WorkflowNodeKind::HumanCheckpoint))
+                .expect("definition");
         let binding = serde_json::to_string(&sample_binding()).expect("binding");
 
         let compile: TextOperationResult = compile_workflow_v1(definition.clone(), binding.clone());
         assert!(compile.err.is_none());
-        assert!(compile.ok.as_ref().expect("ok").contains("workflow_engine_canister_v1"));
+        assert!(compile
+            .ok
+            .as_ref()
+            .expect("ok")
+            .contains("workflow_engine_canister_v1"));
 
         let start: TextOperationResult = start_workflow_v1(definition, binding);
         assert!(start.err.is_none());
         let start_payload = start.ok.expect("start ok");
         let instance: serde_json::Value = serde_json::from_str(&start_payload).expect("instance");
-        let instance_id = instance["instanceId"].as_str().expect("instance id").to_string();
+        let instance_id = instance["instanceId"]
+            .as_str()
+            .expect("instance id")
+            .to_string();
         assert_eq!(instance["sourceOfTruth"], "workflow_engine_canister_v1");
 
         let snapshot: TextOperationResult = snapshot_workflow_v1(instance_id.clone());
         assert!(snapshot.err.is_none());
-        assert!(snapshot.ok.as_ref().expect("snapshot").contains("checkpoints"));
+        assert!(snapshot
+            .ok
+            .as_ref()
+            .expect("snapshot")
+            .contains("checkpoints"));
 
         let signal: TextOperationResult = signal_workflow_v1(
             instance_id.clone(),
@@ -307,13 +324,11 @@ mod tests {
             serde_json::to_string(&sample_binding()).expect("binding"),
         );
         assert!(result.ok.is_none());
-        assert!(
-            result
-                .err
-                .as_deref()
-                .unwrap_or_default()
-                .contains("WF_CANISTER_UNSUPPORTED_NODE_KIND")
-        );
+        assert!(result
+            .err
+            .as_deref()
+            .unwrap_or_default()
+            .contains("WF_CANISTER_UNSUPPORTED_NODE_KIND"));
     }
 }
 

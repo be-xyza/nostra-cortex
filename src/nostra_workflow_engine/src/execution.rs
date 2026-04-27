@@ -3,11 +3,11 @@ use cortex_domain::workflow::{
     WorkflowCheckpointPolicyV1, WorkflowCheckpointResultV1, WorkflowCheckpointStatus,
     WorkflowCheckpointV1, WorkflowDefinitionV1, WorkflowExecutionBindingV1,
     WorkflowExecutionPlanV1, WorkflowInstanceStatus, WorkflowInstanceV1, WorkflowNodeKind,
-    WorkflowOutcomeStatus, WorkflowOutcomeV1, WorkflowScope, WorkflowSignalV1,
-    WorkflowSnapshotV1, WorkflowTraceEventV1,
+    WorkflowOutcomeStatus, WorkflowOutcomeV1, WorkflowScope, WorkflowSignalV1, WorkflowSnapshotV1,
+    WorkflowTraceEventV1,
 };
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
@@ -409,7 +409,10 @@ impl StateMachine {
         })
     }
 
-    pub fn snapshot_cortex_workflow(&self, instance_id: &str) -> Result<WorkflowSnapshotV1, String> {
+    pub fn snapshot_cortex_workflow(
+        &self,
+        instance_id: &str,
+    ) -> Result<WorkflowSnapshotV1, String> {
         self.cortex_instances
             .get(instance_id)
             .map(|record| record.snapshot.clone())
@@ -633,12 +636,10 @@ mod tests {
             sample_binding(),
         );
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .expect("error")
-                .contains("WF_CANISTER_UNSUPPORTED_NODE_KIND")
-        );
+        assert!(result
+            .err()
+            .expect("error")
+            .contains("WF_CANISTER_UNSUPPORTED_NODE_KIND"));
     }
 
     #[test]
@@ -656,7 +657,10 @@ mod tests {
             .snapshot_cortex_workflow(instance.instance_id.as_str())
             .expect("snapshot");
         assert_eq!(before.checkpoints.len(), 1);
-        assert_eq!(before.checkpoints[0].status, WorkflowCheckpointStatus::Pending);
+        assert_eq!(
+            before.checkpoints[0].status,
+            WorkflowCheckpointStatus::Pending
+        );
 
         let result = machine
             .signal_cortex_workflow(
@@ -674,7 +678,10 @@ mod tests {
             .snapshot_cortex_workflow(instance.instance_id.as_str())
             .expect("snapshot");
         assert_eq!(after.instance.status, WorkflowInstanceStatus::Completed);
-        assert_eq!(after.checkpoints[0].status, WorkflowCheckpointStatus::Resolved);
+        assert_eq!(
+            after.checkpoints[0].status,
+            WorkflowCheckpointStatus::Resolved
+        );
         assert_eq!(
             after.outcome.as_ref().map(|outcome| outcome.status.clone()),
             Some(WorkflowOutcomeStatus::Completed)

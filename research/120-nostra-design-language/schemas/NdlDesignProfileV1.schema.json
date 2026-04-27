@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/ndl-design-profile-v1.schema.json",
+  "title": "NdlDesignProfileV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "profile_version",
+    "space_id",
+    "authority_mode",
+    "surface_scope",
+    "lineage_ref",
+    "stewardship",
+    "ndl_tier_policy",
+    "a2ui_theme_policy",
+    "design_tokens",
+    "design_sections"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "NdlDesignProfileV1"
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^ndl-profile:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "profile_version": {
+      "type": "string",
+      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "space_id": {
+      "type": "string",
+      "pattern": "^space:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "authority_mode": {
+      "enum": [
+        "recommendation_only",
+        "steward_approved",
+        "runtime_enforced"
+      ]
+    },
+    "surface_scope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "space_shell",
+          "workbench",
+          "artifact_viewer",
+          "proposal_preview",
+          "execution_surface",
+          "hybrid_surface"
+        ]
+      },
+      "not": {
+        "contains": {
+          "const": "constitutional_surface"
+        }
+      }
+    },
+    "approved_by": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "lineage_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stewardship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_steward",
+        "review_status",
+        "review_date"
+      ],
+      "properties": {
+        "primary_steward": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_status": {
+          "enum": [
+            "draft",
+            "reviewed",
+            "approved",
+            "deprecated"
+          ]
+        },
+        "review_date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "ndl_tier_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tier1_components_allowed",
+        "verified_projection_required",
+        "prohibited_claims"
+      ],
+      "properties": {
+        "tier1_components_allowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "verified_projection_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "prohibited_claims": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "ratified",
+              "approved",
+              "constitutional",
+              "verified_identity",
+              "steward_authorized"
+            ]
+          }
+        }
+      }
+    },
+    "a2ui_theme_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token_version",
+        "safe_mode",
+        "theme_allowlist_id",
+        "motion_policy",
+        "contrast_preference"
+      ],
+      "properties": {
+        "token_version": {
+          "type": "string",
+          "pattern": "^ndl-token-v[0-9]+$"
+        },
+        "safe_mode": {
+          "type": "boolean"
+        },
+        "theme_allowlist_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "motion_policy": {
+          "enum": [
+            "system",
+            "reduced",
+            "full"
+          ]
+        },
+        "contrast_preference": {
+          "enum": [
+            "system",
+            "more",
+            "less"
+          ]
+        }
+      }
+    },
+    "design_tokens": {
+      "$ref": "#/$defs/designTokens"
+    },
+    "design_sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "heading",
+          "body"
+        ],
+        "properties": {
+          "heading": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "lint_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "upstream_design_md_compatible": {
+          "type": "boolean"
+        },
+        "required_local_checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "dimension": {
+      "type": "string",
+      "pattern": "^-?\\d*\\.?\\d+(px|em|rem)$"
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fontFamily": {
+          "type": "string"
+        },
+        "fontSize": {
+          "$ref": "#/$defs/dimension"
+        },
+        "fontWeight": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 1000
+        },
+        "lineHeight": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/dimension"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "letterSpacing": {
+          "$ref": "#/$defs/dimension"
+        },
+        "fontFeature": {
+          "type": "string"
+        },
+        "fontVariation": {
+          "type": "string"
+        }
+      }
+    },
+    "componentToken": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backgroundColor": {
+          "type": "string"
+        },
+        "textColor": {
+          "type": "string"
+        },
+        "typography": {
+          "type": "string"
+        },
+        "rounded": {
+          "type": "string"
+        },
+        "padding": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      }
+    },
+    "designTokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "colors",
+        "typography",
+        "rounded",
+        "spacing",
+        "components"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "colors": {
+          "type": "object",
+          "minProperties": 4,
+          "additionalProperties": {
+            "$ref": "#/$defs/hexColor"
+          }
+        },
+        "typography": {
+          "type": "object",
+          "minProperties": 3,
+          "additionalProperties": {
+            "$ref": "#/$defs/typography"
+          }
+        },
+        "rounded": {
+          "type": "object",
+          "minProperties": 2,
+          "additionalProperties": {
+            "$ref": "#/$defs/dimension"
+          }
+        },
+        "spacing": {
+          "type": "object",
+          "minProperties": 4,
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dimension"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/componentToken"
+          }
+        }
+      }
+    }
+  }
+}

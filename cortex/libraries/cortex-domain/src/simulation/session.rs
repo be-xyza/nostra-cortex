@@ -1,7 +1,7 @@
-use super::scenario::{ScenarioDefinition, canonical_actions};
-use crate::graph::diff::{StructuralDiff, structural_graph};
+use super::scenario::{canonical_actions, ScenarioDefinition};
+use crate::graph::diff::{structural_graph, StructuralDiff};
 use crate::graph::{Edge, EdgeKind, Graph, Node};
-use crate::integrity::{IntegrityRule, IntegrityViolation, Severity, evaluate_all};
+use crate::integrity::{evaluate_all, IntegrityRule, IntegrityViolation, Severity};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
