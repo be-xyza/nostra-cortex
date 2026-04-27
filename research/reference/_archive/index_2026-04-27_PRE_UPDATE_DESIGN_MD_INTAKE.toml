@@ -3056,30 +3056,3 @@ pattern_value = 5
 ux_value = 3
 future_optionality = 4
 topic_fit = 3
-
-[[entry]]
-path = "research/reference/repos/design.md"
-kind = "repo"
-status = "reference"
-tags = ["design-system", "design-tokens", "ui", "linting", "agents", "reference"]
-description = "Google Labs Code format and CLI for describing visual identity to coding agents through DESIGN.md files with tokens, prose rationale, linting, diffing, and token export."
-upstream = "https://github.com/google-labs-code/design.md.git"
-why_here = "Provides a lightweight, agent-readable design-system document contract that can inform Nostra Design Language space profiles, Cortex Web theme hardening, and Hermes advisory lint proposals without replacing NDL authority or A2UI verified projection."
-links_to_nostra_cortex = ["Nostra Design Language space profiles", "Cortex Web and Workbench theme policy", "A2UI visual token handoff", "Hermes advisory design-standard audit packets", "space capability graph surfacing"]
-review_date = "2026-04-27"
-
-known_risks = "Alpha-stage schema and CLI, TypeScript/Bun toolchain mismatch with Rust/WASM core preferences, limited primitive coverage for governance authority, and possible confusion if visual identity tokens are treated as constitutional truth."
-suggested_next_experiments = "Draft an NDL-compatible DESIGN.md profile for one Space, run upstream lint/diff/export against it, then design a local NDL lint adapter that adds Nostra-specific checks for surface type, verified projection, provenance, motion policy, and anti-spoofing."
-primary_steward = "Design Systems Steward"
-authority_mode = "recommendation_only"
-escalation_path = "steward_review -> owner_decision"
-lineage_record = "Primary-source intake from google-labs-code/design.md at commit 8ecd4645b957e6a683a05fb9c79cd6c9028873d0 on 2026-04-27."
-initiative_refs = ["045-component-library-labs", "074-cortex-ui-substrate", "088-accessibility-strategy", "120-nostra-design-language", "123-cortex-web-architecture", "130-space-capability-graph-governance", "132-eudaemon-alpha-initiative"]
-[entry.scorecard]
-ecosystem_fit = 4
-adapter_value = 3
-component_value = 3
-pattern_value = 5
-ux_value = 5
-future_optionality = 4
-topic_fit = 3
