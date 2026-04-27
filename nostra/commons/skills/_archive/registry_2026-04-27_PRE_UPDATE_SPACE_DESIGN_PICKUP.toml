@@ -1,7 +1,7 @@
 version = 1
-updated_at = "2026-04-27"
+updated_at = "2026-04-08"
 owner = "Systems Steward"
-description = "Canonical repo-local skill registry for Nostra platform and Cortex runtime development surfaces."
+description = "Canonical repo-local skill registry for Nostra/Cortex development surfaces."
 
 [[source]]
 id = "repo_commons"
@@ -27,7 +27,6 @@ targets = ["codex", "claude"]
 required_checks = [
   "bash scripts/check_agent_preflight_contract.sh",
   "bash scripts/check_dynamic_config_contract.sh",
-  "python3 scripts/check_ndl_design_profiles.py",
 ]
 
 [[skill]]
@@ -38,5 +37,4 @@ source_rel_path = "frontend-design"
 targets = ["codex", "claude"]
 required_checks = [
   "bash scripts/check_dynamic_config_contract.sh",
-  "python3 scripts/check_ndl_design_profiles.py",
 ]

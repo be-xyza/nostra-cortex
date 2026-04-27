@@ -19,7 +19,6 @@ Use this skill for any implementation work touching Nostra, Cortex, shared stand
    - target initiative `research/*/PLAN.md`
    - `docs/architecture/standards.md`
    - `docs/architecture/nostra-cortex-boundary.md`
-   - `research/120-nostra-design-language/PLAN.md` when Space design, theme, template, imported design elements, or `frontend-design` surfaces are in scope
 3. Apply boundary-first development:
    - Nostra defines what exists.
    - Cortex defines how execution runs.
@@ -27,20 +26,11 @@ Use this skill for any implementation work touching Nostra, Cortex, shared stand
    - no hardcoded canister IDs
    - no hardcoded workspace roots
    - no governance bypass literals
-5. Apply Space design contract pickup when design/theme surfaces are touched:
-   - treat current NDL, A2UI, branding, accessibility, ViewSpec, Cortex Web, and Space capability contracts as locked truth
-   - use `SpaceDesignProfileV1` for Space-level design profiles
-   - use `DesignElementImportV1` for imported or established design materials
-   - use `SpaceTemplatePackV1` for reusable Space archetype defaults
-   - keep profiles, imports, and template packs `recommendation_only` until steward approval and promotion gates exist
-   - keep Hermes read-only and advisory: it may analyze bounded source packets but must not approve, mutate, import, or enforce design contracts
-   - run `python3 scripts/check_ndl_design_profiles.py` when Initiative 120 Space design contracts, profile prototypes, imports, template packs, or frontend design instructions change
-6. Run post-edit verification:
+5. Run post-edit verification:
    - `bash scripts/check_dynamic_config_contract.sh`
    - `bash scripts/check_skill_registry_integrity.sh` (required when skill governance files changed)
    - `bash scripts/check_skill_policy.sh` (required when skill governance files changed)
    - `bash scripts/check_workflow_declarations.sh` (required when workflow governance files changed)
-   - `python3 scripts/check_ndl_design_profiles.py` (required when Space design contract surfaces changed)
 
 ## Required Response Evidence
 
