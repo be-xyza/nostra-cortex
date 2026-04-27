@@ -4,6 +4,7 @@ declare let self: ServiceWorkerGlobalScope;
 import { precacheAndRoute } from 'workbox-precaching';
 import { resolveRequestSpaceId } from './serviceWorker/requestScope.ts';
 import { readPreviewFixturesCookie } from './shared/previewFixtures.ts';
+import { buildSpaceDesignProfilePreviewResponse } from './store/spaceDesignProfilePreview.ts';
 
 // Precaching injected assets from Vite
 precacheAndRoute(self.__WB_MANIFEST || []);
@@ -309,6 +310,14 @@ async function routeCortexRequest(request: Request): Promise<Response> {
     }
 
     if (workbench) return new Response(JSON.stringify(workbench), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (path === '/api/system/ux/space-design-profiles' && request.method === 'GET') {
+    if (!previewFixturesEnabled) return fetch(request);
+    return new Response(JSON.stringify(buildSpaceDesignProfilePreviewResponse()), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // Contribution graph mock (ambient background graph)

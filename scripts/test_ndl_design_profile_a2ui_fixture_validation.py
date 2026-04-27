@@ -15,6 +15,7 @@ CHECKER = ROOT / "scripts/check_ndl_design_profiles.py"
 PROFILE = ROOT / "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.space-profile.v1.json"
 A2UI_THEMES = ROOT / "shared/a2ui/themes"
 A2UI_FIXTURES = ROOT / "shared/a2ui/fixtures"
+WEB_SPACE_DESIGN_FIXTURE = ROOT / "cortex/apps/cortex-web/src/store/spaceDesignProfilePreview.fixture.json"
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -29,6 +30,7 @@ def run_checker(
     profile_path: Path,
     fixture_dir: Path | None = None,
     theme_dir: Path | None = None,
+    web_fixture_path: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -41,6 +43,8 @@ def run_checker(
         command.extend(["--a2ui-theme-dir", str(theme_dir)])
     if fixture_dir is not None:
         command.extend(["--a2ui-fixture-dir", str(fixture_dir)])
+    if web_fixture_path is not None:
+        command.extend(["--cortex-web-space-design-fixture", str(web_fixture_path)])
     return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
 
 
@@ -63,8 +67,9 @@ def expect_pass(
     profile_path: Path,
     fixture_dir: Path | None = None,
     theme_dir: Path | None = None,
+    web_fixture_path: Path | None = None,
 ) -> None:
-    result = run_checker(profile_path, fixture_dir, theme_dir)
+    result = run_checker(profile_path, fixture_dir, theme_dir, web_fixture_path)
     if result.returncode != 0:
         print(f"FAIL: {name} unexpectedly failed", file=sys.stderr)
         print(result.stdout, file=sys.stderr)
@@ -78,8 +83,9 @@ def expect_failure(
     expected: str,
     fixture_dir: Path | None = None,
     theme_dir: Path | None = None,
+    web_fixture_path: Path | None = None,
 ) -> None:
-    result = run_checker(profile_path, fixture_dir, theme_dir)
+    result = run_checker(profile_path, fixture_dir, theme_dir, web_fixture_path)
     output = result.stdout + result.stderr
     if result.returncode == 0:
         print(f"FAIL: {name} unexpectedly passed", file=sys.stderr)
@@ -115,6 +121,14 @@ def theme_case(tmpdir: Path, name: str, mutate: Callable[[dict[str, Any]], None]
     mutate(theme)
     write_json(theme_path, theme)
     return theme_dir
+
+
+def web_fixture_case(tmpdir: Path, name: str, mutate: Callable[[dict[str, Any]], None]) -> Path:
+    fixture_path = tmpdir / f"{name}.space-design-preview.fixture.json"
+    fixture = load_json(WEB_SPACE_DESIGN_FIXTURE)
+    mutate(fixture)
+    write_json(fixture_path, fixture)
+    return fixture_path
 
 
 def main() -> int:
@@ -190,6 +204,30 @@ def main() -> int:
             PROFILE,
             "themed A2UI fixtures must keep safe_mode true",
             unsafe_mode_dir,
+        )
+
+        runtime_bound_web_fixture = web_fixture_case(
+            tmpdir,
+            "web-runtime-binding",
+            lambda fixture: fixture.update({"runtime_binding": "theme_selection"}),
+        )
+        expect_failure(
+            "Cortex Web preview fixture claims runtime binding",
+            PROFILE,
+            "runtime_binding must remain none",
+            web_fixture_path=runtime_bound_web_fixture,
+        )
+
+        token_carrying_web_fixture = web_fixture_case(
+            tmpdir,
+            "web-design-tokens",
+            lambda fixture: fixture["profiles"][0].update({"design_tokens": {"colors": {"primary": "#000000"}}}),
+        )
+        expect_failure(
+            "Cortex Web preview fixture carries profile tokens",
+            PROFILE,
+            "must not carry design_tokens",
+            web_fixture_path=token_carrying_web_fixture,
         )
 
     print("PASS: Space design A2UI fixture validation regression coverage")
