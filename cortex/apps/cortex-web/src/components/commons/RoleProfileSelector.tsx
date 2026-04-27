@@ -54,6 +54,16 @@ const ROLE_CONFIG: Record<string, {
     }
 };
 
+function describeAuthMode(session: AuthSession): string | null {
+    if (session.authMode === "dev_override" || session.identitySource === "localhost_dev_bootstrap") {
+        return "Local Dev";
+    }
+    if (session.authMode === "read_fallback") {
+        return "Read Only";
+    }
+    return null;
+}
+
 export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({ 
     session,
     onRoleChange,
@@ -65,6 +75,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
     const dropdownRef = useRef<HTMLDivElement>(null);
     const activeRole = session.activeRole || "viewer";
     const config = ROLE_CONFIG[activeRole] || ROLE_CONFIG.viewer;
+    const authModeLabel = describeAuthMode(session);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -112,7 +123,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
                             )}
                         </div>
                         <span className="text-[8px] font-bold text-cortex-400 tracking-tight leading-none uppercase">
-                            {config.authorityBadge}
+                            {authModeLabel ?? config.authorityBadge}
                         </span>
                     </div>
                 )}

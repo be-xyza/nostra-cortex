@@ -1,11 +1,16 @@
 export const HEAP_ARTIFACT_QUERY_KEY = "artifact_id";
 
-export function buildHeapArtifactHref(artifactId: string): string {
+export function buildHeapArtifactHref(artifactId: string, spaceId?: string | null): string {
   const normalized = artifactId.trim();
   if (!normalized) {
     return "/explore";
   }
-  return `/explore?${HEAP_ARTIFACT_QUERY_KEY}=${encodeURIComponent(normalized)}`;
+  const params = new URLSearchParams();
+  if (spaceId?.trim()) {
+    params.set("space_id", spaceId.trim());
+  }
+  params.set(HEAP_ARTIFACT_QUERY_KEY, normalized);
+  return `/explore?${params.toString()}`;
 }
 
 export function readHeapArtifactIdFromSearchParams(

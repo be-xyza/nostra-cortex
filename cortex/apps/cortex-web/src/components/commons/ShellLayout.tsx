@@ -45,6 +45,7 @@ import { SpaceSelector } from "./SpaceSelector";
 import { RoleProfileSelector } from "./RoleProfileSelector";
 import { ExploreSavedViewModal } from "../heap/ExploreSavedViewModal";
 import { ConfirmActionModal } from "./ConfirmActionModal";
+import { resolveRequestedSpaceIdFromSearch } from "../../serviceWorker/requestScope.ts";
 
 interface ShellLayoutProps {
     children?: ReactNode;
@@ -200,6 +201,20 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     useEffect(() => {
         setActiveRoute(location.pathname);
     }, [location.pathname, setActiveRoute]);
+
+    useEffect(() => {
+        const requestedSpaceId = resolveRequestedSpaceIdFromSearch(location.search);
+        if (!requestedSpaceId) {
+            return;
+        }
+        if (
+            activeSpaceIds.length === 1
+            && activeSpaceIds[0] === requestedSpaceId
+        ) {
+            return;
+        }
+        setActiveSpaceIds([requestedSpaceId]);
+    }, [activeSpaceIds, location.search, setActiveSpaceIds]);
 
     useEffect(() => {
         if (!sessionUser) return;
@@ -567,25 +582,32 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                     isCentered={true}
                                 />
                             )}
-                            {!showRail && (
-                                <div className="absolute right-1 flex items-center gap-1.5">
-                                    {attentionEntries.length > 0 && (
-                                        <span className="w-5 h-5 flex items-center justify-center rounded-full bg-red-500/10 text-red-400 text-[10px] font-black" title={attentionEntries.map((e) => e.navMeta?.attentionLabel || e.label).join(", ")}>
-                                            {attentionEntries.length}
-                                        </span>
-                                    )}
-                                    {totalBadgeCount > 0 && (
-                                        <span className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 text-[10px] font-black">
-                                            {totalBadgeCount}
-                                        </span>
-                                    )}
+                            {!showRail && (attentionEntries.length > 0 || totalBadgeCount > 0) && (
+                                <div className="group/status relative mt-2 flex w-full justify-center">
+                                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-cortex-300">
+                                        Status
+                                    </span>
+                                    <div className="pointer-events-none absolute top-full z-50 mt-2 hidden w-56 rounded-2xl border border-white/10 bg-slate-950/95 p-3 text-left text-[11px] leading-5 text-slate-300 shadow-2xl group-hover/status:block">
+                                        {attentionEntries.length > 0 && (
+                                            <div>
+                                                <div className="font-semibold text-red-200">{attentionEntries.length} area{attentionEntries.length === 1 ? "" : "s"} need attention</div>
+                                                <div className="mt-1 text-slate-500">{attentionEntries.map((e) => e.navMeta?.attentionLabel || e.label).join(", ")}</div>
+                                            </div>
+                                        )}
+                                        {totalBadgeCount > 0 && (
+                                            <div className={attentionEntries.length > 0 ? "mt-2 border-t border-white/8 pt-2" : ""}>
+                                                <div className="font-semibold text-blue-200">{totalBadgeCount} surfaced record{totalBadgeCount === 1 ? "" : "s"}</div>
+                                                <div className="mt-1 text-slate-500">Summed from current navigation badges.</div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
 
                         {!showRail && activeSpaceIds.length > 1 && (
                             <div className="flex items-center gap-3 w-full p-3 rounded-xl transition-all duration-200 group hover:bg-white/5 active:scale-[0.98] relative">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                                 <span className="text-[9px] font-black uppercase tracking-wider text-blue-400 leading-none">
                                     {wasWorkbenchNamedManually ? "Live Session" : "Drafting Workbench"}
                                 </span>
@@ -658,7 +680,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                             {!showRail && badgeCount > 0 && (
                                                 <span className={`nav-badge ml-auto text-[9px] px-1.5 py-0.5 rounded-full ${badgeTone === "critical" ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-white/5 text-slate-400 border border-white/5"}`}>{badgeCount}</span>
                                             )}
-                                            {!showRail && entry.navMeta?.attention && <span className="nav-attention-dot w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" aria-hidden="true" />}
+                                            {!showRail && entry.navMeta?.attention && <span className="nav-attention-dot rounded-full border border-blue-400/30 bg-blue-500/20 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-blue-200">new</span>}
                                         </Link>
                                         {showCustomViewActions && customView && (
                                             <div className="absolute right-1 top-1/2 -translate-y-1/2">

@@ -127,7 +127,7 @@ export function buildProposalReviewRecentWorkItem(
   return {
     label: "Needs review",
     value: "A new recommendation is ready for review in this space.",
-    href: buildHeapArtifactHref(proposal.projection.artifactId),
+    href: buildHeapArtifactHref(proposal.projection.artifactId, proposal.projection.spaceId),
     actionLabel: "Open",
   };
 }

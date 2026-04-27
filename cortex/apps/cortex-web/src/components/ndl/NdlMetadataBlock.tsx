@@ -3,10 +3,10 @@ import { NdlBadge } from "./NdlBadge";
 
 interface NdlMetadataBlockProps {
     typeIndicator?: string;
-    versionChain: string;
-    phase: string;
-    confidence: number;
-    authorityScope: string;
+    versionChain?: string;
+    phase?: string;
+    confidence?: number;
+    authorityScope?: string;
     compact?: boolean;
 }
 
@@ -18,8 +18,9 @@ export function NdlMetadataBlock({
     authorityScope,
     compact = false
 }: NdlMetadataBlockProps) {
-    const confidenceVariant = confidence > 80 ? "ok" : confidence > 50 ? "warn" : "bad";
-    const phaseVariant = phase.toLowerCase() === "production" ? "ok" : phase.toLowerCase() === "alpha" ? "bad" : "warn";
+    const confidenceVariant = typeof confidence === "number" ? (confidence > 80 ? "ok" : confidence > 50 ? "warn" : "bad") : "warn";
+    const normalizedPhase = phase?.trim();
+    const phaseVariant = normalizedPhase?.toLowerCase() === "production" ? "ok" : normalizedPhase?.toLowerCase() === "alpha" ? "bad" : "warn";
 
     return (
         <div
@@ -35,12 +36,14 @@ export function NdlMetadataBlock({
                     {typeIndicator}
                 </span>
             )}
-            <span className={`font-mono ${compact ? "text-[8px]" : "text-[10px]"} text-slate-500 ml-0.5 mr-0.5`} title="Version Chain">
-                {versionChain}
-            </span>
-            <NdlBadge label={phase} variant={phaseVariant} compact={compact} />
-            <NdlBadge label={`${confidence}% Conf`} variant={confidenceVariant} compact={compact} />
-            {!compact && <NdlBadge label={authorityScope} variant="neutral" />}
+            {versionChain?.trim() ? (
+                <span className={`font-mono ${compact ? "text-[8px]" : "text-[10px]"} text-slate-500 ml-0.5 mr-0.5`} title="Version">
+                    {versionChain}
+                </span>
+            ) : null}
+            {normalizedPhase ? <NdlBadge label={normalizedPhase} variant={phaseVariant} compact={compact} /> : null}
+            {typeof confidence === "number" ? <NdlBadge label={`${confidence}% confidence`} variant={confidenceVariant} compact={compact} /> : null}
+            {!compact && authorityScope?.trim() ? <NdlBadge label={authorityScope} variant="neutral" /> : null}
         </div>
     );
 }

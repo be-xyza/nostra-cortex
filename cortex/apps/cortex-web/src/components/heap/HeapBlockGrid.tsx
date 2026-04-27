@@ -61,7 +61,6 @@ import {
     INITIATIVE_KICKOFF_TEMPLATES,
     buildInitiativeKickoffEmitRequest,
     canLaunchInitiativeKickoff,
-    filterInitiativeKickoffTemplates,
     resolveInitiativeKickoffTemplate,
     type TaskRoutingContext,
 } from "./initiativeKickoffTemplates.ts";
@@ -126,7 +125,7 @@ const HEAP_VIEW_AGGREGATION_QUERY_KEY = "heap_aggregation";
 const HEAP_VIEW_GROUP_DESCRIPTIONS_QUERY_KEY = "heap_group_descriptions";
 const HEAP_VIEW_VISUALIZATION_QUERY_KEY = "heap_visualization";
 
-type CreateMode = "create" | "generate" | "upload" | "chat";
+type CreateMode = "create" | "generate" | "upload" | "chat" | "plan";
 type ExploreDerivedAggregationMode = ExploreAggregationMode;
 
 interface HeapDetailTrailEntry {
@@ -290,7 +289,6 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [createPanelOpen, setCreatePanelOpen] = useState(false);
-    const [dismissedInitiativeKickoffTemplateIds, setDismissedInitiativeKickoffTemplateIds] = useState<string[]>([]);
     const [createMode, setCreateMode] = useState<CreateMode>("create");
     const [newBlockTitle, setNewBlockTitle] = useState("");
     const [newBlockType, setNewBlockType] = useState("note");
@@ -484,21 +482,13 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     });
     const exploreSettings = exploreView.effective;
     const exploreDerivedSettings = exploreView.derived;
-    const visibleInitiativeKickoffTemplates = useMemo(
-        () =>
-            filterInitiativeKickoffTemplates(
-                INITIATIVE_KICKOFF_TEMPLATES,
-                dismissedInitiativeKickoffTemplateIds,
-            ),
-        [dismissedInitiativeKickoffTemplateIds],
-    );
     const initiativeKickoffLaunchAllowed = useMemo(
         () => canLaunchInitiativeKickoff(sessionUser?.role),
         [sessionUser?.role],
     );
     const initiativeKickoffDisabledReason = initiativeKickoffLaunchAllowed
         ? null
-        : "Switch to an operator, steward, or admin session to request kickoff approval.";
+        : "Switch to an operator, steward, or admin session to request setup review.";
     const setExploreSetting = <K extends keyof ExploreViewSettings>(
         key: K,
         nextValue: ExploreViewSettings[K],
@@ -760,7 +750,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                 return {
                     kind: "block",
                     label: selectedPrimaryBlock.projection.title || selectedPrimaryBlock.projection.artifactId,
-                    href: buildHeapArtifactHref(selectedPrimaryBlock.projection.artifactId),
+                    href: buildHeapArtifactHref(selectedPrimaryBlock.projection.artifactId, activeSpaceId),
                     routeId: "/explore",
                     artifactId: selectedPrimaryBlock.projection.artifactId,
                     blockId: selectedPrimaryBlock.projection.artifactId,
@@ -1078,7 +1068,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             };
 
             await workbenchApi.emitHeapBlock(emitRequest);
-            setStatusMessage("Synthesis block emitted to space.");
+            setStatusMessage("Synthesis record added to this space.");
             fetchBlocks();
             setSelectedBlockIds([]);
         } catch (err) {
@@ -1436,7 +1426,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         }
         try {
             setIsEmitting(true);
-            setStatusMessage(`Requesting steward approval for ${template.title}.`);
+            setStatusMessage(`Requesting steward review for ${template.title}.`);
             const emitted = await workbenchApi.emitHeapBlock(
                 buildInitiativeKickoffEmitRequest(template, resolveSpaceId(activeSpaceId)),
                 sessionUser?.role || "operator",
@@ -1446,16 +1436,13 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             const nextParams = new URLSearchParams(searchParams);
             nextParams.set("heap_view", heapPrimaryViewModeParam("Proposals"));
             setSearchParams(nextParams, { replace: true });
-            setDismissedInitiativeKickoffTemplateIds((current) =>
-                current.includes(templateId) ? current : [...current, templateId],
-            );
             clearCreateForm();
             setCreatePanelOpen(false);
             setDetailNavigationTrail([]);
             setExpandedBlockId(emitted.artifactId);
-            setStatusMessage(`${template.title} approval request emitted and opened in Proposals.`);
+            setStatusMessage(`${template.title} plan-backed review request added and opened in Proposals.`);
         } catch (err) {
-            setStatusMessage(`Kickoff approval request failed: ${err instanceof Error ? err.message : String(err)}`);
+            setStatusMessage(`Plan-backed review request failed: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
             setIsEmitting(false);
         }
@@ -1567,7 +1554,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                 },
                 block: {
                     type: "agent_solicitation",
-                    title: resolvedTitle || "Agent Solicitation",
+                    title: resolvedTitle || "Review Request",
                 },
                 content: {
                     payload_type: "structured_data",
@@ -1686,7 +1673,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                     }
                     await fetchBlocks();
                 } else {
-                    setStatusMessage(`File uploaded and emitted: ${uploaded.name}. Extraction is not supported.`);
+                    setStatusMessage(`File uploaded and added: ${uploaded.name}. Extraction is not supported.`);
                 }
                 setCreatePanelOpen(false);
                 clearCreateForm();
@@ -1851,9 +1838,6 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                         onToggleMultiSelect={() => setMultiSelectEnabled((value) => !value)}
                         searchInputId={SEARCH_INPUT_ID}
                         heapParityEnabled={heapParityEnabled}
-                        initiativeKickoffTemplates={visibleInitiativeKickoffTemplates}
-                        onInitiativeKickoffSelect={loadInitiativeKickoffTemplate}
-                        initiativeKickoffDisabledReason={initiativeKickoffDisabledReason}
                         isCollapsed={isSidebarCollapsed}
                         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                     />
@@ -1863,7 +1847,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
             {/* Main Content */}
             <div className="heap-block-grid flex h-full w-full bg-cortex-surface-base overflow-hidden relative">
                 {/* Ambient Background Graph */}
-                {exploreSettings.visualizationMode !== "off" && (
+                {!isMobile && exploreSettings.visualizationMode !== "off" && (
                     <AmbientGraphBackground
                         visible={true}
                         variant={exploreSettings.visualizationMode as "2d" | "3d"}
@@ -1876,7 +1860,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                 {/* Scrollable Area */}
                 <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar relative z-10 bg-transparent">
                     {/* Header - now sticky within the scrollable div */}
-                    <header id="heap-grid-header" className="min-h-[56px] flex items-center justify-between px-4 py-3 sticky top-0 z-30 flex-wrap gap-3 glass-panel backdrop-blur-xl rounded-none shadow-sm border-b border-white/5">
+                    <header id="heap-grid-header" className="min-h-[56px] flex items-center justify-between px-3 py-3 sm:px-4 sticky top-0 z-30 flex-wrap gap-3 glass-panel backdrop-blur-xl rounded-none shadow-sm border-b border-white/5">
                         <div className="flex items-center gap-3 flex-wrap min-w-0">
                             {!isMobile && isSidebarCollapsed && (
                                 <button
@@ -1892,7 +1876,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                     {viewMode}
                                     <span className="ml-2 text-cortex-500 font-medium text-sm uppercase tracking-widest hidden sm:inline">Heap Blocks</span>
                                 </h2>
-                                <div className="mt-1 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.24em] text-cortex-400">
+                                <div className="mt-1 hidden flex-wrap gap-2 text-[10px] uppercase tracking-[0.24em] text-cortex-400 md:flex">
                                     <span className="rounded-full border border-white/8 bg-white/3 px-2 py-1 text-cortex-300/80">
                                         {exploreSettings.projectionIntent}
                                     </span>
@@ -1925,7 +1909,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                 <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 shadow-sm">NOT {excludeTerms.length}</span>
                             )}
                         </div>
-                        <div className="flex items-center gap-1.5 rounded-full border border-white/8 bg-white/3 p-1.5 shadow-sm backdrop-blur-sm">
+                        <div className="flex max-w-full flex-wrap items-center gap-1.5 rounded-2xl border border-white/8 bg-white/3 p-1.5 shadow-sm backdrop-blur-sm sm:rounded-full">
                             <button
                                 onClick={() => setIsSidebarCollapsed(prev => !prev)}
                                 className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 transition-all duration-200 ${
@@ -2128,7 +2112,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                 </div>
                                 <div className="p-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
                                     <div className="flex flex-wrap gap-2 mb-8">
-                                        {(["create", "generate", "upload", "chat"] as CreateMode[]).map((mode) => (
+                                        {(["create", "generate", "upload", "chat", "plan"] as CreateMode[]).map((mode) => (
                                             <button
                                                 key={mode}
                                                 onClick={() => setCreateMode(mode)}
@@ -2306,20 +2290,87 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                         </div>
                                     )}
 
+                                    {createMode === "plan" && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="rounded-2xl border border-cyan-400/10 bg-cyan-500/5 p-4">
+                                                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300/80">
+                                                    Plan-backed requests
+                                                </div>
+                                                <p className="mt-2 text-sm leading-6 text-cortex-300/75">
+                                                    Emit an ordinary heap review request from active initiative planning metadata. This is a create flow, not a separate heap feature.
+                                                </p>
+                                            </div>
+
+                                            {!initiativeKickoffLaunchAllowed && initiativeKickoffDisabledReason && (
+                                                <div className="rounded-2xl border border-amber-400/10 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-100/85">
+                                                    {initiativeKickoffDisabledReason}
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-3">
+                                                {INITIATIVE_KICKOFF_TEMPLATES.map((entry) => (
+                                                    <div
+                                                        key={entry.template.id}
+                                                        className="rounded-2xl border border-white/8 bg-cortex-950/60 p-4"
+                                                    >
+                                                        <div className="flex items-start justify-between gap-4">
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-semibold tracking-tight text-cortex-100">
+                                                                    {entry.template.title}
+                                                                </div>
+                                                                <div className="mt-1 text-xs uppercase tracking-[0.24em] text-cortex-500">
+                                                                    Plan-backed review request
+                                                                </div>
+                                                                <p className="mt-3 text-sm leading-6 text-cortex-300/75">
+                                                                    {entry.description}
+                                                                </p>
+                                                                <div className="mt-3 flex flex-wrap gap-2">
+                                                                    <span className="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-cortex-300/80">
+                                                                        {entry.template.agentRole}
+                                                                    </span>
+                                                                    <span className="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-cortex-300/80">
+                                                                        {entry.template.requiredCapabilities.length} capabilities
+                                                                    </span>
+                                                                    <span className="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-cortex-300/80">
+                                                                        {entry.template.referencePaths.length} refs
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => loadInitiativeKickoffTemplate(entry.template.id)}
+                                                                disabled={isEmitting || !initiativeKickoffLaunchAllowed}
+                                                                className={`shrink-0 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
+                                                                    isEmitting || !initiativeKickoffLaunchAllowed
+                                                                        ? "cursor-not-allowed border border-white/8 bg-white/5 text-cortex-500"
+                                                                        : "border border-cyan-400/20 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/18 hover:border-cyan-400/30"
+                                                                }`}
+                                                            >
+                                                                Emit request
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="mt-10 flex justify-end gap-3 pt-6 border-t border-cortex-800">
                                         <button
                                             onClick={() => setCreatePanelOpen(false)}
                                             className="px-6 py-2.5 rounded-full text-xs font-bold text-cortex-400 hover:text-white hover:bg-cortex-800 transition-all border border-transparent hover:border-cortex-700"
                                         >
-                                            Cancel
+                                            {createMode === "plan" ? "Close" : "Cancel"}
                                         </button>
-                                        <button
-                                            disabled={isEmitting}
-                                            onClick={emitCreatedBlock}
-                                            className="px-8 py-2.5 bg-blue-600 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-blue-500 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all shadow-xl shadow-blue-600/20"
-                                        >
-                                            {isEmitting ? "Emitting..." : "Create Block"}
-                                        </button>
+                                        {createMode !== "plan" && (
+                                            <button
+                                                disabled={isEmitting}
+                                                onClick={emitCreatedBlock}
+                                                className="px-8 py-2.5 bg-blue-600 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-blue-500 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all shadow-xl shadow-blue-600/20"
+                                            >
+                                                {isEmitting ? "Emitting..." : "Create Block"}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -2331,9 +2382,9 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                             {loading ? (
                                 <div style={{ padding: "2rem", color: "#64748b", textAlign: "center" }}>Loading blocks...</div>
                             ) : isDerivedSurfaceEmpty ? (
-                                <div className="heap-empty-state flex flex-col items-center justify-center h-full w-full opacity-60 hover:opacity-100 transition-opacity duration-500">
-                                    <div className="w-24 h-24 mb-6 rounded-full bg-slate-800/50 border border-slate-700/50 flex items-center justify-center shadow-2xl animate-bounce">
-                                        <span className="text-4xl text-slate-500/50">🧊</span>
+                                <div className="heap-empty-state flex flex-col items-center justify-center h-full w-full px-6 opacity-75 hover:opacity-100 transition-opacity duration-500">
+                                    <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-700/50 bg-slate-800/50 shadow-xl">
+                                        <Filter className="h-7 w-7 text-slate-500/70" />
                                     </div>
                                     <h3 className="text-lg font-bold tracking-tight text-slate-300 mb-2">No blocks found</h3>
                                     <p className="text-sm text-slate-500 max-w-sm text-center">There are no blocks matching the current view constraints. Try adjusting your filters or generating new content.</p>
@@ -2365,7 +2416,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                                             >
                                                                 <div className="text-[11px] font-semibold tracking-tight">{derivedView.label}</div>
                                                                 <div className="mt-0.5 text-[10px] uppercase tracking-[0.24em] opacity-70">
-                                                                    {derivedView.count} items
+                                                                    {derivedView.count} records
                                                                 </div>
                                                             </button>
                                                         );
@@ -2410,7 +2461,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                                             <div className="flex items-center gap-2 flex-wrap">
                                                                 <h3 className="text-sm font-semibold tracking-tight text-cortex-50">{group.label}</h3>
                                                                 <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.24em] text-cyan-200">
-                                                                    {group.count} recent
+                                                                    {group.count} records
                                                                 </span>
                                                             </div>
                                                             {exploreSettings.showGroupDescriptions && (
@@ -2461,7 +2512,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                                         </div>
                                                         {exploreSettings.showGroupDescriptions && group.count > exploreDerivedSettings.groupPreviewCount && (
                                                             <div className="border-t border-white/6 px-4 py-3 text-[11px] text-cortex-400">
-                                                                + {group.count - exploreDerivedSettings.groupPreviewCount} more grouped blocks hidden from the board.
+                                                                + {group.count - exploreDerivedSettings.groupPreviewCount} more records hidden from this preview.
                                                             </div>
                                                         )}
                                                     </div>
@@ -2472,7 +2523,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                     <div
                                         ref={laneBoardHostRef}
                                         className={`heap-lane-board grid items-start isolate ${exploreSettings.layoutMode === "compact" ? "gap-4" : "gap-5"}`}
-                                        style={{ gridTemplateColumns: `repeat(${laneCount}, minmax(0, 1fr))` }}
+                                        style={{ gridTemplateColumns: `repeat(${isMobile ? 1 : laneCount}, minmax(0, 1fr))` }}
                                     >
                                         {blockLanes.map((lane, laneIndex) => (
                                             <div key={`lane-${laneIndex}`} className="heap-lane-board__lane flex min-w-0 flex-col gap-4">

@@ -90,16 +90,6 @@ source_standard = "shared/standards/SEMANTIC_PRIMITIVES.md"
 command = "bash scripts/run_repo_python.sh scripts/check_semantic_primitives.py --strict"
 
 [[rule]]
-id = "semantic_alignment_surfaces"
-description = "Semantic primitive and Nostra/Cortex boundary checks across UI, design, skill, and advisory surfaces"
-owner = "Constitutional Steward"
-severity = "P1"
-enabled = true
-enforcement_mode = "observe"
-source_standard = "shared/standards/SEMANTIC_PRIMITIVES.md"
-command = "bash scripts/run_repo_python.sh scripts/check_semantic_alignment_surfaces.py"
-
-[[rule]]
 id = "alignment_addendum"
 description = "Alignment Addendum coverage across research plans"
 owner = "Constitutional Steward"

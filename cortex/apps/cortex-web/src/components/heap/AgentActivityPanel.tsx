@@ -41,11 +41,12 @@ const AgentEventRow = React.memo(({ evt }: { evt: AgentEvent }) => (
 export function AgentActivityPanel({ spaceId, onSolicit }: AgentActivityPanelProps) {
     const [events, setEvents] = useState<AgentEvent[]>([]);
     const [activeAgentCount, setActiveAgentCount] = useState(0);
+    const [streamUnavailable, setStreamUnavailable] = useState(false);
 
     useEffect(() => {
         if (!spaceId) return;
 
-        console.info(`[AgentActivityPanel] Connecting to global event stream for space: ${spaceId}`);
+        setStreamUnavailable(false);
 
         const stream = connectWorkbenchStream(
             "global/events",
@@ -64,7 +65,7 @@ export function AgentActivityPanel({ spaceId, onSolicit }: AgentActivityPanelPro
                     return updated;
                 });
             },
-            (err) => console.error("[AgentActivityPanel] Stream error", err)
+            () => setStreamUnavailable(true)
         );
 
         return () => {
@@ -72,7 +73,7 @@ export function AgentActivityPanel({ spaceId, onSolicit }: AgentActivityPanelPro
         };
     }, [spaceId]);
 
-    if (events.length === 0) {
+    if (events.length === 0 || streamUnavailable) {
         return null;
     }
 
@@ -91,16 +92,16 @@ export function AgentActivityPanel({ spaceId, onSolicit }: AgentActivityPanelPro
                         )}
                     </span>
                     <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                        Agent Activity
+                        Live activity
                     </span>
                 </div>
                 <div className="flex items-center gap-3">
                     <button 
                         onClick={onSolicit}
                         className="text-[10px] font-bold tracking-widest bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 px-2 py-1 rounded border border-indigo-500/30 uppercase transition-colors"
-                        title="Interrupt or solicit the active Eudaemon loop"
+                        title="Request review from the active agent loop"
                     >
-                        Solicit Agent
+                        Request Review
                     </button>
                     <span className="text-[10px] font-mono text-slate-500">{events.length} trace(s)</span>
                 </div>
