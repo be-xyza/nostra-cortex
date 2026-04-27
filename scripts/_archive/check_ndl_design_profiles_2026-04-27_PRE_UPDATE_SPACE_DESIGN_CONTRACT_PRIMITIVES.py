@@ -10,12 +10,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/SpaceDesignProfileV1.schema.json"
-DEFAULT_IMPORT_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/DesignElementImportV1.schema.json"
-DEFAULT_TEMPLATE_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/SpaceTemplatePackV1.schema.json"
-DEFAULT_PROFILE_GLOB = "research/120-nostra-design-language/prototypes/**/*.space-profile.v1.json"
-DEFAULT_IMPORT_GLOB = "research/120-nostra-design-language/prototypes/**/*.design-import.v1.json"
-DEFAULT_TEMPLATE_GLOB = "research/120-nostra-design-language/prototypes/**/*.template-pack.v1.json"
+DEFAULT_SCHEMA = ROOT / "research/120-nostra-design-language/schemas/NdlDesignProfileV1.schema.json"
+DEFAULT_PROFILE_GLOB = "research/120-nostra-design-language/prototypes/**/*.ndl-profile.v1.json"
 
 EXPECTED_SECTIONS = [
     "Overview",
@@ -333,63 +329,16 @@ def check_profile(profile_path: Path, schema_path: Path) -> None:
     check_design_tokens(profile_path, tokens)
 
 
-def check_design_import(import_path: Path, schema_path: Path) -> None:
-    design_import = load_json(import_path)
-    validate_with_schema(schema_path, import_path, design_import)
-    if design_import.get("authority_mode") != "recommendation_only":
-        fail(f"{import_path}: design imports must remain recommendation_only")
-    required_checks = set(design_import.get("required_checks", []))
-    if design_import.get("adoption_status") == "candidate" and "license_or_lineage" not in required_checks:
-        fail(f"{import_path}: candidate imports must require license_or_lineage")
-    provenance_ref = design_import.get("provenance_ref")
-    if not isinstance(provenance_ref, str):
-        fail(f"{import_path}: provenance_ref must be a string")
-    provenance_path = ROOT / provenance_ref
-    if not provenance_path.exists():
-        fail(f"{import_path}: provenance_ref does not resolve: {provenance_ref}")
-
-
-def check_template_pack(template_path: Path, schema_path: Path) -> None:
-    template = load_json(template_path)
-    validate_with_schema(schema_path, template_path, template)
-    if template.get("authority_mode") != "recommendation_only":
-        fail(f"{template_path}: template packs must remain recommendation_only")
-    profile_defaults_ref = template.get("profile_defaults_ref")
-    if not isinstance(profile_defaults_ref, str):
-        fail(f"{template_path}: profile_defaults_ref must be a string")
-    profile_defaults_path = ROOT / profile_defaults_ref
-    if not profile_defaults_path.exists():
-        fail(f"{template_path}: profile_defaults_ref does not resolve: {profile_defaults_ref}")
-    if "constitutional_surface" in set(template.get("allowed_surface_scope", [])):
-        fail(f"{template_path}: allowed_surface_scope must not include constitutional_surface")
-    for import_ref in template.get("included_import_refs", []):
-        import_path = ROOT / import_ref
-        if not import_path.exists():
-            fail(f"{template_path}: included_import_ref does not resolve: {import_ref}")
-
-
 def profile_paths(args: argparse.Namespace) -> list[Path]:
     if args.profiles:
         return [Path(path) if Path(path).is_absolute() else ROOT / path for path in args.profiles]
     return sorted(ROOT.glob(DEFAULT_PROFILE_GLOB))
 
 
-def import_paths(args: argparse.Namespace) -> list[Path]:
-    return [Path(path) if Path(path).is_absolute() else ROOT / path for path in args.imports]
-
-
-def template_paths(args: argparse.Namespace) -> list[Path]:
-    return [Path(path) if Path(path).is_absolute() else ROOT / path for path in args.templates]
-
-
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate Space design contract prototypes.")
+    parser = argparse.ArgumentParser(description="Validate NDL Space design profile prototypes.")
     parser.add_argument("profiles", nargs="*", help="Profile JSON files. Defaults to Initiative 120 prototypes.")
-    parser.add_argument("--schema", default=str(DEFAULT_SCHEMA), help="SpaceDesignProfileV1 JSON schema path.")
-    parser.add_argument("--import-schema", default=str(DEFAULT_IMPORT_SCHEMA), help="DesignElementImportV1 schema path.")
-    parser.add_argument("--template-schema", default=str(DEFAULT_TEMPLATE_SCHEMA), help="SpaceTemplatePackV1 schema path.")
-    parser.add_argument("--imports", nargs="*", default=None, help="Design import JSON files. Defaults to prototypes.")
-    parser.add_argument("--templates", nargs="*", default=None, help="Template pack JSON files. Defaults to prototypes.")
+    parser.add_argument("--schema", default=str(DEFAULT_SCHEMA), help="NdlDesignProfileV1 JSON schema path.")
     args = parser.parse_args()
 
     schema_path = Path(args.schema)
@@ -398,47 +347,22 @@ def main() -> int:
     if not schema_path.exists():
         print(f"FAIL: missing schema {schema_path}", file=sys.stderr)
         return 1
-    import_schema_path = Path(args.import_schema)
-    if not import_schema_path.is_absolute():
-        import_schema_path = ROOT / import_schema_path
-    if not import_schema_path.exists():
-        print(f"FAIL: missing schema {import_schema_path}", file=sys.stderr)
-        return 1
-    template_schema_path = Path(args.template_schema)
-    if not template_schema_path.is_absolute():
-        template_schema_path = ROOT / template_schema_path
-    if not template_schema_path.exists():
-        print(f"FAIL: missing schema {template_schema_path}", file=sys.stderr)
-        return 1
 
     profiles = profile_paths(args)
     if not profiles:
-        print("FAIL: no Space design profiles found", file=sys.stderr)
+        print("FAIL: no NDL design profiles found", file=sys.stderr)
         return 1
-    imports = sorted(ROOT.glob(DEFAULT_IMPORT_GLOB)) if args.imports is None else import_paths(args)
-    templates = sorted(ROOT.glob(DEFAULT_TEMPLATE_GLOB)) if args.templates is None else template_paths(args)
 
     try:
         for path in profiles:
             if not path.exists():
                 fail(f"missing profile {path}")
             check_profile(path, schema_path)
-        for path in imports:
-            if not path.exists():
-                fail(f"missing design import {path}")
-            check_design_import(path, import_schema_path)
-        for path in templates:
-            if not path.exists():
-                fail(f"missing template pack {path}")
-            check_template_pack(path, template_schema_path)
     except CheckFailure as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
 
-    print(
-        "PASS: Space design contract checks "
-        f"({len(profiles)} profile(s), {len(imports)} import(s), {len(templates)} template pack(s))"
-    )
+    print(f"PASS: NDL design profile checks ({len(profiles)} profile(s))")
     return 0
 
 

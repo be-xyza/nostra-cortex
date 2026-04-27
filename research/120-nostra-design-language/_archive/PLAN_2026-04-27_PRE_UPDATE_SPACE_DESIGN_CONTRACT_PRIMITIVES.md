@@ -46,7 +46,7 @@ A malicious AI agent could spoof a "Ratified" badge via an A2UI payload if the r
 
 ### Locked Design Reality
 
-Current design and theme contracts are treated as the locked state of truth for all Space-level design work. `SPACE_DESIGN.md`, `SpaceDesignProfileV1`, imported design elements, and template packs are subordinate to these authority surfaces:
+Current design and theme contracts are treated as the locked state of truth for all Space-level design work. `SPACE_DESIGN.md`, `NdlDesignProfileV1`, imported design elements, and template packs are subordinate to these authority surfaces:
 
 1. NDL verified projection and surface-boundary doctrine from this initiative.
 2. A2UI theme/render metadata, safe-mode fallback, token-version handling, motion policy, and contrast preference under `074-cortex-ui-substrate`.
@@ -72,7 +72,7 @@ The correct scope is a meta-cognition and standards-hardening layer for Space-le
 ### New Planning Primitives
 
 - `DesignRealitySnapshotV1`: a bounded manifest of current design authority sources, expected checks, and source hashes or refs used for one analysis pass.
-- `SpaceDesignProfileV1`: the Nostra-owned profile wrapper for Space-level visual identity, lineage, surface scope, and anti-spoofing policy.
+- `SpaceDesignProfileV1`: the Nostra-owned profile wrapper currently prototyped as `NdlDesignProfileV1`.
 - `DesignElementImportV1`: a candidate import record for established design elements such as palettes, typography systems, component recipes, icon sets, layout templates, or token packs.
 - `SpaceTemplatePackV1`: a reusable bundle of Space profile defaults for known Space archetypes.
 - `DesignAuditUnitV1`: a source packet for local/Hermes analysis of one design profile, template pack, or import candidate.
@@ -93,14 +93,3 @@ The correct scope is a meta-cognition and standards-hardening layer for Space-le
 ### Drift Note
 
 `074-cortex-ui-substrate` references `docs/architecture/a2ui-theme-policy.md`, which is absent in this checkout. Until that document is restored or replaced, the effective theme-policy truth is the combination of `shared/a2ui/themes/*`, `shared/a2ui/fixtures/*`, `cortex/libraries/cortex-domain/src/theme/policy.rs`, and `cortex/apps/cortex-eudaemon/src/services/theme_policy.rs`.
-
-### Current Primitive Contract Slice
-
-This stage is limited to contract hardening:
-
-1. `SpaceDesignProfileV1` is the active profile wrapper for Space-level design contracts.
-2. `DesignElementImportV1` records reusable design materials as candidate inputs with provenance and required checks.
-3. `SpaceTemplatePackV1` groups profile defaults and import candidates behind a recommendation-only promotion gate.
-4. `scripts/check_ndl_design_profiles.py` validates profiles, imports, and template packs together until a broader design-contract command is introduced.
-
-This stage still does not authorize runtime profile selection, external component imports, or direct Hermes enforcement.

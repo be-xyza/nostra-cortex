@@ -4,13 +4,23 @@
   "authority_mode": "recommendation_only",
   "target": {
     "kind": "space_design_profile",
-    "path": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.ndl-profile.v1.json"
+    "path": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.space-profile.v1.json"
   },
   "reality_snapshot_ref": "research/120-nostra-design-language/prototypes/space-design/design-reality-snapshot.v1.json",
   "inputs": [
     {
       "input_id": "candidate-profile",
-      "path": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.ndl-profile.v1.json",
+      "path": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.space-profile.v1.json",
+      "authority_tier": "candidate"
+    },
+    {
+      "input_id": "candidate-import",
+      "path": "research/120-nostra-design-language/prototypes/space-design/research-observatory.design-import.v1.json",
+      "authority_tier": "candidate"
+    },
+    {
+      "input_id": "candidate-template-pack",
+      "path": "research/120-nostra-design-language/prototypes/space-design/research-observatory.template-pack.v1.json",
       "authority_tier": "candidate"
     },
     {

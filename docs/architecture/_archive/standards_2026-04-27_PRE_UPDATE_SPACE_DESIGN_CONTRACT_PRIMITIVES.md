@@ -27,9 +27,6 @@ This document is the canonical index for architecture-level standards referenced
 14. `/Users/xaoj/ICP/shared/standards/skill_policy.toml`
 15. `/Users/xaoj/ICP/shared/standards/skill_policy_dispositions.json`
 16. `/Users/xaoj/ICP/shared/standards/cortex_runtime_authority.schema.json`
-17. `/Users/xaoj/ICP/research/120-nostra-design-language/schemas/SpaceDesignProfileV1.schema.json`
-18. `/Users/xaoj/ICP/research/120-nostra-design-language/schemas/DesignElementImportV1.schema.json`
-19. `/Users/xaoj/ICP/research/120-nostra-design-language/schemas/SpaceTemplatePackV1.schema.json`
 
 ## Enforcement Hooks
 1. `/Users/xaoj/ICP/shared/standards/alignment_contracts.toml`
@@ -55,4 +52,3 @@ This document is the canonical index for architecture-level standards referenced
 21. `/Users/xaoj/ICP/scripts/check_vps_runtime_authority.sh`
 22. `/Users/xaoj/ICP/scripts/check_clean_worktree.sh`
 23. `/Users/xaoj/ICP/scripts/check_tracked_generated_artifacts.sh`
-24. `/Users/xaoj/ICP/scripts/check_ndl_design_profiles.py`

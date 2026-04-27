@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/design-element-import-v1.schema.json",
+  "title": "DesignElementImportV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "import_id",
+    "authority_mode",
+    "source_kind",
+    "source_name",
+    "source_authority",
+    "provenance_ref",
+    "candidate_materials",
+    "adoption_status",
+    "required_checks"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "DesignElementImportV1"
+    },
+    "import_id": {
+      "type": "string",
+      "pattern": "^design-import:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "authority_mode": {
+      "const": "recommendation_only"
+    },
+    "source_kind": {
+      "enum": [
+        "palette",
+        "typography_system",
+        "component_recipe",
+        "icon_set",
+        "layout_template",
+        "token_pack",
+        "full_design_system"
+      ]
+    },
+    "source_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_authority": {
+      "enum": [
+        "reference_only",
+        "candidate_material",
+        "steward_reviewed"
+      ]
+    },
+    "provenance_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_materials": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "material_id",
+          "material_kind",
+          "description"
+        ],
+        "properties": {
+          "material_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "material_kind": {
+            "enum": [
+              "color_token",
+              "type_token",
+              "spacing_token",
+              "component_recipe",
+              "layout_rule",
+              "motion_rule",
+              "accessibility_rule"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mapped_space_token": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          }
+        }
+      }
+    },
+    "adoption_status": {
+      "enum": [
+        "candidate",
+        "adapt_only",
+        "rejected",
+        "needs_steward_review"
+      ]
+    },
+    "required_checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "locked_reality_snapshot",
+          "brand_policy",
+          "accessibility",
+          "ndl_surface_boundary",
+          "a2ui_theme_policy",
+          "space_capability_alignment",
+          "license_or_lineage"
+        ]
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

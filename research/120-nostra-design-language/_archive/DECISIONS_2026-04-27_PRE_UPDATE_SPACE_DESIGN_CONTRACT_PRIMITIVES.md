@@ -2,7 +2,7 @@
 
 ## 2026-04-27 - Space Design Profiles Use NDL Authority Wrapper
 
-**Decision**: Adopt `SPACE_DESIGN.md` as a draft authoring profile for Space-level visual identity, paired with `SpaceDesignProfileV1` as the Nostra-owned authority wrapper. The upstream `design.md` format is used only as an authoring and lint-pattern reference. NDL verified projection, A2UI theme policy, stewardship lineage, and surface boundaries remain the authority layer.
+**Decision**: Adopt `SPACE_DESIGN.md` as a draft authoring profile for Space-level visual identity, paired with `NdlDesignProfileV1` as the Nostra-owned authority wrapper. The upstream `design.md` format is used only as an authoring and lint-pattern reference. NDL verified projection, A2UI theme policy, stewardship lineage, and surface boundaries remain the authority layer.
 
 **Rationale**:
 
@@ -30,21 +30,5 @@
 **Consequences**:
 
 - Add `DesignRealitySnapshotV1` and `DesignAuditUnitV1` as planning primitives before runtime adoption work.
-- Promote `SpaceDesignProfileV1` as the active prototype contract name.
+- Keep `NdlDesignProfileV1` as a prototype name for `SpaceDesignProfileV1` until the primitive is promoted.
 - Do not wire profile selection into Cortex Web runtime until current-reality checks, import analysis, and steward gates exist.
-
-## 2026-04-27 - Design Imports and Template Packs Remain Candidate Materials
-
-**Decision**: Add `DesignElementImportV1` and `SpaceTemplatePackV1` as recommendation-only contract primitives for evaluating reusable design materials without importing external systems or activating runtime theme behavior.
-
-**Rationale**:
-
-- Space-level standards need a way to evaluate established design elements, templates, and token packs without treating them as authority.
-- Candidate materials must preserve provenance, required checks, and promotion gates before any steward-approved adoption.
-- Hermes can reason over these records as bounded inputs, but it cannot approve, mutate, import, or enforce them.
-
-**Consequences**:
-
-- The local Space design linter validates profile, import, and template prototype records together.
-- Template packs can reference profile defaults and import records, but remain `recommendation_only`.
-- Runtime adoption still requires a future steward-approved promotion gate and Cortex Web fixture validation.

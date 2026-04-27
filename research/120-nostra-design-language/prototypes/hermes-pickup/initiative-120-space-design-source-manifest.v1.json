@@ -33,10 +33,22 @@
       "freshnessNote": "Use latest dated entries for present state."
     },
     {
-      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/schemas/NdlDesignProfileV1.schema.json",
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/schemas/SpaceDesignProfileV1.schema.json",
       "authorityTier": "prototype_contract",
       "excerptScope": "Space design profile wrapper schema and authority metadata",
-      "freshnessNote": "Prototype until steward-promoted as SpaceDesignProfileV1."
+      "freshnessNote": "Active prototype contract name; not runtime authority."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/schemas/DesignElementImportV1.schema.json",
+      "authorityTier": "prototype_contract",
+      "excerptScope": "recommendation-only candidate material import primitive",
+      "freshnessNote": "Prototype planning primitive; imports are not runtime dependencies."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/schemas/SpaceTemplatePackV1.schema.json",
+      "authorityTier": "prototype_contract",
+      "excerptScope": "recommendation-only Space template pack primitive",
+      "freshnessNote": "Prototype planning primitive; template packs are not runtime registry entries."
     },
     {
       "path": "/Users/xaoj/ICP/research/120-nostra-design-language/schemas/DesignRealitySnapshotV1.schema.json",
@@ -57,10 +69,22 @@
       "freshnessNote": "Draft profile only; not approved design authority."
     },
     {
-      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.ndl-profile.v1.json",
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.space-profile.v1.json",
       "authorityTier": "candidate",
-      "excerptScope": "candidate NDL profile wrapper for Research Observatory Space",
+      "excerptScope": "candidate Space design profile wrapper for Research Observatory Space",
       "freshnessNote": "Draft profile only; not approved design authority."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/research-observatory.design-import.v1.json",
+      "authorityTier": "candidate",
+      "excerptScope": "candidate design element import record for reusable Research Observatory recipes",
+      "freshnessNote": "Draft import analysis only; not an external design-system import."
+    },
+    {
+      "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/research-observatory.template-pack.v1.json",
+      "authorityTier": "candidate",
+      "excerptScope": "candidate template pack for Research Observatory Space defaults",
+      "freshnessNote": "Draft template pack only; not a runtime template registry entry."
     },
     {
       "path": "/Users/xaoj/ICP/research/120-nostra-design-language/prototypes/space-design/design-reality-snapshot.v1.json",
@@ -83,7 +107,7 @@
     {
       "path": "/Users/xaoj/ICP/scripts/check_ndl_design_profiles.py",
       "authorityTier": "local_check",
-      "excerptScope": "current local NDL design profile validation behavior",
+      "excerptScope": "current local Space design profile validation behavior",
       "freshnessNote": "Use promoted root ICP only."
     },
     {
