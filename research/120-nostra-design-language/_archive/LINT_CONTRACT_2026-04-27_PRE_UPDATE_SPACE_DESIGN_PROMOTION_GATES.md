@@ -48,11 +48,6 @@ These must be enforced by a Nostra-owned lint pass before runtime adoption:
 - all governance, identity, and approval states must be rendered through verified projection rather than component tokens.
 - candidate imports must include provenance and `license_or_lineage` checks.
 - template packs must remain `recommendation_only`, resolve profile defaults, resolve included imports, and exclude constitutional surfaces.
-- imports must carry the full promotion-gate check set: locked reality snapshot, brand policy, accessibility, NDL surface boundary, A2UI theme policy, Space capability alignment, and license or lineage.
-- imports must not claim `steward_reviewed`, approved, runtime, or runtime-enforced status before a steward promotion gate.
-- template packs must require `needs_steward_review` as their draft promotion recommendation.
-- template pack promotion gates must include locked reality snapshot, profile validation, import validation, brand policy, accessibility, A2UI theme policy, Space capability alignment, and Hermes advisory-only checks.
-- template packs may include only recommendation-only imports whose adoption status remains candidate, adapt-only, or needs-steward-review.
 
 ## Accessibility Checks
 

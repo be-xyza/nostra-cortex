@@ -57,39 +57,6 @@ REQUIRED_ACCESSIBILITY_CHECKS = {
     "text fit is bounded",
     "color is not sole state channel",
 }
-REQUIRED_IMPORT_CHECKS = {
-    "locked_reality_snapshot",
-    "brand_policy",
-    "accessibility",
-    "ndl_surface_boundary",
-    "a2ui_theme_policy",
-    "space_capability_alignment",
-    "license_or_lineage",
-}
-REQUIRED_TEMPLATE_GATE_CHECKS = {
-    "locked_reality_snapshot",
-    "space_design_profile",
-    "design_element_imports",
-    "brand_policy",
-    "accessibility",
-    "a2ui_theme_policy",
-    "space_capability_alignment",
-    "hermes_advisory_only",
-}
-ALLOWED_IMPORT_STATUSES = {
-    "candidate",
-    "adapt_only",
-    "rejected",
-    "needs_steward_review",
-}
-PROHIBITED_ELEVATION_TERMS = {
-    "runtime_contract",
-    "runtime-enforced",
-    "runtime_enforced",
-    "approved",
-    "steward_approved",
-    "steward-approved",
-}
 STATUS_COLOR_KEYS = {
     "evidence",
     "warning",
@@ -485,27 +452,15 @@ def check_design_import(import_path: Path, schema_path: Path) -> None:
     validate_with_schema(schema_path, import_path, design_import)
     if design_import.get("authority_mode") != "recommendation_only":
         fail(f"{import_path}: design imports must remain recommendation_only")
-    if design_import.get("source_authority") == "steward_reviewed":
-        fail(f"{import_path}: design imports must not claim steward_reviewed before a promotion gate")
-    adoption_status = design_import.get("adoption_status")
-    if adoption_status not in ALLOWED_IMPORT_STATUSES:
-        fail(f"{import_path}: adoption_status must be one of {sorted(ALLOWED_IMPORT_STATUSES)}")
     required_checks = set(design_import.get("required_checks", []))
-    missing_checks = sorted(REQUIRED_IMPORT_CHECKS - required_checks)
-    if missing_checks:
-        fail(f"{import_path}: required_checks missing promotion-gate checks {missing_checks}")
+    if design_import.get("adoption_status") == "candidate" and "license_or_lineage" not in required_checks:
+        fail(f"{import_path}: candidate imports must require license_or_lineage")
     provenance_ref = design_import.get("provenance_ref")
     if not isinstance(provenance_ref, str):
         fail(f"{import_path}: provenance_ref must be a string")
     provenance_path = ROOT / provenance_ref
     if not provenance_path.exists():
         fail(f"{import_path}: provenance_ref does not resolve: {provenance_ref}")
-    candidate_materials = design_import.get("candidate_materials", [])
-    for material in candidate_materials:
-        text = " ".join(str(material.get(field, "")) for field in ("material_id", "material_kind", "description"))
-        lowered = text.lower()
-        if any(term in lowered for term in PROHIBITED_ELEVATION_TERMS):
-            fail(f"{import_path}: candidate material {material.get('material_id')} implies promoted runtime authority")
 
 
 def check_template_pack(template_path: Path, schema_path: Path) -> None:
@@ -513,13 +468,6 @@ def check_template_pack(template_path: Path, schema_path: Path) -> None:
     validate_with_schema(schema_path, template_path, template)
     if template.get("authority_mode") != "recommendation_only":
         fail(f"{template_path}: template packs must remain recommendation_only")
-    promotion_gate = template.get("promotion_gate", {})
-    if promotion_gate.get("required_recommendation") != "needs_steward_review":
-        fail(f"{template_path}: promotion_gate.required_recommendation must be needs_steward_review for draft packs")
-    gate_checks = set(promotion_gate.get("required_checks", []))
-    missing_gate_checks = sorted(REQUIRED_TEMPLATE_GATE_CHECKS - gate_checks)
-    if missing_gate_checks:
-        fail(f"{template_path}: promotion_gate.required_checks missing {missing_gate_checks}")
     profile_defaults_ref = template.get("profile_defaults_ref")
     if not isinstance(profile_defaults_ref, str):
         fail(f"{template_path}: profile_defaults_ref must be a string")
@@ -532,11 +480,6 @@ def check_template_pack(template_path: Path, schema_path: Path) -> None:
         import_path = ROOT / import_ref
         if not import_path.exists():
             fail(f"{template_path}: included_import_ref does not resolve: {import_ref}")
-        design_import = load_json(import_path)
-        if design_import.get("authority_mode") != "recommendation_only":
-            fail(f"{template_path}: included import {import_ref} is not recommendation_only")
-        if design_import.get("adoption_status") not in {"candidate", "adapt_only", "needs_steward_review"}:
-            fail(f"{template_path}: included import {import_ref} has incompatible adoption_status")
 
 
 def profile_paths(args: argparse.Namespace) -> list[Path]:
