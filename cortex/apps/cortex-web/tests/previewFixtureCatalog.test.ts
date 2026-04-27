@@ -10,7 +10,12 @@ import {
   filterPreviewHeapBlocks,
   isPreviewArtifactId,
 } from "../src/store/previewFixtureCatalog.ts";
-import { SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID } from "../src/store/spaceDesignProfilePreviewContract.ts";
+import {
+  isSpaceDesignProfilePreviewMetadataOnly,
+  spaceDesignProfilePreviewThemeBindingState,
+  type SpaceDesignProfilePreviewFixture,
+  SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID,
+} from "../src/store/spaceDesignProfilePreviewContract.ts";
 
 test("preview fixture catalog recognizes seeded preview artifact ids", () => {
   assert.ok(PREVIEW_ARTIFACT_IDS.has("mock-solicitation-1"));
@@ -84,4 +89,6 @@ test("space design profile preview fixture remains advisory metadata only", () =
   assert.equal(profile.a2ui_theme_policy.token_version, "ndl-token-v1");
   assert.equal(profile.a2ui_theme_policy.theme_allowlist_id, "ndl-space-profile-draft");
   assert.equal("design_tokens" in profile, false);
+  assert.equal(isSpaceDesignProfilePreviewMetadataOnly(fixture as SpaceDesignProfilePreviewFixture), true);
+  assert.equal(spaceDesignProfilePreviewThemeBindingState(fixture as SpaceDesignProfilePreviewFixture), "metadata_only");
 });
