@@ -1,4 +1,4 @@
-name: Nostra/Cortex Test Suite
+name: Nostra Cortex Test Suite
 
 on:
   push:
@@ -53,7 +53,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Install protoc
         if: steps.preflight.outputs.run == 'true'
-        uses: arduino/setup-protoc@v3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
       - name: Cache Cargo
         if: steps.preflight.outputs.run == 'true'
         uses: actions/cache@v4
@@ -155,7 +158,10 @@ jobs:
           targets: wasm32-unknown-unknown
       - name: Install protoc
         if: steps.preflight.outputs.run == 'true'
-        uses: arduino/setup-protoc@v3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
       - name: Rustfmt Check
         if: steps.preflight.outputs.run == 'true'
         run: cargo fmt --check
@@ -310,6 +316,14 @@ jobs:
             python3 scripts/check_cortex_ux_fixture_drift.py
           else
             echo "SKIP: scripts/check_cortex_ux_fixture_drift.py not found"
+          fi
+      - name: Space Design Fixture Validation Regression Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          if [[ -f "scripts/test_ndl_design_profile_a2ui_fixture_validation.py" ]]; then
+            python3 scripts/test_ndl_design_profile_a2ui_fixture_validation.py
+          else
+            echo "SKIP: scripts/test_ndl_design_profile_a2ui_fixture_validation.py not found"
           fi
       - name: Phase 7 Closeout Task Gate
         if: steps.preflight.outputs.run == 'true'
@@ -553,7 +567,10 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - name: Install protoc
-        uses: arduino/setup-protoc@v3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
       - name: Run freeze gate suite
@@ -671,7 +688,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Install protoc
         if: steps.preflight.outputs.run == 'true'
-        uses: arduino/setup-protoc@v3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
       - name: Install Dioxus CLI
         if: steps.preflight.outputs.run == 'true'
         run: cargo install dioxus-cli --locked
@@ -732,7 +752,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Install protoc
         if: steps.preflight.outputs.run == 'true'
-        uses: arduino/setup-protoc@v3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
       - name: Run ACP gateway integration (ignored suite)
         if: steps.preflight.outputs.run == 'true'
         run: cargo test --manifest-path "$CORTEX_DESKTOP_MANIFEST" --test acp_gateway_integration -- --ignored
