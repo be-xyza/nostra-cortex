@@ -4,7 +4,7 @@ name: "hybrid-workflow-authority-and-execution"
 title: "Decision Log: Hybrid Workflow Authority and Execution"
 type: "decision"
 project: "nostra"
-status: draft
+status: archived
 authors:
   - "Codex"
 created: "2026-03-11"
@@ -58,3 +58,15 @@ updated: "2026-04-27"
   - `local_durable_worker_v1` remains the default adapter unless explicitly overridden.
   - The decision to keep canister as non-default is now operational preference, not architectural uncertainty.
   - Initiative 134 exit criteria are satisfied.
+
+## DEC-134-009: Initiative 134 is complete and archived
+- **Decision**: Mark Initiative 134 complete and archived as of 2026-04-27.
+- **Rationale**:
+  - The merged implementation in PR #52 establishes the canister-backed execution path, adapter-aware gateway/workbench routing, local parity remediation, typed frontend workflow-definition contract, and ICP CLI-first operator path.
+  - Live validation demonstrated direct canister lifecycle calls and gateway-mediated canister execution, including signal, snapshot, trace, checkpoint, outcome, cancel, and fail-fast unsupported-node behavior.
+  - CI passed before merge, including Static Analysis, Rust Unit & Integration Tests, Cortex Runtime Freeze Gates, ACP Gateway Integration, Motoko Canister Tests, Test Catalog Consistency, SIQ Observe, SIQ Softgate Promotion, Initiative 118 Evidence Gate, Offline Simulations Playwright, Vercel, and canister-ID checks.
+  - Remaining work is future hardening or expansion, not a blocker to the Initiative 134 scope.
+- **Consequences**:
+  - Initiative 134 is no longer an active implementation initiative.
+  - Future adapter expansion, default-adapter rollout, or broader canister node-kind support must be opened under separate governed work.
+  - Hermes may treat 134 as a validated substrate for advisory review and cross-initiative observation.
