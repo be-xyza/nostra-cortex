@@ -8,19 +8,6 @@ This skill guides creation of distinctive, production-grade frontend interfaces 
 
 The user provides frontend requirements: a component, page, application, or interface to build. They may include context about the purpose, audience, or technical constraints.
 
-## Nostra Cortex Space Design Contract
-
-When designing for Nostra Spaces, Cortex Workbench surfaces, Space templates, imported design elements, or repo-managed design standards:
-
-- Treat current NDL, A2UI, branding, accessibility, ViewSpec, Cortex Web, and Space capability contracts as locked truth.
-- Use Space, not workspace, for user-facing containers.
-- Keep Nostra platform authority separate from Cortex runtime execution.
-- Do not let visual styling imply ratified, approved, constitutional, verified identity, or steward-authorized state. Those states require NDL verified projection.
-- Use `SpaceDesignProfileV1` for Space profile wrappers, `DesignElementImportV1` for candidate imported design materials, and `SpaceTemplatePackV1` for reusable Space archetype defaults.
-- Keep profile/import/template work recommendation-only unless a steward-approved promotion gate exists.
-- Run `python3 scripts/check_ndl_design_profiles.py` when changing Space design profiles, design imports, template packs, or this skill's Nostra-specific design guidance.
-- Hermes may review bounded design packets and produce advisory findings, but must not approve, mutate, import, or enforce Space design contracts.
-
 ## Design Thinking
 
 Before coding, understand the context and commit to a BOLD aesthetic direction:
