@@ -1,4 +1,5 @@
 import type { HeapBlockListItem, HeapDeletedListItem } from "../contracts.ts";
+import { SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID } from "./spaceDesignProfilePreviewContract.ts";
 import { INTRO_SPACE_ID, SEED_EVENTS } from "./seedData.ts";
 
 export const PREVIEW_SNAPSHOT_IDS = new Set([
@@ -12,6 +13,7 @@ export const PREVIEW_SNAPSHOT_IDS = new Set([
     "system:ux:workbench:/spaces",
     "system:ux:workbench:/heap",
     "system:ux:workbench:/studio",
+    SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID,
 ]);
 
 export const PREVIEW_EVENT_IDS = new Set(SEED_EVENTS.map((event) => event.id));

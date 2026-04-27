@@ -20,6 +20,9 @@ DEFAULT_A2UI_THEME_DIR = ROOT / "shared/a2ui/themes"
 DEFAULT_A2UI_FIXTURE_DIR = ROOT / "shared/a2ui/fixtures"
 DEFAULT_DOMAIN_THEME_POLICY = ROOT / "cortex/libraries/cortex-domain/src/theme/policy.rs"
 DEFAULT_EUDAEMON_THEME_POLICY = ROOT / "cortex/apps/cortex-eudaemon/src/services/theme_policy.rs"
+DEFAULT_CORTEX_WEB_SPACE_DESIGN_FIXTURE = (
+    ROOT / "cortex/apps/cortex-web/src/store/spaceDesignProfilePreview.fixture.json"
+)
 
 EXPECTED_SECTIONS = [
     "Overview",
@@ -643,6 +646,83 @@ def check_profile_a2ui_compatibility(profile_path: Path, profile: dict[str, Any]
         fail(f"{profile_path}: a2ui_theme_policy.contrast_preference is not accepted by A2UI theme policy")
 
 
+def contains_key(value: Any, key: str) -> bool:
+    if isinstance(value, dict):
+        return key in value or any(contains_key(child, key) for child in value.values())
+    if isinstance(value, list):
+        return any(contains_key(child, key) for child in value)
+    return False
+
+
+def check_cortex_web_space_design_fixture(
+    fixture_path: Path,
+    profiles: dict[str, dict[str, Any]],
+    truth: dict[str, set[str]],
+) -> None:
+    if not fixture_path.exists():
+        fail(f"missing Cortex Web Space design preview fixture {fixture_path}")
+    fixture = load_json(fixture_path)
+    if not isinstance(fixture, dict):
+        fail(f"{fixture_path}: preview fixture must be an object")
+    if fixture.get("schema_version") != "CortexWebSpaceDesignProfilePreviewFixtureV1":
+        fail(f"{fixture_path}: unexpected schema_version {fixture.get('schema_version')!r}")
+    if fixture.get("snapshot_id") != "system:ux:space-design-profiles":
+        fail(f"{fixture_path}: snapshot_id must remain system:ux:space-design-profiles")
+    if fixture.get("source_mode") != "fixture":
+        fail(f"{fixture_path}: source_mode must remain fixture")
+    if fixture.get("runtime_binding") != "none":
+        fail(f"{fixture_path}: runtime_binding must remain none")
+    runtime_policy = fixture.get("runtime_policy", {})
+    expected_runtime_policy = {
+        "recommendation_only": True,
+        "applies_tokens_to_cortex_web": False,
+        "runtime_theme_selection": False,
+        "requires_verified_projection_for_governance": True,
+    }
+    for key, expected in expected_runtime_policy.items():
+        if runtime_policy.get(key) is not expected:
+            fail(f"{fixture_path}: runtime_policy.{key} must be {expected!r}")
+    if contains_key(fixture, "design_tokens"):
+        fail(f"{fixture_path}: Cortex Web preview fixture must not carry design_tokens")
+
+    profile_items = fixture.get("profiles", [])
+    if not isinstance(profile_items, list) or not profile_items:
+        fail(f"{fixture_path}: profiles must contain at least one preview profile")
+
+    seen_profile_ids = set()
+    for item in profile_items:
+        if not isinstance(item, dict):
+            fail(f"{fixture_path}: profile preview entries must be objects")
+        profile_id = item.get("profile_id")
+        if profile_id not in profiles:
+            fail(f"{fixture_path}: profile preview {profile_id!r} does not match a Space design profile")
+        seen_profile_ids.add(profile_id)
+        source_profile = profiles[profile_id]
+        if item.get("authority_mode") != "recommendation_only":
+            fail(f"{fixture_path}: profile preview {profile_id} must remain recommendation_only")
+        if item.get("authority_mode") != source_profile.get("authority_mode"):
+            fail(f"{fixture_path}: profile preview {profile_id} authority_mode drifted from source profile")
+        if item.get("review_status") != source_profile.get("stewardship", {}).get("review_status"):
+            fail(f"{fixture_path}: profile preview {profile_id} review_status drifted from source profile")
+        if item.get("approved_by_count") != len(source_profile.get("approved_by", [])):
+            fail(f"{fixture_path}: profile preview {profile_id} approved_by_count drifted from source profile")
+        if item.get("surface_scope") != source_profile.get("surface_scope"):
+            fail(f"{fixture_path}: profile preview {profile_id} surface_scope drifted from source profile")
+        if item.get("preview_status") != "metadata_only":
+            fail(f"{fixture_path}: profile preview {profile_id} must remain metadata_only")
+        theme_policy = item.get("a2ui_theme_policy", {})
+        if theme_policy != source_profile.get("a2ui_theme_policy"):
+            fail(f"{fixture_path}: profile preview {profile_id} a2ui_theme_policy drifted from source profile")
+        if theme_policy.get("token_version") in truth["supported_token_versions"]:
+            fail(f"{fixture_path}: profile preview {profile_id} reuses a runtime A2UI token_version")
+        if theme_policy.get("theme_allowlist_id") in truth["runtime_allowlist_ids"]:
+            fail(f"{fixture_path}: profile preview {profile_id} reuses a runtime A2UI allowlist id")
+
+    missing_profile_ids = sorted(set(profiles) - seen_profile_ids)
+    if missing_profile_ids:
+        fail(f"{fixture_path}: missing Space design profile preview entries {missing_profile_ids}")
+
+
 def check_profile(profile_path: Path, schema_path: Path, a2ui_truth: dict[str, set[str]]) -> None:
     profile = load_json(profile_path)
     validate_with_schema(schema_path, profile_path, profile)
@@ -755,6 +835,11 @@ def main() -> int:
         default=str(DEFAULT_EUDAEMON_THEME_POLICY),
         help="cortex-eudaemon Rust theme policy adapter source used for default policy truth.",
     )
+    parser.add_argument(
+        "--cortex-web-space-design-fixture",
+        default=str(DEFAULT_CORTEX_WEB_SPACE_DESIGN_FIXTURE),
+        help="Cortex Web preview fixture used to expose Space design profile metadata.",
+    )
     args = parser.parse_args()
 
     schema_path = Path(args.schema)
@@ -787,6 +872,9 @@ def main() -> int:
     eudaemon_theme_policy_path = Path(args.eudaemon_theme_policy)
     if not eudaemon_theme_policy_path.is_absolute():
         eudaemon_theme_policy_path = ROOT / eudaemon_theme_policy_path
+    cortex_web_space_design_fixture_path = Path(args.cortex_web_space_design_fixture)
+    if not cortex_web_space_design_fixture_path.is_absolute():
+        cortex_web_space_design_fixture_path = ROOT / cortex_web_space_design_fixture_path
 
     profiles = profile_paths(args)
     if not profiles:
@@ -806,6 +894,15 @@ def main() -> int:
             if not path.exists():
                 fail(f"missing profile {path}")
             check_profile(path, schema_path, a2ui_truth)
+        profile_records = {}
+        for path in profiles:
+            profile = load_json(path)
+            profile_records[profile["profile_id"]] = profile
+        check_cortex_web_space_design_fixture(
+            cortex_web_space_design_fixture_path,
+            profile_records,
+            a2ui_truth,
+        )
         for path in imports:
             if not path.exists():
                 fail(f"missing design import {path}")
