@@ -35,6 +35,7 @@ depends_on:
   - "127"
   - "130"
   - "133"
+informs:
   - "134"
 structural_pivot_impact: "major"
 stewardship:
@@ -54,7 +55,7 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 Current validated reality for this pass:
 - Gateway parity passes locally in this checkout.
 - The root repo is the authoritative source for this planning pass.
-- The companion `eudaemon-alpha/` repo path is absent here and should be treated as historical/unvalidated until it is restored or mirrored.
+- The companion `eudaemon-alpha/` repo has been deprecated. Initiative 132 authority lives entirely in the root ICP tree. Older references to `eudaemon-alpha/` in archived documents are historical only.
 - The active VPS deployment contract is `cortex-gateway` plus `cortex_worker`, rendered and checked through the Hetzner runbook and runtime authority manifest.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
@@ -79,6 +80,18 @@ At this stage:
 - Cortex remains authority for heap workspaces, lifecycle execution, closeout tracking, action/navigation compilation, and workflow runtime behavior.
 - Initiative 134 supersedes treating older workflow-engine assumptions as the canonical workflow architecture.
 - Developer worktree isolation is an operator/developer governance process for protecting the system definition. It is not a heap primitive, closeout primitive, or workflow primitive.
+
+## Cross-Initiative Relationship: 132 and 134
+
+Initiative 132 (Eudaemon Alpha) and Initiative 134 (Hybrid Workflow Authority and Execution) have a consumer-provider relationship, not a blocker dependency.
+
+- **Initiative 134 provides**: The canonical workflow substrate (definitions, adapters, execution, parity).
+- **Initiative 132 consumes**: The workflow substrate for advisory observation, bounded passes, and synthesis artifacts. Hermes advisory passes may reference Initiative 134 contracts and gates, but they do not block on 134 completion.
+- **Direction of influence**: 132 informs 134 through architectural observation, drift detection, and readiness-gate assessment. 134 enables 132 by providing a stable substrate against which to evaluate.
+
+This relationship is asymmetric:
+- 134 can reach completion without 132.
+- 132 can operate in bounded advisory mode without 134 being complete, though its observations are more valuable when 134 contracts are stable.
 
 ## Architecture Resolution
 
@@ -353,7 +366,7 @@ Blocking preflight work before live deployment:
 - [x] **Linux Service Assets**: root repo owns `cortex-gateway.service` and `cortex-worker.service`
 - [x] **Hetzner Runbook**: promotion, deploy, systemd, SSH, and runtime-authority guidance live in the root repo
 - [x] **Deployment Hygiene**: ignore workstation artifacts (`venv`, `__pycache__`, `.pytest_cache`, `.DS_Store`, `.worktrees`)
-- [x] **Repo Boundary**: Initiative 132 stays in root repo; `eudaemon-alpha/` is the planned companion boundary but is not validated in this checkout
+- [x] **Repo Boundary**: Initiative 132 stays in the root repo; `eudaemon-alpha/` companion-repo references are historical only
 - [ ] **Live Box Validation**: verify SSH alias/host, install deps on Hetzner, enable services, and complete one end-to-end bootstrap cycle
 
 ### Phase 6.5: Production Identity Enforcement

@@ -34,6 +34,12 @@ struct LocalWorkflowInstanceRecord {
     instance: WorkflowInstanceV1,
     #[serde(skip_serializing_if = "Option::is_none")]
     checkpoint_policy: Option<WorkflowCheckpointPolicyV1>,
+    #[serde(default)]
+    trace: Vec<WorkflowTraceEventV1>,
+    #[serde(default)]
+    checkpoints: Vec<WorkflowCheckpointV1>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    outcome: Option<WorkflowOutcomeV1>,
 }
 
 impl<T: TimeProvider> LocalDurableWorkerAdapter<T> {
@@ -252,6 +258,29 @@ impl<T: TimeProvider> LocalDurableWorkerAdapter<T> {
             evidence_refs: Vec::new(),
         })
     }
+
+    fn human_checkpoint_node(definition: &WorkflowDefinitionV1) -> Option<&cortex_domain::workflow::WorkflowNodeV1> {
+        definition
+            .graph
+            .nodes
+            .iter()
+            .find(|node| matches!(node.kind, WorkflowNodeKind::HumanCheckpoint))
+    }
+
+    fn checkpoint_policy_for(
+        node_policy: Option<WorkflowCheckpointPolicyV1>,
+        binding_policy: Option<WorkflowCheckpointPolicyV1>,
+        timeout_seconds: u64,
+    ) -> WorkflowCheckpointPolicyV1 {
+        node_policy
+            .or(binding_policy)
+            .unwrap_or(WorkflowCheckpointPolicyV1 {
+                resume_allowed: true,
+                cancel_allowed: true,
+                pause_allowed: true,
+                timeout_seconds: Some(timeout_seconds),
+            })
+    }
 }
 
 #[async_trait]
@@ -259,7 +288,7 @@ impl<T> WorkflowExecutionAdapter for LocalDurableWorkerAdapter<T>
 where
     T: TimeProvider + 'static,
 {
-    fn compile(
+    async fn compile(
         &self,
         definition: &WorkflowDefinitionV1,
         binding: &WorkflowExecutionBindingV1,
@@ -318,7 +347,7 @@ where
         };
         self.write_json(&self.start_command_path(&instance_id), &command)?;
 
-        let instance = WorkflowInstanceV1 {
+        let mut instance = WorkflowInstanceV1 {
             schema_version: "1.0.0".to_string(),
             instance_id: instance_id.clone(),
             definition_id: definition.definition_id.clone(),
@@ -326,7 +355,7 @@ where
             status: WorkflowInstanceStatus::Queued,
             scope,
             created_at: created_at.clone(),
-            updated_at: created_at,
+            updated_at: created_at.clone(),
             definition_digest: self.definition_digest(definition)?,
             binding_digest: self.binding_digest(binding)?,
             source_of_truth: "local_durable_worker_v1".to_string(),
@@ -343,9 +372,83 @@ where
                 .as_ref()
                 .and_then(|entry| entry.degraded_reason.clone()),
         };
+        let mut trace = vec![WorkflowTraceEventV1 {
+            event_id: format!("workflow_event_{}_1", sanitize_fs_component(&instance_id)),
+            instance_id: instance_id.clone(),
+            event_type: "workflow_started".to_string(),
+            sequence: 1,
+            timestamp: created_at.clone(),
+            payload: json!({
+                "adapter": "local_durable_worker_v1",
+                "bindingId": binding.binding_id,
+                "definitionId": definition.definition_id,
+            }),
+        }];
+        let mut checkpoints = Vec::new();
+        let mut outcome = None;
+        if let Some(node) = Self::human_checkpoint_node(definition) {
+            let checkpoint = WorkflowCheckpointV1 {
+                checkpoint_id: format!(
+                    "workflow_checkpoint_{}_1",
+                    sanitize_fs_component(&instance_id)
+                ),
+                instance_id: instance_id.clone(),
+                node_id: node.node_id.clone(),
+                kind: WorkflowNodeKind::HumanCheckpoint,
+                status: WorkflowCheckpointStatus::Pending,
+                created_at: created_at.clone(),
+                resolved_at: None,
+                surface_ref: Some(format!("a2ui://workflow-checkpoint/{}", instance_id)),
+                policy: Self::checkpoint_policy_for(
+                    node.checkpoint_policy.clone(),
+                    binding.checkpoint_policy.clone(),
+                    approval_timeout_seconds,
+                ),
+            };
+            instance.status = WorkflowInstanceStatus::WaitingCheckpoint;
+            trace.push(WorkflowTraceEventV1 {
+                event_id: format!("workflow_event_{}_2", sanitize_fs_component(&instance_id)),
+                instance_id: instance_id.clone(),
+                event_type: "checkpoint_created".to_string(),
+                sequence: 2,
+                timestamp: created_at.clone(),
+                payload: json!({
+                    "checkpointId": checkpoint.checkpoint_id,
+                    "kind": "human_checkpoint",
+                    "nodeId": checkpoint.node_id,
+                }),
+            });
+            checkpoints.push(checkpoint);
+        } else {
+            instance.status = WorkflowInstanceStatus::Completed;
+            outcome = Some(WorkflowOutcomeV1 {
+                outcome_id: format!(
+                    "workflow_outcome_{}_1",
+                    sanitize_fs_component(&instance_id)
+                ),
+                instance_id: instance_id.clone(),
+                status: WorkflowOutcomeStatus::Completed,
+                completed_at: created_at.clone(),
+                summary: "Workflow completed without a human checkpoint.".to_string(),
+                contribution_refs: vec![self.contribution_id(definition, binding)],
+                global_event_refs: Vec::new(),
+                evidence_refs: Vec::new(),
+            });
+            trace.push(WorkflowTraceEventV1 {
+                event_id: format!("workflow_event_{}_2", sanitize_fs_component(&instance_id)),
+                instance_id: instance_id.clone(),
+                event_type: "workflow_completed".to_string(),
+                sequence: 2,
+                timestamp: created_at.clone(),
+                payload: json!({ "status": "completed" }),
+            });
+        }
         let record = LocalWorkflowInstanceRecord {
             instance: instance.clone(),
             checkpoint_policy: binding.checkpoint_policy.clone(),
+            trace,
+            checkpoints,
+            outcome,
         };
         self.write_json(&self.instance_record_path(&instance_id), &record)?;
         Ok(instance)
@@ -385,6 +488,90 @@ where
                 .map(str::to_string),
         };
         self.write_json(&self.signal_command_path(instance_id), &command)?;
+        if let Some(mut record) =
+            self.read_json_optional::<LocalWorkflowInstanceRecord>(&self.instance_record_path(instance_id))?
+        {
+            let updated_at = self.now_iso()?;
+            let sequence = (record.trace.len() as u64) + 1;
+            record.trace.push(WorkflowTraceEventV1 {
+                event_id: format!(
+                    "workflow_event_{}_{}",
+                    sanitize_fs_component(instance_id),
+                    sequence
+                ),
+                instance_id: instance_id.to_string(),
+                event_type: "signal_received".to_string(),
+                sequence,
+                timestamp: updated_at.clone(),
+                payload: json!({
+                    "checkpointId": signal.checkpoint_id,
+                    "decision": decision,
+                    "signalType": signal.signal_type,
+                }),
+            });
+            let cancelled = decision.eq_ignore_ascii_case("cancel")
+                || decision.eq_ignore_ascii_case("cancelled")
+                || decision.eq_ignore_ascii_case("rejected");
+            let checkpoint_id = record
+                .checkpoints
+                .iter_mut()
+                .find(|checkpoint| checkpoint.status == WorkflowCheckpointStatus::Pending)
+                .map(|checkpoint| {
+                    checkpoint.status = if cancelled {
+                        WorkflowCheckpointStatus::Cancelled
+                    } else {
+                        WorkflowCheckpointStatus::Resolved
+                    };
+                    checkpoint.resolved_at = Some(updated_at.clone());
+                    checkpoint.checkpoint_id.clone()
+                })
+                .or(signal.checkpoint_id.clone());
+            record.instance.status = if cancelled {
+                WorkflowInstanceStatus::Cancelled
+            } else if decision.eq_ignore_ascii_case("pause") {
+                WorkflowInstanceStatus::Paused
+            } else {
+                WorkflowInstanceStatus::Completed
+            };
+            record.instance.updated_at = updated_at.clone();
+            record.outcome = Some(WorkflowOutcomeV1 {
+                outcome_id: format!(
+                    "workflow_outcome_{}_{}",
+                    sanitize_fs_component(instance_id),
+                    sequence
+                ),
+                instance_id: instance_id.to_string(),
+                status: if cancelled {
+                    WorkflowOutcomeStatus::Cancelled
+                } else if decision.eq_ignore_ascii_case("pause") {
+                    WorkflowOutcomeStatus::Paused
+                } else {
+                    WorkflowOutcomeStatus::Completed
+                },
+                completed_at: updated_at.clone(),
+                summary: if cancelled {
+                    command.rationale.clone().unwrap_or_else(|| "Workflow cancelled.".to_string())
+                } else if decision.eq_ignore_ascii_case("pause") {
+                    "Workflow paused by operator.".to_string()
+                } else {
+                    "Workflow completed after checkpoint resolution.".to_string()
+                },
+                contribution_refs: Vec::new(),
+                global_event_refs: Vec::new(),
+                evidence_refs: Vec::new(),
+            });
+            self.write_json(&self.instance_record_path(instance_id), &record)?;
+            return Ok(WorkflowCheckpointResultV1 {
+                instance_id: instance_id.to_string(),
+                checkpoint_id,
+                status: if cancelled {
+                    WorkflowCheckpointStatus::Cancelled
+                } else {
+                    WorkflowCheckpointStatus::Resolved
+                },
+                updated_at,
+            });
+        }
         Ok(WorkflowCheckpointResultV1 {
             instance_id: instance_id.to_string(),
             checkpoint_id: signal.checkpoint_id,
@@ -406,9 +593,9 @@ where
         let Some(snapshot) = snapshot else {
             return Ok(WorkflowSnapshotV1 {
                 instance: record.instance,
-                trace: Vec::new(),
-                checkpoints: Vec::new(),
-                outcome: None,
+                trace: record.trace,
+                checkpoints: record.checkpoints,
+                outcome: record.outcome,
             });
         };
 
@@ -506,8 +693,10 @@ mod tests {
     use super::*;
     use cortex_domain::agent::contracts::AgentRunEvent;
     use cortex_domain::workflow::{
-        WorkflowCheckpointPolicyV1, WorkflowExecutionAdapterKind, WorkflowExecutionProfileKind,
-        WorkflowGenerationMode, WorkflowGovernanceRef, WorkflowMotifKind, generate_candidate_set,
+        ContextContractV1, WorkflowCheckpointPolicyV1, WorkflowConfidence,
+        WorkflowDraftPolicyV1, WorkflowExecutionAdapterKind, WorkflowExecutionProfileKind,
+        WorkflowGenerationMode, WorkflowGovernanceRef, WorkflowGraphV1, WorkflowLineage,
+        WorkflowMotifKind, WorkflowNodeV1, WorkflowProvenance, generate_candidate_set,
     };
 
     struct FixedTime;
@@ -617,7 +806,7 @@ mod tests {
         let (adapter, definition, binding) = sample_definition_and_binding(&runtime_root);
 
         let instance = adapter.start(&definition, &binding).await.expect("start");
-        assert_eq!(instance.status, WorkflowInstanceStatus::Queued);
+        assert_eq!(instance.status, WorkflowInstanceStatus::Completed);
 
         let start_dir = runtime_root.join("commands").join("start");
         let command_path = fs::read_dir(&start_dir)
@@ -700,6 +889,16 @@ mod tests {
             simulation: None,
             surface_update: Some(json!({ "surface": "checkpoint" })),
             authority_outcome: None,
+            provider: None,
+            model: None,
+            auth_mode: None,
+            response_id: None,
+            prompt_template_artifact_id: None,
+            prompt_template_revision_id: None,
+            prompt_execution_artifact_id: None,
+            parent_run_id: None,
+            child_run_ids: Vec::new(),
+            provider_trace_summary: None,
             provider_trace: None,
             approval_timeout_seconds: 120,
             terminal: false,
@@ -724,5 +923,119 @@ mod tests {
             Some(120)
         );
         assert!(projected.outcome.is_none());
+    }
+
+    #[tokio::test]
+    async fn local_snapshot_tracks_checkpoint_resolution_without_bridge_snapshot() {
+        let runtime_root = temp_runtime_root("internal-snapshot");
+        let adapter =
+            LocalDurableWorkerAdapter::new(runtime_root.to_path_buf(), Arc::new(FixedTime));
+        let definition = WorkflowDefinitionV1 {
+            schema_version: "1.0.0".to_string(),
+            definition_id: "workflow_def_checkpoint_test".to_string(),
+            scope: WorkflowScope {
+                space_id: Some("space-a".to_string()),
+                route_id: Some("/workflows".to_string()),
+                role: Some("operator".to_string()),
+            },
+            intent_ref: None,
+            intent: "Checkpoint parity".to_string(),
+            motif_kind: WorkflowMotifKind::Sequential,
+            constraints: Vec::new(),
+            graph: WorkflowGraphV1 {
+                nodes: vec![WorkflowNodeV1 {
+                    node_id: "review".to_string(),
+                    label: "Review".to_string(),
+                    kind: WorkflowNodeKind::HumanCheckpoint,
+                    reads: Vec::new(),
+                    writes: Vec::new(),
+                    evidence_outputs: Vec::new(),
+                    authority_requirements: Vec::new(),
+                    checkpoint_policy: Some(WorkflowCheckpointPolicyV1 {
+                        resume_allowed: true,
+                        cancel_allowed: true,
+                        pause_allowed: true,
+                        timeout_seconds: Some(120),
+                    }),
+                    loop_policy: None,
+                    subflow_ref: None,
+                    config: json!({}),
+                }],
+                edges: Vec::new(),
+            },
+            context_contract: ContextContractV1::default(),
+            confidence: WorkflowConfidence {
+                score: 1.0,
+                rationale: "test".to_string(),
+            },
+            lineage: WorkflowLineage::default(),
+            policy: WorkflowDraftPolicyV1 {
+                recommendation_only: false,
+                require_review: true,
+                allow_shadow_execution: false,
+            },
+            provenance: WorkflowProvenance {
+                created_by: "tester".to_string(),
+                created_at: "0".to_string(),
+                source_mode: "test".to_string(),
+            },
+            governance_ref: None,
+            digest: Some("definition-digest".to_string()),
+        };
+        let binding = WorkflowExecutionBindingV1 {
+            schema_version: "1.0.0".to_string(),
+            binding_id: "workflow_binding_checkpoint_test".to_string(),
+            definition_id: definition.definition_id.clone(),
+            adapter: WorkflowExecutionAdapterKind::LocalDurableWorkerV1,
+            execution_profile: WorkflowExecutionProfileKind::Async,
+            checkpoint_policy: Some(WorkflowCheckpointPolicyV1 {
+                resume_allowed: true,
+                cancel_allowed: true,
+                pause_allowed: true,
+                timeout_seconds: Some(120),
+            }),
+            runtime_limits: [("instanceId".to_string(), json!("instance-checkpoint"))]
+                .into_iter()
+                .collect(),
+            governance_ref: None,
+            provenance: definition.provenance.clone(),
+        };
+
+        let instance = adapter.start(&definition, &binding).await.expect("start");
+        assert_eq!(instance.status, WorkflowInstanceStatus::WaitingCheckpoint);
+
+        let pending = adapter
+            .snapshot(&instance.instance_id)
+            .await
+            .expect("pending snapshot");
+        assert_eq!(pending.trace.len(), 2);
+        assert_eq!(pending.checkpoints.len(), 1);
+        assert_eq!(pending.checkpoints[0].status, WorkflowCheckpointStatus::Pending);
+
+        let result = adapter
+            .signal(
+                &instance.instance_id,
+                WorkflowSignalV1 {
+                    signal_type: "approve".to_string(),
+                    checkpoint_id: Some(pending.checkpoints[0].checkpoint_id.clone()),
+                    payload: json!({ "decision": "approve" }),
+                },
+            )
+            .await
+            .expect("signal");
+        assert_eq!(result.status, WorkflowCheckpointStatus::Resolved);
+
+        let completed = adapter
+            .snapshot(&instance.instance_id)
+            .await
+            .expect("completed snapshot");
+        assert_eq!(completed.instance.status, WorkflowInstanceStatus::Completed);
+        assert_eq!(completed.trace.len(), 3);
+        assert_eq!(completed.trace[2].event_type, "signal_received");
+        assert_eq!(completed.checkpoints[0].status, WorkflowCheckpointStatus::Resolved);
+        assert_eq!(
+            completed.outcome.expect("outcome").status,
+            WorkflowOutcomeStatus::Completed
+        );
     }
 }

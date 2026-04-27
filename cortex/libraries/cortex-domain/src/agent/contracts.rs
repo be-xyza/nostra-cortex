@@ -40,10 +40,13 @@ pub enum AgentRunStatus {
     Failed,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum AuthorityLevel {
     L0,
+    #[default]
     L1,
     L2,
     L3,
@@ -63,12 +66,6 @@ impl AuthorityLevel {
 
     pub const fn is_v1_supported(self) -> bool {
         matches!(self, Self::L0 | Self::L1 | Self::L2)
-    }
-}
-
-impl Default for AuthorityLevel {
-    fn default() -> Self {
-        Self::L1
     }
 }
 

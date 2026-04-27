@@ -77,7 +77,7 @@ Worker: Rust cortex_worker under the active VPS authority contract
 
 The agent ID follows existing Cortex conventions (`agent:` prefix, resolution chain: header → payload → env → default). The `-01` suffix enables versioning as the agent runtime evolves.
 
-Older Python `eudaemon-alpha/` companion references are historical/unvalidated in this checkout until separately restored and verified.
+Older Python `eudaemon-alpha/` companion references are historical only. The current runtime authority is Rust-native `cortex-gateway` plus `cortex_worker` in the root ICP tree.
 
 ### Agent Evolution Across Stages
 

@@ -3,10 +3,10 @@ pub mod scenario;
 pub mod session;
 
 pub use scenario::{
-    CanonicalScenarioAction, ScenarioConstraints, ScenarioDefinition, ScenarioMetadata,
-    ScenarioRound, ScenarioRoundAction, canonical_actions, parse_scenario_yaml,
+    canonical_actions, parse_scenario_yaml, CanonicalScenarioAction, ScenarioConstraints,
+    ScenarioDefinition, ScenarioMetadata, ScenarioRound, ScenarioRoundAction,
 };
 pub use session::{
-    BenchMetrics, SimulationAction, SimulationConstraints, SimulationMutation, SimulationResult,
-    SimulationSession, ViolationSummary, run_deterministic_session,
+    run_deterministic_session, BenchMetrics, SimulationAction, SimulationConstraints,
+    SimulationMutation, SimulationResult, SimulationSession, ViolationSummary,
 };

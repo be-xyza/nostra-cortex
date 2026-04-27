@@ -188,16 +188,20 @@ impl Default for RuntimeDispatchTelemetryState {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
 struct SystemStatus {
+    icp_cli_running: bool,
     dfx_running: bool,
     version: String,
     replica_port: u16,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
 struct SystemReady {
     ready: bool,
     gateway_port: u16,
+    icp_network_healthy: bool,
     dfx_port_healthy: bool,
     notes: Vec<String>,
 }
@@ -16048,8 +16052,21 @@ async fn health_check() -> impl IntoResponse {
     Json(json!({ "status": "ok" })).into_response()
 }
 
-fn dfx_command() -> Command {
-    let mut command = Command::new("dfx");
+fn ic_cli_binary() -> &'static str {
+    if Command::new("icp")
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+    {
+        "icp"
+    } else {
+        "dfx"
+    }
+}
+
+fn ic_cli_command() -> Command {
+    let mut command = Command::new(ic_cli_binary());
     let term = std::env::var("TERM").unwrap_or_default();
     if term.trim().is_empty() || term.eq_ignore_ascii_case("dumb") {
         command.env("TERM", "xterm-256color");
@@ -16059,7 +16076,7 @@ fn dfx_command() -> Command {
     command
 }
 
-fn dfx_port_healthy() -> bool {
+fn local_replica_healthy() -> bool {
     let addr = SocketAddr::from(([127, 0, 0, 1], 4943));
     std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(350)).is_ok()
 }
@@ -16072,15 +16089,16 @@ async fn get_system_ready() -> Json<SystemReady> {
         notes.push(note);
     }
 
-    let dfx_port_healthy = dfx_port_healthy();
-    if !dfx_port_healthy {
+    let icp_network_healthy = local_replica_healthy();
+    if !icp_network_healthy {
         notes.push("Local replica TCP probe failed on port 4943".to_string());
     }
 
     Json(SystemReady {
-        ready: dfx_port_healthy,
+        ready: icp_network_healthy,
         gateway_port,
-        dfx_port_healthy,
+        icp_network_healthy,
+        dfx_port_healthy: icp_network_healthy,
         notes,
     })
 }
@@ -16207,9 +16225,9 @@ async fn get_system_brand_policy() -> axum::response::Response {
 }
 
 async fn get_system_status() -> Json<SystemStatus> {
-    let dfx_running = dfx_port_healthy();
+    let icp_cli_running = local_replica_healthy();
 
-    let version_output = dfx_command()
+    let version_output = ic_cli_command()
         .arg("--version")
         .output()
         .ok()
@@ -16217,7 +16235,8 @@ async fn get_system_status() -> Json<SystemStatus> {
         .unwrap_or_else(|| "Unknown".to_string());
 
     Json(SystemStatus {
-        dfx_running,
+        icp_cli_running,
+        dfx_running: icp_cli_running,
         version: version_output.trim().to_string(),
         replica_port: 4943, // Default local port
     })
@@ -17531,7 +17550,7 @@ async fn get_system_decision_telemetry_by_space(Path(space_id): Path<String>) ->
 }
 
 async fn list_canisters() -> Json<Vec<CanisterInfo>> {
-    let output = dfx_command()
+    let output = ic_cli_command()
         .arg("canister")
         .arg("id")
         .arg("--all")
@@ -17544,7 +17563,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         for line in stdout.lines() {
             if let Some((name, id)) = line.split_once(":") {
                 // Check status for each (could be slow, maybe optimize later)
-                let status_output = dfx_command()
+                let status_output = ic_cli_command()
                     .arg("canister")
                     .arg("status")
                     .arg(id.trim())
@@ -17571,7 +17590,7 @@ async fn list_canisters() -> Json<Vec<CanisterInfo>> {
         }
     }
 
-    // Mock data if dfx is offline for UI testing
+    // Mock data if the IC CLI is offline for UI testing
     if canisters.is_empty() {
         canisters.push(CanisterInfo {
             name: "internet_identity (mock)".into(),

@@ -1,9 +1,9 @@
 use crate::viewspec::types::{
-    ComponentRef, ConstraintRule, LayoutEdge, LayoutGraph, LayoutNode, VIEW_SPEC_SCHEMA_VERSION,
-    ViewSpecA11y, ViewSpecConfidence, ViewSpecPolicy, ViewSpecProvenance, ViewSpecScope,
-    ViewSpecV1, ViewSpecValidationIssue, ViewSpecValidationResult,
+    ComponentRef, ConstraintRule, LayoutEdge, LayoutGraph, LayoutNode, ViewSpecA11y,
+    ViewSpecConfidence, ViewSpecPolicy, ViewSpecProvenance, ViewSpecScope, ViewSpecV1,
+    ViewSpecValidationIssue, ViewSpecValidationResult, VIEW_SPEC_SCHEMA_VERSION,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashSet};
 
 fn is_blank(value: &str) -> bool {
@@ -71,7 +71,7 @@ fn valid_source_mode(value: &str) -> bool {
     matches!(value, "human" | "agent" | "hybrid")
 }
 
-fn spatial_command_shape<'a>(command: &'a Value) -> Option<&'a Value> {
+fn spatial_command_shape(command: &Value) -> Option<&Value> {
     command.get("shape")
 }
 
@@ -98,7 +98,12 @@ fn validate_spatial_plane_component(
         };
         if !matches!(
             op,
-            "create_shape" | "update_shape" | "delete_shape" | "focus_bounds" | "set_selection" | "set_view_state"
+            "create_shape"
+                | "update_shape"
+                | "delete_shape"
+                | "focus_bounds"
+                | "set_selection"
+                | "set_view_state"
         ) {
             errors.push(ViewSpecValidationIssue {
                 code: "invalid_spatial_plane".to_string(),
@@ -125,8 +130,12 @@ fn validate_spatial_plane_component(
                         if !ports.insert(port_id.to_string()) {
                             errors.push(ViewSpecValidationIssue {
                                 code: "invalid_spatial_plane".to_string(),
-                                path: format!("{comp_path}.props.commands[{command_idx}].shape.ports"),
-                                message: format!("SpatialPlane node has duplicate port id '{port_id}'."),
+                                path: format!(
+                                    "{comp_path}.props.commands[{command_idx}].shape.ports"
+                                ),
+                                message: format!(
+                                    "SpatialPlane node has duplicate port id '{port_id}'."
+                                ),
                             });
                         }
                     }
@@ -184,7 +193,9 @@ fn validate_spatial_plane_component(
                 errors.push(ViewSpecValidationIssue {
                     code: "invalid_spatial_plane".to_string(),
                     path: format!("{comp_path}.props.commands"),
-                    message: format!("SpatialPlane group '{group_id}' has unknown member '{member}'."),
+                    message: format!(
+                        "SpatialPlane group '{group_id}' has unknown member '{member}'."
+                    ),
                 });
             }
         }
@@ -417,6 +428,7 @@ pub fn default_viewspec_policy() -> ViewSpecPolicy {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn generate_candidate_viewspecs(
     scope: ViewSpecScope,
     intent: &str,
@@ -632,55 +644,53 @@ mod tests {
         let spec = base_spec(vec![ComponentRef {
             component_id: "plane".to_string(),
             component_type: "SpatialPlane".to_string(),
-            props: BTreeMap::from([(
-                "plane_id".to_string(),
-                json!("plane-1"),
-            ), (
-                "surface_class".to_string(),
-                json!("execution"),
-            ), (
-                "commands".to_string(),
-                json!([
-                    {
-                        "op": "create_shape",
-                        "shape": {
-                            "id": "node-1",
-                            "kind": "node",
-                            "node_class": "input",
-                            "status": "idle",
-                            "x": 120,
-                            "y": 80,
-                            "ports": [{ "id": "out", "side": "right", "direction": "out" }]
+            props: BTreeMap::from([
+                ("plane_id".to_string(), json!("plane-1")),
+                ("surface_class".to_string(), json!("execution")),
+                (
+                    "commands".to_string(),
+                    json!([
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "node-1",
+                                "kind": "node",
+                                "node_class": "input",
+                                "status": "idle",
+                                "x": 120,
+                                "y": 80,
+                                "ports": [{ "id": "out", "side": "right", "direction": "out" }]
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "node-2",
+                                "kind": "node",
+                                "node_class": "tool",
+                                "status": "running",
+                                "x": 360,
+                                "y": 80,
+                                "ports": [{ "id": "in", "side": "left", "direction": "in" }]
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "edge-1",
+                                "kind": "edge",
+                                "edge_class": "data",
+                                "x": 240,
+                                "y": 110,
+                                "from_shape_id": "node-1",
+                                "to_shape_id": "node-2",
+                                "from_port_id": "out",
+                                "to_port_id": "in"
+                            }
                         }
-                    },
-                    {
-                        "op": "create_shape",
-                        "shape": {
-                            "id": "node-2",
-                            "kind": "node",
-                            "node_class": "tool",
-                            "status": "running",
-                            "x": 360,
-                            "y": 80,
-                            "ports": [{ "id": "in", "side": "left", "direction": "in" }]
-                        }
-                    },
-                    {
-                        "op": "create_shape",
-                        "shape": {
-                            "id": "edge-1",
-                            "kind": "edge",
-                            "edge_class": "data",
-                            "x": 240,
-                            "y": 110,
-                            "from_shape_id": "node-1",
-                            "to_shape_id": "node-2",
-                            "from_port_id": "out",
-                            "to_port_id": "in"
-                        }
-                    }
-                ]),
-            )]),
+                    ]),
+                ),
+            ]),
             a11y: Some(ViewSpecA11y {
                 label: Some("Spatial execution plane".to_string()),
                 ..ViewSpecA11y::default()
@@ -696,7 +706,10 @@ mod tests {
             .get("components")
             .and_then(Value::as_array)
             .expect("components array");
-        assert_eq!(components[0].get("type").and_then(Value::as_str), Some("SpatialPlane"));
+        assert_eq!(
+            components[0].get("type").and_then(Value::as_str),
+            Some("SpatialPlane")
+        );
     }
 
     #[test]
@@ -704,44 +717,42 @@ mod tests {
         let spec = base_spec(vec![ComponentRef {
             component_id: "plane".to_string(),
             component_type: "SpatialPlane".to_string(),
-            props: BTreeMap::from([(
-                "plane_id".to_string(),
-                json!("plane-1"),
-            ), (
-                "surface_class".to_string(),
-                json!("execution"),
-            ), (
-                "commands".to_string(),
-                json!([
-                    {
-                        "op": "create_shape",
-                        "shape": {
-                            "id": "node-1",
-                            "kind": "node",
-                            "node_class": "tool",
-                            "status": "idle",
-                            "x": 120,
-                            "y": 80,
-                            "ports": [
-                                { "id": "dup", "side": "left", "direction": "in" },
-                                { "id": "dup", "side": "right", "direction": "out" }
-                            ]
+            props: BTreeMap::from([
+                ("plane_id".to_string(), json!("plane-1")),
+                ("surface_class".to_string(), json!("execution")),
+                (
+                    "commands".to_string(),
+                    json!([
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "node-1",
+                                "kind": "node",
+                                "node_class": "tool",
+                                "status": "idle",
+                                "x": 120,
+                                "y": 80,
+                                "ports": [
+                                    { "id": "dup", "side": "left", "direction": "in" },
+                                    { "id": "dup", "side": "right", "direction": "out" }
+                                ]
+                            }
+                        },
+                        {
+                            "op": "create_shape",
+                            "shape": {
+                                "id": "edge-1",
+                                "kind": "edge",
+                                "edge_class": "control",
+                                "x": 240,
+                                "y": 110,
+                                "from_shape_id": "node-1",
+                                "to_shape_id": "missing-node"
+                            }
                         }
-                    },
-                    {
-                        "op": "create_shape",
-                        "shape": {
-                            "id": "edge-1",
-                            "kind": "edge",
-                            "edge_class": "control",
-                            "x": 240,
-                            "y": 110,
-                            "from_shape_id": "node-1",
-                            "to_shape_id": "missing-node"
-                        }
-                    }
-                ]),
-            )]),
+                    ]),
+                ),
+            ]),
             a11y: Some(ViewSpecA11y {
                 label: Some("Spatial execution plane".to_string()),
                 ..ViewSpecA11y::default()

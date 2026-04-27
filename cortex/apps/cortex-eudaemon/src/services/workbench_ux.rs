@@ -5,10 +5,11 @@ use crate::services::viewspec::{
 };
 use axum::{Json, extract::Query, http::HeaderMap, response::IntoResponse};
 use chrono::Utc;
+use cortex_ic_adapter::workflow::WorkflowEngineCanisterExecutionAdapter;
 use cortex_domain::workflow::{
     WORKFLOW_INDEX_KEY, WorkflowCompileResult, WorkflowDefinitionV1, WorkflowDraftV1,
-    WorkflowProposalEnvelope, WorkflowScope, WorkflowScopeAdoptionRecord, WorkflowSnapshotV1,
-    scope_key as workflow_scope_key,
+    WorkflowExecutionAdapterKind, WorkflowProposalEnvelope, WorkflowScope,
+    WorkflowScopeAdoptionRecord, WorkflowSnapshotV1, scope_key as workflow_scope_key,
 };
 use cortex_runtime::{
     RuntimeError,
@@ -196,6 +197,7 @@ fn registered_workbench_surface(route: &str) -> Option<&'static WorkbenchSurface
 const WORKFLOW_DRAFT_INDEX_KEY: &str = "/cortex/workflows/drafts/current/index.json";
 const WORKFLOW_PROPOSAL_INDEX_KEY: &str = "/cortex/workflows/drafts/proposals/index.json";
 const WORKFLOW_ACTIVE_SCOPE_INDEX_KEY: &str = "/cortex/workflows/definitions/active/index.json";
+const WORKFLOW_INSTANCE_INDEX_KEY: &str = "/cortex/workflows/instances/index.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -210,6 +212,16 @@ struct WorkbenchWorkflowDraftIndexEntry {
 struct WorkbenchWorkflowProposalIndexEntry {
     proposal_id: String,
     scope_key: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkbenchWorkflowInstanceIndexEntry {
+    instance_id: String,
+    adapter: WorkflowExecutionAdapterKind,
+    scope_key: String,
+    definition_id: String,
     updated_at: String,
 }
 
@@ -312,32 +324,77 @@ fn workflow_scope_matches(scope_key: &str, space_prefix: &str) -> bool {
     scope_key == space_prefix || scope_key.starts_with(&format!("{space_prefix}__"))
 }
 
-async fn load_workbench_workflow_instances(space_id: &str) -> Result<Vec<WorkflowSnapshotV1>, String> {
-    let instances_dir = workbench_temporal_runtime_root().join("instances");
-    if !instances_dir.exists() {
-        return Ok(Vec::new());
+async fn workbench_workflow_adapter(
+    adapter: WorkflowExecutionAdapterKind,
+) -> Result<Box<dyn WorkflowExecutionAdapter>, String> {
+    match adapter {
+        WorkflowExecutionAdapterKind::LocalDurableWorkerV1 => Ok(Box::new(
+            LocalDurableWorkerAdapter::new(
+                workbench_temporal_runtime_root(),
+                Arc::new(WorkbenchWorkflowTimeProvider),
+            ),
+        )),
+        WorkflowExecutionAdapterKind::WorkflowEngineCanisterV1 => Ok(Box::new(
+            WorkflowEngineCanisterExecutionAdapter::from_env()
+                .await
+                .map_err(|err| err.to_string())?,
+        )),
     }
-    let adapter =
-        LocalDurableWorkerAdapter::new(workbench_temporal_runtime_root(), Arc::new(WorkbenchWorkflowTimeProvider));
+}
+
+async fn load_workbench_workflow_instances(space_id: &str) -> Result<Vec<WorkflowSnapshotV1>, String> {
     let mut snapshots = Vec::new();
-    for entry in fs::read_dir(instances_dir).map_err(|err| err.to_string())? {
-        let entry = entry.map_err(|err| err.to_string())?;
-        let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+    let mut seen = std::collections::BTreeSet::new();
+    let scope_prefix = workflow_scope_prefix(space_id);
+
+    let registry = read_workflow_store_json::<BTreeMap<String, WorkbenchWorkflowInstanceIndexEntry>>(
+        WORKFLOW_INSTANCE_INDEX_KEY,
+    )?
+    .unwrap_or_default();
+
+    for entry in registry.values() {
+        if !workflow_scope_matches(&entry.scope_key, &scope_prefix) {
             continue;
         }
-        let Some(instance_id) = path
-            .file_stem()
-            .and_then(|value| value.to_str())
-            .map(|value| value.to_string()) else {
-            continue;
-        };
+        let adapter = workbench_workflow_adapter(entry.adapter.clone()).await?;
         let snapshot = adapter
-            .snapshot(instance_id.as_str())
+            .snapshot(entry.instance_id.as_str())
             .await
             .map_err(|err| err.to_string())?;
         if snapshot.instance.scope.space_id.as_deref() == Some(space_id) {
+            seen.insert(snapshot.instance.instance_id.clone());
             snapshots.push(snapshot);
+        }
+    }
+
+    let instances_dir = workbench_temporal_runtime_root().join("instances");
+    if instances_dir.exists() {
+        let adapter = LocalDurableWorkerAdapter::new(
+            workbench_temporal_runtime_root(),
+            Arc::new(WorkbenchWorkflowTimeProvider),
+        );
+        for entry in fs::read_dir(instances_dir).map_err(|err| err.to_string())? {
+            let entry = entry.map_err(|err| err.to_string())?;
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let Some(instance_id) = path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .map(|value| value.to_string()) else {
+                continue;
+            };
+            if seen.contains(&instance_id) {
+                continue;
+            }
+            let snapshot = adapter
+                .snapshot(instance_id.as_str())
+                .await
+                .map_err(|err| err.to_string())?;
+            if snapshot.instance.scope.space_id.as_deref() == Some(space_id) {
+                snapshots.push(snapshot);
+            }
         }
     }
     snapshots.sort_by(|left, right| right.instance.updated_at.cmp(&left.instance.updated_at));

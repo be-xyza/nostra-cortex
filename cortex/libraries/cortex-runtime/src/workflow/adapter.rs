@@ -7,7 +7,7 @@ use cortex_domain::workflow::{
 
 #[async_trait]
 pub trait WorkflowExecutionAdapter: Send + Sync {
-    fn compile(
+    async fn compile(
         &self,
         definition: &WorkflowDefinitionV1,
         binding: &WorkflowExecutionBindingV1,

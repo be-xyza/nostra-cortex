@@ -21,7 +21,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Workflow Architecture"
 created: "2026-03-11"
-updated: "2026-03-19"
+updated: "2026-04-27"
 ---
 
 # Initiative 134: Hybrid Workflow Authority and Execution
@@ -61,11 +61,16 @@ The canonical workflow substrate is an artifact pipeline plus execution adapter 
 
 ### Phase 4: Execution Adapter Hardening
 - Promote the local durable worker path to the first real adapter.
-- Keep the canister path optional until build/runtime validation is real.
+- Implement the canister execution adapter path behind explicit adapter selection.
+- Keep the local durable worker as the default until live cross-adapter parity is proven.
+- **Status 2026-04-27**: Complete for implementation, static verification, main-tree promotion, and live validation. `workflow_engine_canister_v1` is implemented, gateway/workbench routing is adapter-aware, and ICP CLI-first operator surfaces are aligned.
 
 ### Phase 5: Cross-Adapter Parity
+- Deploy the workflow canister through the current ICP CLI path (`icp`).
 - Run identical definitions across worker and canister adapters.
-- Keep the canister as authority/projection service only if parity fails.
+- Assert parity on trace, checkpoints, snapshots, cancellation, and outcomes.
+- Keep the canister path gated until live gateway-to-canister execution and parity are demonstrated.
+- **Status 2026-04-27**: Complete. ICP CLI deployment, direct canister lifecycle calls, gateway-to-canister execution, cancellation, fail-fast unsupported-node behavior, and local-vs-canister semantic parity were demonstrated on 2026-04-26.
 
 ## Immediate Implementation Slice
 - Successor initiative docs.
@@ -84,9 +89,15 @@ The canonical workflow substrate is an artifact pipeline plus execution adapter 
 - [126](/Users/xaoj/ICP/research/126-agent-harness-architecture/DECISIONS.md)
 - [133](/Users/xaoj/ICP/research/133-eval-driven-orchestration/PLAN.md)
 
+## Cross-Initiative Consumers
+
+- **Initiative 132 (Eudaemon Alpha)**: Uses the workflow substrate for advisory observation and bounded synthesis passes. Hermes audit units may assess 134 readiness gates, but this is advisory review, not a blocking dependency.
+- **Future initiatives**: May build on the validated adapter pattern for multi-adapter orchestration, evaluation gates, and batch audit workflows.
+
 ## Exit Criteria
 - Canonical workflow contracts compile and test in `cortex-domain`.
 - Deterministic compile emits stable projections for bounded motifs.
 - Runtime artifact services can generate, persist, and reload candidate sets.
-- No architecture claim assumes the dedicated `workflow_engine` canister is the canonical executor until local build/runtime parity exists.
+- Execution adapter routing supports both `local_durable_worker_v1` and explicit `workflow_engine_canister_v1`.
+- The dedicated `workflow_engine` canister remains an explicit adapter, with live ICP CLI deployment and cross-adapter parity evidence recorded before any default-adapter change.
 - Subscription-auth sidecars such as ZeroClaw remain provider brokers only and do not become workflow authority.

@@ -2,7 +2,7 @@
 
 **Status**: Active
 **Created**: 2026-03-07
-**Updated**: 2026-04-23
+**Updated**: 2026-04-25
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -14,7 +14,7 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 - **Worker**: Rust `cortex_worker` from `nostra/worker` is the active VPS worker declared by the current deploy authority; the older Python companion path is historical and unvalidated here
 - **Runtime posture**: Linux `systemd` services, production auth enabled, no Docker assumption
 
-Gateway parity passes locally in this checkout. The companion `eudaemon-alpha/` path is absent here and should be treated as historical/unvalidated until it is restored or mirrored. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. Prompt override also remains unverified in this checkout, so it should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
+Gateway parity passes locally in this checkout. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. Prompt override remains unverified and should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
@@ -25,6 +25,8 @@ The Hermes Capability & Discovery Envelope adds a second local planning layer fo
 Hermes runbooks may automate the operator ritual around advisory passes: preflight, one bounded pass, postflight, optional evidence drafting, and manual promotion. They do not grant Hermes unattended agency or mutation authority.
 
 Hermes source packets are now the preferred bounded excerpt/fact layer when a pass does not need broad direct file reading. If Hermes outputs are later surfaced to the user in Cortex Web, the intended route is through existing heap, steward-gate, A2UI approval, and proposal-review primitives rather than a bespoke Hermes control plane.
+
+Hermes is now green for bounded local advisory review and lineage only. This green status does not authorize production identity readiness, production authorization, ICP evidence promotion beyond the recorded evidence note, provider execution, subagents, skill activation, memory authority, unattended execution, or Hermes acting as a workflow authority.
 
 Developer worktree isolation, checkpointing, and immutable evidence promotion are now explicit operator safety controls around Initiative 132. They protect the system-definition layer and steward continuity, but they are not themselves runtime heap, closeout-ledger, or workflow primitives.
 
@@ -148,7 +150,7 @@ The practical consequences are:
 - Worker unit template: [`cortex-worker.service`](/Users/xaoj/ICP/ops/hetzner/systemd/cortex-worker.service)
 - Runtime authority check: [`scripts/check_vps_runtime_authority.sh`](/Users/xaoj/ICP/scripts/check_vps_runtime_authority.sh)
 
-Older deployment notes reference an `eudaemon-alpha/` companion implementation repo, but that path is absent from this checkout and should be treated as historical/unvalidated for this pass. Initiative 132 remains authoritative in the root repo, and the active VPS deployment contract is the current runbook plus runtime authority manifest.
+Older deployment notes reference an `eudaemon-alpha/` companion implementation repo, but those references are historical only. Initiative 132 remains authoritative in the root repo, and the active VPS deployment contract is the current runbook plus runtime authority manifest.
 
 ## Governed Evidence
 

@@ -128,5 +128,5 @@ test("workflow projection tabs fall back to canonical defaults", () => {
   const tabs = resolveWorkflowProjectionTabs(null, "normalized_graph_v1");
 
   assert.equal(tabs[0]?.key, "flow_graph_v1");
-  assert.equal(tabs[3]?.key, "normalized_graph_v1");
+  assert.equal(tabs[4]?.key, "normalized_graph_v1");
 });

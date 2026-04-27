@@ -1,4 +1,4 @@
-use cortex_ic_adapter::dfx::unwrap_candid_string as unwrap_ic_candid_string;
+use cortex_ic_adapter::ic::unwrap_candid_string as unwrap_ic_candid_string;
 use cortex_ic_adapter::ic_cli::{IcCliBackend, IcCliKind, IcpBackend};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

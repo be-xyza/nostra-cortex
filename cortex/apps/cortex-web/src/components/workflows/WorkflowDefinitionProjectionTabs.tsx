@@ -7,30 +7,26 @@ import type {
   WorkflowProjectionResponse,
 } from "../../contracts.ts";
 import { resolveWorkflowProjectionTabs } from "./workflowProjectionTabs.ts";
+import { summarizeWorkflowDefinition } from "./workflowDefinitionSummary.ts";
 import { EvaluationDAGViewer } from "../evaluation/EvaluationDAGViewer.tsx";
 import { WorkflowTopology } from "../../contracts.ts";
-
-function readDefinitionField(
-  response: WorkflowDefinitionResponse | null,
-  field: string
-): string | null {
-  if (!response?.definition || typeof response.definition !== "object") return null;
-  const value = (response.definition as Record<string, unknown>)[field];
-  return typeof value === "string" && value.trim().length > 0 ? value : null;
-}
 
 export function WorkflowDefinitionProjectionTabs({
   definitionId,
   initialProjectionKind,
   initialProjection,
+  initialDefinition,
 }: {
   definitionId: string;
   initialProjectionKind: WorkflowProjectionKind;
   initialProjection: WorkflowProjectionResponse | null;
+  initialDefinition?: WorkflowDefinitionResponse | null;
 }) {
   const [activeTab, setActiveTab] =
     React.useState<WorkflowProjectionKind>(initialProjectionKind);
-  const [definition, setDefinition] = React.useState<WorkflowDefinitionResponse | null>(null);
+  const [definition, setDefinition] = React.useState<WorkflowDefinitionResponse | null>(
+    initialDefinition ?? null
+  );
   const [projections, setProjections] = React.useState<
     Partial<Record<WorkflowProjectionKind, WorkflowProjectionResponse>>
   >(initialProjection ? { [initialProjectionKind]: initialProjection } : {});
@@ -80,8 +76,7 @@ export function WorkflowDefinitionProjectionTabs({
 
   const activeProjection = projections[activeTab] || null;
   const projectionTabs = resolveWorkflowProjectionTabs(activeProjection, activeTab);
-  const digest = readDefinitionField(definition, "digest");
-  const motifKind = readDefinitionField(definition, "motif_kind");
+  const { digest, motifKind } = summarizeWorkflowDefinition(definition);
 
   return (
     <div className="flex flex-col gap-4">

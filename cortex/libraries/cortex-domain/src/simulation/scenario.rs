@@ -82,7 +82,7 @@ pub fn parse_scenario_yaml(raw: &str) -> Result<ScenarioDefinition, String> {
 
 pub fn canonical_actions(definition: &ScenarioDefinition) -> Vec<CanonicalScenarioAction> {
     let mut rounds = definition.rounds.clone();
-    rounds.sort_by(|left, right| left.round.cmp(&right.round));
+    rounds.sort_by_key(|round| round.round);
 
     let mut output = Vec::new();
     for round in rounds {
