@@ -88,14 +88,12 @@ fn validate_node(
     );
 
     match node.kind {
-        WorkflowNodeKind::CapabilityCall => {
-            if node.authority_requirements.is_empty() {
-                errors.push(issue(
-                    "missing_authority_requirement",
-                    format!("{path}.authorityRequirements"),
-                    "capability_call nodes require at least one authority requirement",
-                ));
-            }
+        WorkflowNodeKind::CapabilityCall if node.authority_requirements.is_empty() => {
+            errors.push(issue(
+                "missing_authority_requirement",
+                format!("{path}.authorityRequirements"),
+                "capability_call nodes require at least one authority requirement",
+            ));
         }
         WorkflowNodeKind::HumanCheckpoint => match node.checkpoint_policy.as_ref() {
             Some(policy) if policy.resume_allowed && policy.cancel_allowed => {}
@@ -129,19 +127,18 @@ fn validate_node(
                 "loop nodes require loopPolicy",
             )),
         },
-        WorkflowNodeKind::SubflowRef => {
+        WorkflowNodeKind::SubflowRef
             if node
                 .subflow_ref
                 .as_ref()
                 .map(|value| is_blank(value))
-                .unwrap_or(true)
-            {
-                errors.push(issue(
-                    "missing_subflow_ref",
-                    format!("{path}.subflowRef"),
-                    "subflow_ref nodes require subflowRef",
-                ));
-            }
+                .unwrap_or(true) =>
+        {
+            errors.push(issue(
+                "missing_subflow_ref",
+                format!("{path}.subflowRef"),
+                "subflow_ref nodes require subflowRef",
+            ));
         }
         _ => {}
     }
