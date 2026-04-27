@@ -16,6 +16,9 @@ PROFILE = ROOT / "research/120-nostra-design-language/prototypes/space-design/SP
 A2UI_THEMES = ROOT / "shared/a2ui/themes"
 A2UI_FIXTURES = ROOT / "shared/a2ui/fixtures"
 WEB_SPACE_DESIGN_FIXTURE = ROOT / "cortex/apps/cortex-web/src/store/spaceDesignProfilePreview.fixture.json"
+PROMOTION_GATE = (
+    ROOT / "research/120-nostra-design-language/prototypes/space-design/research-observatory.promotion-gate.v1.json"
+)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -31,6 +34,7 @@ def run_checker(
     fixture_dir: Path | None = None,
     theme_dir: Path | None = None,
     web_fixture_path: Path | None = None,
+    promotion_gate_path: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -45,6 +49,8 @@ def run_checker(
         command.extend(["--a2ui-fixture-dir", str(fixture_dir)])
     if web_fixture_path is not None:
         command.extend(["--cortex-web-space-design-fixture", str(web_fixture_path)])
+    if promotion_gate_path is not None:
+        command.extend(["--promotion-gates", str(promotion_gate_path)])
     return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
 
 
@@ -68,8 +74,9 @@ def expect_pass(
     fixture_dir: Path | None = None,
     theme_dir: Path | None = None,
     web_fixture_path: Path | None = None,
+    promotion_gate_path: Path | None = None,
 ) -> None:
-    result = run_checker(profile_path, fixture_dir, theme_dir, web_fixture_path)
+    result = run_checker(profile_path, fixture_dir, theme_dir, web_fixture_path, promotion_gate_path)
     if result.returncode != 0:
         print(f"FAIL: {name} unexpectedly failed", file=sys.stderr)
         print(result.stdout, file=sys.stderr)
@@ -84,8 +91,9 @@ def expect_failure(
     fixture_dir: Path | None = None,
     theme_dir: Path | None = None,
     web_fixture_path: Path | None = None,
+    promotion_gate_path: Path | None = None,
 ) -> None:
-    result = run_checker(profile_path, fixture_dir, theme_dir, web_fixture_path)
+    result = run_checker(profile_path, fixture_dir, theme_dir, web_fixture_path, promotion_gate_path)
     output = result.stdout + result.stderr
     if result.returncode == 0:
         print(f"FAIL: {name} unexpectedly passed", file=sys.stderr)
@@ -129,6 +137,14 @@ def web_fixture_case(tmpdir: Path, name: str, mutate: Callable[[dict[str, Any]],
     mutate(fixture)
     write_json(fixture_path, fixture)
     return fixture_path
+
+
+def promotion_gate_case(tmpdir: Path, name: str, mutate: Callable[[dict[str, Any]], None]) -> Path:
+    gate_path = tmpdir / f"{name}.promotion-gate.v1.json"
+    gate = load_json(PROMOTION_GATE)
+    mutate(gate)
+    write_json(gate_path, gate)
+    return gate_path
 
 
 def main() -> int:
@@ -228,6 +244,54 @@ def main() -> int:
             PROFILE,
             "must not carry design_tokens",
             web_fixture_path=token_carrying_web_fixture,
+        )
+
+        missing_promotion_evidence = promotion_gate_case(
+            tmpdir,
+            "missing-promotion-evidence",
+            lambda gate: gate["required_evidence"].remove("tier1_spoofing_blocked"),
+        )
+        expect_failure(
+            "promotion gate misses required evidence",
+            PROFILE,
+            "required_evidence missing",
+            promotion_gate_path=missing_promotion_evidence,
+        )
+
+        unresolved_evidence_ref = promotion_gate_case(
+            tmpdir,
+            "unresolved-evidence-ref",
+            lambda gate: gate["source_evidence_refs"].append("research/132-eudaemon-alpha-initiative/evidence/missing.md"),
+        )
+        expect_failure(
+            "promotion gate references missing evidence",
+            PROFILE,
+            "source_evidence_ref does not resolve",
+            promotion_gate_path=unresolved_evidence_ref,
+        )
+
+        premature_steward_approval = promotion_gate_case(
+            tmpdir,
+            "premature-steward-approval",
+            lambda gate: gate["steward_approval"].update({"approved_by": ["design-systems-steward"]}),
+        )
+        expect_failure(
+            "draft promotion gate claims approval lineage",
+            PROFILE,
+            "draft promotion gates must not record approved_by before approval",
+            promotion_gate_path=premature_steward_approval,
+        )
+
+        runtime_activation_gate = promotion_gate_case(
+            tmpdir,
+            "runtime-activation",
+            lambda gate: gate["runtime_activation"].update({"profile_selection_enabled": True}),
+        )
+        expect_failure(
+            "promotion gate enables runtime profile selection",
+            PROFILE,
+            "runtime_activation/profile_selection_enabled: False was expected",
+            promotion_gate_path=runtime_activation_gate,
         )
 
     print("PASS: Space design A2UI fixture validation regression coverage")
