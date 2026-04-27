@@ -27,7 +27,7 @@ export const BLOCK_TYPE_DISPLAY_NAMES: Record<string, string> = {
   telemetry: "Telemetry",
   capability: "Capability",
   pattern: "Pattern",
-  agent_solicitation: "Agent Solicitation",
+  agent_solicitation: "Review Request",
   action_plan: "Action Plan",
   compiled_plan: "Compiled Plan",
   chat_thread: "Chat Thread",

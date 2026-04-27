@@ -471,8 +471,8 @@ export function SpaceStudioPage() {
   });
   const draftLocked = selectedDraft?.status === "promoted";
   const governedHistory = useMemo(
-    () => (selectedDraft ? buildDraftGovernanceRows(selectedDraft) : []),
-    [selectedDraft],
+    () => (selectedDraft ? buildDraftGovernanceRows(selectedDraft, handoffSpaceId) : []),
+    [handoffSpaceId, selectedDraft],
   );
   const governanceScopeCopy = describeGovernanceScope(
     selectedDraft?.governanceScope || "personal",

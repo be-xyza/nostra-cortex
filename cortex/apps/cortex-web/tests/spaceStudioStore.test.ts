@@ -464,13 +464,19 @@ test("buildDraftGovernanceRows keeps draft history simple and actionable", () =>
     status: "promoted",
   });
 
-  const rows = buildDraftGovernanceRows(draft);
+  const rows = buildDraftGovernanceRows(draft, "01KM4C04QY37V9RV9H2HH9J1NM");
   assert.deepEqual(
     rows.map((row) => row.label),
     ["Saved for later", "Sent for review", "Live space created"],
   );
-  assert.equal(rows[0]?.href, "/explore?artifact_id=artifact-snapshot-4");
-  assert.equal(rows[1]?.href, "/explore?artifact_id=artifact-handoff-4");
+  assert.equal(
+    rows[0]?.href,
+    "/explore?space_id=01KM4C04QY37V9RV9H2HH9J1NM&artifact_id=artifact-snapshot-4",
+  );
+  assert.equal(
+    rows[1]?.href,
+    "/explore?space_id=01KM4C04QY37V9RV9H2HH9J1NM&artifact_id=artifact-handoff-4",
+  );
   assert.match(rows[1]?.value ?? "", /public review/i);
   assert.equal(rows[2]?.href, "/spaces/01LIVE123");
 });

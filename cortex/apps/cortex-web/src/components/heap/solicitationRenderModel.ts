@@ -5,7 +5,14 @@ export interface SolicitationRenderModel {
   budgetLabel: string | null;
   capabilityLabels: string[];
   summary: string;
+  requestedActionLabel: string | null;
   feedbackHint: string;
+  reviewOutcomeMode: string;
+  reviewOutcomeLabel: string;
+  kindLabel: string;
+  sourceRefLabels: string[];
+  uncertaintyLabels: string[];
+  recommendationLabels: string[];
 }
 
 export interface StewardFeedbackRenderModel {
@@ -64,12 +71,71 @@ function formatBudgetLabel(value: unknown): string | null {
   return `${currency} ${normalizedAmount}`;
 }
 
+function humanizeToken(value: string): string {
+  return value
+    .split(/[_\-.]+/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatSolicitationKind(value: unknown): string {
+  const kind = asString(value);
+  if (kind === "hermes_advisory_review") {
+    return "Hermes Advisory Review";
+  }
+  if (!kind) {
+    return "Review Request";
+  }
+  return humanizeToken(kind);
+}
+
+function resolveReviewOutcomeMode(data: Record<string, unknown>): string {
+  const explicit = asString(data.review_outcome_mode);
+  if (explicit) {
+    return explicit;
+  }
+  if (
+    asString(data.solicitation_kind) === "initiative_kickoff_approval"
+    || asString(data.approval_kind) === "initiative_kickoff"
+  ) {
+    return "emit_task";
+  }
+  return "record_only";
+}
+
+function reviewOutcomeLabel(mode: string): string {
+  if (mode === "emit_task") {
+    return "Approval creates the next task";
+  }
+  if (mode === "emit_proposal") {
+    return "Approval creates a proposal";
+  }
+  if (mode === "signal_run") {
+    return "Approval signals a live run";
+  }
+  return "Approval stores steward feedback";
+}
+
+function reviewFeedbackHint(data: Record<string, unknown>, mode: string): string {
+  if (mode === "emit_task") {
+    return "Approving creates the kickoff task. Rejecting stores steward feedback only.";
+  }
+  if (mode === "signal_run") {
+    return "Approving signals the waiting run. Rejecting records the decision and keeps execution blocked.";
+  }
+  if (asString(data.solicitation_kind) === "hermes_advisory_review") {
+    return "Approving or rejecting stores steward feedback on this artifact. It does not grant Hermes execution authority.";
+  }
+  return "Approving or rejecting stores steward feedback on this artifact. Any separate execution step remains explicit.";
+}
+
 function summarizeSolicitation(data: Record<string, unknown>): string {
   return (
-    asString(data.message) ??
-    asString(data.rationale) ??
     asString(data.summary) ??
     asString(data.description) ??
+    asString(data.rationale) ??
+    asString(data.message) ??
     "Review the proposal details and record steward feedback before any separate execution step."
   );
 }
@@ -116,6 +182,8 @@ export function buildSolicitationRenderModel(
     return null;
   }
 
+  const outcomeMode = resolveReviewOutcomeMode(data);
+
   return {
     roleLabel: asString(data.role) ?? "unspecified",
     requestedRoleLabel: asString(data.requested_agent_role),
@@ -123,8 +191,20 @@ export function buildSolicitationRenderModel(
     budgetLabel: formatBudgetLabel(data.budget),
     capabilityLabels: asStringArray(data.required_capabilities),
     summary: summarizeSolicitation(data),
-    feedbackHint:
-      "This records steward feedback in the heap. It does not directly execute the proposal.",
+    requestedActionLabel:
+      asString(data.requested_action) ??
+      asString(data.recommendation) ??
+      asString(data.message),
+    reviewOutcomeMode: outcomeMode,
+    reviewOutcomeLabel: reviewOutcomeLabel(outcomeMode),
+    kindLabel: formatSolicitationKind(data.solicitation_kind),
+    sourceRefLabels: asStringArray(data.source_refs),
+    uncertaintyLabels: asStringArray(data.uncertainties),
+    recommendationLabels: [
+      ...asStringArray(data.recommendations),
+      ...asStringArray(data.next_steps),
+    ],
+    feedbackHint: reviewFeedbackHint(data, outcomeMode),
   };
 }
 

@@ -567,14 +567,14 @@ function formatDraftGovernanceDate(value?: string): string {
   }).format(parsed);
 }
 
-export function buildDraftGovernanceRows(draft: DraftSpaceV1): DraftGovernanceRow[] {
+export function buildDraftGovernanceRows(draft: DraftSpaceV1, handoffSpaceId?: string | null): DraftGovernanceRow[] {
   const rows: DraftGovernanceRow[] = [];
 
   if (draft.savedAt && draft.savedArtifactId) {
     rows.push({
       label: "Saved for later",
       value: `Saved on ${formatDraftGovernanceDate(draft.savedAt)} so you can reopen it later.`,
-      href: buildHeapArtifactHref(draft.savedArtifactId),
+      href: buildHeapArtifactHref(draft.savedArtifactId, handoffSpaceId),
     });
   }
 
@@ -582,7 +582,7 @@ export function buildDraftGovernanceRows(draft: DraftSpaceV1): DraftGovernanceRo
     rows.push({
       label: "Sent for review",
       value: `Sent for ${formatDraftReviewLane(draft.reviewLane)} on ${formatDraftGovernanceDate(draft.submittedAt)}.`,
-      href: buildHeapArtifactHref(draft.submittedArtifactId),
+      href: buildHeapArtifactHref(draft.submittedArtifactId, handoffSpaceId),
     });
   }
 

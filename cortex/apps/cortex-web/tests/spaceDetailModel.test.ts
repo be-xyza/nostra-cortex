@@ -115,6 +115,7 @@ test("buildProposalReviewRecentWorkItem only shows a simple review cue for real 
       artifactId: "artifact-proposal-1",
       title: "proposal block",
       blockType: "proposal",
+      spaceId: "01KM4C04QY37V9RV9H2HH9J1NM",
       updatedAt: "2026-03-20T14:00:00Z",
       emittedAt: "2026-03-20T14:00:00Z",
       tags: [],
@@ -128,7 +129,7 @@ test("buildProposalReviewRecentWorkItem only shows a simple review cue for real 
   assert.deepEqual(item, {
     label: "Needs review",
     value: "A new recommendation is ready for review in this space.",
-    href: "/explore?artifact_id=artifact-proposal-1",
+    href: "/explore?space_id=01KM4C04QY37V9RV9H2HH9J1NM&artifact_id=artifact-proposal-1",
     actionLabel: "Open",
   });
 });

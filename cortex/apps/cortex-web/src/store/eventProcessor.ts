@@ -1,13 +1,13 @@
-import { HeapBlockListItem, HeapBlockProjection, Json } from '../contracts.ts';
-import { GlobalEvent } from './eventStore.ts';
+import type { HeapBlockListItem, HeapBlockProjection, Json } from '../contracts.ts';
+import type { PreviewGlobalEvent } from './eventStore.ts';
 
 /**
  * Reducer for Heap Blocks
  * 
- * Takes a stream of GlobalEvents and projects them into the HeapBlockListItem[]
+ * Takes a stream of browser-local preview events and projects them into the HeapBlockListItem[]
  * expected by the UI.
  */
-export function reduceHeapBlocks(events: GlobalEvent[]): HeapBlockListItem[] {
+export function reduceHeapBlocks(events: PreviewGlobalEvent[]): HeapBlockListItem[] {
   const blocksMap = new Map<string, HeapBlockListItem>();
 
   for (const event of events) {

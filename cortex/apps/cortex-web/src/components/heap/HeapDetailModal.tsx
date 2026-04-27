@@ -9,6 +9,7 @@ import type {
 } from "../../contracts";
 import { workbenchApi } from "../../api";
 import { PayloadRenderer, PayloadContent } from './PayloadRenderer';
+import { displayBlockType } from "../a2ui/ArtifactAssetViewer";
 import { NdlMetadataBlock } from '../ndl/NdlMetadataBlock';
 import { useHeapActionPlan } from "./useHeapActionPlan";
 import { executeHeapAction, type ActionHandlers } from "./actionExecutor";
@@ -24,7 +25,7 @@ import {
 import { useUiStore } from "../../store/uiStore";
 import { useAvailableSpaces, useActiveSpaceContext } from "../../store/spacesRegistry";
 import { useLayoutPreferences, applyOrder, EMPTY_PREFS } from "../../store/layoutPreferences";
-import { ChevronLeft, GripVertical } from "lucide-react";
+import { Check, ChevronLeft, Copy, GripVertical } from "lucide-react";
 import { AmbientGraphBackground } from "./AmbientGraphBackground";
 import { createHeapDetailActionHandlers } from "./heapDetailActions";
 import { describeHeapRelation, type HeapRelationItem } from "./heapRelations";
@@ -33,6 +34,7 @@ import type { TaskRouteDecision, TaskRouteId } from "./taskRouting.ts";
 import type { TaskRoutingContext } from "./initiativeKickoffTemplates.ts";
 import { TaskRouteLineageCard } from "./TaskRouteLineageCard";
 import { buildTaskRouteLineageSnapshot } from "./taskRouting.ts";
+import { buildSolicitationRenderModel } from "./solicitationRenderModel";
 // Removed local WorkbenchNamingModal import, using global one in ShellLayout
 
 type TabType = 'preview' | 'attributes' | 'relations' | 'code';
@@ -105,6 +107,45 @@ function resolveMetricCardClassName(tone: "cyan" | "violet" | "emerald" | "amber
 
 function prettifyUploadState(value: string): string {
     return value.replace(/_/g, " ");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function asReadableToken(value: unknown, fallback = "Unavailable"): string {
+    if (typeof value !== "string" || !value.trim()) {
+        return fallback;
+    }
+    return value
+        .trim()
+        .split(/[_\-.]+/g)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+}
+
+function buildReadableHeapSummary(content: PayloadContent, fallbackText: string): string {
+    const structuredData = isRecord(content.structured_data)
+        ? content.structured_data
+        : isRecord(content.data)
+            ? content.data
+            : null;
+    const solicitationModel = structuredData ? buildSolicitationRenderModel(structuredData) : null;
+    const candidate =
+        solicitationModel?.summary
+        ?? (typeof content.plain_text === "string" ? content.plain_text : null)
+        ?? (typeof content.text === "string" ? content.text : null)
+        ?? fallbackText;
+    const normalized = candidate.replace(/\s+/g, " ").trim();
+    if (!normalized || /^[\[{]/.test(normalized)) {
+        return "Structured heap payload. Use Preview for the readable review surface and Code for raw data.";
+    }
+    return normalized;
+}
+
+function shortenId(value: string, length = 12): string {
+    return value.length <= length ? value : `${value.slice(0, length)}...`;
 }
 
 interface HeapDetailModalProps {
@@ -188,6 +229,7 @@ export function HeapDetailModal({
     const [comparisonSaving, setComparisonSaving] = useState(false);
     const [comparisonMessage, setComparisonMessage] = useState<string | null>(null);
     const [comparisonError, setComparisonError] = useState<string | null>(null);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
     const wasWorkbenchNamedManually = useUiStore((s) => s.wasWorkbenchNamedManually);
     const activeSpaceIds = useUiStore((s) => s.activeSpaceIds);
     const setNamingModalOpen = useUiStore((s) => s.setNamingModalOpen);
@@ -404,8 +446,10 @@ export function HeapDetailModal({
     const tagNeighbors = relationIndex.tagNeighbors;
     const semanticLineage = relationIndex.semanticLineage;
     const plainText = extractPlainText(payloadContent);
-    const wordCount = plainText.trim().length ? plainText.trim().split(/\s+/).length : 0;
-    const characterCount = plainText.length;
+    const readableSummary = buildReadableHeapSummary(payloadContent, plainText);
+    const summaryWordCount = readableSummary.trim().length ? readableSummary.trim().split(/\s+/).length : 0;
+    const wordCount = plainText.trim().length ? plainText.trim().split(/\s+/).length : summaryWordCount;
+    const characterCount = plainText.length || readableSummary.length;
     const resolvedSpaceId = useMemo(() => {
         const surfaceData = surface as Record<string, unknown>;
         const structured = (
@@ -413,9 +457,39 @@ export function HeapDetailModal({
             ?? (surfaceData.data as Record<string, unknown> | undefined)
             ?? surfaceData
         );
-        const spaceValue = structured.space_id ?? structured.spaceId ?? surfaceData.space_id;
+        const spaceValue = projection.spaceId ?? structured.space_id ?? structured.spaceId ?? surfaceData.space_id;
         return typeof spaceValue === "string" && spaceValue.trim().length > 0 ? spaceValue : "unknown";
-    }, [surface]);
+    }, [projection.spaceId, surface]);
+    const resolvedSpaceRecord = availableSpaces.find((space) => space.id === resolvedSpaceId);
+    const activeSpaceRecord = availableSpaces.find((space) => space.id === activeSpaceId);
+    const displaySpaceLabel = resolvedSpaceId !== "unknown"
+        ? (resolvedSpaceRecord?.name || resolvedSpaceId)
+        : (activeSpaceId !== "meta" ? `Viewing in ${activeSpaceRecord?.name || activeSpaceId}` : null);
+    const structuredPayload = isRecord(payloadContent.structured_data)
+        ? payloadContent.structured_data
+        : isRecord(payloadContent.data)
+            ? payloadContent.data
+            : null;
+    const solicitationModel = structuredPayload ? buildSolicitationRenderModel(structuredPayload) : null;
+    const capabilityLabels = solicitationModel?.capabilityLabels ?? [];
+    const authorityLabel = solicitationModel?.authorityScopeLabel
+        ? asReadableToken(solicitationModel.authorityScopeLabel)
+        : asReadableToken(surface.authority_scope, "Local Review");
+    const requestedRoleLabel = solicitationModel?.requestedRoleLabel
+        ? asReadableToken(solicitationModel.requestedRoleLabel)
+        : "Not requested";
+    const productionReadinessLabel = String(projection.attributes?.bootstrap ?? "") === "localhost_dev"
+        ? "Local dev fixture"
+        : source === "fallback"
+            ? "Fallback actions"
+            : "Live action plan";
+    const artifactIdDisplay = shortenId(projection.artifactId);
+    const copyStateForArtifactId = copiedField === "artifact-id"
+        ? "copied"
+        : copiedField === "artifact-id-failed"
+            ? "failed"
+            : "idle";
+    const hasCapabilityLabels = capabilityLabels.length > 0;
     const relationDraftDirty = useMemo(
         () => serializeRelationDraft(relationDraft) !== serializeRelationDraft(relationBaseline),
         [relationBaseline, relationDraft],
@@ -834,10 +908,25 @@ export function HeapDetailModal({
         setDraggedTab(null);
     };
 
+    const handleCopyArtifactId = async () => {
+        try {
+            await navigator.clipboard.writeText(projection.artifactId);
+            setCopiedField("artifact-id");
+            window.setTimeout(() => {
+                setCopiedField((current) => (current === "artifact-id" ? null : current));
+            }, 1500);
+        } catch {
+            setCopiedField("artifact-id-failed");
+            window.setTimeout(() => {
+                setCopiedField((current) => (current === "artifact-id-failed" ? null : current));
+            }, 1500);
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/88 backdrop-blur-md animate-fade-in" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/88 p-2 backdrop-blur-md animate-fade-in sm:items-center sm:p-4" onClick={onClose}>
             <div
-                className="heap-modal-content relative flex max-h-[92vh] w-full max-w-[min(96vw,96rem)] flex-col overflow-hidden rounded-[1.9rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.95))] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_32px_100px_-42px_rgba(0,0,0,0.95)] animate-slide-up"
+                className="heap-modal-content relative flex max-h-[96dvh] w-full max-w-[min(96vw,96rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.95))] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_32px_100px_-42px_rgba(0,0,0,0.95)] animate-slide-up sm:max-h-[92vh] sm:rounded-[1.9rem]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Soft Background Layer */}
@@ -854,38 +943,46 @@ export function HeapDetailModal({
 
                 {/* Header */}
                 <div className="relative z-10 border-b border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(15,23,42,0.54))] backdrop-blur-xl">
-                    <div className="flex items-start justify-between gap-4 px-6 py-5">
+                    <div className="flex flex-col items-stretch justify-between gap-3 px-4 py-3 sm:flex-row sm:items-start sm:px-6 sm:py-4">
                         <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100 sm:px-3 sm:py-1">
                                     Artifact detail
                                 </span>
                                 <NdlMetadataBlock
-                                    typeIndicator={projection.blockType?.toUpperCase() || "NOTE"}
-                                    versionChain={String(surface.version || "0.8")}
-                                    phase={String(surface.phase || "Alpha")}
-                                    confidence={typeof surface.confidence === "number" ? surface.confidence : 85}
-                                    authorityScope={String(surface.authority_scope || "Local")}
+                                    typeIndicator={displayBlockType(projection.blockType || "note")}
+                                    versionChain={typeof surface.version === "string" || typeof surface.version === "number" ? String(surface.version) : undefined}
+                                    phase={typeof surface.phase === "string" ? surface.phase : undefined}
+                                    confidence={typeof surface.confidence === "number" ? surface.confidence : undefined}
+                                    authorityScope={typeof surface.authority_scope === "string" ? surface.authority_scope : undefined}
                                     compact
                                 />
-                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-mono tracking-[0.18em] text-white/60">
-                                    {projection.artifactId}
-                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleCopyArtifactId}
+                                    title={projection.artifactId}
+                                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 font-mono text-[10px] tracking-[0.14em] text-white/60 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white sm:px-3 sm:py-1"
+                                >
+                                    <span>{artifactIdDisplay}</span>
+                                    {copyStateForArtifactId === "copied" ? <Check className="h-3 w-3 text-emerald-300" /> : <Copy className="h-3 w-3" />}
+                                </button>
                                 {uploadId && (
-                                    <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-100">
+                                    <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-100 sm:px-3 sm:py-1">
                                         Upload-backed
                                     </span>
                                 )}
                             </div>
-                            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-300/70">
-                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-white/80">
-                                    {projection.blockType || "note"}
-                                </span>
-                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-white/70">
-                                    Space {resolvedSpaceId}
-                                </span>
-                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-white/70">
-                                    Emitted {new Date(projection.emittedAt || projection.updatedAt).toLocaleString()}
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-slate-300/70 sm:mt-2.5">
+                                {displaySpaceLabel ? (
+                                    <>
+                                        <span className="font-medium text-white/68">
+                                            {displaySpaceLabel}
+                                        </span>
+                                        <span className="hidden h-1 w-1 rounded-full bg-white/20 sm:inline-block" aria-hidden="true" />
+                                    </>
+                                ) : null}
+                                <span className="font-medium text-white/68">
+                                    Added {new Date(projection.emittedAt || projection.updatedAt).toLocaleString()}
                                 </span>
                                 {currentTrailEntry && (
                                     <>
@@ -914,14 +1011,16 @@ export function HeapDetailModal({
                                 )}
                             </div>
                         </div>
-                        <div className="ml-4 flex shrink-0 items-start gap-3">
-                            {headerZonePlan && (
-                                <ActionZoneRenderer
-                                    actions={headerZonePlan.actions}
-                                    layoutHint={headerZonePlan.layoutHint}
-                                    onActionClick={(action) => executeHeapAction(action, selectionContext, actionHandlers)}
-                                />
-                            )}
+                        <div className="flex w-full items-start justify-between gap-2 sm:ml-4 sm:w-auto sm:justify-end">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-start gap-2 sm:flex-none sm:justify-end">
+                                {headerZonePlan && (
+                                    <ActionZoneRenderer
+                                        actions={headerZonePlan.actions}
+                                        layoutHint={headerZonePlan.layoutHint}
+                                        onActionClick={(action) => executeHeapAction(action, selectionContext, actionHandlers)}
+                                    />
+                                )}
+                            </div>
                             <button
                                 className="rounded-full border border-white/10 bg-white/[0.04] p-2 text-slate-400 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white hover:rotate-90"
                                 onClick={onClose}
@@ -935,8 +1034,8 @@ export function HeapDetailModal({
 
                 {/* Body Content */}
                 <div className="relative z-10 flex-1 overflow-y-auto bg-slate-900/20 custom-scrollbar">
-                    <div className="grid gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
-                        <div className="pt-6 px-8 pb-8">
+                    <div className="grid min-w-0 gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+                        <div className="min-w-0 px-4 pb-24 pt-4 sm:px-8 sm:pb-8 sm:pt-5">
                             {(block.warnings?.length ?? 0) > 0 && (activeTab === 'preview' || activeTab === 'code') && (
                                 <div className="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 flex gap-3 items-start animate-in fade-in slide-in-from-top-2">
                                     <span className="text-xl">⚠️</span>
@@ -951,36 +1050,35 @@ export function HeapDetailModal({
                                 </div>
                             )}
 
-                            <section className="mb-6 overflow-hidden rounded-[1.6rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.82))] p-5 shadow-[0_24px_80px_-46px_rgba(0,0,0,0.88)]">
-                                <div className="flex flex-wrap items-start justify-between gap-4">
-                                    <div className="min-w-0">
-                                        <div className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">
-                                            Artifact dossier
+                            <section className="mb-5 overflow-hidden rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.82))] p-4 shadow-[0_24px_80px_-46px_rgba(0,0,0,0.88)] sm:p-5">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.26em] text-cortex-500">
+                                            Overview
                                         </div>
-                                        <h3 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                                        <h3 className="mt-1.5 max-w-full break-words text-lg font-semibold tracking-tight text-white sm:text-xl">
                                             {projection.title || "Untitled Block"}
                                         </h3>
-                                        <p className="mt-2 max-w-3xl text-sm leading-6 text-white/62">
-                                            {plainText.slice(0, 220) || "No preview text is available yet. Use the detail tabs to inspect relations, provenance, or raw surface data."}
+                                        <p className="mt-1.5 max-w-3xl overflow-hidden text-sm leading-6 text-white/62 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:4] xl:[-webkit-line-clamp:3]">
+                                            {readableSummary || "No preview text is available yet. Use the detail tabs to inspect relations, provenance, or raw surface data."}
                                         </p>
                                     </div>
-                                    <div className="flex flex-wrap justify-end gap-2 text-[10px] uppercase tracking-[0.2em] text-white/50">
-                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-white/75">
-                                            {projection.blockType || "note"}
-                                        </span>
-                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-white/75">
-                                            {resolvedSpaceId}
-                                        </span>
-                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-white/75">
-                                            {wordCount} words
-                                        </span>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleCopyArtifactId}
+                                        title={projection.artifactId}
+                                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/72 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                                    >
+                                        {copyStateForArtifactId === "copied" ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+                                        {copyStateForArtifactId === "copied" ? "Copied ID" : copyStateForArtifactId === "failed" ? "Copy failed" : "Copy ID"}
+                                    </button>
                                 </div>
 
-                                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
                                     <DetailMetricCard
                                         label="Artifact ID"
-                                        value={projection.artifactId.slice(0, 12)}
+                                        value={artifactIdDisplay}
+                                        valueTitle={projection.artifactId}
                                         subtitle="Canonical heap identity"
                                         tone="cyan"
                                     />
@@ -1003,11 +1101,48 @@ export function HeapDetailModal({
                                         tone="emerald"
                                     />
                                 </div>
+                                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                    <DetailMetricCard
+                                        label="Authority"
+                                        value={authorityLabel}
+                                        subtitle="Review boundary"
+                                        tone="amber"
+                                    />
+                                    <DetailMetricCard
+                                        label="Requested"
+                                        value={requestedRoleLabel}
+                                        subtitle="Human/agent handoff"
+                                        tone="cyan"
+                                    />
+                                    <DetailMetricCard
+                                        label="Runtime"
+                                        value={productionReadinessLabel}
+                                        subtitle="Capability backing"
+                                        tone={source === "fallback" ? "amber" : "slate"}
+                                    />
+                                </div>
+                                {hasCapabilityLabels ? (
+                                    <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">
+                                            Needed capabilities
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {capabilityLabels.map((capability) => (
+                                                <span
+                                                    key={capability}
+                                                    className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-semibold text-cyan-100"
+                                                >
+                                                    {asReadableToken(capability)}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
                             </section>
 
                             {/* Tabs Navigation */}
                             <div 
-                                className="mb-6 flex w-fit gap-2 rounded-2xl border border-white/8 bg-white/[0.05] p-1.5 shadow-inner"
+                                className="mb-6 flex w-full max-w-full gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.05] p-1.5 shadow-inner sm:w-fit"
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={handleTabDrop}
                             >
@@ -1025,7 +1160,7 @@ export function HeapDetailModal({
                                                 setPreviewTabOrder(null);
                                             }}
                                             onClick={() => setActiveTab(tab)}
-                                            className={`group flex items-center gap-2 rounded-xl px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] transition-all duration-300 select-none ${isActive
+                                            className={`group flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] transition-all duration-300 select-none sm:px-5 ${isActive
                                                 ? 'border border-cyan-400/20 bg-cyan-500/12 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.08)]'
                                                 : 'text-slate-500 hover:bg-white/[0.05] hover:text-slate-200'
                                                 } ${draggedTab === tab ? 'opacity-40 scale-95' : ''}`}
@@ -1386,13 +1521,13 @@ export function HeapDetailModal({
                             </div>
                         </div>
 
-                        <aside className="border-t border-white/8 bg-[linear-gradient(180deg,rgba(2,6,23,0.9),rgba(15,23,42,0.7))] p-6 xl:border-l xl:border-t-0 xl:border-white/8">
+                        <aside className="min-w-0 border-t border-white/8 bg-[linear-gradient(180deg,rgba(2,6,23,0.9),rgba(15,23,42,0.7))] p-4 sm:p-6 xl:border-l xl:border-t-0 xl:border-white/8">
                             <div className="sticky top-0 space-y-6">
                                 <section className="rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(2,6,23,0.82))] p-5 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)]">
                                     <div className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">Artifact synopsis</div>
                                     <div className="mt-3 text-lg font-semibold tracking-tight text-white">{projection.title || "Untitled Block"}</div>
                                     <div className="mt-1 text-xs leading-6 text-slate-400">
-                                        {plainText.slice(0, 180) || "No plain-text preview available."}
+                                        {readableSummary || "No plain-text preview available."}
                                     </div>
                                 </section>
 
@@ -1678,17 +1813,21 @@ function DetailMetricCard({
     value,
     tone = "slate",
     subtitle,
+    valueTitle,
 }: {
     label: string;
     value: string | number;
     tone?: "cyan" | "violet" | "emerald" | "amber" | "rose" | "slate";
     subtitle?: string;
+    valueTitle?: string;
 }) {
     return (
-        <div className={`rounded-2xl border p-4 shadow-[0_18px_45px_-35px_rgba(0,0,0,0.9)] ${resolveMetricCardClassName(tone)}`}>
-            <div className="text-[10px] uppercase tracking-[0.24em] text-white/45">{label}</div>
-            <div className="mt-2 text-2xl font-black tracking-tight text-white">{value}</div>
-            {subtitle ? <div className="mt-1 text-[11px] leading-5 text-white/58">{subtitle}</div> : null}
+        <div className={`min-w-0 rounded-xl border px-2.5 py-1.5 shadow-[0_12px_32px_-28px_rgba(0,0,0,0.9)] sm:px-3 sm:py-2 ${resolveMetricCardClassName(tone)}`}>
+            <div className="flex min-w-0 items-baseline justify-between gap-2 sm:gap-3">
+                <div className="shrink-0 text-[9px] uppercase tracking-[0.18em] text-white/45">{label}</div>
+                <div className="min-w-0 truncate text-right text-sm font-bold tracking-tight text-white sm:text-base" title={valueTitle}>{value}</div>
+            </div>
+            {subtitle ? <div className="mt-0.5 hidden truncate text-[10px] leading-4 text-white/50 sm:block">{subtitle}</div> : null}
         </div>
     );
 }

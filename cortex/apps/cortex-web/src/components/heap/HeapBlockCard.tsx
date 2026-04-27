@@ -152,6 +152,11 @@ function surfaceToNestedNode(block: HeapBlockListItem): A2UINode | null {
     return candidate as A2UINode;
 }
 
+function isReviewRequestPayload(content: PayloadContent): boolean {
+    const data = content.structured_data || content.data;
+    return Boolean(data && typeof data === "object" && !Array.isArray(data) && data.type === "agent_solicitation");
+}
+
 export function HeapBlockCard({
     block,
     isSelected,
@@ -203,6 +208,7 @@ export function HeapBlockCard({
     const payloadContent = surfaceToPayloadContent(block);
     const nestedNode = surfaceToNestedNode(block);
     const author = (attributes.author as string) || "System Intelligence";
+    const showInlinePayload = showPayload && !isReviewRequestPayload(payloadContent);
 
     return (
         <div
@@ -213,8 +219,8 @@ export function HeapBlockCard({
         >
             {/* Glow Effect on Hover */}
             <div className={`absolute inset-0 bg-linear-to-br from-blue-500/5 to-purple-600/5 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 pointer-events-none`} />
-            <div className={`heap-block-card__header flex justify-between items-start ${showFullSurface ? "p-3" : "p-2.5"} bg-cortex-surface-panel/40 border-b border-white/5`}>
-                <div className="flex flex-col gap-1">
+            <div className={`heap-block-card__header flex justify-between items-start gap-3 ${showFullSurface ? "p-3" : "p-2.5"} bg-cortex-surface-panel/40 border-b border-white/5`}>
+                <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex items-center gap-1.5">
                         <span className={`text-[11px] leading-none font-black tracking-widest uppercase flex items-center gap-1.5 ${
                             TYPE_COLOR[blockType] === 'red' ? 'text-red-400' :
@@ -250,7 +256,7 @@ export function HeapBlockCard({
                         </span>
                     </div>
                 </div>
-                <div className="flex flex-wrap justify-end gap-1.5 max-w-[65%]">
+                <div className="flex max-w-[45%] shrink-0 flex-wrap justify-end gap-1.5 sm:max-w-[65%]">
                     {behaviorBadges.map((behavior) => {
                         const bColor = BEHAVIOR_BADGE_COLOR[behavior] || "slate";
                         return (
@@ -275,10 +281,10 @@ export function HeapBlockCard({
                     <div className="flex items-center justify-between mb-2 gap-2">
                         {showFullSurface ? (
                             <NdlMetadataBlock
-                                versionChain={String(surface.version || "0.8")}
-                                phase={String(surface.phase || "Alpha")}
-                                confidence={typeof surface.confidence === "number" ? surface.confidence : 85}
-                                authorityScope={String(surface.authority_scope || "Local")}
+                                versionChain={typeof surface.version === "string" || typeof surface.version === "number" ? String(surface.version) : undefined}
+                                phase={typeof surface.phase === "string" ? surface.phase : undefined}
+                                confidence={typeof surface.confidence === "number" ? surface.confidence : undefined}
+                                authorityScope={typeof surface.authority_scope === "string" ? surface.authority_scope : undefined}
                                 compact
                             />
                         ) : (
@@ -354,8 +360,8 @@ export function HeapBlockCard({
                     </div>
                 )}
 
-                {showPayload && !isCollapsed && !nestedNode && !children && <PayloadRenderer content={payloadContent} />}
-                {showPayload && !isCollapsed && nestedNode && (
+                {showInlinePayload && !isCollapsed && !nestedNode && !children && <PayloadRenderer content={payloadContent} />}
+                {showInlinePayload && !isCollapsed && nestedNode && (
                     <div className="mt-3 pl-3 bg-white/5 rounded-lg flex flex-col gap-3">
                         <A2UIInterpreter node={nestedNode} />
                     </div>
@@ -367,11 +373,11 @@ export function HeapBlockCard({
 
             {/* Footer */}
             <div className={`px-3 ${showFullSurface ? "py-2" : "py-1.5"} bg-cortex-surface-base/40 border-t border-white/5 flex flex-wrap gap-1.5 items-center`}>
-                <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity mr-auto">
-                    <div className="w-4 h-4 rounded-full bg-linear-to-tr from-slate-800 to-slate-700 flex items-center justify-center text-[8px] font-black text-slate-300 shadow-inner shrink-0 leading-none">
+                <div className="flex min-w-0 items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity mr-auto">
+                    <div className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-[8px] font-black text-slate-300 shadow-inner shrink-0 leading-none">
                         {author.substring(0, 2).toUpperCase()}
                     </div>
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                    <span className="truncate text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">
                         {author.split(" ")[0]}
                     </span>
                 </div>
@@ -417,7 +423,7 @@ export function HeapBlockCard({
                     </button>
                 ))}
                 {showRelations && projection.tags?.map((t) => (
-                    <span key={t} className="heap-tag-chip text-[10px] bg-white/5 text-slate-500 px-2 py-0.5 rounded-full cursor-default font-medium">#{t}</span>
+                    <span key={t} className="heap-tag-chip max-w-[8rem] truncate text-[10px] bg-white/5 text-slate-500 px-2 py-0.5 rounded-full cursor-default font-medium">#{t}</span>
                 ))}
                 <div className="flex items-center gap-1 ml-auto text-slate-500 hover:text-slate-300 transition-colors">
                     <button

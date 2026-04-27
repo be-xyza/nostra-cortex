@@ -214,7 +214,7 @@ function buildInitiativeKickoffApprovalSummary(
   spec: InitiativeKickoffTemplateSpec,
 ): string {
   return spec.approvalSummary?.trim() ||
-    `Steward-backed kickoff approval for initiative ${spec.initiativeId} before any live kickoff task is emitted.`;
+    `Steward-backed setup review for initiative ${spec.initiativeId} before any live task is added.`;
 }
 
 function buildInitiativeKickoffApprovalRationale(
@@ -222,7 +222,7 @@ function buildInitiativeKickoffApprovalRationale(
 ): string {
   return spec.approvalRationale?.trim() ||
     [
-      "This kickoff should not bypass stewardship.",
+      "This setup request should not bypass stewardship.",
       "Approval confirms the initiative package, routing context, reference files, and execution guardrails are in place before work begins.",
     ].join(" ");
 }
@@ -231,7 +231,7 @@ function buildInitiativeKickoffApprovalMessage(
   spec: InitiativeKickoffTemplateSpec,
 ): string {
   return spec.approvalMessage?.trim() ||
-    `Review the ${spec.title} package and record steward approval before any live kickoff task is emitted.`;
+    `Review the ${spec.title} package and record steward approval before any live task is added.`;
 }
 
 function formatTaskSection(title: string, entries: readonly string[], emptyLabel: string): string[] {
@@ -457,7 +457,7 @@ export function buildInitiativeKickoffEmitRequest(
   spaceId: string,
   emittedAt = new Date().toISOString(),
 ): EmitHeapBlockRequest {
-  const approvalTitle = `${template.title} Approval`;
+  const approvalTitle = `${template.title} Setup Review`;
   return {
     schema_version: "1.0.0",
     mode: "heap",
@@ -508,6 +508,7 @@ export function buildInitiativeKickoffEmitRequest(
         routing_options: template.routingContext.routing_options,
         decision_mode: template.routingContext.decision_mode,
         requested_agent_role: template.agentRole,
+        review_outcome_mode: "emit_task",
       },
     },
   };

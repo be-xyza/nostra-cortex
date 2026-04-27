@@ -15,6 +15,7 @@ import type {
   DpubSystemBuildResponse,
   DpubSystemReadyResponse,
   EmitHeapBlockRequest,
+  EmitHeapBlockResponse,
   EmitGateSummaryHeapBlockRequest,
   EmitGateSummaryHeapBlockResponse,
   ArtifactPublishRequest,
@@ -89,6 +90,14 @@ import type {
 import { filterPreviewDeletedBlocks, filterPreviewHeapBlocks } from "./store/previewFixtureCatalog.ts";
 import { readPreviewFixturesEnabledFromStorage } from "./shared/previewFixtures.ts";
 import {
+  getLocalDevBootstrapHeapBlocks,
+  isLocalDevBootstrapEnabled,
+  shouldUseLocalDevSpaceBootstrap,
+  submitLocalDevBootstrapFeedback,
+} from "./localDevBootstrap.ts";
+import { buildFallbackAuthSession, buildFallbackWhoami } from "./components/commons/shellBootstrapFallback.ts";
+import { readWindowRequestedSpaceId } from "./serviceWorker/requestScope.ts";
+import {
   isGatewayApiPath as isWorkflowGatewayApiPath,
   normalizeWorkflowHref,
   parseWorkflowArtifactPath,
@@ -111,6 +120,10 @@ export function resolveGatewayBaseUrl(): string {
 }
 
 function defaultSpaceId(): string {
+  const requested = readWindowRequestedSpaceId();
+  if (requested) {
+    return requested;
+  }
   if (typeof window !== "undefined") {
     try {
       const stored = window.localStorage.getItem("cortex.shell.space.id");
@@ -211,6 +224,28 @@ function shouldExposePreviewFixtures(): boolean {
   return readPreviewFixturesEnabledFromStorage();
 }
 
+function shouldUseLocalhostDevFallback(spaceId?: string): boolean {
+  return shouldUseLocalDevSpaceBootstrap(spaceId);
+}
+
+function shouldPromoteLocalDevSession(session: AuthSession): boolean {
+  return (
+    isLocalDevBootstrapEnabled()
+    && session.authMode === "read_fallback"
+    && session.activeRole === "viewer"
+    && !session.identityVerified
+  );
+}
+
+function shouldPromoteLocalDevWhoami(whoami: WhoAmIResponse): boolean {
+  return (
+    isLocalDevBootstrapEnabled()
+    && !whoami.identityVerified
+    && whoami.effectiveRole === "viewer"
+    && !whoami.authzDevMode
+  );
+}
+
 function resolveEmitHeapBlockSpaceId(payload: EmitHeapBlockRequest): string {
   const candidate =
     ("space_id" in payload ? payload.space_id : undefined)
@@ -272,7 +307,11 @@ export const workbenchApi = {
         "x-cortex-role": actorRole,
         "x-cortex-actor": actorId,
       }
-    }),
+    }).then((session) => (
+      shouldPromoteLocalDevSession(session)
+        ? buildFallbackAuthSession(actorId, actorRole)
+        : session
+    )),
   setActiveRole: (role: string, spaceId?: string, actorId?: string) =>
     request<AuthSession>("/api/system/session/active-role", {
       method: "POST",
@@ -285,6 +324,15 @@ export const workbenchApi = {
         role,
         ...(spaceId ? { spaceId } : {}),
       }),
+    }).then((session) => (
+      shouldPromoteLocalDevSession(session)
+        ? buildFallbackAuthSession(actorId, role)
+        : session
+    )).catch((error) => {
+      if (!isLocalDevBootstrapEnabled()) {
+        throw error;
+      }
+      return buildFallbackAuthSession(actorId, role);
     }),
   getWhoami: (actorRole: string, actorId: string) =>
     request<WhoAmIResponse>("/api/system/whoami", {
@@ -292,6 +340,15 @@ export const workbenchApi = {
         "x-cortex-role": actorRole,
         "x-cortex-actor": actorId
       }
+    }).then((whoami) => (
+      shouldPromoteLocalDevWhoami(whoami)
+        ? buildFallbackWhoami(actorId, actorRole)
+        : whoami
+    )).catch((error) => {
+      if (!isLocalDevBootstrapEnabled()) {
+        throw error;
+      }
+      return buildFallbackWhoami(actorId, actorRole);
     }),
   getReady: () => request<DpubSystemReadyResponse>("/api/system/ready"),
   getBuild: () => request<DpubSystemBuildResponse>("/api/system/build"),
@@ -463,6 +520,7 @@ export const workbenchApi = {
       body: JSON.stringify(payload)
     }),
   getHeapBlocks: (params?: HeapBlocksQueryParams) => {
+    const requestedSpaceId = params?.spaceId ?? resolveWorkbenchSpaceId();
     const query = new URLSearchParams();
     if (params?.spaceId) query.set("space_id", params.spaceId);
     if (params?.tag) query.set("tag", params.tag);
@@ -479,13 +537,42 @@ export const workbenchApi = {
     if (params?.cursor) query.set("cursor", params.cursor);
     const suffix = query.toString();
     return request<HeapBlocksResponse>(`/api/cortex/studio/heap/blocks${suffix ? `?${suffix}` : ""}`)
-      .then((response) => shouldExposePreviewFixtures()
-        ? response
-        : {
-            ...response,
-            count: filterPreviewHeapBlocks(response.items).length,
-            items: filterPreviewHeapBlocks(response.items),
-          });
+      .then(async (response) => {
+        const sanitizedResponse = shouldExposePreviewFixtures()
+          ? response
+          : {
+              ...response,
+              count: filterPreviewHeapBlocks(response.items).length,
+              items: filterPreviewHeapBlocks(response.items),
+            };
+
+        if (
+          shouldUseLocalhostDevFallback(requestedSpaceId)
+          && sanitizedResponse.items.length === 0
+        ) {
+          const items = await getLocalDevBootstrapHeapBlocks(requestedSpaceId);
+          return {
+            ...sanitizedResponse,
+            count: items.length,
+            items,
+          };
+        }
+
+        return sanitizedResponse;
+      })
+      .catch(async (error) => {
+        if (!shouldUseLocalhostDevFallback(requestedSpaceId)) {
+          throw error;
+        }
+        const items = await getLocalDevBootstrapHeapBlocks(requestedSpaceId);
+        return {
+          schemaVersion: "1.0.0",
+          generatedAt: new Date().toISOString(),
+          count: items.length,
+          hasMore: false,
+          items,
+        };
+      });
   },
   getHeapChangedBlocks: (params?: HeapBlocksQueryParams) => {
     const query = new URLSearchParams();
@@ -627,7 +714,7 @@ export const workbenchApi = {
   ) => {
     assertValidEmitHeapBlockRequest(payload);
     const normalizedPayload = normalizeEmitHeapBlockRequest(payload);
-    return request<{ accepted: boolean; artifactId: string }>(`/api/cortex/studio/heap/emit`, {
+    return request<EmitHeapBlockResponse>(`/api/cortex/studio/heap/emit`, {
       method: "POST",
       headers: {
         "x-cortex-role": actorRole,
@@ -693,6 +780,11 @@ export const workbenchApi = {
         "x-cortex-actor": actorId
       },
       body: JSON.stringify(payload)
+    }).catch((error) => {
+      if (!isLocalDevBootstrapEnabled()) {
+        throw error;
+      }
+      return submitLocalDevBootstrapFeedback(artifactId, payload, actorRole, actorId);
     }),
   getWorkflowDraftProposalReplay: (proposalId: string) =>
     request<WorkflowReplayResponse>(

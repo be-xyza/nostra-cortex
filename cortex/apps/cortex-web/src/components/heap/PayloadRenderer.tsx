@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import type { A2UISubmitFeedbackResponse } from "../../contracts";
 import { workbenchApi } from "../../api";
 import { useUiStore } from "../../store/uiStore";
 import { A2UIChartRenderer, type A2UIChartData } from "./A2UIChartRenderer";
@@ -240,8 +241,37 @@ interface FeedbackDecisionCardProps {
     title: string;
     roleLabel?: string;
     summary?: string;
+    requestedAction?: string | null;
     hint?: string;
+    outcomeLabel?: string;
     detailItems?: Array<{ label: string; value: string }>;
+    sourceRefs?: string[];
+    uncertainties?: string[];
+    recommendations?: string[];
+}
+
+function describeSubmissionReceipt(
+    decision: string,
+    receipt: A2UISubmitFeedbackResponse,
+): { title: string; body: string } {
+    if (decision === "approved" && receipt.followUpArtifactId) {
+        return {
+            title: "Approval complete",
+            body: receipt.followUpBlockType === "task"
+                ? "Cortex stored the decision and created the next task."
+                : "Cortex stored the decision and created the next follow-up artifact.",
+        };
+    }
+    if (decision === "approved") {
+        return {
+            title: "Approval recorded",
+            body: "Cortex stored the approval as steward feedback. No follow-up artifact was created.",
+        };
+    }
+    return {
+        title: "Rejection recorded",
+        body: "Cortex stored the rejection as steward feedback and kept the next step blocked.",
+    };
 }
 
 function FeedbackDecisionCard({
@@ -249,19 +279,31 @@ function FeedbackDecisionCard({
     title,
     roleLabel,
     summary,
+    requestedAction,
     hint,
+    outcomeLabel,
     detailItems = [],
+    sourceRefs = [],
+    uncertainties = [],
+    recommendations = [],
 }: FeedbackDecisionCardProps) {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const sessionUser = useUiStore((state) => state.sessionUser);
     const [submitting, setSubmitting] = useState(false);
     const [feedback, setFeedback] = useState("");
+    const [submissionReceipt, setSubmissionReceipt] = useState<{
+        decision: string;
+        response: A2UISubmitFeedbackResponse;
+    } | null>(null);
+    const currentSpaceId = searchParams.get("space_id");
 
     const handleSubmitFeedback = async (decision: string) => {
         if (!artifactId) {
             return;
         }
         setSubmitting(true);
+        setSubmissionReceipt(null);
         try {
             const response = await workbenchApi.submitA2UIFeedback(
                 artifactId,
@@ -270,9 +312,7 @@ function FeedbackDecisionCard({
                 sessionUser?.actorId || "cortex-web",
             );
             setFeedback("");
-            if (decision === "approved" && response.followUpArtifactId) {
-                navigate(`${buildHeapArtifactHref(response.followUpArtifactId)}&heap_view=tasks`);
-            }
+            setSubmissionReceipt({ decision, response });
         } catch (err) {
             console.error("A2UI Feedback failed", err);
         } finally {
@@ -305,6 +345,124 @@ function FeedbackDecisionCard({
                 </div>
             ) : null}
 
+            {requestedAction ? (
+                <div className="rounded-lg bg-cyan-400/10 border border-cyan-300/20 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-widest text-cyan-200/70">Requested steward action</div>
+                    <div className="mt-1 text-sm leading-5 text-cyan-50">{requestedAction}</div>
+                </div>
+            ) : null}
+
+            {outcomeLabel ? (
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Approval effect</div>
+                    <div className="mt-1 text-sm leading-5 text-slate-100">{outcomeLabel}</div>
+                </div>
+            ) : null}
+
+            {recommendations.length > 0 || uncertainties.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {recommendations.length > 0 ? (
+                        <div className="rounded-lg bg-black/20 px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-widest text-slate-500">Recommendations</div>
+                            <ul className="mt-1 space-y-1 text-xs text-slate-200">
+                                {recommendations.map((recommendation) => (
+                                    <li key={recommendation}>{recommendation}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
+                    {uncertainties.length > 0 ? (
+                        <div className="rounded-lg bg-amber-400/10 border border-amber-300/20 px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-widest text-amber-200/70">Uncertainties</div>
+                            <ul className="mt-1 space-y-1 text-xs text-amber-50/90">
+                                {uncertainties.map((uncertainty) => (
+                                    <li key={uncertainty}>{uncertainty}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
+
+            {sourceRefs.length > 0 ? (
+                <div className="rounded-lg bg-black/20 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Source refs</div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                        {sourceRefs.map((sourceRef) => (
+                            <span
+                                key={sourceRef}
+                                className="rounded-full border border-purple-400/20 bg-purple-400/10 px-2 py-0.5 text-[10px] text-purple-100"
+                            >
+                                {sourceRef}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {submissionReceipt ? (
+                <div className="rounded-lg border border-emerald-300/20 bg-emerald-400/10 px-3 py-3">
+                    <div className="text-[10px] uppercase tracking-widest text-emerald-200/70">Decision receipt</div>
+                    <div className="mt-1 text-sm font-semibold text-emerald-50">
+                        {describeSubmissionReceipt(submissionReceipt.decision, submissionReceipt.response).title}
+                    </div>
+                    <div className="mt-1 text-xs leading-5 text-emerald-50/85">
+                        {describeSubmissionReceipt(submissionReceipt.decision, submissionReceipt.response).body}
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="rounded-lg bg-black/20 px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-widest text-emerald-200/70">Feedback record</div>
+                            <div
+                                className="mt-1 truncate font-mono text-[11px] text-emerald-50/90"
+                                title={submissionReceipt.response.feedbackArtifactId}
+                            >
+                                {submissionReceipt.response.feedbackArtifactId}
+                            </div>
+                        </div>
+                        <div className="rounded-lg bg-black/20 px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-widest text-emerald-200/70">Effect</div>
+                            <div className="mt-1 text-xs text-emerald-50/90">
+                                {submissionReceipt.response.reviewOutcomeMode === "emit_task"
+                                    ? submissionReceipt.response.followUpArtifactId
+                                        ? "Created task"
+                                        : "Task creation requested"
+                                    : submissionReceipt.response.reviewOutcomeMode === "emit_proposal"
+                                      ? "Creates proposal"
+                                      : submissionReceipt.response.reviewOutcomeMode === "signal_run"
+                                        ? "Signals run"
+                                        : "Stored feedback"}
+                            </div>
+                            {submissionReceipt.response.followUpArtifactId ? (
+                                <div
+                                    className="mt-1 truncate font-mono text-[11px] text-emerald-50/75"
+                                    title={submissionReceipt.response.followUpArtifactId}
+                                >
+                                    {submissionReceipt.response.followUpArtifactId}
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={() => navigate(buildHeapArtifactHref(submissionReceipt.response.feedbackArtifactId, currentSpaceId))}
+                            className="rounded-md border border-emerald-300/20 bg-black/20 px-2.5 py-1.5 text-[11px] font-medium text-emerald-50 transition hover:bg-black/30"
+                        >
+                            Open feedback
+                        </button>
+                        {submissionReceipt.response.followUpArtifactId ? (
+                            <button
+                                type="button"
+                                onClick={() => navigate(`${buildHeapArtifactHref(submissionReceipt.response.followUpArtifactId!, currentSpaceId)}&heap_view=tasks`)}
+                                className="rounded-md border border-emerald-300/20 bg-black/20 px-2.5 py-1.5 text-[11px] font-medium text-emerald-50 transition hover:bg-black/30"
+                            >
+                                Open next step
+                            </button>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+
             <textarea
                 value={feedback}
                 onChange={(event) => setFeedback(event.target.value)}
@@ -319,19 +477,24 @@ function FeedbackDecisionCard({
                         disabled={submitting || !artifactId}
                         className={`flex-1 bg-green-500/20 text-green-300 text-xs font-semibold py-2 rounded hover:bg-green-500/30 transition-colors ${submitting || !artifactId ? "opacity-50" : ""}`}
                     >
-                        Approve & Record
+                        Approve
                     </button>
                     <button
                         onClick={() => handleSubmitFeedback("rejected")}
                         disabled={submitting || !artifactId}
                         className={`flex-1 bg-rose-500/20 text-rose-300 text-xs font-semibold py-2 rounded hover:bg-rose-500/30 transition-colors ${submitting || !artifactId ? "opacity-50" : ""}`}
                     >
-                        Reject & Record
+                        Reject
                     </button>
                 </div>
                 <div className="text-[11px] text-slate-500">
                     {hint ?? "This records a steward feedback block for review lineage."}
                 </div>
+                {artifactId ? (
+                    <div className="text-[10px] text-slate-600">
+                        Feedback anchor: <span className="font-mono text-slate-500">{artifactId}</span>
+                    </div>
+                ) : null}
                 {!artifactId ? (
                     <div className="text-[11px] text-amber-300/80">
                         Feedback is unavailable until the block has a canonical artifact id.
@@ -373,7 +536,7 @@ function A2UIPayloadRenderer({ content, expanded, artifactId }: { content: Paylo
         return (
             <FeedbackDecisionCard
                 artifactId={artifactId}
-                title="Agent Solicitation Pending"
+                title="Review Request Pending"
                 roleLabel={String(t.agent_role || "steward.code")}
                 summary={Boolean(t.rationale) ? String(t.rationale) : undefined}
                 hint="This records steward feedback in the heap. Proposal execution remains a separate workflow step."
@@ -497,6 +660,7 @@ function renderStructuredData(content: PayloadContent, artifactId?: string) {
                     : []),
                 { label: "Authority", value: solicitationModel.authorityScopeLabel },
                 ...(solicitationModel.budgetLabel ? [{ label: "Budget", value: solicitationModel.budgetLabel }] : []),
+                { label: "Outcome", value: solicitationModel.reviewOutcomeMode === "emit_task" ? "Creates task" : solicitationModel.reviewOutcomeMode === "signal_run" ? "Signals run" : solicitationModel.reviewOutcomeMode === "emit_proposal" ? "Creates proposal" : "Stores feedback" },
                 {
                     label: "Capabilities",
                     value: solicitationModel.capabilityLabels.length
@@ -508,11 +672,16 @@ function renderStructuredData(content: PayloadContent, artifactId?: string) {
             return (
                 <FeedbackDecisionCard
                     artifactId={artifactId}
-                    title="Agent Solicitation"
+                    title={solicitationModel.kindLabel}
                     roleLabel={solicitationModel.roleLabel}
                     summary={solicitationModel.summary}
                     hint={solicitationModel.feedbackHint}
+                    outcomeLabel={solicitationModel.reviewOutcomeLabel}
                     detailItems={detailItems}
+                    sourceRefs={solicitationModel.sourceRefLabels}
+                    requestedAction={solicitationModel.requestedActionLabel}
+                    uncertainties={solicitationModel.uncertaintyLabels}
+                    recommendations={solicitationModel.recommendationLabels}
                 />
             );
         }

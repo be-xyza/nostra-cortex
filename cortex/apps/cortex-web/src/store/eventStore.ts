@@ -1,9 +1,10 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB } from 'idb';
+import type { DBSchema, IDBPDatabase } from 'idb';
 import { SEED_EVENTS, INTRO_SPACE_ID, MOCK_WHOAMI, MOCK_LAYOUT_SPEC, MOCK_NAVIGATION_PLAN, MOCK_UX_WORKBENCH_MAIN, MOCK_UX_WORKBENCH_LABS, MOCK_UX_WORKBENCH_EXECUTION_CANVAS, MOCK_UX_WORKBENCH_SYSTEM, MOCK_UX_WORKBENCH_SPACES, MOCK_UX_WORKBENCH_HEAP, MOCK_UX_WORKBENCH_STUDIO } from './seedData.ts';
 import { useUserPreferences } from './userPreferences.ts';
 import { PREVIEW_SNAPSHOT_IDS, isPreviewEventRecord, isPreviewSnapshotId } from './previewFixtureCatalog.ts';
 
-export interface GlobalEvent {
+export interface PreviewGlobalEvent {
   id: string;
   type: string;
   spaceId: string;
@@ -17,12 +18,13 @@ export type PlatformEntityState = Record<string, unknown>;
  * Event Store Schema
  * 
  * Fulfills the Pivot: Event log is the primary database.
- * All UI state derives from GlobalEvents.
+ * All UI state derives from browser-local preview events.
+ * This is not the canonical GlobalEvent envelope defined in shared/specs.md.
  */
 interface CortexEventDB extends DBSchema {
   events: {
     key: string;
-    value: GlobalEvent;
+    value: PreviewGlobalEvent;
     indexes: {
       'by-space': string;
       'by-timestamp': string;
@@ -46,7 +48,7 @@ interface CortexEventDB extends DBSchema {
 /**
  * Read the event log for a given space since a specific timestamp.
  */
-export async function getEventsBySpaceSince(spaceId: string, sinceTs: string): Promise<GlobalEvent[]> {
+export async function getEventsBySpaceSince(spaceId: string, sinceTs: string): Promise<PreviewGlobalEvent[]> {
   await purgePreviewFixturesIfDisabled();
   if (!arePreviewFixturesEnabled() && spaceId === INTRO_SPACE_ID) {
     return [];
@@ -200,7 +202,7 @@ export async function initSystemSnapshotsIfNeeded(): Promise<void> {
 /**
  * Append an event to the local event log.
  */
-export async function appendEvent(event: GlobalEvent): Promise<void> {
+export async function appendEvent(event: PreviewGlobalEvent): Promise<void> {
   const db = await initEventStore();
   const tx = db.transaction('events', 'readwrite');
   await tx.store.add(event);
@@ -213,7 +215,7 @@ export async function appendEvent(event: GlobalEvent): Promise<void> {
 /**
  * Read the entire event log for a given space, sorted chronologically.
  */
-export async function getEventsBySpace(spaceId: string): Promise<GlobalEvent[]> {
+export async function getEventsBySpace(spaceId: string): Promise<PreviewGlobalEvent[]> {
   await purgePreviewFixturesIfDisabled();
   if (!arePreviewFixturesEnabled() && spaceId === INTRO_SPACE_ID) {
     return [];
@@ -224,13 +226,13 @@ export async function getEventsBySpace(spaceId: string): Promise<GlobalEvent[]> 
   const events = await index.getAll(spaceId);
   return events
     .filter((event) => arePreviewFixturesEnabled() || !isPreviewEventRecord(event))
-    .sort((a: GlobalEvent, b: GlobalEvent) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    .sort((a: PreviewGlobalEvent, b: PreviewGlobalEvent) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 /**
  * Retrieve all events related to a specific artifact.
  * Scans events in the given space to find those where payload.artifactId matches.
  */
-export async function getEventsByArtifactId(spaceId: string, artifactId: string): Promise<GlobalEvent[]> {
+export async function getEventsByArtifactId(spaceId: string, artifactId: string): Promise<PreviewGlobalEvent[]> {
   const events = await getEventsBySpace(spaceId);
   return events.filter(e => e.payload.artifactId === artifactId);
 }

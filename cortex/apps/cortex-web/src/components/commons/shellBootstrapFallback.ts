@@ -1,4 +1,5 @@
 import type { AuthSession, ShellLayoutSpec, WhoAmIResponse } from "../../contracts.ts";
+import { isLocalDevBootstrapEnabled } from "../../localDevBootstrap.ts";
 
 const FALLBACK_LAYOUT_SPEC: ShellLayoutSpec = {
   layoutId: "default",
@@ -102,6 +103,10 @@ const FALLBACK_WHOAMI: WhoAmIResponse = {
   authzDecisionVersion: "1.0",
 };
 
+function useLocalDevBootstrap(): boolean {
+  return isLocalDevBootstrapEnabled();
+}
+
 function normalizeRole(role?: string): string {
   const normalized = role?.trim().toLowerCase();
   return normalized && normalized.length > 0
@@ -114,6 +119,11 @@ function normalizeActorId(actorId?: string): string {
   return normalized && normalized.length > 0
     ? normalized
     : FALLBACK_WHOAMI.principal || "local-user";
+}
+
+function resolveDevBootstrapRole(role?: string): string {
+  const normalized = normalizeRole(role);
+  return normalized === "steward" ? "steward" : "operator";
 }
 
 export function buildFallbackShellLayoutSpec(): ShellLayoutSpec {
@@ -133,20 +143,42 @@ export function buildFallbackWhoami(
   generatedAt = new Date().toISOString(),
 ): WhoAmIResponse {
   const session = buildFallbackAuthSession(actorId, actorRole, generatedAt);
+  const devBootstrap = useLocalDevBootstrap();
   return {
     ...FALLBACK_WHOAMI,
     generatedAt,
     principal: session.principal,
-    requestedRole: normalizeRole(actorRole),
+    requestedRole: devBootstrap
+      ? resolveDevBootstrapRole(actorRole)
+      : normalizeRole(actorRole),
     effectiveRole: session.activeRole,
+    identitySource: session.identitySource,
+    identityVerified: session.identityVerified,
+    authzDevMode: devBootstrap,
+    allowUnverifiedRoleHeader: session.allowUnverifiedRoleHeader,
   };
 }
 
 export function buildFallbackAuthSession(
   actorId?: string,
-  _actorRole?: string,
+  actorRole?: string,
   generatedAt = new Date().toISOString(),
 ): AuthSession {
+  if (useLocalDevBootstrap()) {
+    return {
+      ...FALLBACK_SESSION,
+      generatedAt,
+      principal: normalizeActorId(actorId),
+      sessionId: "localhost-dev-bootstrap",
+      identitySource: "localhost_dev_bootstrap",
+      authMode: "dev_override",
+      grantedRoles: ["operator", "steward"],
+      activeRole: resolveDevBootstrapRole(actorRole),
+      allowRoleSwitch: true,
+      allowUnverifiedRoleHeader: true,
+    };
+  }
+
   return {
     ...FALLBACK_SESSION,
     generatedAt,
@@ -164,7 +196,11 @@ export function formatShellBootstrapWarning(
     : "";
   const prefix =
     context === "layout"
-      ? "Gateway unavailable. Using local fallback shell."
-      : "Identity endpoint unavailable. Using local fallback role.";
+      ? useLocalDevBootstrap()
+        ? "Gateway unavailable. Using localhost dev bootstrap shell."
+        : "Gateway unavailable. Using local fallback shell."
+      : useLocalDevBootstrap()
+        ? "Identity endpoint unavailable. Using localhost dev bootstrap role."
+        : "Identity endpoint unavailable. Using local fallback role.";
   return `${prefix}${targetSuffix} ${error}`.trim();
 }

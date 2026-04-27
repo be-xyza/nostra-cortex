@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { readWindowRequestedSpaceId } from "../serviceWorker/requestScope.ts";
 
 const ACTOR_ID_STORAGE_KEY = "cortex.shell.actor.id";
 const ROLE_STORAGE_KEY = "cortex.shell.actor.role";
@@ -53,6 +54,10 @@ function defaultRole(): CortexRole {
 }
 
 function defaultSpaceId(): string {
+    const requested = readWindowRequestedSpaceId();
+    if (requested) {
+        return requested;
+    }
     const stored = readLocalStorage("cortex.shell.space.id");
     if (stored?.trim()) {
         const parts = stored.split(",");

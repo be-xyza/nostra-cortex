@@ -1771,6 +1771,16 @@ export type EmitHeapBlockRequest = EmitHeapBlockSpaceSelector & {
   crdt_projection?: Json;
 };
 
+export interface EmitHeapBlockResponse {
+  accepted: boolean;
+  artifactId: string;
+  blockId?: string;
+  opId?: string;
+  idempotent?: boolean;
+  sourceOfTruth?: string;
+  fallbackActive?: boolean;
+}
+
 export type GateSummaryKind = "siq" | "testing";
 
 export interface EmitGateSummaryHeapBlockRequest {
@@ -1790,6 +1800,8 @@ export interface A2UISubmitFeedbackResponse {
   artifactId: string;
   feedbackArtifactId: string;
   storedAt: string;
+  reviewOutcomeMode?: string;
+  followUpBlockType?: string;
   followUpArtifactId?: string;
 }
 

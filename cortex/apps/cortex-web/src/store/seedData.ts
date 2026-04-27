@@ -1,4 +1,4 @@
-import type { GlobalEvent } from './eventStore.ts';
+import type { PreviewGlobalEvent } from './eventStore.ts';
 import {
   buildExecutionCanvasRoute,
   buildSpaceStudioRoute,
@@ -17,7 +17,7 @@ import type {
 
 export const INTRO_SPACE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 
-export const SEED_EVENTS: GlobalEvent[] = [
+export const SEED_EVENTS: PreviewGlobalEvent[] = [
   {
     id: "seed-event-1",
     type: "HeapBlockCreated",
