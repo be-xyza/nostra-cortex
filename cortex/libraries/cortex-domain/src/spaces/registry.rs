@@ -259,7 +259,10 @@ mod tests {
             status: SpaceStatus::Active,
             created_at: "1700000001".to_string(),
             owner: "systems-steward".to_string(),
-            members: vec!["systems-steward".to_string(), "agent:cortex-worker-01".to_string()],
+            members: vec![
+                "systems-steward".to_string(),
+                "agent:cortex-worker-01".to_string(),
+            ],
             archetype: Some("Research".to_string()),
         });
 
@@ -362,8 +365,7 @@ mod tests {
         );
 
         let encoded = serde_json::to_string(&registry).expect("encode");
-        let decoded: SpaceRuntimeSettingsRegistry =
-            serde_json::from_str(&encoded).expect("decode");
+        let decoded: SpaceRuntimeSettingsRegistry = serde_json::from_str(&encoded).expect("decode");
         let settings = decoded.get("space-alpha").expect("space settings");
         assert_eq!(settings.default_model.as_deref(), Some("gpt-5.4"));
         assert_eq!(

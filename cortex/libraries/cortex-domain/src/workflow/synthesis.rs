@@ -1,8 +1,8 @@
 use crate::workflow::types::{
-    ContextContractV1, WORKFLOW_SCHEMA_VERSION, WorkflowCandidateEnvelope, WorkflowCandidateSet,
-    WorkflowConfidence, WorkflowConstraintRule, WorkflowDraftPolicyV1, WorkflowDraftV1,
-    WorkflowEdgeV1, WorkflowGenerationMode, WorkflowGenerationTrace, WorkflowGraphV1,
-    WorkflowMotifKind, WorkflowNodeKind, WorkflowNodeV1, WorkflowProvenance, WorkflowScope,
+    ContextContractV1, WorkflowCandidateEnvelope, WorkflowCandidateSet, WorkflowConfidence,
+    WorkflowConstraintRule, WorkflowDraftPolicyV1, WorkflowDraftV1, WorkflowEdgeV1,
+    WorkflowGenerationMode, WorkflowGenerationTrace, WorkflowGraphV1, WorkflowMotifKind,
+    WorkflowNodeKind, WorkflowNodeV1, WorkflowProvenance, WorkflowScope, WORKFLOW_SCHEMA_VERSION,
 };
 use crate::workflow::validation::{compile_workflow_draft, scope_key, validate_workflow_draft};
 use serde::{Deserialize, Serialize};
@@ -66,7 +66,11 @@ fn edge(from: &str, to: &str, relation: &str) -> WorkflowEdgeV1 {
 }
 
 fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> WorkflowGraphV1 {
-    let prefix = format!("wf{}_{}", seed.candidate_index + 1, sanitize_token(&seed.seed));
+    let prefix = format!(
+        "wf{}_{}",
+        seed.candidate_index + 1,
+        sanitize_token(&seed.seed)
+    );
     match motif_kind {
         WorkflowMotifKind::Sequential => {
             let capability_id = format!("{prefix}_task");
@@ -84,7 +88,11 @@ fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> Workf
             WorkflowGraphV1 {
                 nodes: vec![
                     capability,
-                    node(terminal_id.clone(), "Complete".to_string(), WorkflowNodeKind::Terminal),
+                    node(
+                        terminal_id.clone(),
+                        "Complete".to_string(),
+                        WorkflowNodeKind::Terminal,
+                    ),
                 ],
                 edges: vec![edge(&capability_id, &terminal_id, "transition")],
             }
@@ -146,7 +154,11 @@ fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> Workf
                     left,
                     right,
                     eval,
-                    node(terminal_id.clone(), "Complete".to_string(), WorkflowNodeKind::Terminal),
+                    node(
+                        terminal_id.clone(),
+                        "Complete".to_string(),
+                        WorkflowNodeKind::Terminal,
+                    ),
                 ],
                 edges: vec![
                     edge(&parallel_id, &left_id, "parallel_branch"),
@@ -168,7 +180,10 @@ fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> Workf
                 "Repair capability".to_string(),
                 WorkflowNodeKind::CapabilityCall,
             );
-            capability.reads = vec!["inputs.prompt".to_string(), "evaluation.feedback".to_string()];
+            capability.reads = vec![
+                "inputs.prompt".to_string(),
+                "evaluation.feedback".to_string(),
+            ];
             capability.writes = vec!["artifacts.repair_candidate".to_string()];
             capability.authority_requirements = vec!["execution.apply".to_string()];
             capability.evidence_outputs = vec!["artifact://repair_candidate".to_string()];
@@ -179,7 +194,10 @@ fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> Workf
                 WorkflowNodeKind::EvaluationGate,
             );
             eval.reads = vec!["artifacts.repair_candidate".to_string()];
-            eval.writes = vec!["evaluation.pass".to_string(), "evaluation.feedback".to_string()];
+            eval.writes = vec![
+                "evaluation.pass".to_string(),
+                "evaluation.feedback".to_string(),
+            ];
             eval.evidence_outputs = vec!["evaluation://repair_gate".to_string()];
 
             let mut loop_node = node(
@@ -199,7 +217,11 @@ fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> Workf
                     capability,
                     eval,
                     loop_node,
-                    node(terminal_id.clone(), "Complete".to_string(), WorkflowNodeKind::Terminal),
+                    node(
+                        terminal_id.clone(),
+                        "Complete".to_string(),
+                        WorkflowNodeKind::Terminal,
+                    ),
                 ],
                 edges: vec![
                     edge(&capability_id, &eval_id, "transition"),
@@ -246,7 +268,11 @@ fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> Workf
                     parallel,
                     left,
                     right,
-                    node(terminal_id.clone(), "Complete".to_string(), WorkflowNodeKind::Terminal),
+                    node(
+                        terminal_id.clone(),
+                        "Complete".to_string(),
+                        WorkflowNodeKind::Terminal,
+                    ),
                 ],
                 edges: vec![
                     edge(&parallel_id, &left_id, "parallel_branch"),
@@ -277,12 +303,13 @@ fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> Workf
             );
             checkpoint.reads = vec!["artifacts.candidate".to_string()];
             checkpoint.writes = vec!["control.approval".to_string()];
-            checkpoint.checkpoint_policy = Some(crate::workflow::types::WorkflowCheckpointPolicyV1 {
-                resume_allowed: true,
-                cancel_allowed: true,
-                pause_allowed: true,
-                timeout_seconds: Some(3600),
-            });
+            checkpoint.checkpoint_policy =
+                Some(crate::workflow::types::WorkflowCheckpointPolicyV1 {
+                    resume_allowed: true,
+                    cancel_allowed: true,
+                    pause_allowed: true,
+                    timeout_seconds: Some(3600),
+                });
             checkpoint.config = json!({
                 "surfaceTemplate": "workflow_review_card",
             });
@@ -291,7 +318,11 @@ fn build_graph(motif_kind: &WorkflowMotifKind, seed: &WorkflowSeedSpec) -> Workf
                 nodes: vec![
                     capability,
                     checkpoint,
-                    node(terminal_id.clone(), "Complete".to_string(), WorkflowNodeKind::Terminal),
+                    node(
+                        terminal_id.clone(),
+                        "Complete".to_string(),
+                        WorkflowNodeKind::Terminal,
+                    ),
                 ],
                 edges: vec![
                     edge(&capability_id, &checkpoint_id, "transition"),

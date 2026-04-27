@@ -91,7 +91,11 @@ pub struct PlacementConstraint {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CapabilityNode {
     pub id: CapabilityId,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "resourceRef")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "resourceRef"
+    )]
     pub resource_ref: Option<String>,
     pub name: String,
     pub description: String,

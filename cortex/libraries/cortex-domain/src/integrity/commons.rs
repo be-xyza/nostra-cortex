@@ -1,4 +1,4 @@
-use super::engine::{IntegrityViolation, evaluate_all};
+use super::engine::{evaluate_all, IntegrityViolation};
 use super::micro_syntax::SuggestedEnrichment;
 use super::rule::IntegrityRule;
 use crate::graph::Graph;
@@ -66,7 +66,7 @@ pub fn evaluate_commons_ruleset_with_suggested_enrichments(
 mod tests {
     use super::*;
     use crate::graph::{Edge, EdgeKind, Node};
-    use crate::integrity::micro_syntax::{SuggestedEnrichmentKind, extract_suggested_enrichments};
+    use crate::integrity::micro_syntax::{extract_suggested_enrichments, SuggestedEnrichmentKind};
     use crate::integrity::predicate::{
         Constraint, Direction, EdgeSelector, IntegrityPredicate, NodeSelector,
     };

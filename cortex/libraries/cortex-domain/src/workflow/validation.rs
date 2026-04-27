@@ -1,9 +1,9 @@
 use crate::workflow::types::{
-    WORKFLOW_CONTEXT_SECTIONS, WorkflowCompileResult, WorkflowDefinitionV1, WorkflowDraftV1,
-    WorkflowEdgeV1, WorkflowMotifKind, WorkflowNodeKind, WorkflowNodeV1, WorkflowScope,
-    WorkflowValidationIssue, WorkflowValidationResult,
+    WorkflowCompileResult, WorkflowDefinitionV1, WorkflowDraftV1, WorkflowEdgeV1,
+    WorkflowMotifKind, WorkflowNodeKind, WorkflowNodeV1, WorkflowScope, WorkflowValidationIssue,
+    WorkflowValidationResult, WORKFLOW_CONTEXT_SECTIONS,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -11,7 +11,11 @@ fn is_blank(value: &str) -> bool {
     value.trim().is_empty()
 }
 
-fn issue(code: &str, path: impl Into<String>, message: impl Into<String>) -> WorkflowValidationIssue {
+fn issue(
+    code: &str,
+    path: impl Into<String>,
+    message: impl Into<String>,
+) -> WorkflowValidationIssue {
     WorkflowValidationIssue {
         code: code.to_string(),
         path: path.into(),
@@ -56,14 +60,32 @@ fn validate_node(
 ) {
     let path = format!("graph.nodes[{idx}]");
     if is_blank(&node.node_id) {
-        errors.push(issue("missing_field", format!("{path}.nodeId"), "nodeId is required"));
+        errors.push(issue(
+            "missing_field",
+            format!("{path}.nodeId"),
+            "nodeId is required",
+        ));
     }
     if is_blank(&node.label) {
-        errors.push(issue("missing_field", format!("{path}.label"), "label is required"));
+        errors.push(issue(
+            "missing_field",
+            format!("{path}.label"),
+            "label is required",
+        ));
     }
 
-    validate_context_paths(&node.reads, &format!("{path}.reads"), allowed_sections, errors);
-    validate_context_paths(&node.writes, &format!("{path}.writes"), allowed_sections, errors);
+    validate_context_paths(
+        &node.reads,
+        &format!("{path}.reads"),
+        allowed_sections,
+        errors,
+    );
+    validate_context_paths(
+        &node.writes,
+        &format!("{path}.writes"),
+        allowed_sections,
+        errors,
+    );
 
     match node.kind {
         WorkflowNodeKind::CapabilityCall => {
@@ -194,10 +216,7 @@ fn detect_non_loop_cycles(
     None
 }
 
-fn validate_motif_rules(
-    draft: &WorkflowDraftV1,
-    errors: &mut Vec<WorkflowValidationIssue>,
-) {
+fn validate_motif_rules(draft: &WorkflowDraftV1, errors: &mut Vec<WorkflowValidationIssue>) {
     let node_count = |kind: WorkflowNodeKind| {
         draft
             .graph
@@ -234,7 +253,11 @@ fn validate_motif_rules(
         WorkflowMotifKind::RepairLoop => {
             if node_count(WorkflowNodeKind::Loop) != 1
                 || node_count(WorkflowNodeKind::EvaluationGate) != 1
-                || !draft.graph.edges.iter().any(|edge| edge.relation == "loop_back")
+                || !draft
+                    .graph
+                    .edges
+                    .iter()
+                    .any(|edge| edge.relation == "loop_back")
             {
                 errors.push(issue(
                     "invalid_motif",
@@ -307,7 +330,11 @@ pub fn validate_workflow_draft(draft: &WorkflowDraftV1) -> WorkflowValidationRes
     for (idx, edge) in draft.graph.edges.iter().enumerate() {
         let path = format!("graph.edges[{idx}]");
         if is_blank(&edge.edge_id) {
-            errors.push(issue("missing_field", format!("{path}.edgeId"), "edgeId is required"));
+            errors.push(issue(
+                "missing_field",
+                format!("{path}.edgeId"),
+                "edgeId is required",
+            ));
         }
         if !node_ids.contains(edge.from.as_str()) {
             errors.push(issue(
@@ -821,7 +848,11 @@ mod tests {
             .iter_mut()
             .find(|node| node.kind == WorkflowNodeKind::HumanCheckpoint)
             .unwrap();
-        checkpoint.checkpoint_policy.as_mut().unwrap().cancel_allowed = false;
+        checkpoint
+            .checkpoint_policy
+            .as_mut()
+            .unwrap()
+            .cancel_allowed = false;
         let result = validate_workflow_draft(&draft);
         assert!(!result.valid);
         assert!(result
