@@ -2,7 +2,7 @@
 
 > How Eudaemon Alpha integrates with the current Nostra/Cortex stack after the Phase 6 Hetzner resolution.
 >
-> Current validated reality for this pass: gateway parity passes locally, the root repo is authoritative, the active VPS runtime contract is `cortex-gateway` plus `cortex_worker`, the `eudaemon-alpha/` companion path is historical/unvalidated here, prompt override remains unverified, and Meta-Harness is recommendation-only.
+> Current validated reality for this pass: gateway parity passes locally, the root repo is authoritative, the active VPS runtime contract is `cortex-gateway` plus `cortex_worker`, prompt override remains unverified, and Meta-Harness is recommendation-only.
 
 ---
 

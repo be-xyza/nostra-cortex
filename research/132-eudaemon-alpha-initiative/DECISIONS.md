@@ -1,5 +1,27 @@
 # Initiative 132 Decisions
 
+## 2026-04-25 — Hermes Green Means Local Advisory Review and Lineage Only
+
+**Decision**
+
+Promote the Hermes stage to `green` only for bounded local advisory review and lineage.
+
+This green status covers the validated local envelope: bounded Hermes synthesis, source-packet/audit-unit discipline, operator-mediated Cortex heap visibility, local heap projection, and steward feedback lineage. It does not authorize production identity readiness, production authorization, ICP evidence promotion beyond the recorded evidence note, provider execution, subagents, skill activation, memory authority, unattended execution, or Hermes acting as a workflow authority.
+
+**Why**
+
+- The Hermes lane sweep completed more than the required five clean bounded passes.
+- Local stabilization sub-signals are green.
+- The local heap emission pilot validated contract shape, heap ingestion, read-back, and steward feedback lineage.
+- Cortex Web review surfaces were hardened enough for the bounded local advisory path, including explicit review outcome semantics, decision receipts, and space-aware artifact navigation.
+- The operator explicitly authorized promotion with the scope: `bounded local advisory review and lineage only`.
+
+**Consequences**
+
+- `/Users/xaoj/hermes/stabilization/initiative-132-hermes-stage-stabilization.v1.json` now records overall `status: "green"` with a bounded `statusScope`.
+- The promotion evidence lives at `/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260425T054737Z_hermes_green_local_advisory_review_and_lineage.md`.
+- Production-auth heap emission, production role proof, ICP evidence promotion beyond this note, and any execution expansion remain separate governed gates.
+
 ## 2026-04-23 — Hermes Uses Source Packets and Existing Cortex Visibility Surfaces
 
 **Decision**
@@ -105,7 +127,7 @@ Hermes may use normal advisory inference to reason over explicit `SourceManifest
 
 Adopt the next local Hermes pass as advisory batch-design context only. Hermes may receive governed Initiative 132, Doubleword, architecture, Nostra/Cortex boundary, and provider batch-policy references as read-only source material, but it must not receive provider credentials, submit Doubleword or other batch-provider jobs, poll batch APIs, or mutate the repo or runtime.
 
-The active VPS runtime authority for this stage is also clarified as `cortex-gateway` plus `cortex_worker` under the current Hetzner runbook and runtime authority manifest. Older Python `eudaemon-alpha/` companion references remain historical/unvalidated in this checkout until separately restored and verified.
+The active VPS runtime authority for this stage is also clarified as `cortex-gateway` plus `cortex_worker` under the current Hetzner runbook and runtime authority manifest. Older Python `eudaemon-alpha/` companion references are historical only; Initiative 132 authority lives in the root ICP tree.
 
 **Why**
 
@@ -125,11 +147,11 @@ The active VPS runtime authority for this stage is also clarified as `cortex-gat
 
 **Decision**
 
-Adopt the Meta-Harness findings for Initiative 132 as recommendation-only planning inputs, while treating gateway parity as locally passing, the root repo as authoritative for this pass, the `eudaemon-alpha/` companion path as absent/unvalidated in this checkout, and prompt override as unverified until a live path is demonstrated.
+Adopt the Meta-Harness findings for Initiative 132 as recommendation-only planning inputs, while treating gateway parity as locally passing, the root repo as authoritative for this pass, older `eudaemon-alpha/` companion references as historical only, and prompt override as unverified until a live path is demonstrated.
 
 **Why**
 
-- The current checkout can validate the root Cortex/Nostra surfaces directly, but it does not contain a validated companion `eudaemon-alpha/` implementation repo.
+- The current checkout validates the root Cortex/Nostra surfaces directly; the former companion `eudaemon-alpha/` implementation repo is no longer an active authority boundary.
 - Meta-Harness is useful as a harness-evaluation pattern, not as a license to bypass governance, workflow authority, or steward review.
 - The planning docs need to distinguish current evidence from future migration assumptions so later work does not inherit stale certainty.
 
@@ -137,7 +159,7 @@ Adopt the Meta-Harness findings for Initiative 132 as recommendation-only planni
 
 - Initiative 132 planning must label prompt-override behavior as unverified until a live path exists.
 - Any Meta-Harness-derived optimization remains advisory until steward-reviewed and cannot self-apply changes.
-- Docs that refer to the `eudaemon-alpha/` companion boundary should treat it as planned or historical, not as currently validated in this checkout.
+- Active docs that refer to the `eudaemon-alpha/` companion boundary should treat it as historical only.
 
 ## 2026-03-18 — Phase 6 Hetzner Runtime Resolution
 
@@ -162,7 +184,7 @@ Phase 6 deploys Eudaemon Alpha as a Python worker on a Hetzner VPS with the Rust
 
 **Decision**
 
-Initiative 132 remains authoritative in the root ICP repo. The Python Eudaemon Alpha worker was planned as a companion implementation repo boundary, but this checkout does not validate the `eudaemon-alpha/` path as present or live.
+Initiative 132 remains authoritative in the root ICP repo. The Python Eudaemon Alpha worker was previously planned as a companion implementation repo boundary, but that companion path is now deprecated.
 
 **Why**
 
@@ -172,9 +194,9 @@ Initiative 132 remains authoritative in the root ICP repo. The Python Eudaemon A
 
 **Consequences**
 
-- Root docs and Hetzner guidance should treat `eudaemon-alpha/` references as planned or historical until the path is restored and validated.
-- Agent-owned service units and bootstrap tooling remain contingent on that companion boundary being present.
-- Root deployment flows only need `git clone --recurse-submodules` if the companion repo is actually present.
+- Root docs and Hetzner guidance should treat `eudaemon-alpha/` references as historical only.
+- Agent-owned service units and bootstrap tooling now resolve through the root ICP tree and active Hetzner authority manifests.
+- Root deployment flows should not require the deprecated companion repo.
 
 ## 2026-03-19 — Doubleword Batch Cognition Is Advisory and Eudaemon Is the Synthesizer
 
@@ -229,7 +251,7 @@ Phase 6 production deployment authority moves out of GitHub Actions and into an 
 
 - GitHub `main` no longer deploys directly to the VPS; it reports promotability only after required gates pass.
 - Operators promote or roll back by redeploying an explicit commit through the same governed local command.
-- `/srv/nostra/eudaemon-alpha/repo` and `/srv/nostra/eudaemon-alpha/state/cortex_runtime_authority.json` become the primary host analysis authority surfaces.
+- Historical `/srv/nostra/eudaemon-alpha/...` host paths no longer define the active authority surface; the current authority chain is the root ICP checkout plus the governed runtime manifest and Hetzner runbook.
 - `cortex-web` remains explicitly `not_deployed` on the VPS until a later governed change updates the contract.
 
 ## 2026-03-31 — Phase 7 Uses Parity Slices, Typed Boundary Hardening, and Executor-Specific Sandboxing
