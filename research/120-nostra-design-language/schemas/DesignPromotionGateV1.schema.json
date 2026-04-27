@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/design-promotion-gate-v1.schema.json",
+  "title": "DesignPromotionGateV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "promotion_gate_id",
+    "authority_mode",
+    "target_profile_ref",
+    "source_evidence_refs",
+    "required_evidence",
+    "steward_approval",
+    "runtime_activation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "DesignPromotionGateV1"
+    },
+    "promotion_gate_id": {
+      "type": "string",
+      "pattern": "^design-promotion-gate:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "authority_mode": {
+      "const": "recommendation_only"
+    },
+    "target_profile_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "locked_reality_snapshot_current",
+          "upstream_compatible_lint_passed",
+          "nostra_specific_lint_passed",
+          "candidate_imports_recommendation_only",
+          "template_packs_recommendation_only",
+          "accessibility_checks_passed",
+          "a2ui_fixture_validation_passed",
+          "cortex_web_preview_metadata_only",
+          "tier1_spoofing_blocked",
+          "hermes_advisory_only",
+          "steward_approval_lineage_recorded"
+        ]
+      }
+    },
+    "steward_approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "status",
+        "approved_by"
+      ],
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "status": {
+          "enum": [
+            "not_requested",
+            "pending",
+            "approved",
+            "rejected"
+          ]
+        },
+        "approved_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "runtime_activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_selection_enabled",
+        "token_application_enabled",
+        "theme_switching_enabled",
+        "allowlist_reuse_authorized"
+      ],
+      "properties": {
+        "profile_selection_enabled": {
+          "const": false
+        },
+        "token_application_enabled": {
+          "const": false
+        },
+        "theme_switching_enabled": {
+          "const": false
+        },
+        "allowlist_reuse_authorized": {
+          "const": false
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

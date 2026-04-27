@@ -101,6 +101,7 @@ This stage is limited to contract hardening:
 1. `SpaceDesignProfileV1` is the active profile wrapper for Space-level design contracts.
 2. `DesignElementImportV1` records reusable design materials as candidate inputs with provenance and required checks.
 3. `SpaceTemplatePackV1` groups profile defaults and import candidates behind a recommendation-only promotion gate.
-4. `scripts/check_ndl_design_profiles.py` validates profiles, imports, and template packs together until a broader design-contract command is introduced.
+4. `DesignPromotionGateV1` records the evidence required before a profile can request steward approval.
+5. `scripts/check_ndl_design_profiles.py` validates profiles, imports, template packs, and promotion gates together until a broader design-contract command is introduced.
 
 This stage still does not authorize runtime profile selection, external component imports, or direct Hermes enforcement.

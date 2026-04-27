@@ -1,0 +1,40 @@
+{
+  "schema_version": "DesignPromotionGateV1",
+  "promotion_gate_id": "design-promotion-gate:research-observatory-draft",
+  "authority_mode": "recommendation_only",
+  "target_profile_ref": "research/120-nostra-design-language/prototypes/space-design/SPACE_DESIGN.space-profile.v1.json",
+  "source_evidence_refs": [
+    "research/132-eudaemon-alpha-initiative/evidence/20260427T153606Z_space_design_next_session_handoff.md",
+    "research/132-eudaemon-alpha-initiative/evidence/20260427T165109Z_space_design_a2ui_fixture_validation.md",
+    "research/132-eudaemon-alpha-initiative/evidence/20260427T173220Z_space_design_a2ui_fixture_negative_coverage.md",
+    "research/132-eudaemon-alpha-initiative/evidence/20260427T180458Z_space_design_cortex_web_preview_fixture.md",
+    "research/132-eudaemon-alpha-initiative/evidence/20260427T182112Z_space_design_cortex_web_preview_client.md",
+    "research/132-eudaemon-alpha-initiative/evidence/20260427T183555Z_space_design_cortex_web_readonly_ui.md",
+    "research/132-eudaemon-alpha-initiative/evidence/20260427T184951Z_space_design_preview_chain_handoff.md"
+  ],
+  "required_evidence": [
+    "locked_reality_snapshot_current",
+    "upstream_compatible_lint_passed",
+    "nostra_specific_lint_passed",
+    "candidate_imports_recommendation_only",
+    "template_packs_recommendation_only",
+    "accessibility_checks_passed",
+    "a2ui_fixture_validation_passed",
+    "cortex_web_preview_metadata_only",
+    "tier1_spoofing_blocked",
+    "hermes_advisory_only",
+    "steward_approval_lineage_recorded"
+  ],
+  "steward_approval": {
+    "required": true,
+    "status": "not_requested",
+    "approved_by": []
+  },
+  "runtime_activation": {
+    "profile_selection_enabled": false,
+    "token_application_enabled": false,
+    "theme_switching_enabled": false,
+    "allowlist_reuse_authorized": false
+  },
+  "notes": "Draft promotion gate for the Research Observatory Space design profile. It records evidence requirements only; it does not approve the profile or activate runtime behavior."
+}
