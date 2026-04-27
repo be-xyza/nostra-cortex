@@ -4,7 +4,7 @@ name: "hybrid-workflow-authority-and-execution"
 title: "Hybrid Workflow Authority and Execution"
 type: "plan"
 project: "nostra"
-status: active
+status: archived
 execution_plane: "cortex"
 authority_mode: "recommendation_only"
 reference_topics: ["agent-systems", "workflow-orchestration", "evaluation"]
@@ -13,6 +13,9 @@ reference_assets:
   - "research/reference/knowledge/workflow-orchestration/2026_Liu_MASFactory"
   - "research/reference/knowledge/agent-systems/2026_OpenAI_Doubleword_Batch_Strategy_Transcript"
 evidence_strength: "moderate"
+completion_status: "complete"
+archived_at: "2026-04-27"
+archive_reason: "Exit criteria satisfied; canister-backed workflow execution adapter merged, live-validated, and evidence-backed."
 authors:
   - "Codex"
 tags: ["workflow", "authority", "execution", "projections", "drift-review"]
@@ -25,6 +28,14 @@ updated: "2026-04-27"
 ---
 
 # Initiative 134: Hybrid Workflow Authority and Execution
+
+## Completion Summary
+
+**Status 2026-04-27**: Complete and archived.
+
+Initiative 134 delivered the governed workflow substrate and execution-adapter pattern required for the current Nostra/Cortex slice. The canonical workflow contracts, deterministic compiler/projection surfaces, governance lifecycle, local durable worker adapter, explicit `workflow_engine_canister_v1` adapter, persisted gateway registry, workbench loading, typed frontend workflow-definition contract, ICP CLI deployment path, and live cross-adapter parity evidence are all in place.
+
+The default runtime remains `local_durable_worker_v1`; `workflow_engine_canister_v1` remains explicit opt-in. That is an operational default decision, not an unresolved architecture gap.
 
 ## Overview
 Initiative 134 supersedes the assumption that [013](/Users/xaoj/ICP/research/013-nostra-workflow-engine/DECISIONS.md) is the canonical workflow architecture. It treats 013 as a historical pattern source, preserves its strongest decisions, and re-centers the architecture around Nostra authority artifacts plus Cortex execution adapters.
@@ -95,9 +106,25 @@ The canonical workflow substrate is an artifact pipeline plus execution adapter 
 - **Future initiatives**: May build on the validated adapter pattern for multi-adapter orchestration, evaluation gates, and batch audit workflows.
 
 ## Exit Criteria
-- Canonical workflow contracts compile and test in `cortex-domain`.
-- Deterministic compile emits stable projections for bounded motifs.
-- Runtime artifact services can generate, persist, and reload candidate sets.
-- Execution adapter routing supports both `local_durable_worker_v1` and explicit `workflow_engine_canister_v1`.
-- The dedicated `workflow_engine` canister remains an explicit adapter, with live ICP CLI deployment and cross-adapter parity evidence recorded before any default-adapter change.
-- Subscription-auth sidecars such as ZeroClaw remain provider brokers only and do not become workflow authority.
+- [x] Canonical workflow contracts compile and test in `cortex-domain`.
+- [x] Deterministic compile emits stable projections for bounded motifs.
+- [x] Runtime artifact services can generate, persist, and reload candidate sets.
+- [x] Execution adapter routing supports both `local_durable_worker_v1` and explicit `workflow_engine_canister_v1`.
+- [x] The dedicated `workflow_engine` canister remains an explicit adapter, with live ICP CLI deployment and cross-adapter parity evidence recorded before any default-adapter change.
+- [x] Subscription-auth sidecars such as ZeroClaw remain provider brokers only and do not become workflow authority.
+
+## Final Validation
+
+Validation evidence:
+
+- PR #52 merged to `origin/main` as `7fedf5741d667534386c7fbb75aad5f9a44e5f5e`.
+- PR #52 CI was green before merge: Static Analysis, Rust Unit & Integration Tests, Cortex Runtime Freeze Gates, ACP Gateway Integration, Motoko Canister Tests, Test Catalog Consistency, SIQ Observe, SIQ Softgate Promotion, Initiative 118 Evidence Gate, Offline Simulations Playwright, Vercel, and canister-ID checks passed.
+- Live ICP CLI deployment and direct canister lifecycle evidence is recorded under `research/134-hybrid-workflow-authority-and-execution/evidence/`.
+- Gateway-mediated canister execution and local-vs-canister parity evidence is recorded under the same evidence directory.
+- Hermes readiness gate `initiative-134-hermes-integration-readiness` records all five gates as `MET`.
+
+Residual gaps after archival:
+
+- Automated local-vs-canister gateway parity regression coverage can still be expanded in future maintenance work. This is a hardening opportunity, not an Initiative 134 completion blocker, because live parity was demonstrated and CI already covers the merged static/runtime surfaces.
+- Unsupported canister node kinds remain intentionally rejected for `EvaluationGate`, `Parallel`, `Switch`, and `SubflowRef`. Future initiatives may expand the canister adapter surface, but the Initiative 134 contract requires fail-fast behavior rather than silent degradation.
+- Changing the default adapter from `local_durable_worker_v1` to `workflow_engine_canister_v1` remains out of scope and would require a separate rollout decision.
