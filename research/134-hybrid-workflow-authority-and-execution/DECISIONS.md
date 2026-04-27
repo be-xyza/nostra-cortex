@@ -30,13 +30,31 @@ updated: "2026-04-27"
 - **Rationale**: Matches the platform/runtime boundary and avoids making a single canister or worker implementation architecturally primary by assumption.
 
 ## DEC-134-005: Canister execution adapter is explicit, not default
-- **Decision**: `workflow_engine_canister_v1` is a supported execution adapter path only when explicitly requested. `local_durable_worker_v1` remains the default execution adapter until live parity is demonstrated.
-- **Rationale**: The canister path is now implemented and statically verified, but live ICP CLI deployment and gateway-to-canister execution parity have not yet been completed.
+- **Decision**: `workflow_engine_canister_v1` is a supported execution adapter path only when explicitly requested. `local_durable_worker_v1` remains the default execution adapter.
+- **Rationale**: The canister path is now implemented, statically verified, and live-validated (see DEC-134-008). The default remains local for operational simplicity; canister selection is explicit by design, not by uncertainty.
+- **Consequences**:
+  - Gateway users must explicitly set `adapter: "workflow_engine_canister_v1"` in the execution binding.
+  - The default `local_durable_worker_v1` requires no network or canister deployment.
 
 ## DEC-134-006: ICP CLI is the current live validation path
 - **Decision**: Phase 5 live canister validation should use the current ICP CLI path (`icp`). Legacy `dfx` support remains compatibility-only.
 - **Rationale**: The active runtime direction is ICP CLI-first, and operator-facing Initiative 134 readiness should not depend on legacy `dfx` behavior.
 
-## DEC-134-007: Phase 4 is complete; Phase 5 remains gated
-- **Decision**: Treat Phase 4 execution adapter hardening as complete for implementation, static verification, and main-tree promotion. Treat Phase 5 as open until a live canister deployment and cross-adapter parity test pass.
-- **Rationale**: Main-tree checks pass for the implemented adapter path, but no live gateway-to-canister start/signal/snapshot/cancel cycle has been executed against a deployed canister.
+## DEC-134-007: Phase 4 is complete; Phase 5 requires live validation
+- **Decision**: Treat Phase 4 execution adapter hardening as complete for implementation, static verification, and main-tree promotion. Phase 5 requires live canister deployment and cross-adapter parity evidence.
+- **Rationale**: Static checks alone are insufficient for a canister-backed adapter. Live gateway-to-canister start/signal/snapshot/cancel cycles must be demonstrated before parity can be claimed.
+
+## DEC-134-008: Phase 5 cross-adapter parity is demonstrated
+- **Decision**: Treat Phase 5 cross-adapter parity as complete. The `workflow_engine_canister_v1` adapter has been deployed to a live canister, exercised through the Cortex gateway, and shown to reach semantic parity with `local_durable_worker_v1` for supported workflow motifs.
+- **Rationale**:
+  - Live canister deployment via ICP CLI succeeded on 2026-04-26.
+  - Direct canister lifecycle (compile, start, signal, snapshot, cancel) was exercised through `icp canister call`.
+  - Gateway-mediated canister execution succeeded through `/api/cortex/workflow-instances` with adapter selection, registry persistence, and full read/write endpoint coverage.
+  - Local-vs-canister parity was demonstrated: identical supported definitions reach matching semantic state (workflow_started, checkpoint_created, signal_received, resolved checkpoint, completed instance, completed outcome).
+  - Unsupported node kinds (parallel, evaluation_gate) fail fast on both adapters.
+  - The canister path is no longer optional until build/runtime validation is real. It is now a validated, selectable execution adapter.
+- **Consequences**:
+  - Future workflow definitions may explicitly select `workflow_engine_canister_v1` as the execution adapter.
+  - `local_durable_worker_v1` remains the default adapter unless explicitly overridden.
+  - The decision to keep canister as non-default is now operational preference, not architectural uncertainty.
+  - Initiative 134 exit criteria are satisfied.
