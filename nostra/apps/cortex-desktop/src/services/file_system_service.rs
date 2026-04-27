@@ -13,18 +13,20 @@ pub struct FileSystemService;
 
 impl FileSystemService {
     pub fn get_root_path() -> PathBuf {
-        // Adjust this to the actual Project Root relative to where the binary runs
-        // Assuming binary runs in `nostra/apps/cortex-desktop`
-        // Root is `../../../`
+        if let Ok(root) = std::env::var("NOSTRA_WORKSPACE_ROOT") {
+            return PathBuf::from(root).join("_cortex").join("workflows");
+        }
+
         std::env::current_dir()
             .unwrap()
-            .parent() // apps
+            .parent()
             .unwrap()
-            .parent() // nostra
+            .parent()
             .unwrap()
-            .parent() // ICP (root)
+            .parent()
             .unwrap()
-            .join("_bmad")
+            .join("_cortex")
+            .join("workflows")
     }
 
     pub fn list_workflows() -> Vec<WorkflowFile> {
@@ -51,11 +53,11 @@ impl FileSystemService {
     }
 
     pub fn read_file(path_str: &str) -> Option<String> {
-        // Security check: ensure path is within _bmad
+        // Security check: ensure path is within the Cortex workflow scratch root.
         let root = Self::get_root_path();
         let path = PathBuf::from(path_str);
 
-        if path.starts_with(&root) || path_str.contains("_bmad") {
+        if path.starts_with(&root) {
             fs::read_to_string(path).ok()
         } else {
             None
@@ -63,11 +65,14 @@ impl FileSystemService {
     }
 
     pub fn save_file(path_str: &str, content: &str) -> Result<(), std::io::Error> {
-        // Security check
+        // Security check: ensure path is within the Cortex workflow scratch root.
         let root = Self::get_root_path();
         let path = PathBuf::from(path_str);
 
-        if path.starts_with(&root) || path_str.contains("_bmad") {
+        if path.starts_with(&root) {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
             fs::write(path, content)
         } else {
             Err(std::io::Error::new(

@@ -4,7 +4,7 @@ set -euo pipefail
 workspace_root="${NOSTRA_WORKSPACE_ROOT:-$(git rev-parse --show-toplevel)}"
 gateway_base="${CORTEX_ACP_BASE_URL:-${CORTEX_DESKTOP_ACP_BASE_URL:-http://127.0.0.1:4943}}"
 plan_script="${workspace_root}/scripts/plan_a2ui_terminal_payload.sh"
-acp_cwd="${A2UI_TERMINAL_ACP_CWD:-${workspace_root}/_bmad}"
+acp_cwd="${A2UI_TERMINAL_ACP_CWD:-${workspace_root}/_cortex/acp-terminal}"
 run_gateway_script="${workspace_root}/scripts/run_cortex_acp_gateway.sh"
 auto_start="${CORTEX_ACP_AUTO_START:-0}"
 gateway_port="${CORTEX_GATEWAY_PORT:-${gateway_base##*:}}"
