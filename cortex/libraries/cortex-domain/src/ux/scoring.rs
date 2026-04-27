@@ -939,6 +939,7 @@ fn nav_meta(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cap(
     route_id: &str,
     route_label: &str,

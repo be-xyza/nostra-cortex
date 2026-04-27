@@ -11,7 +11,7 @@ fn default_catalog_version() -> String {
     "unversioned".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum IntentType {
     /// A capability that visualizes data or architecture
     Visualize,
@@ -24,20 +24,16 @@ pub enum IntentType {
     /// A capability that configures system settings
     Configure,
     /// Unspecified architectural leaf node
+    #[default]
     Unspecified,
 }
 
-impl Default for IntentType {
-    fn default() -> Self {
-        Self::Unspecified
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SurfacingHeuristic {
     /// Placed in the primary top-level navigation.
     PrimaryCore,
     /// Placed in grouped secondary/sub-menu navigation.
+    #[default]
     Secondary,
     /// Hidden from top navigation and surfaced contextually.
     ContextualDeep,
@@ -45,24 +41,13 @@ pub enum SurfacingHeuristic {
     Hidden,
 }
 
-impl Default for SurfacingHeuristic {
-    fn default() -> Self {
-        Self::Secondary
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum OperationalFrequency {
     Continuous,
     Daily,
+    #[default]
     AdHoc,
     Rare,
-}
-
-impl Default for OperationalFrequency {
-    fn default() -> Self {
-        Self::AdHoc
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

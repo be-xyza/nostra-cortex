@@ -71,7 +71,7 @@ fn valid_source_mode(value: &str) -> bool {
     matches!(value, "human" | "agent" | "hybrid")
 }
 
-fn spatial_command_shape<'a>(command: &'a Value) -> Option<&'a Value> {
+fn spatial_command_shape(command: &Value) -> Option<&Value> {
     command.get("shape")
 }
 
@@ -428,6 +428,7 @@ pub fn default_viewspec_policy() -> ViewSpecPolicy {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn generate_candidate_viewspecs(
     scope: ViewSpecScope,
     intent: &str,

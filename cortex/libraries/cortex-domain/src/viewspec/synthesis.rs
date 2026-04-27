@@ -157,6 +157,7 @@ pub fn blocked_count(candidates: &[ViewSpecCandidateEnvelope]) -> u32 {
         .count() as u32
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn generate_candidate_set(
     scope: ViewSpecScope,
     intent: &str,
