@@ -2,7 +2,7 @@
 
 **Status**: Active
 **Created**: 2026-03-07
-**Updated**: 2026-04-27
+**Updated**: 2026-04-25
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -11,10 +11,10 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 
 - **Host**: Hetzner VPS
 - **Gateway**: Rust `cortex-gateway` on the same host, bound to `127.0.0.1:3000`
-- **Worker**: Rust `cortex_worker` from `nostra/worker` is the active VPS worker target declared by the current deploy authority; PR #69 restores it as a passive build/preflight binary, while live polling/runtime execution remains gated by production identity and host-mode VPS authority proof
+- **Worker**: Rust `cortex_worker` from `nostra/worker` is the active VPS worker declared by the current deploy authority; the older Python companion path is historical and unvalidated here
 - **Runtime posture**: Linux `systemd` services, production auth enabled, no Docker assumption
 
-Gateway parity passes locally in this checkout. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. The worker build/preflight blocker is addressed by PR #69, but runtime readiness still requires promotion plus host-mode authority validation. Prompt override remains unverified and should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
+Gateway parity passes locally in this checkout. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. Prompt override remains unverified and should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
@@ -28,11 +28,7 @@ Hermes source packets are now the preferred bounded excerpt/fact layer when a pa
 
 Hermes is now green for bounded local advisory review and lineage only. This green status does not authorize production identity readiness, production authorization, ICP evidence promotion beyond the recorded evidence note, provider execution, subagents, skill activation, memory authority, unattended execution, or Hermes acting as a workflow authority.
 
-`hermescortexdev` is separate from `hermes132`: it is a local patch-prep developer/operator profile that can produce bounded implementation handoffs from approved local task packets. Its outputs are local operator artifacts until manually promoted into Initiative 132 evidence, heap/proposal surfaces, workflow drafts, or other governed records.
-
 Developer worktree isolation, checkpointing, and immutable evidence promotion are now explicit operator safety controls around Initiative 132. They protect the system-definition layer and steward continuity, but they are not themselves runtime heap, closeout-ledger, or workflow primitives.
-
-Hermes-related local work now has an explicit record-sync gate: if a Hermes profile, runbook, task packet, handoff artifact, stabilization status, or role-boundary correction affects Initiative 132 understanding, it must be promoted into governed records or clearly marked local-only.
 
 ## Objectives
 
@@ -105,8 +101,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Security Posture**: Phase 6 remains a governed Hetzner `systemd` runtime with operator-local SSH promotion; OS-level sandboxing becomes mandatory for the executor slice that runs untrusted code or broader autonomous contribution loops
 - **Cognitive audit posture**: external batch cognition is advisory only; Eudaemon is the architect and synthesizer for audit loops, not the direct high-volume analyzer
 - **Hermes posture**: Hermes may be used locally as a read-only meta-observer, with one bounded auditable pass, source-linked findings plus synthesis output, and no live batch-provider execution or repository/runtime mutation
-- **Hermes developer posture**: `hermescortexdev` may prepare local patch handoffs only; Codex/operator applies implementation separately
-- **Hermes record-sync posture**: local Hermes artifacts do not update Initiative 132 by implication; they need explicit evidence/decision/plan promotion or a local-only disposition
 - **Hermes capability discovery posture**: Hermes may classify capabilities and propose observer lanes or skill improvements, but the result is local planning material only; feature enablement and execution adapters require later governed decisions
 - **Hermes runbook posture**: local runbooks may standardize bounded pass operation, but preflight/postflight, evidence promotion, commits, and pushes remain operator-mediated
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary

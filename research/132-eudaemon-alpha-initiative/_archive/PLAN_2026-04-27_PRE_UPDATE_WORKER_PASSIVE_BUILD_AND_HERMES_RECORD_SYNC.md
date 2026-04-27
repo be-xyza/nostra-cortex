@@ -43,7 +43,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-04-27"
+updated: "2026-04-23"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -57,11 +57,9 @@ Current validated reality for this pass:
 - The root repo is the authoritative source for this planning pass.
 - The companion `eudaemon-alpha/` repo has been deprecated. Initiative 132 authority lives entirely in the root ICP tree. Older references to `eudaemon-alpha/` in archived documents are historical only.
 - The active VPS deployment contract is `cortex-gateway` plus `cortex_worker`, rendered and checked through the Hetzner runbook and runtime authority manifest.
-- The `cortex_worker` build restoration is currently represented by PR #69 as a passive preflight worker: it can build, load config, manage HPKE key material, and report canister visibility, but live polling/runtime execution remains disabled until production identity and VPS authority proof pass.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
 - Hermes is allowed only as a local, read-only advisory meta-observer for batch-design planning; live batch-provider execution and execution-adapter logic remain out of scope.
-- `hermescortexdev` is a separate patch-prep-only Hermes developer/operator profile. Its local handoff artifacts may inform Codex/operator implementation, but they do not mutate the repo/runtime and they do not become governed Initiative 132 evidence until manually promoted.
 
 ## Phase 6 Runtime Resolution
 
@@ -76,7 +74,6 @@ For the current implementation slice, the Phase 6 target is:
    - `NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER=0`
    - `NOSTRA_AGENT_IDENTITY_ENFORCEMENT=1`
 6. **Migration posture**: Rust-native `cortex-eudaemon` remains the Phase 7+ parity target; do not shift runtime authority until parity is proven
-7. **Current worker status**: Build/preflight restored in PR #69; live worker authority still blocked on production identity enforcement and host-mode VPS authority validation
 
 At this stage:
 - Nostra remains authority for initiatives, contributions, DPub lineage, and institutional identity.
@@ -162,7 +159,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 8. Formalize a live-provider boundary that supports `api_key` and `codex_subscription` lanes without making browser-subscription auth the runtime authority.
 9. Treat clean request worktrees, durable checkpointing, and immutable evidence promotion as operator safety controls for the system-definition layer.
 10. Define a local Hermes observer envelope as a planned advisory environment rather than a Cortex runtime component, with a dedicated activation workspace and local synthesis outputs.
-11. Define a separate Hermes developer-profile envelope for patch-prep handoffs only, with local task packets as v1 intake and Codex/operator retaining implementation authority.
 
 ## Out of Scope
 
@@ -173,7 +169,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 5. Direct creation or mutation of the Nostra core graph from external batch analysis output.
 6. Treating developer Git worktree state as a Cortex runtime primitive.
 7. Running live Doubleword or other batch-provider APIs, queue workers, polling loops, or execution-control extraction as part of the Hermes advisory pass.
-8. Treating `hermescortexdev` as an autonomous implementation agent, runtime worker, commit/push actor, deploy actor, or production mutation surface.
 
 ## Delivery Phases
 
@@ -220,7 +215,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Add a local Hermes Capability & Discovery Envelope for system cartography, component/dependency mapping, boundary integrity, pattern extraction, adapter translation, test synthesis, skill architecture, capability inventory, event/lifecycle logging, memory/continuity posture, batch design/aggregation, and final synthesis.
 - Add a visibility/approval projection lane that maps Hermes outputs into existing Cortex Web heap, A2UI approval, steward-gate, and proposal-review surfaces without granting direct execution authority.
 - Activate Hermes only through the dedicated `/Users/xaoj/hermes` workspace and its workspace-local `.hermes.md`; treat promoted root `ICP` docs as authority and `~/.hermes` profiles/SOUL as non-authoritative convenience state.
-- Keep a manual record-sync gate for Hermes work: any new Hermes profile, schema, runbook, task packet class, developer handoff lane, stabilization change, or role-boundary correction must either be promoted into Initiative 132 evidence/DECISIONS/PLAN updates or explicitly marked local-only with the reason.
 - Keep each Hermes session to one bounded, deterministic, auditable pass with explicit `SourceManifest` and `AuditUnit` inputs, `maxSteps = 1`, and `writeAccess = false`.
 - Allow normal advisory inference for Hermes reasoning, but keep batch-provider submission, polling, queue runners, and execution-adapter behavior out of scope.
 - Require each Hermes pass to emit one session record, zero or more source-linked findings, and one local synthesis artifact containing summary, contradictions or drift, recommendations, and source references.
@@ -256,7 +250,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 11. Hermes runbooks standardize repeatable operator-mediated passes without enabling unattended execution, background scheduling, runtime adapters, or direct mutation.
 12. Hermes source packets and stabilization signals make bounded passes practical, legible, and governable enough to decide when Hermes should be maintained, expanded, or retired for this stage.
 13. Any future user-facing Hermes visibility is routed through existing Cortex Web heap/proposal/approval surfaces rather than a new standalone control plane.
-14. Hermes-related local artifacts have an explicit record-sync disposition: promoted governed evidence, heap/proposal candidate, or local-only operator artifact with no authority claim.
 
 ### 6.2 LLM API Connection
 Promote the live LLM path from an activity-side workaround into the canonical pattern-detection contract:
@@ -374,8 +367,6 @@ Blocking preflight work before live deployment:
 - [x] **Hetzner Runbook**: promotion, deploy, systemd, SSH, and runtime-authority guidance live in the root repo
 - [x] **Deployment Hygiene**: ignore workstation artifacts (`venv`, `__pycache__`, `.pytest_cache`, `.DS_Store`, `.worktrees`)
 - [x] **Repo Boundary**: Initiative 132 stays in the root repo; `eudaemon-alpha/` companion-repo references are historical only
-- [x] **Worker Build/Preflight Restoration**: PR #69 restores `nostra/worker` as a passive buildable preflight binary
-- [ ] **Live Worker Runtime Proof**: promote the worker build to VPS, then prove `agent:eudaemon-alpha-01` under production identity enforcement and host-mode runtime authority before enabling live polling claims
 - [ ] **Live Box Validation**: verify SSH alias/host, install deps on Hetzner, enable services, and complete one end-to-end bootstrap cycle
 
 ### Phase 6.5: Production Identity Enforcement
@@ -422,7 +413,6 @@ To ensure the Eudaemon Alpha loop can be tested end-to-end without mocks before 
 21. `HermesObserverSession` enforces `maxSteps = 1` and `writeAccess = false` for the advisory pass.
 22. Each Hermes activation pass emits a local session record, optional source-linked findings, and one synthesis artifact with summary, contradictions or drift, recommendations, and source references.
 23. Hermes may use a normal advisory inference lane, but no batch submission, polling, queueing, or execution-adapter behavior is invoked.
-24. Hermes developer-profile outputs have an explicit sync disposition recorded before they are used as implementation authority: governed evidence, heap/proposal candidate, or local-only handoff.
 
 ### Manual (Phases 6-7)
 1. SSH login works to the Hetzner host using the documented alias or explicit host and local private key.

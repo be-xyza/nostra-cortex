@@ -1,26 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-27 — Worker Build Is Passive-Preflight Only and Hermes Records Need Explicit Sync
-
-**Decision**
-
-Record PR #69 as a build/preflight restoration for `nostra/worker`, not as live Eudaemon Alpha runtime readiness. The worker may build, load configuration, manage HPKE key material, and run in one-shot passive preflight mode, but runtime polling and production execution claims remain blocked until `agent:eudaemon-alpha-01` is proven under production identity enforcement and host-mode VPS authority validation passes.
-
-Also add an explicit Hermes record-sync gate for Initiative 132: local Hermes artifacts under `/Users/xaoj/hermes` and profile state under `~/.hermes` do not automatically update governed research records. Any new Hermes profile, schema, runbook, task-packet class, developer handoff lane, stabilization change, or role-boundary correction must be either promoted into Initiative 132 evidence/DECISIONS/PLAN updates or explicitly marked local-only with no authority claim.
-
-**Why**
-
-- PR #69 fixes the `cortex_worker` build blocker, but the implementation intentionally disables live polling to avoid overstating runtime authority.
-- The recent `hermescortexdev` work exposed a sync gap: local Hermes profiles and handoff artifacts can change faster than the governed research initiative records.
-- Initiative 132 treats root `ICP` research records as authority; local Hermes state is useful operator material, not durable governance unless promoted.
-
-**Consequences**
-
-- Eudaemon Alpha is no longer blocked at the local worker build/preflight layer once PR #69 merges, but it is still blocked at the live runtime authority layer.
-- `hermes132` remains the advisory synthesis profile; `hermescortexdev` remains patch-prep only and must not mutate repo/runtime state.
-- A Hermes output may inform Codex/operator work only when its local-only or promoted-evidence status is clear.
-- Future Hermes-related sessions should include a closeout question: does this artifact need Initiative 132 evidence, a DECISIONS/PLAN update, a heap/proposal projection, or no promotion?
-
 ## 2026-04-25 — Hermes Green Means Local Advisory Review and Lineage Only
 
 **Decision**
