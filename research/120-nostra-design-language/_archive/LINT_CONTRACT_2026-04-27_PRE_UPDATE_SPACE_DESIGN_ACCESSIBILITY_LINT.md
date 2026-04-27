@@ -49,18 +49,6 @@ These must be enforced by a Nostra-owned lint pass before runtime adoption:
 - candidate imports must include provenance and `license_or_lineage` checks.
 - template packs must remain `recommendation_only`, resolve profile defaults, resolve included imports, and exclude constitutional surfaces.
 
-## Accessibility Checks
-
-These checks bind Space profile drafts to `shared/standards/ACCESSIBILITY.md` without approving runtime use:
-
-- component text/background pairs must meet WCAG AA 4.5:1 contrast,
-- status colors must have at least 3.0:1 non-text contrast against surface or neutral backgrounds,
-- state-bearing components such as evidence, warning, and boundary affordances must include typography and text color so color is not the only state channel,
-- recommendation-only profiles must keep `safe_mode = true` and must not use `motion_policy = full`,
-- typography tokens must keep readable font sizes, non-negative letter spacing, and adequate line height,
-- `spacing.measure` must stay at or below the readable 80-character text-fit bound,
-- `lint_contract.required_local_checks` must explicitly include contrast, reduced motion, focus visibility, keyboard reachability, text fit, and color-channel checks.
-
 ## Hermes Use
 
 Hermes may consume profiles, imports, and template packs only through a bounded source packet. Its output should be a source-linked advisory finding set plus one synthesis artifact. Hermes must not mutate profile files, approve a profile, import design systems, change the Space capability graph, or mark any theme as runtime-enforced.
@@ -72,6 +60,6 @@ A Space design profile can move from draft to steward-approved only after:
 1. upstream-compatible lint has no errors,
 2. Nostra-specific lint has no errors,
 3. candidate imports and template packs validate as recommendation-only inputs,
-4. accessibility checks cover contrast, focus visibility, keyboard reachability, reduced motion, text fit, and non-color state communication,
+4. accessibility checks cover contrast, focus visibility, keyboard reachability, reduced motion, and text fit,
 5. the Design Systems Steward records approval lineage,
 6. Cortex Web renders the profile through a fixture or preview without allowing Tier 1 spoofing.

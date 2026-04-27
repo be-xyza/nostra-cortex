@@ -49,20 +49,6 @@ REQUIRED_THEME_FIELDS = {
     "motion_policy",
     "contrast_preference",
 }
-REQUIRED_ACCESSIBILITY_CHECKS = {
-    "contrast meets WCAG AA",
-    "reduced motion is governed",
-    "focus visibility is preserved",
-    "keyboard reachability is preserved",
-    "text fit is bounded",
-    "color is not sole state channel",
-}
-STATUS_COLOR_KEYS = {
-    "evidence",
-    "warning",
-    "boundary",
-    "tertiary",
-}
 VALID_COMPONENT_PROPS = {
     "backgroundColor",
     "textColor",
@@ -75,7 +61,6 @@ VALID_COMPONENT_PROPS = {
 }
 TOKEN_REF_RE = re.compile(r"^\{([A-Za-z0-9._-]+)\}$")
 HEX_RE = re.compile(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
-DIMENSION_RE = re.compile(r"^-?\d*\.?\d+(px|em|rem)$")
 
 
 class CheckFailure(Exception):
@@ -233,89 +218,6 @@ def contrast_ratio(a: str, b: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
-def parse_dimension(value: Any) -> tuple[float, str] | None:
-    if not isinstance(value, str):
-        return None
-    match = DIMENSION_RE.match(value)
-    if not match:
-        return None
-    return float(value[: -len(match.group(1))]), match.group(1)
-
-
-def dimension_to_px(value: Any, base_px: float = 16.0) -> float | None:
-    parsed = parse_dimension(value)
-    if parsed is None:
-        return None
-    amount, unit = parsed
-    if unit == "px":
-        return amount
-    return amount * base_px
-
-
-def check_typography_accessibility(profile_path: Path, tokens: dict[str, Any]) -> None:
-    typography = tokens.get("typography", {})
-    if not isinstance(typography, dict) or not typography:
-        fail(f"{profile_path}: design_tokens.typography must not be empty")
-
-    for token_name, token in typography.items():
-        if not isinstance(token, dict):
-            fail(f"{profile_path}: typography.{token_name} must be an object")
-
-        font_size_px = dimension_to_px(token.get("fontSize"))
-        if font_size_px is None:
-            fail(f"{profile_path}: typography.{token_name}.fontSize must use px, em, or rem")
-        if font_size_px < 12:
-            fail(f"{profile_path}: typography.{token_name}.fontSize {font_size_px:g}px is below the 12px readability floor")
-
-        line_height = token.get("lineHeight")
-        min_line_height = 1.05 if font_size_px >= 20 else 1.2
-        if isinstance(line_height, (int, float)) and line_height < min_line_height:
-            fail(
-                f"{profile_path}: typography.{token_name}.lineHeight {line_height:g} "
-                f"is below the {min_line_height:g} readability floor"
-            )
-        line_height_px = dimension_to_px(line_height)
-        if line_height_px is not None and line_height_px < font_size_px * min_line_height:
-            fail(f"{profile_path}: typography.{token_name}.lineHeight is below {min_line_height:g}x fontSize")
-
-        letter_spacing = token.get("letterSpacing")
-        parsed_spacing = parse_dimension(letter_spacing)
-        if parsed_spacing is None:
-            fail(f"{profile_path}: typography.{token_name}.letterSpacing must use px, em, or rem")
-        if parsed_spacing[0] < 0:
-            fail(f"{profile_path}: typography.{token_name}.letterSpacing must not be negative")
-
-
-def check_status_color_accessibility(profile_path: Path, tokens: dict[str, Any]) -> None:
-    colors = tokens.get("colors", {})
-    if not isinstance(colors, dict):
-        return
-    backgrounds = [colors.get("surface"), colors.get("neutral")]
-    backgrounds = [value for value in backgrounds if isinstance(value, str) and HEX_RE.match(value)]
-    for color_name in sorted(STATUS_COLOR_KEYS & set(colors.keys())):
-        color_value = colors[color_name]
-        if not isinstance(color_value, str) or not HEX_RE.match(color_value):
-            continue
-        if not backgrounds:
-            fail(f"{profile_path}: status color {color_name} requires surface or neutral background for contrast checks")
-        best_ratio = max(contrast_ratio(color_value, background) for background in backgrounds)
-        if best_ratio < 3.0:
-            fail(f"{profile_path}: status color {color_name} contrast {best_ratio:.2f}:1 is below non-text 3.0:1")
-
-
-def check_layout_accessibility(profile_path: Path, tokens: dict[str, Any]) -> None:
-    spacing = tokens.get("spacing", {})
-    if not isinstance(spacing, dict):
-        fail(f"{profile_path}: design_tokens.spacing must be an object")
-    measure = spacing.get("measure")
-    if measure is None:
-        fail(f"{profile_path}: design_tokens.spacing.measure is required for text-fit bounds")
-    if not isinstance(measure, (int, float)):
-        fail(f"{profile_path}: design_tokens.spacing.measure must be numeric")
-    if measure > 80:
-        fail(f"{profile_path}: design_tokens.spacing.measure {measure:g} exceeds the 80 character readability bound")
-
-
 def check_token_parity(profile_path: Path, profile_tokens: dict[str, Any], front: dict[str, Any]) -> None:
     for field in ("name", "description"):
         if profile_tokens.get(field) != front.get(field):
@@ -366,14 +268,6 @@ def check_design_tokens(profile_path: Path, tokens: dict[str, Any]) -> None:
                         f"{profile_path}: components.{component_name} contrast ratio {ratio:.2f}:1 is below WCAG AA 4.5:1"
                     )
 
-        if any(term in normalized_name for term in ("evidence", "warning", "boundary")):
-            if "typography" not in component or "textColor" not in component:
-                fail(f"{profile_path}: components.{component_name} must not rely on color alone for state communication")
-
-    check_typography_accessibility(profile_path, tokens)
-    check_status_color_accessibility(profile_path, tokens)
-    check_layout_accessibility(profile_path, tokens)
-
 
 def check_nostra_policy(profile_path: Path, profile: dict[str, Any], lineage_path: Path) -> None:
     scope = set(profile.get("surface_scope", []))
@@ -406,14 +300,6 @@ def check_nostra_policy(profile_path: Path, profile: dict[str, Any], lineage_pat
         fail(f"{profile_path}: a2ui_theme_policy missing {missing_theme_fields}")
     if theme_policy.get("safe_mode") is not True and authority_mode == "recommendation_only":
         fail(f"{profile_path}: recommendation_only profiles must keep safe_mode true")
-    if authority_mode == "recommendation_only" and theme_policy.get("motion_policy") == "full":
-        fail(f"{profile_path}: recommendation_only profiles must not use full motion policy")
-
-    lint_contract = profile.get("lint_contract", {})
-    required_local_checks = set(lint_contract.get("required_local_checks", []))
-    missing_accessibility = sorted(REQUIRED_ACCESSIBILITY_CHECKS - required_local_checks)
-    if missing_accessibility:
-        fail(f"{profile_path}: lint_contract.required_local_checks missing accessibility checks {missing_accessibility}")
 
     if not lineage_path.exists():
         fail(f"{profile_path}: lineage_ref does not resolve: {profile.get('lineage_ref')}")
