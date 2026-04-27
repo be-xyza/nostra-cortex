@@ -167,13 +167,7 @@
       "Tier 1 component spoofing is prohibited",
       "surface scope excludes constitutional surfaces",
       "motion and contrast policy are explicit",
-      "governance claims require verified projection",
-      "contrast meets WCAG AA",
-      "reduced motion is governed",
-      "focus visibility is preserved",
-      "keyboard reachability is preserved",
-      "text fit is bounded",
-      "color is not sole state channel"
+      "governance claims require verified projection"
     ]
   }
 }
