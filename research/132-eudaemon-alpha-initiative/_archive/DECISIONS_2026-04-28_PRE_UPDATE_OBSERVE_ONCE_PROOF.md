@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-28 — Observe-Once Worker Proof Passed on VPS
-
-**Decision**
-
-Record Eudaemon Alpha observe-once worker validation as passed on the VPS at commit `a8af1afe312b521ab3d448b15716d9d6fd219312`.
-
-The proof is captured in [`evidence/20260428T080222Z_vps_observe_once_worker_proof.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T080222Z_vps_observe_once_worker_proof.md). The worker ran one explicit `NOSTRA_WORKER_OBSERVE_ONCE=1` pass as the `nostra` service user, read only `/api/system/whoami` through the loopback gateway, wrote a local observation artifact, reported production-auth posture as `authzDevMode=false`, `allowUnverifiedRoleHeader=false`, `agentIdentityEnforcement=true`, and exited with `exitStatus=pass`.
-
-**Why**
-
-- The observe-once authority packet needed live proof that the worker could operate under production identity without enabling polling or mutation.
-- The proof confirms the worker can observe its runtime posture through the gateway while preserving the Cortex execution-infrastructure boundary.
-- Capturing the result in governed records closes the Hermes/records-style sync gap for this runtime milestone.
-
-**Consequences**
-
-- Initiative 132 has now passed passive preflight, production-auth posture, host-mode authority, and bounded observe-once validation.
-- Live polling, autonomous task selection, provider execution, heap/proposal/workflow emission, runtime mutation, repo mutation, graph mutation, and untrusted execution remain unauthorized.
-- The next runtime-expansion packet should be narrower than execution: bounded read-only heap/context visibility or steward-reviewed local evidence projection.
-
 ## 2026-04-28 — Observe-Once Is the Next Runtime Expansion Gate
 
 **Decision**
