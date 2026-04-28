@@ -61,7 +61,6 @@ Current validated reality for this pass:
 - VPS host-mode authority and production-auth proof passed on 2026-04-28 at commit `2cfbf65dbe2093666de443366d33626b1c325090`; the gateway rejects unverified operator headers and unknown agent IDs under enforcement.
 - Observe-once worker validation passed on the VPS on 2026-04-28 at commit `a8af1afe312b521ab3d448b15716d9d6fd219312`; the worker read only `/api/system/whoami`, wrote one local observation artifact, and exited with `exitStatus=pass`.
 - Live polling/runtime execution remains disabled pending a separate governed runtime-expansion decision.
-- The next proposed runtime-expansion gate is read-only heap delta visibility defined by `RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md`; it allows bounded heap list/delta reads and local summarized evidence only.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
 - Hermes is allowed only as a local, read-only advisory meta-observer for batch-design planning; live batch-provider execution and execution-adapter logic remain out of scope.
@@ -80,7 +79,7 @@ For the current implementation slice, the Phase 6 target is:
    - `NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER=0`
    - `NOSTRA_AGENT_IDENTITY_ENFORCEMENT=1`
 6. **Migration posture**: Rust-native `cortex-eudaemon` remains the Phase 7+ parity target; do not shift runtime authority until parity is proven
-7. **Current worker status**: Build/preflight, host-mode VPS authority, production-auth posture, and explicit observe-once worker validation are passed. The next proposed gate is read-only heap delta visibility; live worker polling remains blocked pending a later governed execution-authority decision.
+7. **Current worker status**: Build/preflight, host-mode VPS authority, production-auth posture, and explicit observe-once worker validation are passed. Live worker polling remains blocked pending a later governed execution-authority decision.
 
 At this stage:
 - Nostra remains authority for initiatives, contributions, DPub lineage, and institutional identity.
@@ -215,7 +214,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Evaluate migration from external agent host to native Cortex execution only through parity-backed slices.
 - Refuse architecture claims that bypass the governed workflow/runtime stack already defined in 124, 126, 130, 133, and 134.
 - Implement runtime expansion only through explicit authority packets. Observe-once mode has passed as one opt-in bounded worker pass, loopback self-observation only, local evidence artifact, and no polling or mutation.
-- Keep the next expansion to read-only heap list/delta visibility. Context bundling, heap emission, workflow/proposal projection, provider cognition, polling, and execution remain later gates.
 
 ### Phase G: Cognitive Audit Pipeline
 - Define an `AuditUnit` manifest over governed sources such as architecture standards, active initiative plans, heap context bundles, lifecycle events, and workflow artifacts.
