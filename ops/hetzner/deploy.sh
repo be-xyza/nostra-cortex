@@ -42,7 +42,8 @@ sync_repo_to_target() {
 
 mkdir -p "$DEPLOY_ROOT/logs"
 mkdir -p "$STATE_ROOT"
-sudo chown "$SERVICE_USER:$SERVICE_USER" "$DEPLOY_ROOT/logs" "$STATE_ROOT"
+sudo chown "$SERVICE_USER:$SERVICE_USER" "$DEPLOY_ROOT/logs"
+sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$STATE_ROOT"
 
 render_systemd_unit() {
     local template_path="$1"
