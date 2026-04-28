@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-28 — Context Bundle Prep Is the Next Runtime Expansion Gate
-
-**Decision**
-
-Adopt an Initiative 132 runtime-expansion authority packet for a proposed context bundle prep worker mode before enabling heap emission, proposal/workflow projection, provider cognition, polling, or execution.
-
-The packet is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md). It allows only one explicit, bounded worker pass that confirms `/api/system/whoami`, submits operator-selected heap block IDs to `POST /api/cortex/studio/heap/blocks/context`, writes a local summarized observation artifact, and exits.
-
-**Why**
-
-- Read-only heap delta proved bounded working-material visibility without mutation.
-- The next useful capability is packaging explicit operator-selected material for later review, not autonomous selection or publication.
-- Context bundle prep crosses from `GET` to `POST`, so it needs a separate authority packet that constrains the request body, output artifact, and forbidden follow-on behavior.
-
-**Consequences**
-
-- The next implementation PR should add an explicit opt-in flag such as `NOSTRA_WORKER_CONTEXT_BUNDLE_PREP=1`, preserving passive default behavior.
-- The worker must accept only explicit operator-provided block IDs, cap the submitted list, summarize/redact the response, and exit after one pass.
-- Heap emission, proposal/workflow creation, provider execution, live polling, autonomous task selection, repo/runtime mutation, graph mutation, and untrusted execution remain unauthorized.
-
 ## 2026-04-28 — Read-Only Heap Delta Worker Proof Passed on VPS
 
 **Decision**
