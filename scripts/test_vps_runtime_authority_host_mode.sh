@@ -13,12 +13,14 @@ make_fixture() {
   local tmpdir="$1"
   local worker_exec="$2"
   local web_mode="${3:-not_deployed}"
+  local authz_dev_mode="${4:-0}"
   local commit
 
   mkdir -p \
     "$tmpdir/repo/cortex/target/release" \
     "$tmpdir/repo/nostra/worker/target/release" \
     "$tmpdir/repo/cortex/apps/cortex-web" \
+    "$tmpdir/config" \
     "$tmpdir/state" \
     "$tmpdir/systemd"
 
@@ -72,6 +74,13 @@ EOF2
 [Service]
 WorkingDirectory=$tmpdir/repo/nostra/worker
 ExecStart=$worker_exec
+EOF2
+
+  cat >"$tmpdir/config/eudaemon-alpha.env" <<EOF2
+NOSTRA_AGENT_ID=agent:eudaemon-alpha-01
+NOSTRA_AUTHZ_DEV_MODE=$authz_dev_mode
+NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER=0
+NOSTRA_AGENT_IDENTITY_ENFORCEMENT=1
 EOF2
 }
 
@@ -132,6 +141,30 @@ fi
 
 if ! grep -Fq "deploymentMode must equal not_deployed" <<<"$web_output"; then
   fail "host-mode contract did not report cortex-web deploymentMode mismatch"
+fi
+
+auth_fixture="$(mktemp -d /tmp/cortex-vps-auth-dev-mode.XXXXXX)"
+make_fixture "$auth_fixture" "$auth_fixture/repo/nostra/worker/target/release/cortex_worker" "not_deployed" "1"
+
+set +e
+auth_output="$({
+  NOSTRA_VPS_DEPLOY_ROOT="$auth_fixture" \
+  NOSTRA_VPS_REPO_ROOT="$auth_fixture/repo" \
+  NOSTRA_VPS_STATE_ROOT="$auth_fixture/state" \
+  NOSTRA_VPS_AUTHORITY_MANIFEST="$auth_fixture/state/cortex_runtime_authority.json" \
+  NOSTRA_VPS_SYSTEMD_ROOT="$auth_fixture/systemd" \
+  NOSTRA_VPS_SKIP_PROCESS_PROVENANCE=1 \
+  bash "$CHECK_SCRIPT"
+} 2>&1)"
+auth_rc=$?
+set -e
+
+if [[ "$auth_rc" -eq 0 ]]; then
+  fail "host-mode contract unexpectedly passed dev-mode auth fixture"
+fi
+
+if ! grep -Fq "NOSTRA_AUTHZ_DEV_MODE must be 0" <<<"$auth_output"; then
+  fail "host-mode contract did not report production auth posture mismatch"
 fi
 
 echo "PASS: vps runtime authority host-mode fixture coverage"
