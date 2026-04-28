@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-28 — Read-Only Heap Delta Is the Next Runtime Expansion Gate
-
-**Decision**
-
-Adopt an Initiative 132 runtime-expansion authority packet for a proposed read-only heap delta worker mode before enabling context bundling, heap emission, polling, or execution.
-
-The packet is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md). It allows only one explicit, bounded worker pass that confirms `/api/system/whoami`, reads `GET /api/cortex/studio/heap/blocks` and/or `GET /api/cortex/studio/heap/changed_blocks`, writes a local summarized observation artifact, and exits.
-
-**Why**
-
-- Observe-once proof passed, so the next useful capability is narrow working-material visibility, not execution.
-- Heap list/delta reads are lower authority than context bundling or heap emission, and they keep Eudaemon Alpha in observation mode.
-- Starting with local summarized artifacts preserves the distinction between runtime visibility and governed publication.
-
-**Consequences**
-
-- The next implementation PR should add an explicit opt-in flag such as `NOSTRA_WORKER_READONLY_HEAP_DELTA=1`, preserving passive default behavior.
-- `POST /api/cortex/studio/heap/blocks/context`, `POST /api/cortex/studio/heap/emit`, proposal/workflow routes, provider routes, runtime topology routes, and mutation routes remain forbidden.
-- Success of read-only heap delta does not authorize live polling, autonomous task selection, provider execution, heap emission, proposal creation, workflow drafting, or graph mutation.
-
 ## 2026-04-28 — Observe-Once Worker Proof Passed on VPS
 
 **Decision**
