@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-28 — Read-Only Heap Delta Worker Proof Passed on VPS
-
-**Decision**
-
-Record Eudaemon Alpha read-only heap delta worker validation as passed on the VPS at commit `62ecf2d3d6c9112c4021b33b46344d41a8d3e387`.
-
-The proof is captured in [`evidence/20260428T152202Z_vps_readonly_heap_delta_worker_proof.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T152202Z_vps_readonly_heap_delta_worker_proof.md). The worker ran one explicit `NOSTRA_WORKER_READONLY_HEAP_DELTA=1` pass as the `nostra` service user, confirmed `/api/system/whoami`, read only `/api/cortex/studio/heap/changed_blocks` with `changedSince=2026-04-28T00:00:00Z` and `limit=25`, wrote a local summarized observation artifact, and exited with `exitStatus=pass`.
-
-**Why**
-
-- Observe-once proved runtime posture; read-only heap delta proves bounded working-material visibility without crossing into execution.
-- The pass confirmed the worker can access the heap changed-blocks read surface while preserving the no-mutation, no-provider, no-polling boundary.
-- Capturing the result in governed records keeps runtime evidence aligned with Initiative 132 authority instead of leaving it only in VPS local state.
-
-**Consequences**
-
-- Initiative 132 has now passed passive preflight, production-auth posture, host-mode authority, observe-once, and read-only heap delta validation.
-- Context bundling, heap emission, proposal/workflow projection, provider execution, live polling, repo/runtime mutation, graph mutation, and untrusted execution remain unauthorized.
-- The next runtime-expansion packet should remain non-executing: bounded context bundle preparation or steward-reviewed local evidence projection.
-
 ## 2026-04-28 — Read-Only Heap Delta Is the Next Runtime Expansion Gate
 
 **Decision**
