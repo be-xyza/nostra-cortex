@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-28 — Observe-Once Is the Next Runtime Expansion Gate
-
-**Decision**
-
-Adopt an Initiative 132 runtime-expansion authority packet for a proposed observational one-shot `cortex_worker` mode before enabling live polling or execution.
-
-The packet is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md). It defines a narrow worker slice that may authenticate to the loopback gateway, read only explicitly configured self-observation endpoints, write one local observation artifact under deployment state/logs, and exit. It forbids provider calls, autonomous task selection, repo mutation, runtime mutation, graph mutation, heap/proposal/workflow emission, untrusted shell/code execution, and default-readable runtime topology inspection.
-
-**Why**
-
-- Passive worker preflight and production auth are now proven, so the next risk is not buildability; it is authority scope.
-- A one-shot observation mode proves the worker can operate under production identity without granting it a recurring queue, provider lane, or mutation surface.
-- Keeping the first output local preserves the distinction between runtime evidence and governed Initiative 132 records until the operator promotes evidence manually.
-
-**Consequences**
-
-- The next implementation PR should add an explicit opt-in flag such as `NOSTRA_WORKER_OBSERVE_ONCE=1`, preserving passive default behavior.
-- Success of observe-once does not authorize live polling, task execution, provider execution, heap emission, proposal creation, or graph mutation.
-- Any later expansion requires a separate packet describing allowed reads, writes, identity requirements, artifacts, rollback, and forbidden actions.
-
 ## 2026-04-28 — VPS Passive Runtime Production Auth Proof Passed
 
 **Decision**
