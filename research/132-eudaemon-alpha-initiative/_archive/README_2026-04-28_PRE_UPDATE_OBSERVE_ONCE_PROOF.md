@@ -14,9 +14,9 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 - **Worker**: Rust `cortex_worker` from `nostra/worker` is the active VPS worker target declared by the current deploy authority; it is validated as a passive build/preflight binary, while live polling/runtime execution remains gated by a separate governed runtime-expansion decision
 - **Runtime posture**: Linux `systemd` services, production auth enabled, no Docker assumption
 
-Gateway parity passes locally in this checkout. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. The worker build/preflight blocker, host-mode authority proof, production-auth posture proof, and observe-once worker proof are now passed. Prompt override remains unverified and should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
+Gateway parity passes locally in this checkout. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. The worker build/preflight blocker, host-mode authority proof, and production-auth posture proof are now passed for passive runtime at commit `2cfbf65dbe2093666de443366d33626b1c325090`. Prompt override remains unverified and should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
 
-The first runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md), has passed on the VPS at commit `a8af1afe312b521ab3d448b15716d9d6fd219312`: the worker performed one opt-in observational pass, read only `/api/system/whoami`, wrote local evidence, and exited. It does not authorize live polling, autonomous task selection, provider calls, heap/proposal/workflow emission, repo mutation, runtime mutation, graph mutation, or untrusted execution.
+The next proposed runtime-expansion gate is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md): an opt-in observational one-shot worker pass that writes local evidence only. It does not authorize live polling, autonomous task selection, provider calls, heap/proposal/workflow emission, repo mutation, runtime mutation, graph mutation, or untrusted execution.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
@@ -110,7 +110,7 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Hermes developer posture**: `hermescortexdev` may prepare local patch handoffs only; Codex/operator applies implementation separately
 - **Hermes record-sync posture**: local Hermes artifacts do not update Initiative 132 by implication; they need explicit evidence/decision/plan promotion or a local-only disposition
 - **Hermes capability discovery posture**: Hermes may classify capabilities and propose observer lanes or skill improvements, but the result is local planning material only; feature enablement and execution adapters require later governed decisions
-- **Runtime expansion posture**: observe-once authority has passed; live polling and execution authority still require separate governed packets
+- **Runtime expansion posture**: observe-once authority is the next proposed gate; live polling and execution authority still require separate governed packets
 - **Hermes runbook posture**: local runbooks may standardize bounded pass operation, but preflight/postflight, evidence promotion, commits, and pushes remain operator-mediated
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
@@ -181,8 +181,6 @@ Older deployment notes reference an `eudaemon-alpha/` companion implementation r
 - [Batch 1 Decision Gate](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/BATCH1_DECISION_GATE.md)
 - [Phase 7 Execution Plan](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PHASE7_EXECUTION_PLAN.md)
 - [Hermes first advisory activation](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260423T083435Z_hermes_first_advisory_activation.md)
-- [VPS passive runtime and production auth proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T071000Z_vps_passive_runtime_production_auth_proof.md)
-- [VPS observe-once worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T080222Z_vps_observe_once_worker_proof.md)
 
 ## References
 
