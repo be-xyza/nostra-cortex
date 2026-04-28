@@ -43,7 +43,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-04-28"
+updated: "2026-04-27"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -57,9 +57,7 @@ Current validated reality for this pass:
 - The root repo is the authoritative source for this planning pass.
 - The companion `eudaemon-alpha/` repo has been deprecated. Initiative 132 authority lives entirely in the root ICP tree. Older references to `eudaemon-alpha/` in archived documents are historical only.
 - The active VPS deployment contract is `cortex-gateway` plus `cortex_worker`, rendered and checked through the Hetzner runbook and runtime authority manifest.
-- The `cortex_worker` build restoration is validated as a passive preflight worker: it can build, load config, manage HPKE key material, and report canister visibility.
-- VPS host-mode authority and production-auth proof passed on 2026-04-28 at commit `2cfbf65dbe2093666de443366d33626b1c325090`; the gateway rejects unverified operator headers and unknown agent IDs under enforcement.
-- Live polling/runtime execution remains disabled pending a separate governed runtime-expansion decision.
+- The `cortex_worker` build restoration is currently represented by PR #69 as a passive preflight worker: it can build, load config, manage HPKE key material, and report canister visibility, but live polling/runtime execution remains disabled until production identity and VPS authority proof pass.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
 - Hermes is allowed only as a local, read-only advisory meta-observer for batch-design planning; live batch-provider execution and execution-adapter logic remain out of scope.
@@ -78,7 +76,7 @@ For the current implementation slice, the Phase 6 target is:
    - `NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER=0`
    - `NOSTRA_AGENT_IDENTITY_ENFORCEMENT=1`
 6. **Migration posture**: Rust-native `cortex-eudaemon` remains the Phase 7+ parity target; do not shift runtime authority until parity is proven
-7. **Current worker status**: Build/preflight, host-mode VPS authority, and production-auth posture are validated for passive runtime only; live worker polling remains blocked pending a separate governed execution-authority decision.
+7. **Current worker status**: Build/preflight restored in PR #69; live worker authority still blocked on production identity enforcement and host-mode VPS authority validation
 
 At this stage:
 - Nostra remains authority for initiatives, contributions, DPub lineage, and institutional identity.

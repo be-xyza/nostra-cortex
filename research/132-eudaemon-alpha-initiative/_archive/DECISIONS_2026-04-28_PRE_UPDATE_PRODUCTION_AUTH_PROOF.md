@@ -1,28 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-28 — VPS Passive Runtime Production Auth Proof Passed
-
-**Decision**
-
-Record Eudaemon Alpha as validated for passive VPS runtime with production-auth posture at commit `2cfbf65dbe2093666de443366d33626b1c325090`.
-
-This updates the earlier blocker state: host-mode VPS authority and production identity/auth posture are no longer blockers for passive runtime. The worker remains passive-preflight only, and live polling or execution authority still requires a separate governed runtime-expansion decision.
-
-**Why**
-
-- The VPS was promoted to the merged deploy/auth hardening commit.
-- `cortex-gateway.service` and `cortex-worker.service` were active after promotion.
-- `scripts/check_vps_runtime_authority.sh` passed on the host and now validates production auth flags.
-- Live gateway checks showed unverified operator headers are rejected, a bound operator principal is accepted, and unknown agent IDs are rejected.
-- The worker logs confirm passive mode remains in force rather than silently enabling runtime polling.
-
-**Consequences**
-
-- Initiative 132 may proceed from build/preflight and host-auth proof into scoped runtime-expansion design.
-- Any execution expansion must explicitly decide what the worker may read, emit, queue, or mutate.
-- Provider execution, autonomous task selection, repo/runtime mutation, production graph mutation, and untrusted shell/code execution remain forbidden until separately governed.
-- The next safe technical step is to define a minimal passive-to-observational worker slice rather than enabling broad execution.
-
 ## 2026-04-27 — Worker Build Is Passive-Preflight Only and Hermes Records Need Explicit Sync
 
 **Decision**
