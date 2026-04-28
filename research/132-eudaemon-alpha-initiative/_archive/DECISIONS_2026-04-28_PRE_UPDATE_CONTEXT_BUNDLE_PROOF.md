@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-28 — Context Bundle Prep Worker Proof Passed on VPS
-
-**Decision**
-
-Record Eudaemon Alpha context bundle prep worker validation as passed on the VPS at commit `6cbf62c6e5d4977e7e1eb41b953aa35d22e25de4`.
-
-The proof is captured in [`evidence/20260428T160203Z_vps_context_bundle_prep_worker_proof.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T160203Z_vps_context_bundle_prep_worker_proof.md). The worker ran one explicit `NOSTRA_WORKER_CONTEXT_BUNDLE_PREP=1` pass as the `nostra` service user, confirmed `/api/system/whoami`, posted a sentinel operator-provided block ID to `/api/cortex/studio/heap/blocks/context`, wrote a local summarized observation artifact, and exited with `exitStatus=pass`.
-
-**Why**
-
-- Read-only heap delta proved bounded read visibility; context bundle prep proves the next gateway packaging endpoint without enabling publication.
-- The pass confirmed the worker can use `POST /api/cortex/studio/heap/blocks/context` while preserving explicit operator block selection, local-only evidence, and no mutation.
-- Capturing the result in governed records keeps runtime evidence aligned with Initiative 132 authority instead of leaving it only in VPS local state.
-
-**Consequences**
-
-- Initiative 132 has now passed passive preflight, production-auth posture, host-mode authority, observe-once, read-only heap delta, and sentinel context bundle prep validation.
-- A future context prep pass with real operator-selected heap block IDs may improve usefulness without changing authority.
-- Heap emission, proposal/workflow creation, provider execution, live polling, autonomous task selection, repo/runtime mutation, graph mutation, and untrusted execution remain unauthorized.
-
 ## 2026-04-28 — Context Bundle Prep Is the Next Runtime Expansion Gate
 
 **Decision**

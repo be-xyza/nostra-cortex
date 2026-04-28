@@ -20,7 +20,7 @@ The first runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_O
 
 The second runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md), has passed on the VPS at commit `62ecf2d3d6c9112c4021b33b46344d41a8d3e387`: the worker performed one opt-in pass, read only `/api/system/whoami` and `/api/cortex/studio/heap/changed_blocks`, wrote local summarized evidence, and exited. It does not authorize context bundling, heap emission, proposals, workflow drafts, provider calls, polling, or mutation.
 
-The third runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md), has passed on the VPS at commit `6cbf62c6e5d4977e7e1eb41b953aa35d22e25de4` with a sentinel operator-provided block ID: the worker performed one opt-in pass, read `/api/system/whoami`, posted explicit `block_ids` to `/api/cortex/studio/heap/blocks/context`, wrote local summarized evidence, and exited. It does not authorize autonomous block selection, heap emission, proposals, workflow drafts, provider calls, polling, or mutation.
+The next proposed runtime-expansion gate is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md): one explicit operator-selected heap block context-prep pass against `POST /api/cortex/studio/heap/blocks/context`, local summarized artifact only, and no autonomous block selection, heap emission, proposal/workflow projection, provider calls, polling, or mutation.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
@@ -115,7 +115,7 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Hermes record-sync posture**: local Hermes artifacts do not update Initiative 132 by implication; they need explicit evidence/decision/plan promotion or a local-only disposition
 - **Hermes capability discovery posture**: Hermes may classify capabilities and propose observer lanes or skill improvements, but the result is local planning material only; feature enablement and execution adapters require later governed decisions
 - **Runtime expansion posture**: observe-once authority and read-only heap delta visibility have passed; live polling and execution authority still require separate governed packets
-- **Context bundle posture**: context bundle prep has passed only for explicit operator-provided block IDs and local summarized artifacts; it does not authorize autonomous block selection or publication
+- **Context bundle posture**: context bundle prep is proposed only for explicit operator-selected block IDs and local summarized artifacts; it does not authorize autonomous block selection or publication
 - **Hermes runbook posture**: local runbooks may standardize bounded pass operation, but preflight/postflight, evidence promotion, commits, and pushes remain operator-mediated
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
@@ -189,7 +189,6 @@ Older deployment notes reference an `eudaemon-alpha/` companion implementation r
 - [VPS passive runtime and production auth proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T071000Z_vps_passive_runtime_production_auth_proof.md)
 - [VPS observe-once worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T080222Z_vps_observe_once_worker_proof.md)
 - [VPS read-only heap delta worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T152202Z_vps_readonly_heap_delta_worker_proof.md)
-- [VPS context bundle prep worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T160203Z_vps_context_bundle_prep_worker_proof.md)
 - [Observe-once authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md)
 - [Read-only heap delta authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md)
 - [Context bundle prep authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md)

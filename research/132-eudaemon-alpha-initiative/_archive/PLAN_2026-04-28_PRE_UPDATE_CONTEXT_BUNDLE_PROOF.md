@@ -61,7 +61,7 @@ Current validated reality for this pass:
 - VPS host-mode authority and production-auth proof passed on 2026-04-28 at commit `2cfbf65dbe2093666de443366d33626b1c325090`; the gateway rejects unverified operator headers and unknown agent IDs under enforcement.
 - Observe-once worker validation passed on the VPS on 2026-04-28 at commit `a8af1afe312b521ab3d448b15716d9d6fd219312`; the worker read only `/api/system/whoami`, wrote one local observation artifact, and exited with `exitStatus=pass`.
 - Read-only heap delta validation passed on the VPS on 2026-04-28 at commit `62ecf2d3d6c9112c4021b33b46344d41a8d3e387`; the worker read only `/api/system/whoami` and `/api/cortex/studio/heap/changed_blocks`, wrote one local summarized artifact, and exited with `exitStatus=pass`.
-- Context bundle prep validation passed on the VPS on 2026-04-28 at commit `6cbf62c6e5d4977e7e1eb41b953aa35d22e25de4`; the worker read `/api/system/whoami`, posted one explicit sentinel block ID to `/api/cortex/studio/heap/blocks/context`, wrote one local summarized artifact, and exited with `exitStatus=pass`.
+- The next proposed runtime-expansion gate is context bundle prep: one explicit operator-selected block-ID pass against `POST /api/cortex/studio/heap/blocks/context`, summarized to a local artifact only, with no autonomous selection, heap emission, proposal/workflow projection, provider calls, polling, or mutation.
 - Live polling/runtime execution remains disabled pending a separate governed runtime-expansion decision.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
@@ -216,7 +216,7 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Evaluate migration from external agent host to native Cortex execution only through parity-backed slices.
 - Refuse architecture claims that bypass the governed workflow/runtime stack already defined in 124, 126, 130, 133, and 134.
 - Implement runtime expansion only through explicit authority packets. Observe-once mode has passed as one opt-in bounded worker pass, loopback self-observation only, local evidence artifact, and no polling or mutation.
-- Read-only heap list/delta visibility and context bundle prep have passed. Context prep remains local-artifact-only and explicit-ID-only. Heap emission, workflow/proposal projection, provider cognition, polling, and execution remain later gates.
+- Read-only heap list/delta visibility has passed. Context bundle prep is now the next proposed gate and remains local-artifact-only. Heap emission, workflow/proposal projection, provider cognition, polling, and execution remain later gates.
 
 ### Phase G: Cognitive Audit Pipeline
 - Define an `AuditUnit` manifest over governed sources such as architecture standards, active initiative plans, heap context bundles, lifecycle events, and workflow artifacts.
