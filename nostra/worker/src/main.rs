@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::signal;
 use tokio::time::sleep;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519StaticSecret};
@@ -19,6 +19,8 @@ const OBSERVE_ONCE_ENV: &str = "NOSTRA_WORKER_OBSERVE_ONCE";
 const READONLY_HEAP_DELTA_ENV: &str = "NOSTRA_WORKER_READONLY_HEAP_DELTA";
 const CONTEXT_BUNDLE_PREP_ENV: &str = "NOSTRA_WORKER_CONTEXT_BUNDLE_PREP";
 const STEWARD_REVIEWED_HEAP_EMIT_ENV: &str = "NOSTRA_WORKER_STEWARD_REVIEWED_HEAP_EMIT";
+const PROVIDER_COGNITION_LOCAL_SYNTHESIS_ENV: &str =
+    "NOSTRA_WORKER_PROVIDER_COGNITION_LOCAL_SYNTHESIS";
 const GATEWAY_URL_ENV: &str = "NOSTRA_GATEWAY_URL";
 const CORTEX_GATEWAY_URL_ENV: &str = "CORTEX_GATEWAY_URL";
 const OBSERVATION_DIR_ENV: &str = "NOSTRA_WORKER_OBSERVATION_DIR";
@@ -36,6 +38,16 @@ const HEAP_EMIT_BODY_LIMIT_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_BODY_LIMIT";
 const HEAP_EMIT_AUTH_MODE_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_AUTH_MODE";
 const HEAP_EMIT_PRINCIPAL_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_PRINCIPAL";
 const HEAP_EMIT_ROLE_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_ROLE";
+const PROVIDER_COGNITION_ENDPOINT_ENV: &str = "NOSTRA_WORKER_PROVIDER_COGNITION_ENDPOINT";
+const PROVIDER_COGNITION_PROVIDER_ID_ENV: &str = "NOSTRA_WORKER_PROVIDER_COGNITION_PROVIDER_ID";
+const PROVIDER_COGNITION_MODEL_ENV: &str = "NOSTRA_WORKER_PROVIDER_COGNITION_MODEL";
+const PROVIDER_COGNITION_PROMPT_ENV: &str = "NOSTRA_WORKER_PROVIDER_COGNITION_PROMPT";
+const PROVIDER_COGNITION_INPUT_PATH_ENV: &str = "NOSTRA_WORKER_PROVIDER_COGNITION_INPUT_PATH";
+const PROVIDER_COGNITION_APPROVAL_REF_ENV: &str = "NOSTRA_WORKER_PROVIDER_COGNITION_APPROVAL_REF";
+const PROVIDER_COGNITION_PROMPT_LIMIT_BYTES_ENV: &str =
+    "NOSTRA_WORKER_PROVIDER_COGNITION_PROMPT_LIMIT_BYTES";
+const PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS_ENV: &str =
+    "NOSTRA_WORKER_PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS";
 const VPS_STATE_ROOT_ENV: &str = "NOSTRA_VPS_STATE_ROOT";
 const DEFAULT_GATEWAY_BASE_URL: &str = "http://127.0.0.1:3000";
 const OBSERVE_ONCE_PACKET_ID: &str = "initiative-132-runtime-expansion-observe-once-v1";
@@ -45,6 +57,8 @@ const CONTEXT_BUNDLE_PREP_PACKET_ID: &str =
     "initiative-132-runtime-expansion-context-bundle-prep-v1";
 const STEWARD_REVIEWED_HEAP_EMIT_PACKET_ID: &str =
     "initiative-132-runtime-expansion-steward-reviewed-heap-emission-v1";
+const PROVIDER_COGNITION_LOCAL_SYNTHESIS_PACKET_ID: &str =
+    "initiative-132-runtime-expansion-provider-cognition-local-synthesis-v1";
 const DEFAULT_AGENT_ID: &str = "agent:eudaemon-alpha-01";
 const DEFAULT_HEAP_LIMIT: usize = 25;
 const MAX_HEAP_LIMIT: usize = 25;
@@ -52,6 +66,10 @@ const DEFAULT_CONTEXT_BLOCK_LIMIT: usize = 5;
 const MAX_CONTEXT_BLOCK_LIMIT: usize = 5;
 const DEFAULT_HEAP_EMIT_BODY_LIMIT: usize = 4000;
 const MAX_HEAP_EMIT_BODY_LIMIT: usize = 4000;
+const DEFAULT_PROVIDER_COGNITION_PROMPT_LIMIT_BYTES: usize = 12000;
+const MAX_PROVIDER_COGNITION_PROMPT_LIMIT_BYTES: usize = 12000;
+const DEFAULT_PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS: usize = 8000;
+const MAX_PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS: usize = 8000;
 
 #[derive(Serialize, Deserialize)]
 struct WorkerKeyStoreV1 {
@@ -164,6 +182,31 @@ struct StewardReviewedHeapEmitArtifact {
     exit_status: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderCognitionLocalSynthesisArtifact {
+    schema_version: String,
+    packet_id: String,
+    observed_at: String,
+    agent_id: String,
+    gateway_base_url: String,
+    approval_ref: Option<String>,
+    provider_id: Option<String>,
+    model: Option<String>,
+    prompt_length_bytes: usize,
+    prompt_limit_bytes: usize,
+    output_length_chars: usize,
+    output_limit_chars: usize,
+    authz_dev_mode: Option<bool>,
+    allow_unverified_role_header: Option<bool>,
+    agent_identity_enforcement: Option<bool>,
+    worker_mode: String,
+    provider_cognition: ProviderCognitionSummary,
+    checks: Vec<String>,
+    errors: Vec<String>,
+    exit_status: String,
+}
+
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct HeapReadSummary {
@@ -244,6 +287,21 @@ struct HeapEmitSummary {
     idempotent: Option<bool>,
     source_of_truth: Option<String>,
     fallback_active: Option<bool>,
+    error_code: Option<String>,
+    error_message: Option<String>,
+}
+
+#[derive(Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderCognitionSummary {
+    endpoint: Option<String>,
+    invocation_path: String,
+    attempted: bool,
+    status: Option<u16>,
+    provider_id: Option<String>,
+    model: Option<String>,
+    latency_ms: Option<u128>,
+    output: Option<String>,
     error_code: Option<String>,
     error_message: Option<String>,
 }
@@ -330,6 +388,10 @@ fn steward_reviewed_heap_emit_enabled() -> bool {
     env_flag_enabled(STEWARD_REVIEWED_HEAP_EMIT_ENV)
 }
 
+fn provider_cognition_local_synthesis_enabled() -> bool {
+    env_flag_enabled(PROVIDER_COGNITION_LOCAL_SYNTHESIS_ENV)
+}
+
 fn env_flag_enabled(name: &str) -> bool {
     std::env::var(name)
         .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
@@ -391,6 +453,10 @@ fn steward_reviewed_heap_emit_observation_path(dir: &Path, observed_at: &str) ->
     mode_observation_path(dir, "steward-reviewed-heap-emission", observed_at)
 }
 
+fn provider_cognition_observation_path(dir: &Path, observed_at: &str) -> PathBuf {
+    mode_observation_path(dir, "provider-cognition-local-synthesis", observed_at)
+}
+
 fn mode_observation_path(dir: &Path, mode: &str, observed_at: &str) -> PathBuf {
     let safe_timestamp = observed_at.replace([':', '.'], "-");
     dir.join(format!("eudaemon-alpha-{mode}-{safe_timestamp}.json"))
@@ -409,6 +475,86 @@ fn heap_emit_body_limit() -> usize {
         .and_then(|value| value.trim().parse::<usize>().ok())
         .unwrap_or(DEFAULT_HEAP_EMIT_BODY_LIMIT)
         .clamp(1, MAX_HEAP_EMIT_BODY_LIMIT)
+}
+
+fn provider_cognition_prompt_limit_bytes() -> usize {
+    std::env::var(PROVIDER_COGNITION_PROMPT_LIMIT_BYTES_ENV)
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(DEFAULT_PROVIDER_COGNITION_PROMPT_LIMIT_BYTES)
+        .clamp(1, MAX_PROVIDER_COGNITION_PROMPT_LIMIT_BYTES)
+}
+
+fn provider_cognition_output_limit_chars() -> usize {
+    std::env::var(PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS_ENV)
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(DEFAULT_PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS)
+        .clamp(1, MAX_PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS)
+}
+
+fn truncate_chars(value: &str, limit: usize) -> String {
+    value.chars().take(limit).collect()
+}
+
+fn is_loopback_http_url(url: &reqwest::Url) -> bool {
+    matches!(url.scheme(), "http" | "https")
+        && matches!(
+            url.host_str(),
+            Some("127.0.0.1") | Some("localhost") | Some("::1") | Some("[::1]")
+        )
+}
+
+fn provider_cognition_endpoint_url(raw: &str) -> Result<reqwest::Url> {
+    let url = reqwest::Url::parse(raw.trim())?;
+    if is_loopback_http_url(&url) {
+        Ok(url)
+    } else {
+        anyhow::bail!("{PROVIDER_COGNITION_ENDPOINT_ENV}:must_be_loopback_http_url")
+    }
+}
+
+fn provider_cognition_prompt() -> Result<Option<String>> {
+    let prompt = env_text(PROVIDER_COGNITION_PROMPT_ENV);
+    let input_path = env_text(PROVIDER_COGNITION_INPUT_PATH_ENV);
+
+    match (prompt, input_path) {
+        (Some(prompt), None) => Ok(Some(prompt)),
+        (None, Some(path)) => {
+            let body = fs::read_to_string(path)?;
+            let trimmed = body.trim().to_string();
+            if trimmed.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(trimmed))
+            }
+        }
+        (Some(_), Some(_)) => {
+            anyhow::bail!(
+                "{PROVIDER_COGNITION_PROMPT_ENV}:conflicts_with:{PROVIDER_COGNITION_INPUT_PATH_ENV}"
+            )
+        }
+        (None, None) => Ok(None),
+    }
+}
+
+fn provider_cognition_output_from_payload(payload: &Value) -> Option<String> {
+    ["output", "text", "synthesis", "message", "content"]
+        .iter()
+        .find_map(|field| string_field(payload, field))
+        .or_else(|| {
+            payload
+                .get("choices")
+                .and_then(Value::as_array)
+                .and_then(|choices| choices.first())
+                .and_then(|choice| {
+                    string_field(choice, "text").or_else(|| {
+                        choice
+                            .get("message")
+                            .and_then(|message| string_field(message, "content"))
+                    })
+                })
+        })
 }
 
 fn heap_emit_auth_headers() -> HeapEmitAuthHeaders {
@@ -1211,6 +1357,190 @@ async fn run_steward_reviewed_heap_emit() -> Result<PathBuf> {
     Ok(path)
 }
 
+async fn run_provider_cognition_local_synthesis() -> Result<PathBuf> {
+    let agent_id = configured_agent_id();
+    let gateway_base = gateway_base_url();
+    let observed_at = Utc::now().to_rfc3339();
+    let prompt_limit = provider_cognition_prompt_limit_bytes();
+    let output_limit = provider_cognition_output_limit_chars();
+    let endpoint_raw = env_text(PROVIDER_COGNITION_ENDPOINT_ENV);
+    let provider_id = env_text(PROVIDER_COGNITION_PROVIDER_ID_ENV);
+    let model = env_text(PROVIDER_COGNITION_MODEL_ENV);
+    let approval_ref = env_text(PROVIDER_COGNITION_APPROVAL_REF_ENV);
+    let prompt_result = provider_cognition_prompt();
+    let mut checks = vec![
+        format!("packet:{PROVIDER_COGNITION_LOCAL_SYNTHESIS_PACKET_ID}"),
+        format!("agent_id:{agent_id}"),
+        "mode:provider_cognition_local_synthesis".to_string(),
+        "invocation_path:operator_mediated_loopback_wrapper".to_string(),
+        format!("prompt_limit_bytes:{prompt_limit}"),
+        format!("output_limit_chars:{output_limit}"),
+    ];
+    let mut errors = Vec::new();
+
+    if endpoint_raw.is_none() {
+        errors.push(format!("{PROVIDER_COGNITION_ENDPOINT_ENV}:missing"));
+    }
+    if provider_id.is_none() {
+        errors.push(format!("{PROVIDER_COGNITION_PROVIDER_ID_ENV}:missing"));
+    }
+    if model.is_none() {
+        errors.push(format!("{PROVIDER_COGNITION_MODEL_ENV}:missing"));
+    }
+    if approval_ref.is_none() {
+        errors.push(format!("{PROVIDER_COGNITION_APPROVAL_REF_ENV}:missing"));
+    }
+
+    let prompt = match prompt_result {
+        Ok(prompt) => prompt,
+        Err(error) => {
+            errors.push(format!("provider_cognition_prompt:{error}"));
+            None
+        }
+    };
+    if prompt.is_none() {
+        errors.push(format!(
+            "{PROVIDER_COGNITION_PROMPT_ENV}_or_{PROVIDER_COGNITION_INPUT_PATH_ENV}:missing"
+        ));
+    }
+    let prompt_length_bytes = prompt
+        .as_deref()
+        .map(|value| value.as_bytes().len())
+        .unwrap_or_default();
+    if prompt_length_bytes > prompt_limit {
+        errors.push(format!(
+            "provider_cognition_prompt:exceeds_limit:{prompt_length_bytes}>{prompt_limit}"
+        ));
+    }
+
+    let endpoint_url = match endpoint_raw.as_deref() {
+        Some(raw) => match provider_cognition_endpoint_url(raw) {
+            Ok(url) => Some(url),
+            Err(error) => {
+                errors.push(format!("provider_cognition_endpoint:{error}"));
+                None
+            }
+        },
+        None => None,
+    };
+
+    let posture =
+        fetch_gateway_auth_posture(&gateway_base, &agent_id, &mut checks, &mut errors).await;
+
+    let mut provider_cognition = ProviderCognitionSummary {
+        endpoint: endpoint_raw.clone(),
+        invocation_path: "operator_mediated_loopback_wrapper".to_string(),
+        provider_id: provider_id.clone(),
+        model: model.clone(),
+        ..ProviderCognitionSummary::default()
+    };
+
+    if errors.is_empty() {
+        let payload = json!({
+            "schemaVersion": "1.0.0",
+            "packetId": PROVIDER_COGNITION_LOCAL_SYNTHESIS_PACKET_ID,
+            "agentId": agent_id,
+            "observedAt": observed_at,
+            "providerId": provider_id.as_deref().unwrap_or_default(),
+            "model": model.as_deref().unwrap_or_default(),
+            "approvalRef": approval_ref.as_deref().unwrap_or_default(),
+            "prompt": prompt.as_deref().unwrap_or_default(),
+            "constraints": {
+                "localOnly": true,
+                "forbidPublication": true,
+                "forbidProposalWorkflowProjection": true,
+                "forbidPolling": true,
+                "forbidExecution": true,
+                "outputLimitChars": output_limit
+            }
+        });
+
+        if let Some(url) = endpoint_url {
+            provider_cognition.attempted = true;
+            let started_at = Instant::now();
+            match reqwest::Client::new()
+                .post(url)
+                .header("x-cortex-agent-id", &agent_id)
+                .json(&payload)
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    let status = response.status();
+                    provider_cognition.status = Some(status.as_u16());
+                    provider_cognition.latency_ms = Some(started_at.elapsed().as_millis());
+                    if status.is_success() {
+                        match response.json::<Value>().await {
+                            Ok(payload) => {
+                                let output = provider_cognition_output_from_payload(&payload)
+                                    .unwrap_or_default();
+                                let output = truncate_chars(&output, output_limit);
+                                provider_cognition.output = Some(output);
+                                checks.push("provider_cognition:ok".to_string());
+                            }
+                            Err(error) => errors.push(format!("provider_cognition_json:{error}")),
+                        }
+                    } else {
+                        if let Ok(payload) = response.json::<Value>().await {
+                            provider_cognition.error_code = string_field(&payload, "errorCode")
+                                .or_else(|| string_field(&payload, "error_code"))
+                                .or_else(|| string_field(&payload, "code"));
+                            provider_cognition.error_message = string_field(&payload, "message")
+                                .or_else(|| string_field(&payload, "error"));
+                        }
+                        errors.push(format!("provider_cognition_status:{status}"));
+                    }
+                }
+                Err(error) => errors.push(format!("provider_cognition_request:{error}")),
+            }
+        } else {
+            checks.push("provider_cognition:skipped".to_string());
+        }
+    } else {
+        checks.push("provider_cognition:skipped".to_string());
+    }
+
+    let output_length_chars = provider_cognition
+        .output
+        .as_deref()
+        .map(str::chars)
+        .map(Iterator::count)
+        .unwrap_or_default();
+    let exit_status = if errors.is_empty() {
+        "pass"
+    } else {
+        "needs_review"
+    };
+    let artifact = ProviderCognitionLocalSynthesisArtifact {
+        schema_version: "1.0.0".to_string(),
+        packet_id: PROVIDER_COGNITION_LOCAL_SYNTHESIS_PACKET_ID.to_string(),
+        observed_at: observed_at.clone(),
+        agent_id,
+        gateway_base_url: gateway_base,
+        approval_ref,
+        provider_id,
+        model,
+        prompt_length_bytes,
+        prompt_limit_bytes: prompt_limit,
+        output_length_chars,
+        output_limit_chars: output_limit,
+        authz_dev_mode: posture.authz_dev_mode,
+        allow_unverified_role_header: posture.allow_unverified_role_header,
+        agent_identity_enforcement: posture.agent_identity_enforcement,
+        worker_mode: "provider_cognition_local_synthesis".to_string(),
+        provider_cognition,
+        checks,
+        errors,
+        exit_status: exit_status.to_string(),
+    };
+
+    let dir = observation_dir();
+    fs::create_dir_all(&dir)?;
+    let path = provider_cognition_observation_path(&dir, &observed_at);
+    fs::write(&path, serde_json::to_string_pretty(&artifact)?)?;
+    Ok(path)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
@@ -1268,6 +1598,15 @@ async fn main() -> Result<()> {
         let path = run_steward_reviewed_heap_emit().await?;
         println!(
             "   > Steward-reviewed heap emission artifact written to {}",
+            path.display()
+        );
+        return Ok(());
+    }
+
+    if provider_cognition_local_synthesis_enabled() {
+        let path = run_provider_cognition_local_synthesis().await?;
+        println!(
+            "   > Provider cognition local synthesis artifact written to {}",
             path.display()
         );
         return Ok(());
@@ -1366,6 +1705,20 @@ mod tests {
     }
 
     #[test]
+    fn provider_cognition_observation_path_is_filesystem_safe() {
+        let path = provider_cognition_observation_path(
+            Path::new("/tmp/eudaemon-observations"),
+            "2026-04-29T12:34:56.789Z",
+        );
+        assert_eq!(
+            path,
+            PathBuf::from(
+                "/tmp/eudaemon-observations/eudaemon-alpha-provider-cognition-local-synthesis-2026-04-29T12-34-56-789Z.json"
+            )
+        );
+    }
+
+    #[test]
     fn role_rank_requires_operator_or_higher_for_heap_emit() {
         assert!(role_rank("operator") >= role_rank("operator"));
         assert!(role_rank("steward") >= role_rank("operator"));
@@ -1381,6 +1734,61 @@ mod tests {
         std::env::set_var(HEAP_EMIT_BODY_LIMIT_ENV, "0");
         assert_eq!(heap_emit_body_limit(), 1);
         std::env::remove_var(HEAP_EMIT_BODY_LIMIT_ENV);
+    }
+
+    #[test]
+    fn provider_cognition_prompt_limit_caps_operator_input() {
+        std::env::set_var(PROVIDER_COGNITION_PROMPT_LIMIT_BYTES_ENV, "999999");
+        assert_eq!(
+            provider_cognition_prompt_limit_bytes(),
+            MAX_PROVIDER_COGNITION_PROMPT_LIMIT_BYTES
+        );
+        std::env::set_var(PROVIDER_COGNITION_PROMPT_LIMIT_BYTES_ENV, "0");
+        assert_eq!(provider_cognition_prompt_limit_bytes(), 1);
+        std::env::remove_var(PROVIDER_COGNITION_PROMPT_LIMIT_BYTES_ENV);
+    }
+
+    #[test]
+    fn provider_cognition_output_limit_caps_operator_input() {
+        std::env::set_var(PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS_ENV, "999999");
+        assert_eq!(
+            provider_cognition_output_limit_chars(),
+            MAX_PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS
+        );
+        std::env::set_var(PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS_ENV, "0");
+        assert_eq!(provider_cognition_output_limit_chars(), 1);
+        std::env::remove_var(PROVIDER_COGNITION_OUTPUT_LIMIT_CHARS_ENV);
+    }
+
+    #[test]
+    fn provider_cognition_endpoint_requires_loopback_http() {
+        assert!(provider_cognition_endpoint_url("http://127.0.0.1:3000/invoke").is_ok());
+        assert!(provider_cognition_endpoint_url("http://localhost:3000/invoke").is_ok());
+        assert!(provider_cognition_endpoint_url("https://[::1]:3000/invoke").is_ok());
+        assert!(provider_cognition_endpoint_url("http://100.86.222.99:3000/invoke").is_err());
+        assert!(provider_cognition_endpoint_url("file:///tmp/provider.json").is_err());
+    }
+
+    #[test]
+    fn truncate_chars_respects_character_boundaries() {
+        assert_eq!(truncate_chars("abcd", 2), "ab");
+        assert_eq!(truncate_chars("aé日", 2), "aé");
+    }
+
+    #[test]
+    fn provider_cognition_output_extractor_reads_openai_shape() {
+        let payload = serde_json::json!({
+            "choices": [{
+                "message": {
+                    "content": "bounded synthesis"
+                }
+            }]
+        });
+
+        assert_eq!(
+            provider_cognition_output_from_payload(&payload),
+            Some("bounded synthesis".to_string())
+        );
     }
 
     #[test]
