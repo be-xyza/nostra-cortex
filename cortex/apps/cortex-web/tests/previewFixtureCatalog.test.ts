@@ -10,6 +10,7 @@ import {
   filterPreviewHeapBlocks,
   isPreviewArtifactId,
 } from "../src/store/previewFixtureCatalog.ts";
+import { SHELL_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/shellSurfaceInventoryContract.ts";
 import {
   isSpaceDesignProfilePreviewMetadataOnly,
   spaceDesignProfilePreviewThemeBindingState,
@@ -22,6 +23,7 @@ test("preview fixture catalog recognizes seeded preview artifact ids", () => {
   assert.equal(isPreviewArtifactId("mock-solicitation-1"), true);
   assert.equal(isPreviewArtifactId("01KM4CDYTP8RD94Z52HJQQNTTD"), false);
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID));
+  assert.ok(PREVIEW_SNAPSHOT_IDS.has(SHELL_SURFACE_INVENTORY_SNAPSHOT_ID));
 });
 
 test("preview fixture filters remove seeded mock blocks from heap responses", () => {
@@ -91,4 +93,32 @@ test("space design profile preview fixture remains advisory metadata only", () =
   assert.equal("design_tokens" in profile, false);
   assert.equal(isSpaceDesignProfilePreviewMetadataOnly(fixture as SpaceDesignProfilePreviewFixture), true);
   assert.equal(spaceDesignProfilePreviewThemeBindingState(fixture as SpaceDesignProfilePreviewFixture), "metadata_only");
+});
+
+test("shell surface inventory fixture remains recommendation-only observability", () => {
+  const fixturePath = fileURLToPath(
+    new URL("../src/store/shellSurfaceInventory.fixture.json", import.meta.url),
+  );
+  const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
+
+  assert.equal(fixture.schema_version, "CortexWebShellSurfaceInventoryV1");
+  assert.equal(fixture.snapshot_id, SHELL_SURFACE_INVENTORY_SNAPSHOT_ID);
+  assert.equal(fixture.authority_mode, "recommendation_only");
+  assert.ok(fixture.scope_boundaries.excludes.includes("heap_block_capability_deep_validation"));
+
+  const discovery = fixture.routes.find((route: any) => route.route === "/discovery");
+  assert.equal(discovery.status, "under_construction");
+  assert.equal(discovery.visible_in_nav, true);
+  assert.equal(discovery.known_gap.severity, "high");
+
+  const settings = fixture.routes.find((route: any) => route.route === "/settings");
+  assert.equal(settings.class, "settings_gap");
+  assert.equal(settings.status, "missing");
+
+  const settingsCategories = fixture.settings_requirements.map((item: any) => item.category);
+  assert.ok(settingsCategories.includes("personal_preferences"));
+  assert.ok(settingsCategories.includes("space_settings"));
+  assert.ok(settingsCategories.includes("workbench_settings"));
+  assert.ok(settingsCategories.includes("operator_settings"));
+  assert.ok(settingsCategories.includes("design_theme_governance"));
 });
