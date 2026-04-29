@@ -10,6 +10,7 @@ import {
   filterPreviewHeapBlocks,
   isPreviewArtifactId,
 } from "../src/store/previewFixtureCatalog.ts";
+import { HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID } from "../src/store/heapBlockCapabilityInventoryContract.ts";
 import { SHELL_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/shellSurfaceInventoryContract.ts";
 import {
   isSpaceDesignProfilePreviewMetadataOnly,
@@ -24,6 +25,7 @@ test("preview fixture catalog recognizes seeded preview artifact ids", () => {
   assert.equal(isPreviewArtifactId("01KM4CDYTP8RD94Z52HJQQNTTD"), false);
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID));
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(SHELL_SURFACE_INVENTORY_SNAPSHOT_ID));
+  assert.ok(PREVIEW_SNAPSHOT_IDS.has(HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID));
 });
 
 test("preview fixture filters remove seeded mock blocks from heap responses", () => {
@@ -121,4 +123,34 @@ test("shell surface inventory fixture remains recommendation-only observability"
   assert.ok(settingsCategories.includes("workbench_settings"));
   assert.ok(settingsCategories.includes("operator_settings"));
   assert.ok(settingsCategories.includes("design_theme_governance"));
+});
+
+test("heap block capability inventory fixture remains recommendation-only observability", () => {
+  const fixturePath = fileURLToPath(
+    new URL("../src/store/heapBlockCapabilityInventory.fixture.json", import.meta.url),
+  );
+  const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
+
+  assert.equal(fixture.schema_version, "CortexWebHeapBlockCapabilityInventoryV1");
+  assert.equal(fixture.snapshot_id, HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID);
+  assert.equal(fixture.authority_mode, "recommendation_only");
+  assert.ok(fixture.scope_boundaries.includes.includes("heap_action_zones"));
+  assert.ok(fixture.scope_boundaries.excludes.includes("runtime_mutation_authority"));
+
+  const actions = new Set(fixture.actions.map((action: any) => action.id));
+  assert.ok(actions.has("create"));
+  assert.ok(actions.has("publish"));
+  assert.ok(actions.has("delete"));
+  assert.ok(actions.has("discussion"));
+
+  const deleteAction = fixture.actions.find((action: any) => action.id === "delete");
+  assert.equal(deleteAction.class, "destructive_write");
+  assert.equal(deleteAction.known_gap.severity, "high");
+
+  const createModes = new Set(fixture.create_modes.map((mode: any) => mode.mode));
+  assert.deepEqual(createModes, new Set(["create", "generate", "upload", "chat", "plan"]));
+
+  const gapIds = new Set(fixture.known_gaps.map((gap: any) => gap.id));
+  assert.ok(gapIds.has("heap.block.comments.persistence"));
+  assert.ok(gapIds.has("heap.block.overlay.layering"));
 });
