@@ -2,7 +2,7 @@
 
 **Status**: Active
 **Created**: 2026-03-07
-**Updated**: 2026-04-29
+**Updated**: 2026-04-28
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -24,9 +24,7 @@ The third runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_B
 
 A follow-up real-heap context bundle prep pass also passed on the VPS on 2026-04-29 UTC using three explicit heap block IDs from a bounded read-only heap list. The worker returned three context block summaries and persisted only local summarized evidence, including `surfaceJsonBytes` counts rather than raw heap payloads.
 
-The steward-reviewed heap emission worker mode is implemented and has passed fail-closed VPS validation at commit `8a3b2fe35d818b66c4545a489f1e4bc21b328d66`: without an operator principal, signed session, or operator-mediated proxy, it resolved as unverified viewer, wrote a local `needs_review` artifact, and did not call `POST /api/cortex/studio/heap/emit`.
-
-The next proposed runtime-expansion gate remains the authorized publication proof for [`RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md): one explicit operator-approved rich-text heap block emitted through `POST /api/cortex/studio/heap/emit`, local publication artifact only, verified operator-or-higher authorization, and no autonomous synthesis, provider calls, polling, proposal/workflow projection, or execution.
+The next proposed runtime-expansion gate is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md): one explicit operator-approved rich-text heap block emitted through `POST /api/cortex/studio/heap/emit`, local publication artifact only, and no autonomous synthesis, provider calls, polling, proposal/workflow projection, or execution.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
