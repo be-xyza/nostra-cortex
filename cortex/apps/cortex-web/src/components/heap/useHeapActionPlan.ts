@@ -39,6 +39,7 @@ function fallbackAction(
         pin: { capabilityId: "cap.heap.pin", icon: "pin", group: "secondary", kind: "mutation", action: "pin" },
         delete: { capabilityId: "cap.heap.delete", icon: "trash-2", group: "danger", kind: "destructive", action: "delete" },
         discussion: { capabilityId: "cap.heap.discussion", icon: "message-square", group: "secondary", kind: "navigation", action: "view_discussion" },
+        relation_edit: { capabilityId: "cap.heap.relation_edit", icon: "git-branch", group: "secondary", kind: "panel_toggle", action: "relation_edit" },
         edit: { capabilityId: "cap.heap.edit", icon: "file-text", group: "secondary", kind: "command", action: "edit" },
     };
     const mapped = actionMap[action.id];
@@ -59,7 +60,7 @@ function fallbackAction(
         enabled: action.enabled,
         disabledReason: action.disabledReason,
         selectionConstraints: undefined,
-        confirmation: undefined,
+        confirmation: action.confirmation,
         stewardGate: action.id === "publish" ? { required: true } : undefined,
     };
 }

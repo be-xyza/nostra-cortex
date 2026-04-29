@@ -29,3 +29,35 @@ test("createHeapDetailActionHandlers routes regenerate through the parent select
     },
   ]);
 });
+
+test("createHeapDetailActionHandlers routes relation edits separately from generic edit", () => {
+  let relationEditCount = 0;
+  let genericEditCount = 0;
+
+  const handlers = createHeapDetailActionHandlers({
+    artifactId: "artifact-live-2",
+    blockType: "note",
+    onClose: () => undefined,
+    onToggleRelations: () => {
+      relationEditCount += 1;
+    },
+    onViewDiscussion: () => undefined,
+    onRegenerate: () => undefined,
+  });
+
+  handlers.onRelationEdit?.({
+    selectedArtifactIds: ["artifact-live-2"],
+    activeArtifactId: "artifact-live-2",
+    selectedCount: 1,
+    selectedBlockTypes: ["note"],
+  });
+  handlers.onEdit?.({
+    selectedArtifactIds: ["artifact-live-2"],
+    activeArtifactId: "artifact-live-2",
+    selectedCount: 1,
+    selectedBlockTypes: ["note"],
+  });
+
+  assert.equal(relationEditCount, 1);
+  assert.equal(genericEditCount, 0);
+});

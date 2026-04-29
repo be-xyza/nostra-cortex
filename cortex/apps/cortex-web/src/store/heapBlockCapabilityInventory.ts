@@ -23,6 +23,11 @@ export type HeapBlockCapabilityInventoryFixture = {
     status: string;
     zones: string[];
     required_observability: string[];
+    confirmation_contract?: {
+      required: boolean;
+      style?: "danger" | "default";
+      fallback_enforced?: boolean;
+    };
     known_gap?: {
       severity: "low" | "medium" | "high";
       summary: string;

@@ -53,7 +53,7 @@ The fallback action plan exposes these actions:
 - `pin`
 - `delete`
 - `discussion`
-- `relation_edit`
+- `edit`
 
 Create panel modes are:
 
@@ -72,13 +72,13 @@ Detail tabs are:
 
 ## Current Gaps
 
-Resolved in the behavior-contract slice:
+High priority:
 
-- Destructive delete now carries confirmation metadata in the fallback action plan, and the action executor refuses confirmed actions when confirmation is rejected or unavailable.
-- Relation editing is now a distinct `relation_edit` capability instead of being routed through generic `edit`.
+- Destructive delete is exposed in fallback action paths without a fixture-level confirmation invariant.
 
-Remaining medium priority:
+Medium priority:
 
+- General edit and relation editing are semantically conflated.
 - Comment sidebar state is local UI state, not governed Heap persistence.
 - Chat overlay can intercept other controls.
 - Regenerate is exposed in action plans but does not yet have a clear runtime command contract in the inventory.
@@ -89,6 +89,6 @@ Next validation should add Playwright and/or contract tests for:
 
 - action menu availability by selected count
 - create/upload/chat overlay collisions
-- destructive action confirmation flow
-- remote action-plan parity for `relation_edit` capability metadata
+- destructive action confirmation metadata
+- relation editor authority split from generic edit
 - comment persistence authority

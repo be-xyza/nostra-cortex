@@ -34,6 +34,6 @@ export function createHeapDetailActionHandlers(
     onRegenerate: () => options.onRegenerate?.(selection),
     onDeselect: () => options.onClose(),
     onOpenDiscussion: () => options.onViewDiscussion(options.artifactId),
-    onEdit: () => options.onToggleRelations(),
+    onRelationEdit: () => options.onToggleRelations(),
   };
 }

@@ -33,7 +33,7 @@ REQUIRED_ACTIONS = {
     "pin",
     "delete",
     "discussion",
-    "edit",
+    "relation_edit",
 }
 REQUIRED_ZONES = {
     "heap_page_bar",
@@ -45,10 +45,9 @@ REQUIRED_ZONES = {
 REQUIRED_CREATE_MODES = {"create", "generate", "upload", "chat", "plan"}
 REQUIRED_DETAIL_TABS = {"preview", "relations", "attributes", "code"}
 REQUIRED_GAPS = {
-    "heap.block.delete.confirmation",
-    "heap.block.edit.semantic_split",
     "heap.block.comments.persistence",
     "heap.block.overlay.layering",
+    "heap.block.regenerate.handler",
 }
 
 
@@ -122,10 +121,18 @@ def main() -> None:
             fail(f"action {action_id}: unknown zones {sorted(unknown_zones)}")
         if not isinstance(action.get("required_observability"), list) or not action["required_observability"]:
             fail(f"action {action_id}: required_observability must be non-empty")
-        if action.get("class") in {"destructive_write", "placeholder_or_disabled"}:
+        if action.get("class") == "destructive_write":
+            confirmation = action.get("confirmation_contract")
+            if not isinstance(confirmation, dict):
+                fail(f"action {action_id}: destructive actions require confirmation_contract")
+            if confirmation.get("required") is not True:
+                fail(f"action {action_id}: confirmation_contract.required must be true")
+            if confirmation.get("style") != "danger":
+                fail(f"action {action_id}: confirmation_contract.style must be danger")
+            if confirmation.get("fallback_enforced") is not True:
+                fail(f"action {action_id}: confirmation_contract.fallback_enforced must be true")
+        if action.get("class") == "placeholder_or_disabled":
             gap = action.get("known_gap")
-            if action_id in {"delete", "edit"} and not isinstance(gap, dict):
-                fail(f"action {action_id}: requires known_gap metadata")
             if isinstance(gap, dict):
                 require_gap(gap, f"action {action_id}.known_gap")
 
