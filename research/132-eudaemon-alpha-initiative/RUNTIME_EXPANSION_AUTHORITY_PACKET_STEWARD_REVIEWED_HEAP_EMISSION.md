@@ -63,7 +63,7 @@ Allowed emit constraints:
 
 1. `schema_version` must be `1.0.0`.
 2. `mode` must be `heap`.
-3. `space_id` must come from an operator-provided environment value or equivalent local operator packet.
+3. `space_id` must come from an operator-provided environment value or equivalent local operator packet and must be the live heap workspace ULID accepted by the gateway, not a human initiative label.
 4. `source.agent_id` must be `agent:eudaemon-alpha-01`.
 5. `source.request_id` must include the operator approval reference.
 6. `block.type` must be a fixed v1 value such as `eudaemon_evidence_note`.
@@ -130,7 +130,7 @@ Suggested local controls:
 
 ```bash
 NOSTRA_WORKER_STEWARD_REVIEWED_HEAP_EMIT=1
-NOSTRA_WORKER_HEAP_EMIT_SPACE_ID=<space id>
+NOSTRA_WORKER_HEAP_EMIT_SPACE_ID=<heap workspace ULID>
 NOSTRA_WORKER_HEAP_EMIT_TITLE=<operator-approved title>
 NOSTRA_WORKER_HEAP_EMIT_BODY=<operator-approved body>
 NOSTRA_WORKER_HEAP_EMIT_APPROVAL_REF=<approval id or evidence ref>

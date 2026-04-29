@@ -441,6 +441,14 @@ fn role_rank(role: &str) -> u8 {
     }
 }
 
+fn is_heap_workspace_ulid(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.len() == 26
+        && trimmed
+            .chars()
+            .all(|ch| matches!(ch, '0'..='9' | 'A'..='H' | 'J'..='K' | 'M'..='N' | 'P'..='T' | 'V'..='Z'))
+}
+
 fn heap_emit_url(gateway_base: &str) -> Result<reqwest::Url> {
     Ok(reqwest::Url::parse(&format!(
         "{gateway_base}/api/cortex/studio/heap/emit"
@@ -1035,6 +1043,14 @@ async fn run_steward_reviewed_heap_emit() -> Result<PathBuf> {
 
     if space_id.is_none() {
         errors.push(format!("{HEAP_EMIT_SPACE_ID_ENV}:missing"));
+    } else if !space_id
+        .as_deref()
+        .map(is_heap_workspace_ulid)
+        .unwrap_or(false)
+    {
+        errors.push(format!(
+            "{HEAP_EMIT_SPACE_ID_ENV}:must_be_heap_workspace_ulid"
+        ));
     }
     if title.is_none() {
         errors.push(format!("{HEAP_EMIT_TITLE_ENV}:missing"));
@@ -1360,6 +1376,14 @@ mod tests {
         std::env::set_var(HEAP_EMIT_BODY_LIMIT_ENV, "0");
         assert_eq!(heap_emit_body_limit(), 1);
         std::env::remove_var(HEAP_EMIT_BODY_LIMIT_ENV);
+    }
+
+    #[test]
+    fn heap_emit_workspace_id_requires_ulid() {
+        assert!(is_heap_workspace_ulid("01KM4C04QY37V9RV9H2HH9J1NM"));
+        assert!(!is_heap_workspace_ulid("initiative-132"));
+        assert!(!is_heap_workspace_ulid("01KM4C04QY37V9RV9H2HH9J1NI"));
+        assert!(!is_heap_workspace_ulid("01KM4C04QY37V9RV9H2HH9J1N"));
     }
 
     #[test]
