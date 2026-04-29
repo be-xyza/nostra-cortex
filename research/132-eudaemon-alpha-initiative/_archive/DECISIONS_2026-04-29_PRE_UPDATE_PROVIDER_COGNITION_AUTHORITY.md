@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-29 — Provider Cognition Local Synthesis Is the Next Runtime Expansion Gate
-
-**Decision**
-
-Adopt an Initiative 132 runtime-expansion authority packet for a proposed provider cognition local synthesis worker mode before enabling publication from model output, proposal/workflow projection, live polling, batch-provider jobs, or execution.
-
-The packet is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md). It allows only one explicit, bounded worker pass that confirms `/api/system/whoami`, accepts operator-provided provider/model/prompt inputs, performs exactly one provider cognition request through a governed local runtime path, writes one redacted local synthesis artifact, and exits.
-
-**Why**
-
-- The heap-emission proof closed the smallest publication gate, but it intentionally did not prove live cognition.
-- The next useful step is analysis without publication: one provider-backed synthesis artifact in local evidence only.
-- Separating cognition from publication prevents provider output from becoming proposal, workflow, heap, graph, or execution authority by accident.
-
-**Consequences**
-
-- The next implementation PR should add an explicit opt-in flag such as `NOSTRA_WORKER_PROVIDER_COGNITION_LOCAL_SYNTHESIS=1`, preserving passive default behavior.
-- The implementation must select and document the exact provider invocation path before any VPS activation.
-- Heap emission, proposal/workflow creation, provider inventory reads, runtime topology inspection, batch-provider submission/polling, live polling, autonomous task selection, repo/runtime mutation, graph mutation, and untrusted execution remain unauthorized.
-
 ## 2026-04-29 — Steward-Reviewed Heap Emission Authorized Publication Proof Passed
 
 **Decision**

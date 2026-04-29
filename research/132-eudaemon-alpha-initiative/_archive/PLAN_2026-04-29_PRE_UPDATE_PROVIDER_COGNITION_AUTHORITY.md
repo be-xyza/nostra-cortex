@@ -66,7 +66,6 @@ Current validated reality for this pass:
 - Steward-reviewed heap emission fail-closed validation passed on the VPS on 2026-04-29 at commit `8a3b2fe35d818b66c4545a489f1e4bc21b328d66`: without an operator principal, signed session, or operator-mediated proxy, the worker wrote `exitStatus=needs_review`, resolved as `effectiveRole=viewer`, and skipped `POST /api/cortex/studio/heap/emit`.
 - Steward-reviewed heap emission authorized publication proof passed on the VPS on 2026-04-29 at commit `b40c0ad14a20562e2f48ac2478d28a5f44488ae1`: the worker resolved a verified operator principal binding, emitted exactly one operator-approved rich-text heap block, wrote one local publication artifact, and exited with `exitStatus=pass`.
 - The publication proof closes the single-block steward-reviewed heap-emission gate only. Agent identity alone is still not publication authority, and any further provider cognition, proposal/workflow projection, autonomous heap publication, polling, or execution requires a separate governed runtime-expansion packet.
-- The next proposed runtime-expansion gate is provider cognition local synthesis, defined by `RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md`: one operator-approved provider prompt, one bounded provider call through a governed local runtime path, one redacted local artifact, and no heap publication, proposal/workflow projection, polling, batch jobs, graph mutation, or execution.
 - Live polling/runtime execution remains disabled pending a separate governed runtime-expansion decision.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
@@ -173,7 +172,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 9. Treat clean request worktrees, durable checkpointing, and immutable evidence promotion as operator safety controls for the system-definition layer.
 10. Define a local Hermes observer envelope as a planned advisory environment rather than a Cortex runtime component, with a dedicated activation workspace and local synthesis outputs.
 11. Define a separate Hermes developer-profile envelope for patch-prep handoffs only, with local task packets as v1 intake and Codex/operator retaining implementation authority.
-12. Define a provider cognition local synthesis gate that proves live cognition without publication or execution authority.
 
 ## Out of Scope
 
@@ -185,7 +183,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 6. Treating developer Git worktree state as a Cortex runtime primitive.
 7. Running live Doubleword or other batch-provider APIs, queue workers, polling loops, or execution-control extraction as part of the Hermes advisory pass.
 8. Treating `hermescortexdev` as an autonomous implementation agent, runtime worker, commit/push actor, deploy actor, or production mutation surface.
-9. Treating provider cognition output as publication authority, proposal authority, workflow authority, or execution authority.
 
 ## Delivery Phases
 
@@ -223,7 +220,7 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Evaluate migration from external agent host to native Cortex execution only through parity-backed slices.
 - Refuse architecture claims that bypass the governed workflow/runtime stack already defined in 124, 126, 130, 133, and 134.
 - Implement runtime expansion only through explicit authority packets. Observe-once mode has passed as one opt-in bounded worker pass, loopback self-observation only, local evidence artifact, and no polling or mutation.
-- Read-only heap list/delta visibility, context bundle prep with real heap IDs, and single-block steward-reviewed heap emission have passed. Provider cognition local synthesis is now the next proposed gate and remains local-artifact-only. Workflow/proposal projection, publication from provider output, polling, and execution remain later gates.
+- Read-only heap list/delta visibility and context bundle prep with real heap IDs have passed. Steward-reviewed heap emission is now the next proposed gate and remains operator-payload-only. Workflow/proposal projection, provider cognition, polling, and execution remain later gates.
 
 ### Phase G: Cognitive Audit Pipeline
 - Define an `AuditUnit` manifest over governed sources such as architecture standards, active initiative plans, heap context bundles, lifecycle events, and workflow artifacts.

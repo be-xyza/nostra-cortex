@@ -32,8 +32,6 @@ Evidence: [20260429T051551Z_vps_heap_emission_authorized_publication_proof.md](/
 
 This closes only the single-block steward-reviewed publication proof. It does not authorize autonomous synthesis, provider calls, polling, proposal/workflow projection, graph mutation, runtime execution, repo mutation, production promotion, or untrusted execution.
 
-The next proposed runtime-expansion gate is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md): one operator-approved provider prompt, one bounded provider call through a governed local runtime path, one redacted local synthesis artifact, and no heap publication, proposal/workflow projection, polling, batch-provider jobs, graph mutation, or execution.
-
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
 Hermes is adopted for the next local pass only as a local advisory meta-observer: it may receive Initiative 132, Doubleword, architecture, and provider batch-policy references as read-only source material for architecture observation, contradiction detection, drift detection, bounded audit-unit analysis, and recommendation synthesis, but it must not receive provider credentials, submit batch jobs, poll batch APIs, or perform repository/runtime mutation. Each Hermes pass must remain bounded, deterministic, and auditable, and it must produce only source-linked local findings plus a synthesis artifact.
@@ -130,7 +128,6 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Context bundle posture**: context bundle prep has passed only for explicit operator-provided block IDs and local summarized artifacts; it does not authorize autonomous block selection or publication
 - **Heap emission posture**: steward-reviewed heap emission was scoped only to a single operator-approved rich-text block and does not authorize autonomous publication
 - **Heap emission proof posture**: the single-block authorized publication proof has passed; any further publication, provider cognition, proposal/workflow projection, polling, or execution requires a separate governed authority packet
-- **Provider cognition posture**: provider cognition local synthesis is the next proposed gate and remains local-evidence-only until separately implemented and proven
 - **Hermes runbook posture**: local runbooks may standardize bounded pass operation, but preflight/postflight, evidence promotion, commits, and pushes remain operator-mediated
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
