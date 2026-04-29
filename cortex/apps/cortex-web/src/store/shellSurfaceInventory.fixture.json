@@ -1,0 +1,337 @@
+{
+  "schema_version": "CortexWebShellSurfaceInventoryV1",
+  "snapshot_id": "system:ux:shell-surface-inventory",
+  "inventory_id": "cortex-web-shell-route-surface-observability",
+  "authority_mode": "recommendation_only",
+  "captured_from": {
+    "local_url": "http://127.0.0.1:4173/",
+    "captured_at": "2026-04-28",
+    "viewport": "1440x1000",
+    "notes": [
+      "Inventory records shell, route, nav, and settings observability only.",
+      "Heap/block capability and action validation are intentionally out of scope for this fixture."
+    ]
+  },
+  "scope_boundaries": {
+    "includes": [
+      "shell_navigation",
+      "route_inventory",
+      "surface_classification",
+      "settings_information_architecture",
+      "visible_nav_placeholder_detection",
+      "first_paint_console_signal"
+    ],
+    "excludes": [
+      "heap_block_capability_deep_validation",
+      "block_action_mutation_contracts",
+      "upload_extraction_flow_validation",
+      "steward_gate_action_validation",
+      "runtime_theme_selection"
+    ]
+  },
+  "route_classes": [
+    "governed_a2ui_surface",
+    "native_cortex_host_surface",
+    "execution_surface",
+    "labs_experiment",
+    "placeholder",
+    "redirect_alias",
+    "operator_only_admin",
+    "settings_gap"
+  ],
+  "routes": [
+    {
+      "route": "/",
+      "class": "redirect_alias",
+      "status": "functional",
+      "target": "/explore",
+      "visible_in_nav": false
+    },
+    {
+      "route": "/explore",
+      "class": "native_cortex_host_surface",
+      "status": "functional",
+      "host_component": "HeapBlockGrid",
+      "contract_status": "heap_surface_shell_only",
+      "visible_in_nav": true,
+      "notes": "Explore is the primary shell surface. Heap/block actions require a separate observability fixture."
+    },
+    {
+      "route": "/heap",
+      "class": "redirect_alias",
+      "status": "functional",
+      "target": "/explore",
+      "visible_in_nav": true,
+      "notes": "Visible label is Heap Canvas; route redirects to Explore."
+    },
+    {
+      "route": "/discovery",
+      "class": "placeholder",
+      "status": "under_construction",
+      "visible_in_nav": true,
+      "known_gap": {
+        "severity": "high",
+        "summary": "Global Discovery is visible in primary nav but renders an under-construction A2UI placeholder.",
+        "recommended_action": "Hide, relabel as Labs, or implement before treating as a product nav item."
+      }
+    },
+    {
+      "route": "/conversations",
+      "class": "native_cortex_host_surface",
+      "status": "functional",
+      "host_component": "ConversationsPage",
+      "contract_status": "native_host_unclassified",
+      "visible_in_nav": true
+    },
+    {
+      "route": "/contributions",
+      "class": "native_cortex_host_surface",
+      "status": "functional",
+      "host_component": "ContributionsWorkbenchHost",
+      "contract_status": "native_host_requires_surface_contract",
+      "visible_in_nav": false,
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Contributions is a real steward cockpit, but not a WorkbenchSurfaceView/A2UI surface.",
+        "recommended_action": "Classify it explicitly as a native Cortex host surface with route metadata and tests."
+      }
+    },
+    {
+      "route": "/artifacts",
+      "class": "governed_a2ui_surface",
+      "status": "functional_thin",
+      "host_component": "ArtifactsWorkbenchHost",
+      "contract_status": "a2ui_surface_with_native_inspector",
+      "visible_in_nav": false,
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Artifacts renders data but has thin selection and error-state polish.",
+        "recommended_action": "Keep in inventory and add interaction validation after shell routes are classified."
+      }
+    },
+    {
+      "route": "/workflows",
+      "class": "native_cortex_host_surface",
+      "status": "degraded_empty",
+      "host_component": "WorkflowWorkbenchHost",
+      "contract_status": "native_host_requires_readiness_state",
+      "visible_in_nav": false,
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Workflow cockpit renders mostly empty/degraded state in local preview.",
+        "recommended_action": "Expose readiness and empty-state cause in shell observability."
+      }
+    },
+    {
+      "route": "/spaces",
+      "class": "native_cortex_host_surface",
+      "status": "inconsistent",
+      "host_component": "SpacesPage",
+      "contract_status": "native_host_requires_registry_observability",
+      "visible_in_nav": false,
+      "known_gap": {
+        "severity": "high",
+        "summary": "Spaces shows contradictory counts and emits 404s during local preview.",
+        "recommended_action": "Add registry source/readiness diagnostics before surfacing as authoritative Space state."
+      }
+    },
+    {
+      "route": "/logs",
+      "class": "native_cortex_host_surface",
+      "status": "offline",
+      "host_component": "LogsPage",
+      "contract_status": "native_host_requires_runtime_status",
+      "visible_in_nav": false,
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Telemetry page is clear but offline and emits WebSocket failures when runtime stream is unavailable.",
+        "recommended_action": "Expose offline mode as expected local preview state."
+      }
+    },
+    {
+      "route": "/system",
+      "class": "governed_a2ui_surface",
+      "status": "functional",
+      "host_component": "WorkbenchSurfaceView",
+      "contract_status": "fallback_capability_graph",
+      "visible_in_nav": false,
+      "notes": "System graph exists but is not the same as a settings page."
+    },
+    {
+      "route": "/system/providers",
+      "class": "operator_only_admin",
+      "status": "functional",
+      "host_component": "ProviderDashboard",
+      "contract_status": "operator_surface",
+      "visible_in_nav": true
+    },
+    {
+      "route": "/settings",
+      "class": "settings_gap",
+      "status": "missing",
+      "visible_in_nav": false,
+      "known_gap": {
+        "severity": "high",
+        "summary": "No first-class settings route exists for user, Space, Workbench, operator, or design governance preferences.",
+        "recommended_action": "Define settings IA after shell inventory stabilizes."
+      }
+    },
+    {
+      "route": "/labs/space-studio",
+      "class": "labs_experiment",
+      "status": "functional",
+      "host_component": "SpaceStudioPage",
+      "contract_status": "labs_draft_surface",
+      "visible_in_nav": false
+    },
+    {
+      "route": "/labs/layout-catalogue",
+      "class": "labs_experiment",
+      "status": "functional",
+      "host_component": "LayoutMatrixCatalogue",
+      "contract_status": "labs_catalogue",
+      "visible_in_nav": false
+    },
+    {
+      "route": "/labs/execution-canvas",
+      "class": "execution_surface",
+      "status": "failing_500",
+      "host_component": "ExecutionCanvasPage",
+      "contract_status": "execution_surface_requires_error_contract",
+      "visible_in_nav": false,
+      "known_gap": {
+        "severity": "high",
+        "summary": "Execution Canvas shell renders but surface fetch returns HTTP 500 in local preview.",
+        "recommended_action": "Fix surface fetch or mark route unavailable before promotion."
+      }
+    },
+    {
+      "route": "/labs/*",
+      "class": "placeholder",
+      "status": "under_construction",
+      "visible_in_nav": false,
+      "known_gap": {
+        "severity": "low",
+        "summary": "Unknown Labs routes fall through to generic under-construction A2UI placeholders.",
+        "recommended_action": "Keep hidden unless explicitly marked as Labs experiments."
+      }
+    }
+  ],
+  "visible_navigation": [
+    {
+      "label": "Heap Canvas",
+      "route": "/heap",
+      "slot": "primary_platform",
+      "source": "shell_layout_or_compiled_plan",
+      "expected_route_status": "redirect_alias"
+    },
+    {
+      "label": "Global Discovery",
+      "route": "/discovery",
+      "slot": "primary_platform",
+      "source": "shell_layout_or_compiled_plan",
+      "expected_route_status": "known_gap"
+    },
+    {
+      "label": "Conversations",
+      "route": "/conversations",
+      "slot": "secondary_agents",
+      "source": "utility_injection",
+      "expected_route_status": "functional"
+    },
+    {
+      "label": "Providers",
+      "route": "/system/providers",
+      "slot": "secondary_admin",
+      "source": "utility_injection",
+      "expected_route_status": "functional"
+    }
+  ],
+  "shell_state_surfaces": [
+    {
+      "surface": "space_selector",
+      "current_signal": "Meta Workbench / Aggregated Session",
+      "observability_gap": "No inventory explains whether this came from registry, observed live space cache, preview fixture, or fallback."
+    },
+    {
+      "surface": "role_selector",
+      "current_signal": "Operator / Local Dev",
+      "observability_gap": "No settings or shell diagnostics page shows requested role, effective role, auth mode, or fallback source together."
+    },
+    {
+      "surface": "nav_mode",
+      "current_signal": "expanded/rail/hidden persisted in localStorage",
+      "observability_gap": "No visible preference or reset surface for nav mode and auto-collapse behavior."
+    },
+    {
+      "surface": "custom_views",
+      "current_signal": "Saved views can be renamed or removed when present.",
+      "observability_gap": "No settings surface lists saved views, source routes, or invalid saved view targets."
+    }
+  ],
+  "settings_requirements": [
+    {
+      "category": "personal_preferences",
+      "items": [
+        "theme and contrast preference",
+        "reduced motion preference",
+        "nav mode default",
+        "saved filters and custom views",
+        "local preview versus live registry mode"
+      ]
+    },
+    {
+      "category": "space_settings",
+      "items": [
+        "Space identity and readiness",
+        "navigation plan and capability overlay",
+        "active design profile preview",
+        "member and agent participation policy",
+        "Space-specific layout preferences"
+      ]
+    },
+    {
+      "category": "workbench_settings",
+      "items": [
+        "shell layout source",
+        "route and surface inventory",
+        "A2UI fixture mode",
+        "visible and hidden nav entries",
+        "keyboard and accessibility diagnostics"
+      ]
+    },
+    {
+      "category": "operator_settings",
+      "items": [
+        "providers",
+        "gateway target",
+        "runtime health",
+        "logs and telemetry stream",
+        "execution surface visibility",
+        "auth and session diagnostics"
+      ]
+    },
+    {
+      "category": "design_theme_governance",
+      "items": [
+        "NDL and A2UI token source",
+        "Cortex Web preview fixture",
+        "Space design profiles",
+        "unresolved design lint findings",
+        "route surface classification compliance"
+      ]
+    }
+  ],
+  "first_paint_console_findings": [
+    {
+      "severity": "medium",
+      "message": "THREE.Clock deprecation warning appears on first paint.",
+      "recommended_action": "Track under frontend runtime warning budget."
+    },
+    {
+      "severity": "medium",
+      "message": "Global events WebSocket fails in local preview.",
+      "recommended_action": "Expose as expected offline/local preview state or fix endpoint routing."
+    }
+  ]
+}
