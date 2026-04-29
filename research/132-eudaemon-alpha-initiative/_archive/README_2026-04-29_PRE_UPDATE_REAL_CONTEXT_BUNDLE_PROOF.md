@@ -22,8 +22,6 @@ The second runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY
 
 The third runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md), has passed on the VPS at commit `6cbf62c6e5d4977e7e1eb41b953aa35d22e25de4` with a sentinel operator-provided block ID: the worker performed one opt-in pass, read `/api/system/whoami`, posted explicit `block_ids` to `/api/cortex/studio/heap/blocks/context`, wrote local summarized evidence, and exited. It does not authorize autonomous block selection, heap emission, proposals, workflow drafts, provider calls, polling, or mutation.
 
-A follow-up real-heap context bundle prep pass also passed on the VPS on 2026-04-29 UTC using three explicit heap block IDs from a bounded read-only heap list. The worker returned three context block summaries and persisted only local summarized evidence, including `surfaceJsonBytes` counts rather than raw heap payloads.
-
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
 Hermes is adopted for the next local pass only as a local advisory meta-observer: it may receive Initiative 132, Doubleword, architecture, and provider batch-policy references as read-only source material for architecture observation, contradiction detection, drift detection, bounded audit-unit analysis, and recommendation synthesis, but it must not receive provider credentials, submit batch jobs, poll batch APIs, or perform repository/runtime mutation. Each Hermes pass must remain bounded, deterministic, and auditable, and it must produce only source-linked local findings plus a synthesis artifact.
@@ -192,7 +190,6 @@ Older deployment notes reference an `eudaemon-alpha/` companion implementation r
 - [VPS observe-once worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T080222Z_vps_observe_once_worker_proof.md)
 - [VPS read-only heap delta worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T152202Z_vps_readonly_heap_delta_worker_proof.md)
 - [VPS context bundle prep worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T160203Z_vps_context_bundle_prep_worker_proof.md)
-- [VPS real-heap context bundle prep worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260429T001625Z_vps_context_bundle_real_heap_worker_proof.md)
 - [Observe-once authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md)
 - [Read-only heap delta authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md)
 - [Context bundle prep authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md)

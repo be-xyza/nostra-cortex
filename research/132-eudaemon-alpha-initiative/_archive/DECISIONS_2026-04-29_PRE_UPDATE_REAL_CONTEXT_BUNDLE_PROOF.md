@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-29 — Real-Heap Context Bundle Prep Worker Proof Passed on VPS
-
-**Decision**
-
-Record Eudaemon Alpha real-heap context bundle prep validation as passed on the VPS at commit `6cbf62c6e5d4977e7e1eb41b953aa35d22e25de4`.
-
-The proof is captured in [`evidence/20260429T001625Z_vps_context_bundle_real_heap_worker_proof.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260429T001625Z_vps_context_bundle_real_heap_worker_proof.md). The worker ran one explicit `NOSTRA_WORKER_CONTEXT_BUNDLE_PREP=1` pass as the `nostra` service user, confirmed `/api/system/whoami`, posted three explicit heap block IDs to `/api/cortex/studio/heap/blocks/context`, received three context block summaries, wrote a local summarized observation artifact, and exited with `exitStatus=pass`.
-
-**Why**
-
-- The sentinel proof validated endpoint authority and artifact shape; the real-heap proof validates useful context packaging over actual heap material.
-- The pass preserved the explicit-ID-only boundary and stored only redacted summaries plus payload-size metadata.
-- Capturing the result in governed records prevents VPS-local runtime evidence from drifting away from Initiative 132 records.
-
-**Consequences**
-
-- Initiative 132 has now passed context bundle prep over real heap blocks without expanding into publication or execution.
-- Eudaemon Alpha still has no authority to choose future block IDs autonomously, emit heap blocks, create proposals/workflows, call providers, poll, mutate runtime, or execute tasks.
-- The next runtime expansion requires a new authority packet, likely steward-reviewed local evidence projection, heap emission under approval, or provider-backed cognition without publication authority.
-
 ## 2026-04-28 — Context Bundle Prep Worker Proof Passed on VPS
 
 **Decision**
