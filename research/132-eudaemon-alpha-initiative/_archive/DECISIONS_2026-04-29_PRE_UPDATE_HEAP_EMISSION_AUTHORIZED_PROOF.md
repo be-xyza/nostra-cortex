@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-29 — Steward-Reviewed Heap Emission Authorized Publication Proof Passed
-
-**Decision**
-
-Record the steward-reviewed heap emission authorized publication proof as passed on the VPS at commit `b40c0ad14a20562e2f48ac2478d28a5f44488ae1`.
-
-The proof is captured in [`evidence/20260429T051551Z_vps_heap_emission_authorized_publication_proof.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260429T051551Z_vps_heap_emission_authorized_publication_proof.md). The worker ran one explicit `NOSTRA_WORKER_STEWARD_REVIEWED_HEAP_EMIT=1` pass, resolved a verified operator principal binding, emitted exactly one operator-approved rich-text heap block, wrote a local publication artifact, and exited with `exitStatus=pass`.
-
-**Why**
-
-- This proves the worker can publish one steward-reviewed heap block only when a verified operator-or-higher authorization path is present.
-- It completes the safety progression from fail-closed publication posture to one bounded authorized publication proof.
-- Recording the proof keeps VPS-local runtime evidence aligned with Initiative 132 governed records.
-
-**Consequences**
-
-- Eudaemon Alpha has proven one bounded steward-reviewed publication path, not autonomous publication authority.
-- Agent identity alone remains insufficient for publication authority.
-- Provider cognition, proposal/workflow projection, live polling, autonomous heap publication, graph mutation, runtime execution, repo mutation, production promotion, and untrusted execution remain unauthorized pending separate governed authority packets.
-
 ## 2026-04-29 — Steward-Reviewed Heap Emission Fails Closed Without Operator Auth
 
 **Decision**

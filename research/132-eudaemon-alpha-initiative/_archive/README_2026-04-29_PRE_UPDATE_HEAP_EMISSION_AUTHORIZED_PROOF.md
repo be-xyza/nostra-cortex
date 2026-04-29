@@ -26,11 +26,7 @@ A follow-up real-heap context bundle prep pass also passed on the VPS on 2026-04
 
 The steward-reviewed heap emission worker mode is implemented and has passed fail-closed VPS validation at commit `8a3b2fe35d818b66c4545a489f1e4bc21b328d66`: without an operator principal, signed session, or operator-mediated proxy, it resolved as unverified viewer, wrote a local `needs_review` artifact, and did not call `POST /api/cortex/studio/heap/emit`.
 
-The authorized publication proof for [`RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md) has also passed on the VPS at commit `b40c0ad14a20562e2f48ac2478d28a5f44488ae1`: the worker resolved a verified operator principal binding, emitted exactly one operator-approved rich-text heap block through `POST /api/cortex/studio/heap/emit`, wrote one local publication artifact, and exited with `exitStatus=pass`.
-
-Evidence: [20260429T051551Z_vps_heap_emission_authorized_publication_proof.md](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260429T051551Z_vps_heap_emission_authorized_publication_proof.md)
-
-This closes only the single-block steward-reviewed publication proof. It does not authorize autonomous synthesis, provider calls, polling, proposal/workflow projection, graph mutation, runtime execution, repo mutation, production promotion, or untrusted execution.
+The next proposed runtime-expansion gate remains the authorized publication proof for [`RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md): one explicit operator-approved rich-text heap block emitted through `POST /api/cortex/studio/heap/emit`, local publication artifact only, verified operator-or-higher authorization, and no autonomous synthesis, provider calls, polling, proposal/workflow projection, or execution.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
@@ -126,8 +122,7 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Hermes capability discovery posture**: Hermes may classify capabilities and propose observer lanes or skill improvements, but the result is local planning material only; feature enablement and execution adapters require later governed decisions
 - **Runtime expansion posture**: observe-once authority and read-only heap delta visibility have passed; live polling and execution authority still require separate governed packets
 - **Context bundle posture**: context bundle prep has passed only for explicit operator-provided block IDs and local summarized artifacts; it does not authorize autonomous block selection or publication
-- **Heap emission posture**: steward-reviewed heap emission was scoped only to a single operator-approved rich-text block and does not authorize autonomous publication
-- **Heap emission proof posture**: the single-block authorized publication proof has passed; any further publication, provider cognition, proposal/workflow projection, polling, or execution requires a separate governed authority packet
+- **Heap emission posture**: steward-reviewed heap emission is proposed only for a single operator-approved rich-text block and does not authorize autonomous publication
 - **Hermes runbook posture**: local runbooks may standardize bounded pass operation, but preflight/postflight, evidence promotion, commits, and pushes remain operator-mediated
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
