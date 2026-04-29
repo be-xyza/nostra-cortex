@@ -77,13 +77,9 @@ Resolved in the behavior-contract slice:
 - Destructive delete now carries confirmation metadata in the fallback action plan, and the action executor refuses confirmed actions when confirmation is rejected or unavailable.
 - Relation editing is now a distinct `relation_edit` capability instead of being routed through generic `edit`.
 
-Resolved in the comment-authority slice:
-
-- Comment sidebar state is explicitly classified as local UI state, not durable evidence and not a governed Heap record.
-- Comment persistence target remains undecided by design: future work must choose conversation record, governed Heap block, or local-only annotation before comments can support evidence workflows.
-
 Remaining medium priority:
 
+- Comment sidebar state is local UI state, not governed Heap persistence.
 - Chat overlay can intercept other controls.
 - Regenerate is exposed in action plans but does not yet have a clear runtime command contract in the inventory.
 
@@ -95,4 +91,4 @@ Next validation should add Playwright and/or contract tests for:
 - create/upload/chat overlay collisions
 - destructive action confirmation flow
 - remote action-plan parity for `relation_edit` capability metadata
-- comment persistence target decision: conversation record vs governed Heap block vs local-only annotation
+- comment persistence authority

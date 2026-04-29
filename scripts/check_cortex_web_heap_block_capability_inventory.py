@@ -45,7 +45,6 @@ REQUIRED_ZONES = {
 REQUIRED_CREATE_MODES = {"create", "generate", "upload", "chat", "plan"}
 REQUIRED_DETAIL_TABS = {"preview", "relations", "attributes", "code"}
 REQUIRED_GAPS = {
-    "heap.block.comments.persistence",
     "heap.block.overlay.layering",
     "heap.block.regenerate.handler",
 }
@@ -82,6 +81,22 @@ def require_class(value: dict[str, Any], context: str) -> None:
     item_class = value.get("class")
     if item_class not in ALLOWED_CLASSES:
         fail(f"{context}: unknown class {item_class!r}")
+
+
+def require_comment_authority(value: dict[str, Any]) -> None:
+    authority = value.get("authority_contract")
+    if not isinstance(authority, dict):
+        fail("comment_sidebar: authority_contract is required")
+    expected = {
+        "persistence": "local_ui_state",
+        "durable_evidence": False,
+        "governed_heap_record": False,
+        "exportable_as_evidence": False,
+        "recommended_persistence_target": "undecided",
+    }
+    for key, expected_value in expected.items():
+        if authority.get(key) != expected_value:
+            fail(f"comment_sidebar.authority_contract.{key} must be {expected_value!r}")
 
 
 def main() -> None:
@@ -171,6 +186,20 @@ def main() -> None:
     for tab in fixture.get("detail_tabs", []):
         if isinstance(tab, dict):
             require_class(tab, f"detail tab {tab.get('id')}")
+
+    overlays = fixture.get("overlay_surfaces")
+    if not isinstance(overlays, list) or not overlays:
+        fail("overlay_surfaces must be a non-empty list")
+    comment_sidebar = None
+    for overlay in overlays:
+        if not isinstance(overlay, dict):
+            fail("each overlay surface must be an object")
+        require_class(overlay, f"overlay surface {overlay.get('id')}")
+        if overlay.get("id") == "comment_sidebar":
+            comment_sidebar = overlay
+    if comment_sidebar is None:
+        fail("overlay_surfaces must include comment_sidebar")
+    require_comment_authority(comment_sidebar)
 
     gap_ids = set()
     for gap in fixture.get("known_gaps", []):
