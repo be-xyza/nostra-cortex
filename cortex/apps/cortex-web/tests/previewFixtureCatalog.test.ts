@@ -13,6 +13,7 @@ import {
 import { GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/graphSurfaceInventoryContract.ts";
 import { HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID } from "../src/store/heapBlockCapabilityInventoryContract.ts";
 import { OVERLAY_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/overlaySurfaceInventoryContract.ts";
+import { ROUTE_IA_INVENTORY_SNAPSHOT_ID } from "../src/store/routeIaInventoryContract.ts";
 import { SHELL_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/shellSurfaceInventoryContract.ts";
 import {
   isSpaceDesignProfilePreviewMetadataOnly,
@@ -30,6 +31,7 @@ test("preview fixture catalog recognizes seeded preview artifact ids", () => {
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID));
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID));
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(OVERLAY_SURFACE_INVENTORY_SNAPSHOT_ID));
+  assert.ok(PREVIEW_SNAPSHOT_IDS.has(ROUTE_IA_INVENTORY_SNAPSHOT_ID));
 });
 
 test("preview fixture filters remove seeded mock blocks from heap responses", () => {
@@ -189,6 +191,34 @@ test("overlay surface inventory fixture remains recommendation-only observabilit
   assert.ok(gapIds.has("overlay.heap.chat_create_collision"));
   assert.ok(gapIds.has("overlay.system.provider_provenance"));
   assert.ok(gapIds.has("overlay.artifacts.console_only_action"));
+});
+
+test("route IA inventory fixture keeps settings absent and candidates explicit", () => {
+  const fixturePath = fileURLToPath(
+    new URL("../src/store/routeIaInventory.fixture.json", import.meta.url),
+  );
+  const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
+
+  assert.equal(fixture.schema_version, "CortexWebRouteIaInventoryV1");
+  assert.equal(fixture.snapshot_id, ROUTE_IA_INVENTORY_SNAPSHOT_ID);
+  assert.equal(fixture.authority_mode, "recommendation_only");
+  assert.equal(fixture.settings_absence_contract.route_id, "/settings");
+  assert.equal(fixture.settings_absence_contract.global_settings_page_allowed_this_stage, false);
+  assert.ok(fixture.scope_boundaries.excludes.includes("new_settings_page"));
+
+  const routes = new Map(fixture.routes.map((route: any) => [route.route_id, route]));
+  assert.equal(routes.get("/settings")?.readiness_status, "missing");
+  assert.equal(routes.get("/settings")?.route_class, "settings_absence_contract");
+  assert.equal(routes.get("/system/providers")?.operator_boundary, "operator_only");
+  assert.equal(routes.get("/discovery")?.visible_in_nav, true);
+  assert.equal(routes.get("/discovery")?.readiness_status, "under_construction");
+  assert.equal(routes.get("/studio")?.a2ui_fallback_allowed, true);
+  assert.equal(routes.get("/spaces/:id?tab=overview")?.detail_tabs.includes("routing"), true);
+
+  const gapIds = new Set(fixture.known_gaps.map((gap: any) => gap.id));
+  assert.ok(gapIds.has("route.settings.absent"));
+  assert.ok(gapIds.has("route.discovery.visible_placeholder"));
+  assert.ok(gapIds.has("route.a2ui.seeded_candidates_untyped"));
 });
 
 test("heap block capability inventory fixture remains recommendation-only observability", () => {
