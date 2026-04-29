@@ -18,6 +18,7 @@ const RUN_ONCE_ENV: &str = "NOSTRA_WORKER_RUN_ONCE";
 const OBSERVE_ONCE_ENV: &str = "NOSTRA_WORKER_OBSERVE_ONCE";
 const READONLY_HEAP_DELTA_ENV: &str = "NOSTRA_WORKER_READONLY_HEAP_DELTA";
 const CONTEXT_BUNDLE_PREP_ENV: &str = "NOSTRA_WORKER_CONTEXT_BUNDLE_PREP";
+const STEWARD_REVIEWED_HEAP_EMIT_ENV: &str = "NOSTRA_WORKER_STEWARD_REVIEWED_HEAP_EMIT";
 const GATEWAY_URL_ENV: &str = "NOSTRA_GATEWAY_URL";
 const CORTEX_GATEWAY_URL_ENV: &str = "CORTEX_GATEWAY_URL";
 const OBSERVATION_DIR_ENV: &str = "NOSTRA_WORKER_OBSERVATION_DIR";
@@ -26,6 +27,15 @@ const HEAP_SPACE_ID_ENV: &str = "NOSTRA_WORKER_HEAP_SPACE_ID";
 const HEAP_LIMIT_ENV: &str = "NOSTRA_WORKER_HEAP_LIMIT";
 const CONTEXT_BLOCK_IDS_ENV: &str = "NOSTRA_WORKER_CONTEXT_BLOCK_IDS";
 const CONTEXT_BLOCK_LIMIT_ENV: &str = "NOSTRA_WORKER_CONTEXT_BLOCK_LIMIT";
+const HEAP_EMIT_SPACE_ID_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_SPACE_ID";
+const HEAP_EMIT_TITLE_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_TITLE";
+const HEAP_EMIT_BODY_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_BODY";
+const HEAP_EMIT_APPROVAL_REF_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_APPROVAL_REF";
+const HEAP_EMIT_SOURCE_ARTIFACT_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_SOURCE_ARTIFACT";
+const HEAP_EMIT_BODY_LIMIT_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_BODY_LIMIT";
+const HEAP_EMIT_AUTH_MODE_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_AUTH_MODE";
+const HEAP_EMIT_PRINCIPAL_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_PRINCIPAL";
+const HEAP_EMIT_ROLE_ENV: &str = "NOSTRA_WORKER_HEAP_EMIT_ROLE";
 const VPS_STATE_ROOT_ENV: &str = "NOSTRA_VPS_STATE_ROOT";
 const DEFAULT_GATEWAY_BASE_URL: &str = "http://127.0.0.1:3000";
 const OBSERVE_ONCE_PACKET_ID: &str = "initiative-132-runtime-expansion-observe-once-v1";
@@ -33,11 +43,15 @@ const READONLY_HEAP_DELTA_PACKET_ID: &str =
     "initiative-132-runtime-expansion-readonly-heap-delta-v1";
 const CONTEXT_BUNDLE_PREP_PACKET_ID: &str =
     "initiative-132-runtime-expansion-context-bundle-prep-v1";
+const STEWARD_REVIEWED_HEAP_EMIT_PACKET_ID: &str =
+    "initiative-132-runtime-expansion-steward-reviewed-heap-emission-v1";
 const DEFAULT_AGENT_ID: &str = "agent:eudaemon-alpha-01";
 const DEFAULT_HEAP_LIMIT: usize = 25;
 const MAX_HEAP_LIMIT: usize = 25;
 const DEFAULT_CONTEXT_BLOCK_LIMIT: usize = 5;
 const MAX_CONTEXT_BLOCK_LIMIT: usize = 5;
+const DEFAULT_HEAP_EMIT_BODY_LIMIT: usize = 4000;
+const MAX_HEAP_EMIT_BODY_LIMIT: usize = 4000;
 
 #[derive(Serialize, Deserialize)]
 struct WorkerKeyStoreV1 {
@@ -126,6 +140,30 @@ struct ContextBundlePrepArtifact {
     exit_status: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StewardReviewedHeapEmitArtifact {
+    schema_version: String,
+    packet_id: String,
+    observed_at: String,
+    agent_id: String,
+    gateway_base_url: String,
+    space_id: Option<String>,
+    approval_ref: Option<String>,
+    source_observation_artifact: Option<String>,
+    body_length: usize,
+    body_limit: usize,
+    authz_dev_mode: Option<bool>,
+    allow_unverified_role_header: Option<bool>,
+    agent_identity_enforcement: Option<bool>,
+    worker_mode: String,
+    authz: HeapEmitAuthzSummary,
+    heap_emit: HeapEmitSummary,
+    checks: Vec<String>,
+    errors: Vec<String>,
+    exit_status: String,
+}
+
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct HeapReadSummary {
@@ -180,6 +218,39 @@ struct GatewayAuthPosture {
     authz_dev_mode: Option<bool>,
     allow_unverified_role_header: Option<bool>,
     agent_identity_enforcement: Option<bool>,
+}
+
+#[derive(Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HeapEmitAuthzSummary {
+    auth_mode: Option<String>,
+    effective_role: Option<String>,
+    identity_verified: Option<bool>,
+    identity_source: Option<String>,
+    principal_present: bool,
+    verified_operator_or_higher: bool,
+}
+
+#[derive(Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HeapEmitSummary {
+    endpoint: String,
+    attempted: bool,
+    status: Option<u16>,
+    accepted: Option<bool>,
+    artifact_id: Option<String>,
+    block_id: Option<String>,
+    op_id: Option<String>,
+    idempotent: Option<bool>,
+    source_of_truth: Option<String>,
+    fallback_active: Option<bool>,
+}
+
+#[derive(Clone)]
+struct HeapEmitAuthHeaders {
+    auth_mode: Option<String>,
+    principal: Option<String>,
+    role: String,
 }
 
 fn worker_keys_path() -> String {
@@ -253,6 +324,10 @@ fn context_bundle_prep_enabled() -> bool {
     env_flag_enabled(CONTEXT_BUNDLE_PREP_ENV)
 }
 
+fn steward_reviewed_heap_emit_enabled() -> bool {
+    env_flag_enabled(STEWARD_REVIEWED_HEAP_EMIT_ENV)
+}
+
 fn env_flag_enabled(name: &str) -> bool {
     std::env::var(name)
         .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
@@ -310,9 +385,66 @@ fn context_bundle_prep_observation_path(dir: &Path, observed_at: &str) -> PathBu
     mode_observation_path(dir, "context-bundle-prep", observed_at)
 }
 
+fn steward_reviewed_heap_emit_observation_path(dir: &Path, observed_at: &str) -> PathBuf {
+    mode_observation_path(dir, "steward-reviewed-heap-emission", observed_at)
+}
+
 fn mode_observation_path(dir: &Path, mode: &str, observed_at: &str) -> PathBuf {
     let safe_timestamp = observed_at.replace([':', '.'], "-");
     dir.join(format!("eudaemon-alpha-{mode}-{safe_timestamp}.json"))
+}
+
+fn env_text(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn heap_emit_body_limit() -> usize {
+    std::env::var(HEAP_EMIT_BODY_LIMIT_ENV)
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(DEFAULT_HEAP_EMIT_BODY_LIMIT)
+        .clamp(1, MAX_HEAP_EMIT_BODY_LIMIT)
+}
+
+fn heap_emit_auth_headers() -> HeapEmitAuthHeaders {
+    HeapEmitAuthHeaders {
+        auth_mode: env_text(HEAP_EMIT_AUTH_MODE_ENV),
+        principal: env_text(HEAP_EMIT_PRINCIPAL_ENV),
+        role: env_text(HEAP_EMIT_ROLE_ENV).unwrap_or_else(|| "operator".to_string()),
+    }
+}
+
+fn apply_heap_emit_auth_headers(
+    builder: reqwest::RequestBuilder,
+    agent_id: &str,
+    auth: &HeapEmitAuthHeaders,
+) -> reqwest::RequestBuilder {
+    let mut builder = builder.header("x-cortex-agent-id", agent_id);
+    if let Some(principal) = auth.principal.as_deref() {
+        builder = builder.header("x-ic-principal", principal);
+        builder = builder.header("x-cortex-role", auth.role.as_str());
+    }
+    builder
+}
+
+fn role_rank(role: &str) -> u8 {
+    match role.trim().to_ascii_lowercase().as_str() {
+        "viewer" => 1,
+        "editor" => 2,
+        "operator" => 3,
+        "steward" => 4,
+        "admin" => 5,
+        _ => 0,
+    }
+}
+
+fn heap_emit_url(gateway_base: &str) -> Result<reqwest::Url> {
+    Ok(reqwest::Url::parse(&format!(
+        "{gateway_base}/api/cortex/studio/heap/emit"
+    ))?)
 }
 
 async fn fetch_gateway_auth_posture(
@@ -375,6 +507,89 @@ async fn fetch_gateway_auth_posture(
         allow_unverified_role_header,
         agent_identity_enforcement,
     }
+}
+
+async fn fetch_heap_emit_authz(
+    gateway_base: &str,
+    agent_id: &str,
+    auth_headers: &HeapEmitAuthHeaders,
+    checks: &mut Vec<String>,
+    errors: &mut Vec<String>,
+) -> (GatewayAuthPosture, HeapEmitAuthzSummary) {
+    let whoami_url = format!("{gateway_base}/api/system/whoami");
+    let whoami_result = apply_heap_emit_auth_headers(
+        reqwest::Client::new().get(&whoami_url),
+        agent_id,
+        auth_headers,
+    )
+    .send()
+    .await;
+
+    let mut posture = GatewayAuthPosture {
+        agent_identity_enforcement: std::env::var("NOSTRA_AGENT_IDENTITY_ENFORCEMENT")
+            .ok()
+            .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES")),
+        ..GatewayAuthPosture::default()
+    };
+    let mut authz = HeapEmitAuthzSummary {
+        auth_mode: auth_headers.auth_mode.clone(),
+        principal_present: auth_headers.principal.is_some(),
+        ..HeapEmitAuthzSummary::default()
+    };
+
+    match whoami_result {
+        Ok(response) => {
+            let status = response.status();
+            if status.is_success() {
+                checks.push("heap_emit_whoami:ok".to_string());
+                match response.json::<Value>().await {
+                    Ok(payload) => {
+                        posture.authz_dev_mode =
+                            payload.get("authzDevMode").and_then(Value::as_bool);
+                        posture.allow_unverified_role_header = payload
+                            .get("allowUnverifiedRoleHeader")
+                            .and_then(Value::as_bool);
+                        if posture.agent_identity_enforcement.is_none() {
+                            posture.agent_identity_enforcement = payload
+                                .get("agentIdentityEnforcement")
+                                .and_then(Value::as_bool);
+                        }
+                        authz.effective_role = string_field(&payload, "effectiveRole");
+                        authz.identity_verified =
+                            payload.get("identityVerified").and_then(Value::as_bool);
+                        authz.identity_source = string_field(&payload, "identitySource");
+                        authz.verified_operator_or_higher = authz.identity_verified == Some(true)
+                            && authz
+                                .effective_role
+                                .as_deref()
+                                .map(|role| role_rank(role) >= role_rank("operator"))
+                                .unwrap_or(false);
+                    }
+                    Err(error) => errors.push(format!("heap_emit_whoami_json:{error}")),
+                }
+            } else {
+                errors.push(format!("heap_emit_whoami_status:{status}"));
+            }
+        }
+        Err(error) => errors.push(format!("heap_emit_whoami_request:{error}")),
+    }
+
+    if posture.authz_dev_mode == Some(false) {
+        checks.push("authz_dev_mode:false".to_string());
+    }
+    if posture.allow_unverified_role_header == Some(false) {
+        checks.push("allow_unverified_role_header:false".to_string());
+    }
+    if posture.agent_identity_enforcement == Some(true) {
+        checks.push("agent_identity_enforcement:true".to_string());
+    }
+    if authz.verified_operator_or_higher {
+        checks.push("heap_emit_authz:verified_operator_or_higher".to_string());
+    } else {
+        errors.push("heap_emit_authz:verified_operator_or_higher_required".to_string());
+    }
+
+    (posture, authz)
 }
 
 async fn run_observe_once() -> Result<PathBuf> {
@@ -799,6 +1014,182 @@ async fn run_context_bundle_prep() -> Result<PathBuf> {
     Ok(path)
 }
 
+async fn run_steward_reviewed_heap_emit() -> Result<PathBuf> {
+    let agent_id = configured_agent_id();
+    let gateway_base = gateway_base_url();
+    let observed_at = Utc::now().to_rfc3339();
+    let body_limit = heap_emit_body_limit();
+    let space_id = env_text(HEAP_EMIT_SPACE_ID_ENV);
+    let title = env_text(HEAP_EMIT_TITLE_ENV);
+    let body = env_text(HEAP_EMIT_BODY_ENV);
+    let approval_ref = env_text(HEAP_EMIT_APPROVAL_REF_ENV);
+    let source_observation_artifact = env_text(HEAP_EMIT_SOURCE_ARTIFACT_ENV);
+    let auth_headers = heap_emit_auth_headers();
+    let mut checks = vec![
+        format!("packet:{STEWARD_REVIEWED_HEAP_EMIT_PACKET_ID}"),
+        format!("agent_id:{agent_id}"),
+        "mode:steward_reviewed_heap_emit".to_string(),
+        format!("body_limit:{body_limit}"),
+    ];
+    let mut errors = Vec::new();
+
+    if space_id.is_none() {
+        errors.push(format!("{HEAP_EMIT_SPACE_ID_ENV}:missing"));
+    }
+    if title.is_none() {
+        errors.push(format!("{HEAP_EMIT_TITLE_ENV}:missing"));
+    }
+    if body.is_none() {
+        errors.push(format!("{HEAP_EMIT_BODY_ENV}:missing"));
+    }
+    if approval_ref.is_none() {
+        errors.push(format!("{HEAP_EMIT_APPROVAL_REF_ENV}:missing"));
+    }
+
+    let body_length = body.as_deref().map(str::len).unwrap_or_default();
+    if body_length > body_limit {
+        errors.push(format!(
+            "{HEAP_EMIT_BODY_ENV}:exceeds_limit:{body_length}>{body_limit}"
+        ));
+    }
+
+    let (posture, authz) = fetch_heap_emit_authz(
+        &gateway_base,
+        &agent_id,
+        &auth_headers,
+        &mut checks,
+        &mut errors,
+    )
+    .await;
+
+    let endpoint = "/api/cortex/studio/heap/emit";
+    let mut heap_emit = HeapEmitSummary {
+        endpoint: endpoint.to_string(),
+        ..HeapEmitSummary::default()
+    };
+
+    if errors.is_empty() && authz.verified_operator_or_higher {
+        let payload = json!({
+            "schema_version": "1.0.0",
+            "mode": "heap",
+            "space_id": space_id.as_deref().unwrap_or_default(),
+            "source": {
+                "agent_id": agent_id,
+                "session_id": "initiative-132-eudaemon-alpha",
+                "request_id": format!(
+                    "initiative-132:{}:{}",
+                    STEWARD_REVIEWED_HEAP_EMIT_PACKET_ID,
+                    approval_ref.as_deref().unwrap_or_default()
+                ),
+                "emitted_at": observed_at
+            },
+            "block": {
+                "type": "eudaemon_evidence_note",
+                "title": title.as_deref().unwrap_or_default(),
+                "attributes": {
+                    "initiative_id": "132",
+                    "packet_id": STEWARD_REVIEWED_HEAP_EMIT_PACKET_ID,
+                    "approval_ref": approval_ref.as_deref().unwrap_or_default(),
+                    "source_observation_artifact": source_observation_artifact
+                }
+            },
+            "content": {
+                "payload_type": "rich_text",
+                "rich_text": {
+                    "plain_text": body.as_deref().unwrap_or_default()
+                }
+            },
+            "relations": {},
+            "files": [],
+            "apps": [],
+            "meta": {
+                "schema_version": "1.0.0",
+                "request_path": "initiative-132/steward-reviewed-heap-emission-v1"
+            },
+            "projection_hints": {},
+            "crdt_projection": {}
+        });
+
+        match heap_emit_url(&gateway_base) {
+            Ok(url) => {
+                heap_emit.attempted = true;
+                match apply_heap_emit_auth_headers(
+                    reqwest::Client::new().post(url),
+                    &agent_id,
+                    &auth_headers,
+                )
+                .json(&payload)
+                .send()
+                .await
+                {
+                    Ok(response) => {
+                        let status = response.status();
+                        heap_emit.status = Some(status.as_u16());
+                        if status.is_success() {
+                            checks.push("heap_emit:ok".to_string());
+                            match response.json::<Value>().await {
+                                Ok(payload) => {
+                                    heap_emit.accepted =
+                                        payload.get("accepted").and_then(Value::as_bool);
+                                    heap_emit.artifact_id = string_field(&payload, "artifactId");
+                                    heap_emit.block_id = string_field(&payload, "blockId");
+                                    heap_emit.op_id = string_field(&payload, "opId");
+                                    heap_emit.idempotent =
+                                        payload.get("idempotent").and_then(Value::as_bool);
+                                    heap_emit.source_of_truth =
+                                        string_field(&payload, "sourceOfTruth");
+                                    heap_emit.fallback_active =
+                                        payload.get("fallbackActive").and_then(Value::as_bool);
+                                }
+                                Err(error) => errors.push(format!("heap_emit_json:{error}")),
+                            }
+                        } else {
+                            errors.push(format!("heap_emit_status:{status}"));
+                        }
+                    }
+                    Err(error) => errors.push(format!("heap_emit_request:{error}")),
+                }
+            }
+            Err(error) => errors.push(format!("heap_emit_url:{error}")),
+        }
+    } else {
+        checks.push("heap_emit:skipped".to_string());
+    }
+
+    let exit_status = if errors.is_empty() {
+        "pass"
+    } else {
+        "needs_review"
+    };
+    let artifact = StewardReviewedHeapEmitArtifact {
+        schema_version: "1.0.0".to_string(),
+        packet_id: STEWARD_REVIEWED_HEAP_EMIT_PACKET_ID.to_string(),
+        observed_at: observed_at.clone(),
+        agent_id,
+        gateway_base_url: gateway_base,
+        space_id,
+        approval_ref,
+        source_observation_artifact,
+        body_length,
+        body_limit,
+        authz_dev_mode: posture.authz_dev_mode,
+        allow_unverified_role_header: posture.allow_unverified_role_header,
+        agent_identity_enforcement: posture.agent_identity_enforcement,
+        worker_mode: "steward_reviewed_heap_emit".to_string(),
+        authz,
+        heap_emit,
+        checks,
+        errors,
+        exit_status: exit_status.to_string(),
+    };
+
+    let dir = observation_dir();
+    fs::create_dir_all(&dir)?;
+    let path = steward_reviewed_heap_emit_observation_path(&dir, &observed_at);
+    fs::write(&path, serde_json::to_string_pretty(&artifact)?)?;
+    Ok(path)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
@@ -847,6 +1238,15 @@ async fn main() -> Result<()> {
         let path = run_context_bundle_prep().await?;
         println!(
             "   > Context bundle prep artifact written to {}",
+            path.display()
+        );
+        return Ok(());
+    }
+
+    if steward_reviewed_heap_emit_enabled() {
+        let path = run_steward_reviewed_heap_emit().await?;
+        println!(
+            "   > Steward-reviewed heap emission artifact written to {}",
             path.display()
         );
         return Ok(());
@@ -928,6 +1328,38 @@ mod tests {
                 "/tmp/eudaemon-observations/eudaemon-alpha-context-bundle-prep-2026-04-28T12-34-56-789Z.json"
             )
         );
+    }
+
+    #[test]
+    fn steward_reviewed_heap_emit_observation_path_is_filesystem_safe() {
+        let path = steward_reviewed_heap_emit_observation_path(
+            Path::new("/tmp/eudaemon-observations"),
+            "2026-04-29T12:34:56.789Z",
+        );
+        assert_eq!(
+            path,
+            PathBuf::from(
+                "/tmp/eudaemon-observations/eudaemon-alpha-steward-reviewed-heap-emission-2026-04-29T12-34-56-789Z.json"
+            )
+        );
+    }
+
+    #[test]
+    fn role_rank_requires_operator_or_higher_for_heap_emit() {
+        assert!(role_rank("operator") >= role_rank("operator"));
+        assert!(role_rank("steward") >= role_rank("operator"));
+        assert!(role_rank("admin") >= role_rank("operator"));
+        assert!(role_rank("viewer") < role_rank("operator"));
+        assert!(role_rank("editor") < role_rank("operator"));
+    }
+
+    #[test]
+    fn heap_emit_body_limit_caps_operator_input() {
+        std::env::set_var(HEAP_EMIT_BODY_LIMIT_ENV, "9999");
+        assert_eq!(heap_emit_body_limit(), MAX_HEAP_EMIT_BODY_LIMIT);
+        std::env::set_var(HEAP_EMIT_BODY_LIMIT_ENV, "0");
+        assert_eq!(heap_emit_body_limit(), 1);
+        std::env::remove_var(HEAP_EMIT_BODY_LIMIT_ENV);
     }
 
     #[test]
