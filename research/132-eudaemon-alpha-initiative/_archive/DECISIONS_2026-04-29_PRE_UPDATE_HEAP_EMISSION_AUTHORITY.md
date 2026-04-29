@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-29 — Steward-Reviewed Heap Emission Is the Next Runtime Expansion Gate
-
-**Decision**
-
-Adopt an Initiative 132 runtime-expansion authority packet for a proposed steward-reviewed heap emission worker mode before enabling provider cognition, proposal/workflow projection, polling, or execution.
-
-The packet is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md). It allows only one explicit, bounded worker pass that confirms `/api/system/whoami`, emits exactly one operator-approved rich-text heap block through `POST /api/cortex/studio/heap/emit`, writes a local publication observation artifact, and exits.
-
-**Why**
-
-- Real-heap context bundle prep proved useful context packaging, but publication remained unauthorized.
-- The smallest publication step is not autonomous synthesis; it is operator-reviewed promotion of explicit text into one heap block.
-- Starting with one rich-text block keeps the surface narrow while proving gateway auth, identity, idempotency, and local evidence capture for publication.
-
-**Consequences**
-
-- The next implementation PR should add an explicit opt-in flag such as `NOSTRA_WORKER_STEWARD_REVIEWED_HEAP_EMIT=1`, preserving passive default behavior.
-- The worker must accept only operator-provided space, title, body, and approval reference; it must not read heap blocks or build context during the emission pass.
-- Provider execution, live polling, autonomous task selection, proposal/workflow creation, repo/runtime mutation beyond the single heap emit, graph mutation, and untrusted execution remain unauthorized.
-
 ## 2026-04-29 — Real-Heap Context Bundle Prep Worker Proof Passed on VPS
 
 **Decision**
