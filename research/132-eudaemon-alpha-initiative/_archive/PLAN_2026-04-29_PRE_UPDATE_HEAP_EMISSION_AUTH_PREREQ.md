@@ -43,7 +43,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-04-29"
+updated: "2026-04-28"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -64,7 +64,6 @@ Current validated reality for this pass:
 - Context bundle prep validation passed on the VPS on 2026-04-28 at commit `6cbf62c6e5d4977e7e1eb41b953aa35d22e25de4`; the worker read `/api/system/whoami`, posted one explicit sentinel block ID to `/api/cortex/studio/heap/blocks/context`, wrote one local summarized artifact, and exited with `exitStatus=pass`.
 - Real-heap context bundle prep validation passed on the VPS on 2026-04-29 UTC using three explicit heap block IDs; the worker returned three redacted context block summaries, wrote one local summarized artifact, and exited with `exitStatus=pass`.
 - The next proposed runtime-expansion gate is steward-reviewed heap emission: one explicit operator-approved rich-text heap block through `POST /api/cortex/studio/heap/emit`, summarized to a local publication artifact only, with no autonomous synthesis, provider calls, polling, proposal/workflow projection, or execution.
-- Steward-reviewed heap emission has one remaining implementation prerequisite: the worker must prove a verified operator-or-higher authorization path before calling heap emit. A VPS `/api/system/whoami` probe with only `x-cortex-agent-id: agent:eudaemon-alpha-01` resolves as `effectiveRole=viewer`, `identityVerified=false`, and `identitySource=read_fallback_viewer`, so agent identity alone is not publication authority.
 - Live polling/runtime execution remains disabled pending a separate governed runtime-expansion decision.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.

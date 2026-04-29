@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-29 — Heap Emission Requires Verified Operator Authorization
-
-**Decision**
-
-Treat verified operator-or-higher authorization as a prerequisite for any Eudaemon Alpha steward-reviewed heap emission implementation.
-
-The current VPS posture resolves `/api/system/whoami` with only `x-cortex-agent-id: agent:eudaemon-alpha-01` as `effectiveRole=viewer`, `identityVerified=false`, and `identitySource=read_fallback_viewer`. Therefore agent identity is valid runtime identity, but it is not publication authority for `POST /api/cortex/studio/heap/emit`.
-
-**Why**
-
-- Heap emit is a mutation endpoint guarded by `capability:heap_emit` and operator-or-higher role.
-- Production posture intentionally has `NOSTRA_AUTHZ_DEV_MODE=0` and `NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER=0`.
-- Letting the worker publish from agent identity alone would blur the boundary between runtime identity and operator approval.
-
-**Consequences**
-
-- The heap emission worker mode must call `/api/system/whoami` with the same authorization posture it intends to use for emission.
-- If the resolved identity is not verified and operator-or-higher, the worker must write a local `NEEDS_REVIEW` or equivalent failure artifact and skip heap emit.
-- Implementation must use a separately selected operator-authorized path, such as principal binding, signed/session authorization, or an operator-mediated local proxy/wrapper.
-
 ## 2026-04-29 — Steward-Reviewed Heap Emission Is the Next Runtime Expansion Gate
 
 **Decision**
