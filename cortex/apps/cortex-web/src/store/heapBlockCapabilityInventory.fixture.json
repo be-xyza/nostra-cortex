@@ -1,0 +1,383 @@
+{
+  "schema_version": "CortexWebHeapBlockCapabilityInventoryV1",
+  "snapshot_id": "system:ux:heap-block-capability-inventory",
+  "inventory_id": "cortex-web-heap-block-capability-observability",
+  "authority_mode": "recommendation_only",
+  "captured_from": {
+    "local_url": "http://127.0.0.1:4173/explore",
+    "captured_at": "2026-04-29",
+    "viewport": "1440x1000",
+    "notes": [
+      "Inventory records Heap and block capability observability only.",
+      "Route, shell, settings, and nav classification are covered by CortexWebShellSurfaceInventoryV1."
+    ]
+  },
+  "scope_boundaries": {
+    "includes": [
+      "heap_view_modes",
+      "heap_action_zones",
+      "block_card_actions",
+      "block_detail_tabs",
+      "create_panel_modes",
+      "upload_extraction_status_surfaces",
+      "steward_gate_visibility",
+      "relation_editor_visibility",
+      "chat_overlay_visibility",
+      "comment_sidebar_visibility"
+    ],
+    "excludes": [
+      "route_surface_classification",
+      "settings_information_architecture",
+      "runtime_mutation_authority",
+      "provider_topology_visibility",
+      "external_design_system_imports"
+    ]
+  },
+  "capability_classes": [
+    "read_projection",
+    "local_ui_state",
+    "runtime_read",
+    "runtime_write",
+    "steward_gated_write",
+    "destructive_write",
+    "download",
+    "placeholder_or_disabled",
+    "overlay_interaction"
+  ],
+  "heap_views": [
+    {
+      "id": "Explore",
+      "query_param": "all",
+      "class": "read_projection",
+      "status": "functional",
+      "source": "heapViewModel"
+    },
+    {
+      "id": "Inbox",
+      "query_param": "inbox",
+      "class": "read_projection",
+      "status": "functional",
+      "source": "heapViewModel",
+      "notes": "Includes mentions, urgent blocks, review work, and blocks lacking relation context."
+    },
+    {
+      "id": "Drafts",
+      "query_param": "drafts",
+      "class": "read_projection",
+      "status": "functional_empty_allowed",
+      "source": "heapViewModel"
+    },
+    {
+      "id": "Tasks",
+      "query_param": "tasks",
+      "class": "read_projection",
+      "status": "functional_empty_allowed",
+      "source": "heapViewModel"
+    },
+    {
+      "id": "Proposals",
+      "query_param": "proposals",
+      "class": "read_projection",
+      "status": "functional_empty_allowed",
+      "source": "heapViewModel"
+    },
+    {
+      "id": "Activity",
+      "query_param": "activity",
+      "class": "read_projection",
+      "status": "functional",
+      "source": "heapViewModel"
+    },
+    {
+      "id": "Pinned",
+      "query_param": "pinned",
+      "class": "read_projection",
+      "status": "functional_empty_allowed",
+      "source": "heapViewModel"
+    },
+    {
+      "id": "Archive",
+      "query_param": "archive",
+      "class": "read_projection",
+      "status": "functional_empty_allowed",
+      "source": "heapViewModel"
+    }
+  ],
+  "action_zones": [
+    {
+      "zone": "heap_page_bar",
+      "source": "useHeapActionPlan",
+      "fallback_source": "heapActionPlan",
+      "actions": ["create"]
+    },
+    {
+      "zone": "heap_selection_bar",
+      "source": "useHeapActionPlan",
+      "fallback_source": "heapActionPlan",
+      "actions": ["regenerate", "refine_selection", "export", "history", "publish", "synthesize", "pin", "delete"]
+    },
+    {
+      "zone": "heap_card_menu",
+      "source": "useHeapActionPlan",
+      "fallback_source": "heapActionPlan",
+      "actions": ["discussion", "history", "pin", "delete"]
+    },
+    {
+      "zone": "heap_detail_header",
+      "source": "useHeapActionPlan",
+      "fallback_source": "heapActionPlan",
+      "actions": ["discussion", "edit", "regenerate"]
+    },
+    {
+      "zone": "heap_detail_footer",
+      "source": "useHeapActionPlan",
+      "fallback_source": "heapActionPlan",
+      "actions": ["discussion", "edit", "regenerate"]
+    }
+  ],
+  "actions": [
+    {
+      "id": "create",
+      "label": "Create",
+      "class": "runtime_write",
+      "status": "functional_with_modes",
+      "zones": ["heap_page_bar"],
+      "required_observability": ["mode", "space_id", "actor_role", "payload_type", "status_message"]
+    },
+    {
+      "id": "regenerate",
+      "label": "Regenerate",
+      "class": "placeholder_or_disabled",
+      "status": "handler_only",
+      "zones": ["heap_selection_bar", "heap_detail_header", "heap_detail_footer"],
+      "required_observability": ["selected_artifact_ids", "action_plan_source", "disabled_reason"]
+    },
+    {
+      "id": "refine_selection",
+      "label": "Refine Selection",
+      "class": "runtime_read",
+      "status": "functional_context_bundle",
+      "zones": ["heap_selection_bar"],
+      "required_observability": ["selected_artifact_ids", "context_bundle_status", "action_plan_source"]
+    },
+    {
+      "id": "export",
+      "label": "Export",
+      "class": "download",
+      "status": "functional",
+      "zones": ["heap_selection_bar"],
+      "required_observability": ["selected_artifact_ids", "format", "download_status"]
+    },
+    {
+      "id": "history",
+      "label": "History",
+      "class": "runtime_read",
+      "status": "functional",
+      "zones": ["heap_selection_bar", "heap_card_menu"],
+      "required_observability": ["artifact_id", "history_fetch_status"]
+    },
+    {
+      "id": "publish",
+      "label": "Publish",
+      "class": "steward_gated_write",
+      "status": "functional_with_steward_gate",
+      "zones": ["heap_selection_bar"],
+      "required_observability": ["artifact_id", "gate_status", "steward_identity", "publish_status"]
+    },
+    {
+      "id": "synthesize",
+      "label": "Synthesize",
+      "class": "runtime_write",
+      "status": "functional_selection_summary",
+      "zones": ["heap_selection_bar"],
+      "required_observability": ["selected_artifact_ids", "minimum_selection", "emitted_artifact_id"]
+    },
+    {
+      "id": "pin",
+      "label": "Pin",
+      "class": "runtime_write",
+      "status": "functional",
+      "zones": ["heap_selection_bar", "heap_card_menu"],
+      "required_observability": ["artifact_id", "pin_status"]
+    },
+    {
+      "id": "delete",
+      "label": "Delete",
+      "class": "destructive_write",
+      "status": "functional_requires_confirmation_gap",
+      "zones": ["heap_selection_bar", "heap_card_menu"],
+      "required_observability": ["artifact_id", "confirmation_state", "delete_status"],
+      "known_gap": {
+        "severity": "high",
+        "summary": "Delete is exposed as a destructive action but the fallback action path does not encode an explicit confirmation contract.",
+        "recommended_action": "Add an action-plan confirmation invariant before treating delete as fully hardened."
+      }
+    },
+    {
+      "id": "discussion",
+      "label": "Discussion",
+      "class": "local_ui_state",
+      "status": "functional_local_sidebar",
+      "zones": ["heap_card_menu", "heap_detail_header", "heap_detail_footer"],
+      "required_observability": ["artifact_id", "comment_count", "sidebar_open"]
+    },
+    {
+      "id": "edit",
+      "label": "Edit",
+      "class": "placeholder_or_disabled",
+      "status": "disabled_or_relations_toggle",
+      "zones": ["heap_detail_header", "heap_detail_footer"],
+      "required_observability": ["disabled_reason", "relation_editor_open"],
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Edit is disabled in the fallback action plan but detail handlers map edit to relation editing.",
+        "recommended_action": "Split relation editing from general edit before exposing this as an edit capability."
+      }
+    }
+  ],
+  "create_modes": [
+    {
+      "mode": "create",
+      "class": "runtime_write",
+      "payload_type": "rich_text",
+      "status": "functional"
+    },
+    {
+      "mode": "generate",
+      "class": "runtime_write",
+      "payload_type": "structured_data",
+      "status": "functional_template_emit"
+    },
+    {
+      "mode": "upload",
+      "class": "runtime_write",
+      "payload_type": "pointer",
+      "status": "functional_with_extraction",
+      "required_observability": ["upload_id", "requested_parser_profile", "parser_backend", "extraction_status"]
+    },
+    {
+      "mode": "chat",
+      "class": "overlay_interaction",
+      "payload_type": "conversation",
+      "status": "overlay_launch"
+    },
+    {
+      "mode": "plan",
+      "class": "runtime_write",
+      "payload_type": "task",
+      "status": "functional_task_payload"
+    }
+  ],
+  "detail_tabs": [
+    {
+      "id": "preview",
+      "class": "read_projection",
+      "status": "functional"
+    },
+    {
+      "id": "relations",
+      "class": "runtime_write",
+      "status": "functional_with_relation_editor",
+      "required_observability": ["dirty_state", "target_space", "relation_status", "relation_error"]
+    },
+    {
+      "id": "attributes",
+      "class": "read_projection",
+      "status": "functional"
+    },
+    {
+      "id": "code",
+      "class": "read_projection",
+      "status": "functional"
+    }
+  ],
+  "block_renderers": [
+    "agent_solicitation",
+    "feedback",
+    "conversation",
+    "document",
+    "gate_summary",
+    "pointer",
+    "structured_data",
+    "task",
+    "upload",
+    "note"
+  ],
+  "overlay_surfaces": [
+    {
+      "id": "chat_panel",
+      "class": "overlay_interaction",
+      "status": "functional_with_local_preview_websocket_gap",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Chat panel can intercept the create button when open.",
+        "recommended_action": "Add overlay layering and focus-trap validation."
+      }
+    },
+    {
+      "id": "comment_sidebar",
+      "class": "local_ui_state",
+      "status": "functional_local_only",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Comments are stored in UI state and are not yet represented as governed heap records.",
+        "recommended_action": "Mark comment persistence authority before using comments as durable evidence."
+      }
+    },
+    {
+      "id": "steward_gate_modal",
+      "class": "steward_gated_write",
+      "status": "functional",
+      "required_observability": ["validate_status", "apply_status", "publish_status", "steward_gate_token"]
+    },
+    {
+      "id": "aggregation_detail_modal",
+      "class": "read_projection",
+      "status": "functional"
+    },
+    {
+      "id": "saved_view_modal",
+      "class": "local_ui_state",
+      "status": "functional"
+    }
+  ],
+  "known_gaps": [
+    {
+      "id": "heap.block.delete.confirmation",
+      "severity": "high",
+      "summary": "Destructive delete capability lacks a fixture-level confirmation invariant.",
+      "recommended_action": "Require confirmation metadata in action plans before delete can be marked hardened."
+    },
+    {
+      "id": "heap.block.edit.semantic_split",
+      "severity": "medium",
+      "summary": "General edit and relation editing are semantically conflated.",
+      "recommended_action": "Introduce separate relation-edit capability metadata."
+    },
+    {
+      "id": "heap.block.comments.persistence",
+      "severity": "medium",
+      "summary": "Comment sidebar is local UI state, not governed heap persistence.",
+      "recommended_action": "Define whether comments are conversation records, heap blocks, or local annotations."
+    },
+    {
+      "id": "heap.block.overlay.layering",
+      "severity": "medium",
+      "summary": "Chat overlay can intercept other controls.",
+      "recommended_action": "Add Playwright overlay/focus regression coverage."
+    },
+    {
+      "id": "heap.block.regenerate.handler",
+      "severity": "medium",
+      "summary": "Regenerate is exposed in action plans but remains handler-oriented without a clear runtime command contract in the inventory.",
+      "recommended_action": "Classify regenerate as disabled or define its endpoint and result artifact behavior."
+    }
+  ],
+  "next_validation_targets": [
+    "Playwright coverage for action menu availability by selected count",
+    "Playwright coverage for create/upload/chat overlay collisions",
+    "Action-plan invariant requiring confirmation for destructive actions",
+    "Relation editor authority split from generic edit",
+    "Comment persistence authority decision"
+  ]
+}
