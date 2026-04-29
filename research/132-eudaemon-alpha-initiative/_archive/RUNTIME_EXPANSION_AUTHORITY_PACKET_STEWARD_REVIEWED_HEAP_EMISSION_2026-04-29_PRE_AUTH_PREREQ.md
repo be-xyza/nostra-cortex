@@ -6,7 +6,6 @@
 - Initiative: `132-eudaemon-alpha-initiative`
 - Status: proposed
 - Created: 2026-04-29
-- Updated: 2026-04-29
 - Authority mode: recommendation-only until separately approved for implementation
 - Runtime identity: `agent:eudaemon-alpha-01`
 - Depends on: `initiative-132-runtime-expansion-context-bundle-prep-v1`
@@ -32,25 +31,6 @@ The following must remain true before implementation or activation:
 5. The operator provides an explicit target space ID.
 6. The operator provides an explicit block title, block body, and approval reference.
 7. The operator explicitly enables steward-reviewed heap emission for a single run.
-8. The implementation proves an operator-bound authorization path before attempting `POST /api/cortex/studio/heap/emit`.
-9. A worker pass using only `x-cortex-agent-id: agent:eudaemon-alpha-01` must fail closed for heap emission because the VPS currently resolves that identity as `effectiveRole=viewer`, `identityVerified=false`, and `identitySource=read_fallback_viewer`.
-
-## Authorization Prerequisite
-
-`POST /api/cortex/studio/heap/emit` is a mutation endpoint protected by `capability:heap_emit` and requires an operator role or higher. Production posture on the VPS intentionally disables unverified role headers, so the worker must not treat agent identity as publication authority.
-
-Before implementation, one of the following operator-authorized paths must be selected and documented:
-
-1. a verified principal-bound operator role claim accepted by the gateway,
-2. a valid signed principal/session authorization accepted by the gateway, or
-3. an operator-mediated local proxy/command wrapper that injects verified authorization for exactly one approved emission pass.
-
-The selected path must preserve these constraints:
-
-1. no secrets, cookies, bearer tokens, or signing material may be written into the publication observation artifact;
-2. the worker must record only redacted authorization posture fields, such as `identityVerified`, `identitySource`, and `effectiveRole`;
-3. if `/api/system/whoami` does not resolve to a verified operator-or-higher identity for the emission attempt, the worker must write `NEEDS_REVIEW` or equivalent failure state and skip `POST /api/cortex/studio/heap/emit`;
-4. unverified role headers must remain disabled in production.
 
 ## Allowed Gateway Calls
 
@@ -136,7 +116,6 @@ NOSTRA_WORKER_HEAP_EMIT_BODY=<operator-approved body>
 NOSTRA_WORKER_HEAP_EMIT_APPROVAL_REF=<approval id or evidence ref>
 NOSTRA_WORKER_HEAP_EMIT_SOURCE_ARTIFACT=<optional local observation artifact path>
 NOSTRA_WORKER_HEAP_EMIT_BODY_LIMIT=4000
-NOSTRA_WORKER_HEAP_EMIT_AUTH_MODE=<principal_binding|signed_session|operator_proxy>
 ```
 
 Default behavior must remain passive heartbeat with runtime polling disabled. A one-shot heap emission run should be easy to disable by unsetting the flag and restarting the worker service.
@@ -165,11 +144,10 @@ Required fields:
 12. `allowUnverifiedRoleHeader`
 13. `agentIdentityEnforcement`
 14. `workerMode`
-15. `authz`
-16. `heapEmit`
-17. `checks`
-18. `errors`
-19. `exitStatus`
+15. `heapEmit`
+16. `checks`
+17. `errors`
+18. `exitStatus`
 
 The `heapEmit` field should contain the gateway response summary only. The artifact must not contain provider keys, bearer tokens, cookies, SSH details, full environment dumps, unredacted runtime topology, raw source heap payloads, or external model output.
 
@@ -215,15 +193,13 @@ sudo -u nostra env \
 1. Passive default behavior is unchanged.
 2. Steward-reviewed heap emission mode requires explicit operator opt-in.
 3. The worker exits after one bounded pass.
-4. The worker proves a verified operator-or-higher identity before attempting mutation.
-5. If verified operator authority is absent, the worker fails closed without calling heap emit.
-6. The worker calls only allowed loopback gateway endpoints.
-7. The worker submits exactly one heap emit request after authorization passes.
-8. The emitted block uses operator-provided rich-text content only.
-9. The worker records local publication evidence without exposing secrets or raw source heap payloads.
-10. No context bundle prep, proposal, workflow, provider, repo, deploy, broad runtime, graph, polling, or execution behavior occurs.
-11. Host-mode authority checks remain green after deployment.
-12. Any durable proof is promoted manually into Initiative 132 only after operator review.
+4. The worker calls only allowed loopback gateway endpoints.
+5. The worker submits exactly one heap emit request.
+6. The emitted block uses operator-provided rich-text content only.
+7. The worker records local publication evidence without exposing secrets or raw source heap payloads.
+8. No context bundle prep, proposal, workflow, provider, repo, deploy, broad runtime, graph, polling, or execution behavior occurs.
+9. Host-mode authority checks remain green after deployment.
+10. Any durable proof is promoted manually into Initiative 132 only after operator review.
 
 ## Follow-Up Gates
 
