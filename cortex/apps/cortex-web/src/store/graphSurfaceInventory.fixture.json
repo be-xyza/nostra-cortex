@@ -1,0 +1,340 @@
+{
+  "schema_version": "CortexWebGraphSurfaceInventoryV1",
+  "snapshot_id": "system:ux:graph-surface-inventory",
+  "inventory_id": "cortex-web-graph-surface-observability",
+  "authority_mode": "recommendation_only",
+  "captured_from": {
+    "captured_at": "2026-04-29",
+    "notes": [
+      "Inventory records graph surface observability only.",
+      "Current UI behavior is treated as locked truth; this fixture does not grant graph mutation authority."
+    ]
+  },
+  "scope_boundaries": {
+    "includes": [
+      "contribution_graph_surfaces",
+      "capability_graph_surfaces",
+      "workflow_graph_projections",
+      "execution_canvas_graph_refs",
+      "heap_relation_graph_surfaces",
+      "graph_renderer_fallbacks"
+    ],
+    "excludes": [
+      "route_surface_classification",
+      "heap_block_action_authority",
+      "runtime_mutation_authority",
+      "settings_information_architecture",
+      "graph_data_correctness"
+    ]
+  },
+  "graph_kinds": ["contribution", "capability", "workflow", "spatial_plane", "relation"],
+  "layout_engines": ["react_force_graph", "react_flow", "tldraw", "d3", "list", "json", "svg_fallback"],
+  "graph_surfaces": [
+    {
+      "surface_id": "graph.contributions.runs",
+      "route_id": "/contributions",
+      "graph_kind": "contribution",
+      "source_authority": "nostra",
+      "source_endpoint": "/api/kg/spaces/:space_id/contribution-graph/runs?limit=10",
+      "schema_version": "ContributionGraphRunsProjection",
+      "projection_kind": "run_history",
+      "graph_hash": "not_exposed",
+      "layout_engine": "list",
+      "renderer_mode": "history_list",
+      "render_status": "functional",
+      "fetch_status": "runtime_read",
+      "node_count": "runtime_dependent",
+      "edge_count": "not_exposed",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "not_exposed"
+    },
+    {
+      "surface_id": "graph.contributions.full",
+      "route_id": "/contributions",
+      "graph_kind": "contribution",
+      "source_authority": "nostra",
+      "source_endpoint": "/api/kg/spaces/:space_id/contribution-graph/graph?mode=d3-force",
+      "schema_version": "ContributionGraphV1",
+      "projection_kind": "d3_force",
+      "graph_root_hash": "runtime_dependent",
+      "layout_engine": "d3",
+      "renderer_mode": "contribution_graph_viewer",
+      "render_status": "functional_thin",
+      "fetch_status": "runtime_read",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Graph route and API are covered, but there is no shared frontend graph health contract for renderability, fallback reason, or stale graph detection.",
+        "recommended_action": "Emit graph surface health from the graph renderer after this inventory stabilizes."
+      }
+    },
+    {
+      "surface_id": "graph.contributions.edge_quality",
+      "route_id": "/contributions",
+      "graph_kind": "contribution",
+      "source_authority": "nostra",
+      "source_endpoint": "/api/kg/spaces/:space_id/contribution-graph/edge-quality",
+      "schema_version": "ContributionEdgeQualityReport",
+      "projection_kind": "edge_quality",
+      "graph_hash": "not_exposed",
+      "layout_engine": "list",
+      "renderer_mode": "edge_quality_queue",
+      "render_status": "functional",
+      "fetch_status": "runtime_read",
+      "node_count": "not_exposed",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "not_exposed",
+      "visible_edge_count": "runtime_dependent"
+    },
+    {
+      "surface_id": "graph.contributions.blast_radius",
+      "route_id": "/contributions",
+      "graph_kind": "contribution",
+      "source_authority": "nostra",
+      "source_endpoint": "/api/kg/spaces/:space_id/contribution-graph/blast-radius?contributionId=:id",
+      "schema_version": "DpubBlastRadiusResponse",
+      "projection_kind": "focused_neighborhood",
+      "graph_hash": "not_exposed",
+      "layout_engine": "list",
+      "renderer_mode": "contribution_focus_map",
+      "render_status": "functional_empty_allowed",
+      "fetch_status": "runtime_read",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent"
+    },
+    {
+      "surface_id": "graph.heap.ambient",
+      "route_id": "/explore",
+      "graph_kind": "contribution",
+      "source_authority": "nostra",
+      "source_endpoint": "/api/kg/spaces/:space_id/contribution-graph/graph?mode=d3-force",
+      "schema_version": "ContributionGraphV1",
+      "projection_kind": "ambient_background",
+      "graph_root_hash": "runtime_dependent",
+      "layout_engine": "react_force_graph",
+      "renderer_mode": "ambient_2d_or_3d",
+      "render_status": "functional_optional",
+      "fetch_status": "network_first_with_preview_fallback",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent"
+    },
+    {
+      "surface_id": "graph.a2ui.contribution_graph",
+      "route_id": "/system",
+      "graph_kind": "contribution",
+      "source_authority": "fixture",
+      "source_endpoint": "A2UI component props or MOCK_CONTRIBUTION_GRAPH",
+      "schema_version": "ContributionGraphV1",
+      "projection_kind": "a2ui_widget",
+      "graph_root_hash": "mock_or_runtime_dependent",
+      "layout_engine": "d3",
+      "renderer_mode": "a2ui_contribution_graph_widget",
+      "render_status": "functional_with_mock_fallback_gap",
+      "fetch_status": "component_props_or_mock",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent",
+      "fallback_reason": "Falls back to MOCK_CONTRIBUTION_GRAPH when component data is absent.",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "A2UI ContributionGraph can render mock graph data when runtime data is absent, which can obscure missing backend projection wiring.",
+        "recommended_action": "Require graph source/fallback visibility before using this widget as evidence of live graph health."
+      }
+    },
+    {
+      "surface_id": "graph.capability.system",
+      "route_id": "/system",
+      "graph_kind": "capability",
+      "source_authority": "cortex",
+      "source_endpoint": "/api/system/capability-graph",
+      "schema_version": "PlatformCapabilityGraph",
+      "projection_kind": "platform_capability_graph",
+      "graph_hash": "runtime_dependent",
+      "layout_engine": "react_flow",
+      "renderer_mode": "capability_map_v2_or_v1",
+      "render_status": "functional",
+      "fetch_status": "network_first_with_preview_fallback",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Capability graph renderer lacks explicit hidden node, locked node, broken route, and renderer fallback observability.",
+        "recommended_action": "Expose renderer fallback reason and inaccessible/locked/broken route counts in graph health."
+      }
+    },
+    {
+      "surface_id": "graph.capability.space_overlay",
+      "route_id": "/spaces/:id",
+      "graph_kind": "capability",
+      "source_authority": "nostra",
+      "source_endpoint": "/api/spaces/:space_id/capability-graph",
+      "schema_version": "SpaceCapabilityGraph",
+      "projection_kind": "space_capability_overlay",
+      "graph_hash": "runtime_dependent",
+      "layout_engine": "react_flow",
+      "renderer_mode": "schema_node_editor",
+      "render_status": "functional_operator_or_steward_context",
+      "fetch_status": "runtime_read_write",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent"
+    },
+    {
+      "surface_id": "graph.workflow.flow_graph",
+      "route_id": "/workflows",
+      "graph_kind": "workflow",
+      "source_authority": "cortex",
+      "source_endpoint": "/api/cortex/workflow-definitions/:definition_id/projections/flow_graph_v1",
+      "schema_version": "WorkflowProjectionResponse",
+      "projection_kind": "flow_graph_v1",
+      "graph_hash": "not_exposed",
+      "layout_engine": "json",
+      "renderer_mode": "json_preview",
+      "render_status": "functional_json_only",
+      "fetch_status": "runtime_read",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "not_exposed",
+      "visible_edge_count": "not_exposed",
+      "fallback_reason": "Workflow projection tab renders this graph projection as JSON rather than a graph view.",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "flow_graph_v1 is exposed as a graph projection but currently renders as JSON only.",
+        "recommended_action": "Add renderer status and graph-view eligibility before presenting this as a visual graph surface."
+      }
+    },
+    {
+      "surface_id": "graph.workflow.normalized_graph",
+      "route_id": "/workflows",
+      "graph_kind": "workflow",
+      "source_authority": "cortex",
+      "source_endpoint": "/api/cortex/workflow-definitions/:definition_id/projections/normalized_graph_v1",
+      "schema_version": "WorkflowProjectionResponse",
+      "projection_kind": "normalized_graph_v1",
+      "graph_hash": "not_exposed",
+      "layout_engine": "json",
+      "renderer_mode": "json_preview",
+      "render_status": "functional_json_only",
+      "fetch_status": "runtime_read",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "not_exposed",
+      "visible_edge_count": "not_exposed",
+      "fallback_reason": "Workflow projection tab renders this normalized projection as JSON rather than a graph view.",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "normalized_graph_v1 is graph-shaped but currently renders as JSON only.",
+        "recommended_action": "Track whether normalized graph projection has a visual renderer or is intentionally data-only."
+      }
+    },
+    {
+      "surface_id": "graph.workflow.execution_topology",
+      "route_id": "/workflows",
+      "graph_kind": "workflow",
+      "source_authority": "cortex",
+      "source_endpoint": "/api/cortex/workflow-definitions/:definition_id/projections/execution_topology_v1",
+      "schema_version": "WorkflowTopologyResponse",
+      "projection_kind": "execution_topology_v1",
+      "graph_hash": "not_exposed",
+      "layout_engine": "react_flow",
+      "renderer_mode": "execution_topology_viewer",
+      "render_status": "functional",
+      "fetch_status": "runtime_read",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent"
+    },
+    {
+      "surface_id": "graph.execution_canvas.spatial_plane",
+      "route_id": "/labs/execution-canvas",
+      "graph_kind": "spatial_plane",
+      "source_authority": "a2ui",
+      "source_endpoint": "/api/system/ux/workbench?route=/labs/execution-canvas",
+      "schema_version": "SpatialPlaneLayoutV1",
+      "projection_kind": "spatial_plane",
+      "graph_hash": "layout_ref.graph_hash",
+      "layout_engine": "tldraw",
+      "renderer_mode": "spatial_plane_canvas",
+      "render_status": "known_shell_gap",
+      "fetch_status": "surface_fetch_can_fail_500",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent",
+      "known_gap": {
+        "severity": "high",
+        "summary": "Execution canvas has layout persistence tests, but no UI graph contract detects drift between layout_ref.graph_hash, workflow definition digest, and rendered node/edge set.",
+        "recommended_action": "Add graph drift observability before treating execution canvas topology as authoritative."
+      }
+    },
+    {
+      "surface_id": "graph.heap.detail_relations",
+      "route_id": "/explore",
+      "graph_kind": "relation",
+      "source_authority": "cortex",
+      "source_endpoint": "Heap block projection relations",
+      "schema_version": "HeapRelationIndex",
+      "projection_kind": "heap_relation_index",
+      "graph_hash": "not_exposed",
+      "layout_engine": "list",
+      "renderer_mode": "heap_detail_relation_sections",
+      "render_status": "functional",
+      "fetch_status": "local_projection",
+      "node_count": "runtime_dependent",
+      "edge_count": "runtime_dependent",
+      "visible_node_count": "runtime_dependent",
+      "visible_edge_count": "runtime_dependent"
+    }
+  ],
+  "known_gaps": [
+    {
+      "id": "graph.surface.shared_health_contract",
+      "severity": "high",
+      "summary": "Graph rendering, fetch health, fallback state, and visible node/edge counts are not represented by a shared frontend contract.",
+      "recommended_action": "Use this inventory as the source list for a graph health envelope emitted by renderers."
+    },
+    {
+      "id": "graph.workflow.json_only_projections",
+      "severity": "medium",
+      "summary": "flow_graph_v1 and normalized_graph_v1 are graph projections but currently render as JSON previews.",
+      "recommended_action": "Classify graph projection tabs as visual graph or data-only before promotion."
+    },
+    {
+      "id": "graph.a2ui.mock_fallback_visibility",
+      "severity": "medium",
+      "summary": "A2UI ContributionGraph can fall back to mock graph data when runtime data is absent.",
+      "recommended_action": "Expose source authority and fallback reason in the widget before using it as live graph evidence."
+    },
+    {
+      "id": "graph.execution_canvas.topology_drift",
+      "severity": "high",
+      "summary": "Execution canvas does not expose topology drift between layout_ref.graph_hash, workflow definition digest, and rendered node/edge set.",
+      "recommended_action": "Add topology drift checks before graph-backed execution canvas layouts are treated as authoritative."
+    },
+    {
+      "id": "graph.capability.renderer_visibility",
+      "severity": "medium",
+      "summary": "Capability graph renderer lacks explicit hidden, locked, broken route, and renderer fallback counts.",
+      "recommended_action": "Add graph renderer diagnostics after the inventory contract is stable."
+    }
+  ],
+  "next_validation_targets": [
+    "Graph smoke tests for non-empty render or explicit fallback reason",
+    "Contribution graph mock fallback visibility",
+    "Workflow graph projection renderer classification",
+    "Execution canvas topology drift detection",
+    "Capability graph hidden/locked/broken route diagnostics"
+  ]
+}
