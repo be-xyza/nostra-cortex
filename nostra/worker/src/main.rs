@@ -244,6 +244,8 @@ struct HeapEmitSummary {
     idempotent: Option<bool>,
     source_of_truth: Option<String>,
     fallback_active: Option<bool>,
+    error_code: Option<String>,
+    error_message: Option<String>,
 }
 
 #[derive(Clone)]
@@ -1118,10 +1120,6 @@ async fn run_steward_reviewed_heap_emit() -> Result<PathBuf> {
             "relations": {},
             "files": [],
             "apps": [],
-            "meta": {
-                "schema_version": "1.0.0",
-                "request_path": "initiative-132/steward-reviewed-heap-emission-v1"
-            },
             "projection_hints": {},
             "crdt_projection": {}
         });
@@ -1160,6 +1158,13 @@ async fn run_steward_reviewed_heap_emit() -> Result<PathBuf> {
                                 Err(error) => errors.push(format!("heap_emit_json:{error}")),
                             }
                         } else {
+                            if let Ok(payload) = response.json::<Value>().await {
+                                heap_emit.error_code = string_field(&payload, "errorCode")
+                                    .or_else(|| string_field(&payload, "error_code"))
+                                    .or_else(|| string_field(&payload, "code"));
+                                heap_emit.error_message = string_field(&payload, "message")
+                                    .or_else(|| string_field(&payload, "error"));
+                            }
                             errors.push(format!("heap_emit_status:{status}"));
                         }
                     }
