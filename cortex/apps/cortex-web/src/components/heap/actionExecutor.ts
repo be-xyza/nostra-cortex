@@ -44,11 +44,36 @@ export interface ActionHandlers {
     onSynthesize?: (selection: ActionSelectionContext) => void;
     onCreateBlock?: (selection: ActionSelectionContext) => void;
     onOpenDiscussion?: (selection: ActionSelectionContext) => void;
+    onRelationEdit?: (selection: ActionSelectionContext) => void;
     onEdit?: (selection: ActionSelectionContext) => void;
+    confirmAction?: (
+        action: ToolbarActionDescriptor,
+        selection: ActionSelectionContext,
+    ) => boolean | Promise<boolean>;
 }
 
 function normalizeActionToken(action: ToolbarActionDescriptor): string {
     return action.action.trim().toLowerCase();
+}
+
+async function confirmIfRequired(
+    action: ToolbarActionDescriptor,
+    selection: ActionSelectionContext,
+    handlers: ActionHandlers,
+): Promise<boolean> {
+    if (!action.confirmation?.required) {
+        return action.kind !== "destructive";
+    }
+
+    if (handlers.confirmAction) {
+        return await handlers.confirmAction(action, selection);
+    }
+
+    if (typeof window !== "undefined" && typeof window.confirm === "function") {
+        return window.confirm(action.confirmation.message || action.confirmation.title || "Confirm action?");
+    }
+
+    return false;
 }
 
 export async function executeHeapAction(
@@ -59,6 +84,7 @@ export async function executeHeapAction(
     const { enabled, disabledReason } = evaluateActionConstraints(action, selection);
 
     if (!enabled) return;
+    if (!(await confirmIfRequired(action, selection, handlers))) return;
 
     const ids = selection.selectedArtifactIds;
     const actionToken = normalizeActionToken(action);
@@ -107,6 +133,10 @@ export async function executeHeapAction(
         case "discussion":
         case "view_discussion":
             handlers.onOpenDiscussion?.(selection);
+            break;
+        case "relation_edit":
+        case "edit_relations":
+            handlers.onRelationEdit?.(selection);
             break;
         case "edit":
             handlers.onEdit?.(selection);

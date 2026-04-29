@@ -11,6 +11,7 @@ export type HeapActionId =
   | "pin"
   | "delete"
   | "discussion"
+  | "relation_edit"
   | "edit";
 
 export interface HeapActionDescriptor {
@@ -22,6 +23,12 @@ export interface HeapActionDescriptor {
   emphasis?: "default" | "primary" | "danger";
   enabled: boolean;
   disabledReason?: string;
+  confirmation?: {
+    required: boolean;
+    style?: "danger" | "default";
+    title?: string;
+    message?: string;
+  };
 }
 
 export interface HeapActionPlan {
@@ -76,6 +83,7 @@ function buildSelectionAction(
     emphasis: config.emphasis,
     enabled,
     disabledReason,
+    confirmation: config.confirmation,
   };
 }
 
@@ -139,6 +147,12 @@ export function buildHeapActionPlan(options: BuildHeapActionPlanOptions): HeapAc
       icon: "🗑",
       emphasis: "danger",
       minSelected: 1,
+      confirmation: {
+        required: true,
+        style: "danger",
+        title: "Delete selected blocks?",
+        message: "This removes the selected Heap blocks from the active Space projection.",
+      },
     }),
   ].filter((action): action is HeapActionDescriptor => action !== null);
 
@@ -164,12 +178,12 @@ export function buildHeapActionPlan(options: BuildHeapActionPlanOptions): HeapAc
       enabled: true,
     },
     {
-      id: "edit",
+      id: "relation_edit",
       zone: "detail",
-      label: "Edit",
-      title: "Edit block",
-      enabled: false,
-      disabledReason: "Edit flow is not implemented in the web heap yet.",
+      label: "Relations",
+      title: "Edit relation map",
+      enabled: !detailDisabledReason,
+      disabledReason: detailDisabledReason,
     },
     {
       id: "regenerate",
@@ -220,6 +234,12 @@ export function buildHeapActionPlan(options: BuildHeapActionPlanOptions): HeapAc
       emphasis: "danger",
       enabled: !cardDisabledReason,
       disabledReason: cardDisabledReason,
+      confirmation: {
+        required: true,
+        style: "danger",
+        title: "Delete this block?",
+        message: "This removes the Heap block from the active Space projection.",
+      },
     },
   ];
 

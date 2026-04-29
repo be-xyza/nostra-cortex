@@ -142,15 +142,24 @@ test("heap block capability inventory fixture remains recommendation-only observ
   assert.ok(actions.has("publish"));
   assert.ok(actions.has("delete"));
   assert.ok(actions.has("discussion"));
+  assert.ok(actions.has("relation_edit"));
 
   const deleteAction = fixture.actions.find((action: any) => action.id === "delete");
   assert.equal(deleteAction.class, "destructive_write");
-  assert.equal(deleteAction.known_gap.severity, "high");
+  assert.equal(deleteAction.confirmation_contract.required, true);
+  assert.equal(deleteAction.confirmation_contract.style, "danger");
+  assert.equal(deleteAction.confirmation_contract.fallback_enforced, true);
+
+  const relationEditAction = fixture.actions.find((action: any) => action.id === "relation_edit");
+  assert.equal(relationEditAction.class, "runtime_write");
+  assert.equal(relationEditAction.status, "functional_relation_editor_toggle");
 
   const createModes = new Set(fixture.create_modes.map((mode: any) => mode.mode));
   assert.deepEqual(createModes, new Set(["create", "generate", "upload", "chat", "plan"]));
 
   const gapIds = new Set(fixture.known_gaps.map((gap: any) => gap.id));
+  assert.equal(gapIds.has("heap.block.delete.confirmation"), false);
+  assert.equal(gapIds.has("heap.block.edit.semantic_split"), false);
   assert.ok(gapIds.has("heap.block.comments.persistence"));
   assert.ok(gapIds.has("heap.block.overlay.layering"));
 });

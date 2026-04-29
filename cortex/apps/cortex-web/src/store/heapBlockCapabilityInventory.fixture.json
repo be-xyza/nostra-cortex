@@ -126,13 +126,13 @@
       "zone": "heap_detail_header",
       "source": "useHeapActionPlan",
       "fallback_source": "heapActionPlan",
-      "actions": ["discussion", "edit", "regenerate"]
+      "actions": ["discussion", "relation_edit", "regenerate"]
     },
     {
       "zone": "heap_detail_footer",
       "source": "useHeapActionPlan",
       "fallback_source": "heapActionPlan",
-      "actions": ["discussion", "edit", "regenerate"]
+      "actions": ["discussion", "relation_edit", "regenerate"]
     }
   ],
   "actions": [
@@ -204,13 +204,13 @@
       "id": "delete",
       "label": "Delete",
       "class": "destructive_write",
-      "status": "functional_requires_confirmation_gap",
+      "status": "functional_requires_confirmation",
       "zones": ["heap_selection_bar", "heap_card_menu"],
       "required_observability": ["artifact_id", "confirmation_state", "delete_status"],
-      "known_gap": {
-        "severity": "high",
-        "summary": "Delete is exposed as a destructive action but the fallback action path does not encode an explicit confirmation contract.",
-        "recommended_action": "Add an action-plan confirmation invariant before treating delete as fully hardened."
+      "confirmation_contract": {
+        "required": true,
+        "style": "danger",
+        "fallback_enforced": true
       }
     },
     {
@@ -222,17 +222,12 @@
       "required_observability": ["artifact_id", "comment_count", "sidebar_open"]
     },
     {
-      "id": "edit",
-      "label": "Edit",
-      "class": "placeholder_or_disabled",
-      "status": "disabled_or_relations_toggle",
+      "id": "relation_edit",
+      "label": "Relations",
+      "class": "runtime_write",
+      "status": "functional_relation_editor_toggle",
       "zones": ["heap_detail_header", "heap_detail_footer"],
-      "required_observability": ["disabled_reason", "relation_editor_open"],
-      "known_gap": {
-        "severity": "medium",
-        "summary": "Edit is disabled in the fallback action plan but detail handlers map edit to relation editing.",
-        "recommended_action": "Split relation editing from general edit before exposing this as an edit capability."
-      }
+      "required_observability": ["artifact_id", "relation_editor_open", "relation_dirty_state"]
     }
   ],
   "create_modes": [
@@ -343,18 +338,6 @@
   ],
   "known_gaps": [
     {
-      "id": "heap.block.delete.confirmation",
-      "severity": "high",
-      "summary": "Destructive delete capability lacks a fixture-level confirmation invariant.",
-      "recommended_action": "Require confirmation metadata in action plans before delete can be marked hardened."
-    },
-    {
-      "id": "heap.block.edit.semantic_split",
-      "severity": "medium",
-      "summary": "General edit and relation editing are semantically conflated.",
-      "recommended_action": "Introduce separate relation-edit capability metadata."
-    },
-    {
       "id": "heap.block.comments.persistence",
       "severity": "medium",
       "summary": "Comment sidebar is local UI state, not governed heap persistence.",
@@ -376,8 +359,8 @@
   "next_validation_targets": [
     "Playwright coverage for action menu availability by selected count",
     "Playwright coverage for create/upload/chat overlay collisions",
-    "Action-plan invariant requiring confirmation for destructive actions",
-    "Relation editor authority split from generic edit",
+    "Playwright coverage for destructive action confirmation flow",
+    "Remote action-plan parity for relation_edit capability metadata",
     "Comment persistence authority decision"
   ]
 }
