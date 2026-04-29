@@ -313,10 +313,12 @@
       "id": "comment_sidebar",
       "class": "local_ui_state",
       "status": "functional_local_only",
-      "known_gap": {
-        "severity": "medium",
-        "summary": "Comments are stored in UI state and are not yet represented as governed heap records.",
-        "recommended_action": "Mark comment persistence authority before using comments as durable evidence."
+      "authority_contract": {
+        "persistence": "local_ui_state",
+        "durable_evidence": false,
+        "governed_heap_record": false,
+        "exportable_as_evidence": false,
+        "recommended_persistence_target": "undecided"
       }
     },
     {
@@ -338,12 +340,6 @@
   ],
   "known_gaps": [
     {
-      "id": "heap.block.comments.persistence",
-      "severity": "medium",
-      "summary": "Comment sidebar is local UI state, not governed heap persistence.",
-      "recommended_action": "Define whether comments are conversation records, heap blocks, or local annotations."
-    },
-    {
       "id": "heap.block.overlay.layering",
       "severity": "medium",
       "summary": "Chat overlay can intercept other controls.",
@@ -361,6 +357,6 @@
     "Playwright coverage for create/upload/chat overlay collisions",
     "Playwright coverage for destructive action confirmation flow",
     "Remote action-plan parity for relation_edit capability metadata",
-    "Comment persistence authority decision"
+    "Comment persistence target decision: conversation record vs governed Heap block vs local-only annotation"
   ]
 }

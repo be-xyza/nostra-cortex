@@ -157,9 +157,15 @@ test("heap block capability inventory fixture remains recommendation-only observ
   const createModes = new Set(fixture.create_modes.map((mode: any) => mode.mode));
   assert.deepEqual(createModes, new Set(["create", "generate", "upload", "chat", "plan"]));
 
+  const commentSidebar = fixture.overlay_surfaces.find((surface: any) => surface.id === "comment_sidebar");
+  assert.equal(commentSidebar.authority_contract.persistence, "local_ui_state");
+  assert.equal(commentSidebar.authority_contract.durable_evidence, false);
+  assert.equal(commentSidebar.authority_contract.governed_heap_record, false);
+  assert.equal(commentSidebar.authority_contract.exportable_as_evidence, false);
+
   const gapIds = new Set(fixture.known_gaps.map((gap: any) => gap.id));
   assert.equal(gapIds.has("heap.block.delete.confirmation"), false);
   assert.equal(gapIds.has("heap.block.edit.semantic_split"), false);
-  assert.ok(gapIds.has("heap.block.comments.persistence"));
+  assert.equal(gapIds.has("heap.block.comments.persistence"), false);
   assert.ok(gapIds.has("heap.block.overlay.layering"));
 });

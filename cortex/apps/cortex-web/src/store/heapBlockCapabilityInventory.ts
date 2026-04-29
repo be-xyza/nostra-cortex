@@ -51,6 +51,23 @@ export type HeapBlockCapabilityInventoryFixture = {
     summary: string;
     recommended_action: string;
   }>;
+  overlay_surfaces?: Array<{
+    id: string;
+    class: HeapBlockCapabilityClass;
+    status: string;
+    authority_contract?: {
+      persistence: "local_ui_state";
+      durable_evidence: false;
+      governed_heap_record: false;
+      exportable_as_evidence: false;
+      recommended_persistence_target: "undecided";
+    };
+    known_gap?: {
+      severity: "low" | "medium" | "high";
+      summary: string;
+      recommended_action: string;
+    };
+  }>;
 };
 
 export const HEAP_BLOCK_CAPABILITY_INVENTORY_FIXTURE =
