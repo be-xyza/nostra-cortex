@@ -1,25 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-04-29 — Steward-Reviewed Heap Emission Fails Closed Without Operator Auth
-
-**Decision**
-
-Record the steward-reviewed heap emission worker mode as implemented and validated for fail-closed behavior on the VPS at commit `8a3b2fe35d818b66c4545a489f1e4bc21b328d66`.
-
-The proof is captured in [`evidence/20260429T015131Z_vps_heap_emission_failclosed_worker_proof.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260429T015131Z_vps_heap_emission_failclosed_worker_proof.md). The worker ran one explicit `NOSTRA_WORKER_STEWARD_REVIEWED_HEAP_EMIT=1` pass without an operator principal, signed session, or operator-mediated proxy, resolved as unverified viewer, wrote a local `needs_review` artifact, and skipped heap emit.
-
-**Why**
-
-- This proves the code path preserves the distinction between runtime agent identity and publication authority.
-- The fail-closed proof is a necessary safety check before any authorized publication proof.
-- Recording the VPS artifact prevents local runtime state from drifting away from Initiative 132 records.
-
-**Consequences**
-
-- Eudaemon Alpha still has no demonstrated authority to emit heap blocks.
-- The next validation must select a verified operator-or-higher authorization path and prove one explicit operator-approved publication.
-- Autonomous synthesis, provider calls, polling, proposal/workflow projection, graph mutation, runtime execution, and untrusted execution remain unauthorized.
-
 ## 2026-04-29 — Heap Emission Requires Verified Operator Authorization
 
 **Decision**
