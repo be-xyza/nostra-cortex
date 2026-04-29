@@ -12,6 +12,7 @@ import {
 } from "../src/store/previewFixtureCatalog.ts";
 import { GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/graphSurfaceInventoryContract.ts";
 import { HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID } from "../src/store/heapBlockCapabilityInventoryContract.ts";
+import { OVERLAY_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/overlaySurfaceInventoryContract.ts";
 import { SHELL_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/shellSurfaceInventoryContract.ts";
 import {
   isSpaceDesignProfilePreviewMetadataOnly,
@@ -28,6 +29,7 @@ test("preview fixture catalog recognizes seeded preview artifact ids", () => {
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(SHELL_SURFACE_INVENTORY_SNAPSHOT_ID));
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID));
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID));
+  assert.ok(PREVIEW_SNAPSHOT_IDS.has(OVERLAY_SURFACE_INVENTORY_SNAPSHOT_ID));
 });
 
 test("preview fixture filters remove seeded mock blocks from heap responses", () => {
@@ -154,6 +156,39 @@ test("graph surface inventory fixture remains recommendation-only observability"
   assert.ok(gapIds.has("graph.surface.shared_health_contract"));
   assert.ok(gapIds.has("graph.execution_canvas.topology_drift"));
   assert.ok(gapIds.has("graph.capability.renderer_visibility"));
+});
+
+test("overlay surface inventory fixture remains recommendation-only observability", () => {
+  const fixturePath = fileURLToPath(
+    new URL("../src/store/overlaySurfaceInventory.fixture.json", import.meta.url),
+  );
+  const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
+
+  assert.equal(fixture.schema_version, "CortexWebOverlaySurfaceInventoryV1");
+  assert.equal(fixture.snapshot_id, OVERLAY_SURFACE_INVENTORY_SNAPSHOT_ID);
+  assert.equal(fixture.authority_mode, "recommendation_only");
+  assert.ok(fixture.scope_boundaries.excludes.includes("runtime_mutation_authority"));
+  assert.ok(fixture.scope_boundaries.excludes.includes("product_behavior_changes"));
+
+  const surfaces = new Map(fixture.overlay_surfaces.map((surface: any) => [surface.surface_id, surface]));
+  assert.ok(surfaces.has("overlay.heap.detail_modal"));
+  assert.ok(surfaces.has("overlay.heap.chat_panel"));
+  assert.ok(surfaces.has("overlay.heap.comment_sidebar"));
+  assert.ok(surfaces.has("overlay.system.provider_detail_sheet"));
+  assert.ok(surfaces.has("overlay.artifacts.workflow_inspector"));
+  assert.ok(surfaces.has("overlay.shared.confirmation"));
+
+  const chatPanel = surfaces.get("overlay.heap.chat_panel") as any;
+  assert.equal(chatPanel.authority_class, "runtime_write");
+  assert.match(chatPanel.known_collision, /create controls/);
+
+  const providerSheet = surfaces.get("overlay.system.provider_detail_sheet") as any;
+  assert.equal(providerSheet.authority_class, "operator_only");
+
+  const gapIds = new Set(fixture.known_gaps.map((gap: any) => gap.id));
+  assert.ok(gapIds.has("overlay.heap.chat_create_collision"));
+  assert.ok(gapIds.has("overlay.system.provider_provenance"));
+  assert.ok(gapIds.has("overlay.artifacts.console_only_action"));
 });
 
 test("heap block capability inventory fixture remains recommendation-only observability", () => {

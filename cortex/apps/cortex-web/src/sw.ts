@@ -6,6 +6,7 @@ import { resolveRequestSpaceId } from './serviceWorker/requestScope.ts';
 import { readPreviewFixturesCookie } from './shared/previewFixtures.ts';
 import { buildGraphSurfaceInventoryResponse } from './store/graphSurfaceInventory.ts';
 import { buildHeapBlockCapabilityInventoryResponse } from './store/heapBlockCapabilityInventory.ts';
+import { buildOverlaySurfaceInventoryResponse } from './store/overlaySurfaceInventory.ts';
 import { buildShellSurfaceInventoryResponse } from './store/shellSurfaceInventory.ts';
 import { buildSpaceDesignProfilePreviewResponse } from './store/spaceDesignProfilePreview.ts';
 
@@ -334,6 +335,14 @@ async function routeCortexRequest(request: Request): Promise<Response> {
   if (path === '/api/system/ux/graph-surface-inventory' && request.method === 'GET') {
     if (!previewFixturesEnabled) return fetch(request);
     return new Response(JSON.stringify(buildGraphSurfaceInventoryResponse()), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  if (path === '/api/system/ux/overlay-surface-inventory' && request.method === 'GET') {
+    if (!previewFixturesEnabled) return fetch(request);
+    return new Response(JSON.stringify(buildOverlaySurfaceInventoryResponse()), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
