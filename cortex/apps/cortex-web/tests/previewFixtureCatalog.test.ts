@@ -10,6 +10,7 @@ import {
   filterPreviewHeapBlocks,
   isPreviewArtifactId,
 } from "../src/store/previewFixtureCatalog.ts";
+import { GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/graphSurfaceInventoryContract.ts";
 import { HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID } from "../src/store/heapBlockCapabilityInventoryContract.ts";
 import { SHELL_SURFACE_INVENTORY_SNAPSHOT_ID } from "../src/store/shellSurfaceInventoryContract.ts";
 import {
@@ -26,6 +27,7 @@ test("preview fixture catalog recognizes seeded preview artifact ids", () => {
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID));
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(SHELL_SURFACE_INVENTORY_SNAPSHOT_ID));
   assert.ok(PREVIEW_SNAPSHOT_IDS.has(HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID));
+  assert.ok(PREVIEW_SNAPSHOT_IDS.has(GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID));
 });
 
 test("preview fixture filters remove seeded mock blocks from heap responses", () => {
@@ -123,6 +125,35 @@ test("shell surface inventory fixture remains recommendation-only observability"
   assert.ok(settingsCategories.includes("workbench_settings"));
   assert.ok(settingsCategories.includes("operator_settings"));
   assert.ok(settingsCategories.includes("design_theme_governance"));
+});
+
+test("graph surface inventory fixture remains recommendation-only observability", () => {
+  const fixturePath = fileURLToPath(
+    new URL("../src/store/graphSurfaceInventory.fixture.json", import.meta.url),
+  );
+  const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
+
+  assert.equal(fixture.schema_version, "CortexWebGraphSurfaceInventoryV1");
+  assert.equal(fixture.snapshot_id, GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID);
+  assert.equal(fixture.authority_mode, "recommendation_only");
+  assert.ok(fixture.scope_boundaries.excludes.includes("runtime_mutation_authority"));
+  assert.ok(fixture.scope_boundaries.excludes.includes("graph_data_correctness"));
+
+  const surfaces = new Map(fixture.graph_surfaces.map((surface: any) => [surface.surface_id, surface]));
+  assert.ok(surfaces.has("graph.contributions.full"));
+  assert.ok(surfaces.has("graph.capability.system"));
+  assert.ok(surfaces.has("graph.workflow.flow_graph"));
+  assert.ok(surfaces.has("graph.execution_canvas.spatial_plane"));
+  assert.ok(surfaces.has("graph.heap.detail_relations"));
+
+  const flowGraph = surfaces.get("graph.workflow.flow_graph") as any;
+  assert.equal(flowGraph.layout_engine, "json");
+  assert.equal(flowGraph.render_status, "functional_json_only");
+
+  const gapIds = new Set(fixture.known_gaps.map((gap: any) => gap.id));
+  assert.ok(gapIds.has("graph.surface.shared_health_contract"));
+  assert.ok(gapIds.has("graph.execution_canvas.topology_drift"));
+  assert.ok(gapIds.has("graph.capability.renderer_visibility"));
 });
 
 test("heap block capability inventory fixture remains recommendation-only observability", () => {
