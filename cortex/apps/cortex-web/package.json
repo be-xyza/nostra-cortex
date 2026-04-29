@@ -18,6 +18,7 @@
     "test:layout-playwright:chrome": "PLAYWRIGHT_BROWSER=chrome npx playwright test -c playwright.heap.config.ts tests/playwright/layout-catalogue.spec.ts tests/playwright/layout-registry.spec.ts",
     "test:layout-playwright:webkit": "PLAYWRIGHT_BROWSER=webkit npx playwright test -c playwright.heap.config.ts tests/playwright/layout-catalogue.spec.ts tests/playwright/layout-registry.spec.ts",
     "test:heap-parity": "npx playwright test -c playwright.heap.config.ts tests/playwright/heap-parity.spec.ts",
+    "test:observability-playwright": "npx playwright test -c playwright.observability.config.ts tests/playwright/observability-inventory.spec.ts",
     "test:workflow-playwright": "npx playwright test -c playwright.heap.config.ts tests/playwright/workflow-cockpit.spec.ts"
   },
   "dependencies": {
