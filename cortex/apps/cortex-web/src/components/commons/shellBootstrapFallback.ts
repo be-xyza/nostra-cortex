@@ -204,3 +204,10 @@ export function formatShellBootstrapWarning(
         : "Identity endpoint unavailable. Using local fallback role.";
   return `${prefix}${targetSuffix} ${error}`.trim();
 }
+
+export function formatReadFallbackNotice(gatewayTarget?: string): string {
+  const targetSuffix = gatewayTarget?.trim()
+    ? ` Target: ${gatewayTarget.trim()}.`
+    : "";
+  return `Gateway is reachable, but no verified operator identity is attached to this browser session.${targetSuffix} Viewer-scoped heap data remains available; operator action plans and mutations stay gated until an operator session is verified.`;
+}
