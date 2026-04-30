@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Shield, Crown, PenTool, Eye, Check, ChevronDown, Terminal } from "lucide-react";
 import type { AuthSession } from "../../contracts.ts";
+import { describeAuthorityMode, formatAuthorityStatus } from "./shellBootstrapFallback.ts";
 
 interface RoleProfileSelectorProps {
     session: AuthSession;
@@ -54,16 +55,6 @@ const ROLE_CONFIG: Record<string, {
     }
 };
 
-function describeAuthMode(session: AuthSession): string | null {
-    if (session.authMode === "dev_override" || session.identitySource === "localhost_dev_bootstrap") {
-        return "Local Dev";
-    }
-    if (session.authMode === "read_fallback") {
-        return "Read Only";
-    }
-    return null;
-}
-
 export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({ 
     session,
     onRoleChange,
@@ -75,7 +66,8 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
     const dropdownRef = useRef<HTMLDivElement>(null);
     const activeRole = session.activeRole || "viewer";
     const config = ROLE_CONFIG[activeRole] || ROLE_CONFIG.viewer;
-    const authModeLabel = describeAuthMode(session);
+    const authModeLabel = describeAuthorityMode(session);
+    const authorityStatus = formatAuthorityStatus(session);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -99,9 +91,10 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
                 className={`flex items-center transition-all duration-300 ${session.allowRoleSwitch ? "hover:bg-white/5" : "cursor-default"} 
                     ${collapsed ? "justify-center p-1 rounded-full w-10 h-10" : "gap-2.5 p-1 rounded-xl pr-3"}
                     ${isCentered ? "mx-auto" : ""}`}
-                aria-label={`Current role: ${activeRole}`}
+                aria-label={`Current role: ${activeRole}. ${authorityStatus}`}
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
+                title={authorityStatus}
             >
                 {/* Circular Profile Avatar */}
                 <div className={`relative w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-cortex-900 border border-white/10 ring-2 ${config.ringColor} ring-offset-2 ring-offset-cortex-surface-base shadow-lg transition-transform duration-300 ${isOpen ? "scale-110" : ""}`}>
@@ -123,7 +116,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
                             )}
                         </div>
                         <span className="text-[8px] font-bold text-cortex-400 tracking-tight leading-none uppercase">
-                            {authModeLabel ?? config.authorityBadge}
+                            {authModeLabel || config.authorityBadge}
                         </span>
                     </div>
                 )}
