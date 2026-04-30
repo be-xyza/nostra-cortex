@@ -20,14 +20,6 @@ export function internetIdentityProviderUrl(): string {
   return env()[IDENTITY_PROVIDER_FLAG]?.trim() || DEFAULT_IDENTITY_PROVIDER;
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary);
-}
-
 export async function createInternetIdentityDelegationProof(): Promise<InternetIdentityDelegationProof> {
   const { AuthClient } = await import("@icp-sdk/auth/client");
   const provider = internetIdentityProviderUrl();
@@ -39,19 +31,17 @@ export async function createInternetIdentityDelegationProof(): Promise<InternetI
         maxTimeToLive: BigInt(8 * 60 * 60 * 1_000_000_000),
       });
   const delegationIdentity = identity as {
-    getDelegation?: () => unknown;
-    getPublicKey?: () => { toDer?: () => ArrayBuffer | Uint8Array };
+    getDelegation?: () => { toJSON?: () => InternetIdentityDelegationProof["delegationChain"] };
   };
-  const publicKeyDer = delegationIdentity.getPublicKey?.().toDer?.();
-  if (!delegationIdentity.getDelegation || !publicKeyDer) {
+  const delegationChain = delegationIdentity.getDelegation?.().toJSON?.();
+  if (!delegationChain || !Array.isArray(delegationChain.delegations)) {
     throw new Error("Internet Identity did not return a delegation proof.");
   }
 
   return {
     principal: identity.getPrincipal().toText(),
     identityProvider: provider,
-    publicKeyDer: bytesToBase64(new Uint8Array(publicKeyDer)),
-    delegation: delegationIdentity.getDelegation(),
+    delegationChain,
     signedAt: new Date().toISOString(),
   };
 }

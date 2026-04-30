@@ -184,6 +184,12 @@ use cortex_runtime::workflow::adapter::WorkflowExecutionAdapter;
 use cortex_runtime::workflow::local_durable_worker::LocalDurableWorkerAdapter;
 use futures_util::FutureExt;
 use futures_util::{sink::SinkExt, stream::StreamExt};
+use ic_agent::agent::EnvelopeContent as IcEnvelopeContent;
+use ic_agent::identity::{
+    DelegatedIdentity as IcDelegatedIdentity, Delegation as IcDelegation,
+    SignedDelegation as IcSignedDelegation,
+};
+use ic_agent::{Identity as IcIdentity, Signature as IcSignature};
 use nostra_extraction::{
     ExtractionMode, ExtractionRequestV1, ExtractionStatus,
     contribution_graph::{
@@ -27539,9 +27545,140 @@ struct SystemSessionActiveRoleRequest {
 struct InternetIdentitySessionRequest {
     principal: String,
     identity_provider: String,
-    public_key_der: String,
-    delegation: Value,
+    delegation_chain: InternetIdentityDelegationChain,
     signed_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct InternetIdentityDelegationChain {
+    public_key: String,
+    delegations: Vec<InternetIdentitySignedDelegation>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct InternetIdentitySignedDelegation {
+    delegation: InternetIdentityDelegation,
+    signature: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct InternetIdentityDelegation {
+    pubkey: String,
+    expiration: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    targets: Option<Vec<String>>,
+}
+
+struct InternetIdentityLeafIdentity {
+    public_key_der: Vec<u8>,
+}
+
+impl IcIdentity for InternetIdentityLeafIdentity {
+    fn sender(&self) -> Result<Principal, String> {
+        Ok(Principal::self_authenticating(&self.public_key_der))
+    }
+
+    fn public_key(&self) -> Option<Vec<u8>> {
+        Some(self.public_key_der.clone())
+    }
+
+    fn sign(&self, _content: &IcEnvelopeContent) -> Result<IcSignature, String> {
+        Err("internet_identity_leaf_identity_cannot_sign".to_string())
+    }
+}
+
+fn parse_hex_bytes(value: &str, field: &str) -> Result<Vec<u8>, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(format!("{field} is required"));
+    }
+    hex::decode(trimmed).map_err(|err| format!("{field} must be hex-encoded bytes: {err}"))
+}
+
+fn parse_hex_u64(value: &str, field: &str) -> Result<u64, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(format!("{field} is required"));
+    }
+    u64::from_str_radix(trimmed, 16).map_err(|err| format!("{field} must be hex u64: {err}"))
+}
+
+fn now_unix_epoch_nanos() -> u64 {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    duration
+        .as_secs()
+        .saturating_mul(1_000_000_000)
+        .saturating_add(u64::from(duration.subsec_nanos()))
+}
+
+fn verify_internet_identity_delegation_chain(
+    principal: &str,
+    chain: &InternetIdentityDelegationChain,
+) -> Result<(), String> {
+    let root_public_key = parse_hex_bytes(&chain.public_key, "delegationChain.publicKey")?;
+    if Principal::self_authenticating(&root_public_key).to_text() != principal {
+        return Err("delegation root public key does not match principal".to_string());
+    }
+    if chain.delegations.is_empty() {
+        return Err("delegation chain is empty".to_string());
+    }
+
+    let now_nanos = now_unix_epoch_nanos();
+    let mut signed_delegations = Vec::new();
+    for (index, signed) in chain.delegations.iter().enumerate() {
+        let expiration = parse_hex_u64(
+            &signed.delegation.expiration,
+            &format!("delegationChain.delegations[{index}].delegation.expiration"),
+        )?;
+        if expiration <= now_nanos {
+            return Err(format!(
+                "delegationChain.delegations[{index}] is expired"
+            ));
+        }
+        if signed
+            .delegation
+            .targets
+            .as_ref()
+            .map(|targets| !targets.is_empty())
+            .unwrap_or(false)
+        {
+            return Err("target-scoped Internet Identity delegations are not accepted by the browser gateway session endpoint".to_string());
+        }
+        signed_delegations.push(IcSignedDelegation {
+            delegation: IcDelegation {
+                pubkey: parse_hex_bytes(
+                    &signed.delegation.pubkey,
+                    &format!("delegationChain.delegations[{index}].delegation.pubkey"),
+                )?,
+                expiration,
+                targets: None,
+            },
+            signature: parse_hex_bytes(
+                &signed.signature,
+                &format!("delegationChain.delegations[{index}].signature"),
+            )?,
+        });
+    }
+
+    let leaf_public_key = signed_delegations
+        .last()
+        .map(|signed| signed.delegation.pubkey.clone())
+        .ok_or_else(|| "delegation chain is empty".to_string())?;
+    IcDelegatedIdentity::new(
+        root_public_key,
+        Box::new(InternetIdentityLeafIdentity {
+            public_key_der: leaf_public_key,
+        }),
+        signed_delegations,
+    )
+    .map_err(|err| format!("delegation signature verification failed: {err}"))?;
+
+    Ok(())
 }
 
 async fn get_system_session(headers: HeaderMap) -> impl IntoResponse {
@@ -27560,6 +27697,7 @@ async fn get_system_session(headers: HeaderMap) -> impl IntoResponse {
 }
 
 async fn post_system_session_internet_identity(
+    headers: HeaderMap,
     Json(payload): Json<InternetIdentitySessionRequest>,
 ) -> impl IntoResponse {
     let principal = payload.principal.trim();
@@ -27572,16 +27710,64 @@ async fn post_system_session_internet_identity(
         );
     }
 
-    cortex_ux_error(
-        StatusCode::NOT_IMPLEMENTED,
-        "INTERNET_IDENTITY_DELEGATION_VERIFICATION_REQUIRED",
-        "Internet Identity operator sessions require gateway-side delegation verification before operator authority can be issued.",
-        Some(json!({
-            "principal": principal,
-            "identityProvider": payload.identity_provider,
-            "operatorAuthorityIssued": false
-        })),
+    if let Err(reason) =
+        verify_internet_identity_delegation_chain(principal, &payload.delegation_chain)
+    {
+        return cortex_ux_error(
+            StatusCode::FORBIDDEN,
+            "INVALID_INTERNET_IDENTITY_DELEGATION",
+            "Internet Identity session requires a valid, non-expired delegation chain.",
+            Some(json!({
+                "principal": principal,
+                "identityProvider": payload.identity_provider,
+                "reason": reason,
+                "operatorAuthorityIssued": false
+            })),
+        );
+    }
+
+    let role_bindings = principal_role_bindings();
+    let claim_bindings = principal_claim_bindings();
+    let bound_role = role_bindings
+        .get(principal)
+        .cloned()
+        .unwrap_or_else(|| "viewer".to_string());
+    let claims = claim_bindings.get(principal).cloned().unwrap_or_default();
+    let source = if authz_role_rank(&bound_role) >= authz_role_rank("operator") {
+        "internet_identity_principal_binding"
+    } else {
+        "internet_identity_unbound_viewer"
+    };
+    let issued_at = now_iso();
+    let record = build_session_record(
+        resolve_session_cookie(&headers),
+        Some(principal.to_string()),
+        resolve_actor_id_hint(&headers),
+        true,
+        source.to_string(),
+        bound_role,
+        claims,
+        allow_unverified_role_header(),
+        issued_at.clone(),
+    );
+    let persisted = match upsert_session_record(record) {
+        Ok(record) => record,
+        Err(reason) => {
+            return cortex_ux_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "SESSION_PERSIST_FAILED",
+                "Unable to persist Internet Identity session state.",
+                Some(json!({ "reason": reason })),
+            );
+        }
+    };
+
+    (
+        StatusCode::OK,
+        [(header::SET_COOKIE, set_cookie_value(&persisted.session_id))],
+        Json(project_auth_session(&persisted, issued_at)),
     )
+        .into_response()
 }
 
 async fn post_system_session_active_role(
@@ -38112,7 +38298,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn internet_identity_session_endpoint_fails_closed_until_delegation_verification_exists() {
+    async fn internet_identity_session_endpoint_rejects_invalid_delegation_chain() {
         let _lock = acquire_testing_env_lock();
         let temp = TestTempDir::new();
         let _workspace_guard = EnvVarGuard::set(
@@ -38122,22 +38308,24 @@ mod tests {
         let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
         let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
 
-        let response = post_system_session_internet_identity(Json(InternetIdentitySessionRequest {
-            principal: "aaaaa-aa".to_string(),
-            identity_provider: "https://id.ai/authorize".to_string(),
-            public_key_der: "test-key".to_string(),
-            delegation: json!({ "delegations": [] }),
-            signed_at: "2026-04-30T00:00:00.000Z".to_string(),
-        }))
+        let response = post_system_session_internet_identity(
+            HeaderMap::new(),
+            Json(InternetIdentitySessionRequest {
+                principal: "aaaaa-aa".to_string(),
+                identity_provider: "https://id.ai/authorize".to_string(),
+                delegation_chain: InternetIdentityDelegationChain {
+                    public_key: "00".to_string(),
+                    delegations: vec![],
+                },
+                signed_at: "2026-04-30T00:00:00.000Z".to_string(),
+            }),
+        )
         .await
         .into_response();
 
-        assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
         let body = response_json(response).await;
-        assert_eq!(
-            body["errorCode"],
-            "INTERNET_IDENTITY_DELEGATION_VERIFICATION_REQUIRED"
-        );
+        assert_eq!(body["errorCode"], "INVALID_INTERNET_IDENTITY_DELEGATION");
         assert_eq!(body["details"]["operatorAuthorityIssued"], false);
     }
 
