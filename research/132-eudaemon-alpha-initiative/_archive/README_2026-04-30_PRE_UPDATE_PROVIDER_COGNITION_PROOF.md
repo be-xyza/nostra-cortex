@@ -2,7 +2,7 @@
 
 **Status**: Active
 **Created**: 2026-03-07
-**Updated**: 2026-04-30
+**Updated**: 2026-04-29
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -32,11 +32,7 @@ Evidence: [20260429T051551Z_vps_heap_emission_authorized_publication_proof.md](/
 
 This closes only the single-block steward-reviewed publication proof. It does not authorize autonomous synthesis, provider calls, polling, proposal/workflow projection, graph mutation, runtime execution, repo mutation, production promotion, or untrusted execution.
 
-The provider cognition local synthesis gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md), has passed on the VPS at merge commit `ce91705c14ff7d61779794ca49ac461093a8ec2b`: after governed promotion and rebuild, the worker made one operator-approved provider call through a transient loopback-local wrapper, wrote one redacted local synthesis artifact, and exited with `exitStatus=pass`.
-
-Evidence: [20260430T004726Z_vps_provider_cognition_local_synthesis_proof.md](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260430T004726Z_vps_provider_cognition_local_synthesis_proof.md)
-
-This closes only the local synthesis proof. It does not authorize autonomous provider calls, retries, polling, heap publication, proposal/workflow projection, graph mutation, execution workers, provider job submission, or treating provider output as governance authority.
+The next proposed runtime-expansion gate is [`RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md): one operator-approved provider prompt, one bounded provider call through a governed local runtime path, one redacted local synthesis artifact, and no heap publication, proposal/workflow projection, polling, batch-provider jobs, graph mutation, or execution.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
@@ -134,7 +130,7 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Context bundle posture**: context bundle prep has passed only for explicit operator-provided block IDs and local summarized artifacts; it does not authorize autonomous block selection or publication
 - **Heap emission posture**: steward-reviewed heap emission was scoped only to a single operator-approved rich-text block and does not authorize autonomous publication
 - **Heap emission proof posture**: the single-block authorized publication proof has passed; any further publication, provider cognition, proposal/workflow projection, polling, or execution requires a separate governed authority packet
-- **Provider cognition posture**: provider cognition local synthesis is proven only as an operator-approved local-evidence gate through a transient loopback wrapper; hardening it into a runtime adapter or keeping it operator-mediated requires a separate governed decision
+- **Provider cognition posture**: provider cognition local synthesis is the next proposed gate and remains local-evidence-only until separately implemented and proven
 - **Hermes runbook posture**: local runbooks may standardize bounded pass operation, but preflight/postflight, evidence promotion, commits, and pushes remain operator-mediated
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
@@ -210,7 +206,6 @@ Older deployment notes reference an `eudaemon-alpha/` companion implementation r
 - [VPS read-only heap delta worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T152202Z_vps_readonly_heap_delta_worker_proof.md)
 - [VPS context bundle prep worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T160203Z_vps_context_bundle_prep_worker_proof.md)
 - [VPS real-heap context bundle prep worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260429T001625Z_vps_context_bundle_real_heap_worker_proof.md)
-- [VPS provider cognition local synthesis proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260430T004726Z_vps_provider_cognition_local_synthesis_proof.md)
 - [Observe-once authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md)
 - [Read-only heap delta authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md)
 - [Context bundle prep authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md)
