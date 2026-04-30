@@ -170,8 +170,7 @@ export function isGatewayApiPath(path: string): boolean {
   return isWorkflowGatewayApiPath(path);
 }
 
-function resolveRequestCredentials(): RequestCredentials {
-  const baseUrl = resolveGatewayBaseUrl();
+export function resolveRequestCredentialsForBase(baseUrl: string): RequestCredentials {
   if (!baseUrl || typeof window === "undefined") {
     return "include";
   }
@@ -181,6 +180,10 @@ function resolveRequestCredentials(): RequestCredentials {
   } catch {
     return "include";
   }
+}
+
+export function resolveRequestCredentials(): RequestCredentials {
+  return resolveRequestCredentialsForBase(resolveGatewayBaseUrl());
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

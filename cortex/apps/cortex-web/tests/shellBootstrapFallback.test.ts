@@ -5,6 +5,9 @@ import {
   buildFallbackAuthSession,
   buildFallbackShellLayoutSpec,
   buildFallbackWhoami,
+  describeAuthorityMode,
+  formatAuthorityStatus,
+  formatReadFallbackNotice,
   formatShellBootstrapWarning,
 } from "../src/components/commons/shellBootstrapFallback.ts";
 
@@ -65,5 +68,46 @@ test("formatShellBootstrapWarning keeps fallback messaging explicit", () => {
   assert.match(
     formatShellBootstrapWarning("identity", "connection reset"),
     /local fallback role/i,
+  );
+});
+
+test("read fallback notice keeps viewer observability and operator gating explicit", () => {
+  const notice = formatReadFallbackNotice("https://eudaemon-alpha-01.taild09100.ts.net");
+
+  assert.match(notice, /Gateway is reachable/i);
+  assert.match(notice, /Viewer-scoped heap data remains available/i);
+  assert.match(notice, /operator action plans and mutations stay gated/i);
+});
+
+test("authority status labels distinguish public viewer, local dev, and verified sessions", () => {
+  const readFallback = buildFallbackAuthSession("operator.jo", "operator");
+  assert.equal(describeAuthorityMode(readFallback), "Read Only");
+  assert.match(formatAuthorityStatus(readFallback), /read-only observability/i);
+  assert.match(formatAuthorityStatus(readFallback), /operator actions are gated/i);
+
+  assert.equal(
+    describeAuthorityMode({
+      ...readFallback,
+      authMode: "dev_override",
+      identitySource: "dev_unverified_header",
+      activeRole: "operator",
+      grantedRoles: ["viewer", "operator"],
+      allowRoleSwitch: true,
+      allowUnverifiedRoleHeader: true,
+    }),
+    "Local Dev",
+  );
+
+  assert.equal(
+    describeAuthorityMode({
+      ...readFallback,
+      authMode: "principal_binding",
+      identityVerified: true,
+      identitySource: "principal_binding",
+      activeRole: "operator",
+      grantedRoles: ["viewer", "operator"],
+      allowRoleSwitch: true,
+    }),
+    "Verified Principal",
   );
 });

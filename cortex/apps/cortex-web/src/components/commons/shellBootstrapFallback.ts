@@ -211,3 +211,31 @@ export function formatReadFallbackNotice(gatewayTarget?: string): string {
     : "";
   return `Gateway is reachable, but no verified operator identity is attached to this browser session.${targetSuffix} Viewer-scoped heap data remains available; operator action plans and mutations stay gated until an operator session is verified.`;
 }
+
+export function describeAuthorityMode(session: AuthSession): string {
+  if (session.authMode === "dev_override" || session.identitySource === "localhost_dev_bootstrap") {
+    return "Local Dev";
+  }
+  if (session.authMode === "read_fallback") {
+    return "Read Only";
+  }
+  if (session.identityVerified && session.authMode === "principal_binding") {
+    return "Verified Principal";
+  }
+  if (session.identityVerified && session.authMode === "session_claims") {
+    return "Verified Session";
+  }
+  return session.identityVerified ? "Verified" : "Unverified";
+}
+
+export function formatAuthorityStatus(session: AuthSession): string {
+  const role = session.activeRole || "viewer";
+  const mode = describeAuthorityMode(session);
+  if (session.authMode === "read_fallback") {
+    return `${role} / ${mode}: read-only observability; operator actions are gated.`;
+  }
+  if (session.authMode === "dev_override") {
+    return `${role} / ${mode}: trusted local or preview-only authority; do not use as public production auth.`;
+  }
+  return `${role} / ${mode}: authority granted by gateway identity claims.`;
+}
