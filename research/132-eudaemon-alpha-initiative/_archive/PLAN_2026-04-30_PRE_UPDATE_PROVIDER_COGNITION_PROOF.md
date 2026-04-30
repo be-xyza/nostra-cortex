@@ -43,7 +43,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-04-30"
+updated: "2026-04-29"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -66,8 +66,7 @@ Current validated reality for this pass:
 - Steward-reviewed heap emission fail-closed validation passed on the VPS on 2026-04-29 at commit `8a3b2fe35d818b66c4545a489f1e4bc21b328d66`: without an operator principal, signed session, or operator-mediated proxy, the worker wrote `exitStatus=needs_review`, resolved as `effectiveRole=viewer`, and skipped `POST /api/cortex/studio/heap/emit`.
 - Steward-reviewed heap emission authorized publication proof passed on the VPS on 2026-04-29 at commit `b40c0ad14a20562e2f48ac2478d28a5f44488ae1`: the worker resolved a verified operator principal binding, emitted exactly one operator-approved rich-text heap block, wrote one local publication artifact, and exited with `exitStatus=pass`.
 - The publication proof closes the single-block steward-reviewed heap-emission gate only. Agent identity alone is still not publication authority, and any further provider cognition, proposal/workflow projection, autonomous heap publication, polling, or execution requires a separate governed runtime-expansion packet.
-- Provider cognition local synthesis passed on the VPS on 2026-04-30 at merge commit `ce91705c14ff7d61779794ca49ac461093a8ec2b`: after governed promotion and rebuild, the worker made one operator-approved provider call through a transient loopback-local wrapper, wrote one redacted local artifact, and exited with `exitStatus=pass`.
-- The provider cognition proof closes only the local synthesis gate. It does not authorize autonomous provider calls, retries, polling, heap publication, proposal/workflow projection, graph mutation, execution workers, provider job submission, or treating provider output as governance authority.
+- The next proposed runtime-expansion gate is provider cognition local synthesis, defined by `RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md`: one operator-approved provider prompt, one bounded provider call through a governed local runtime path, one redacted local artifact, and no heap publication, proposal/workflow projection, polling, batch jobs, graph mutation, or execution.
 - Live polling/runtime execution remains disabled pending a separate governed runtime-expansion decision.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
@@ -174,7 +173,7 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 9. Treat clean request worktrees, durable checkpointing, and immutable evidence promotion as operator safety controls for the system-definition layer.
 10. Define a local Hermes observer envelope as a planned advisory environment rather than a Cortex runtime component, with a dedicated activation workspace and local synthesis outputs.
 11. Define a separate Hermes developer-profile envelope for patch-prep handoffs only, with local task packets as v1 intake and Codex/operator retaining implementation authority.
-12. Preserve provider cognition local synthesis as a proven local-evidence-only gate until a separate governed decision hardens the transient wrapper into a runtime adapter or explicitly keeps it operator-mediated.
+12. Define a provider cognition local synthesis gate that proves live cognition without publication or execution authority.
 
 ## Out of Scope
 
