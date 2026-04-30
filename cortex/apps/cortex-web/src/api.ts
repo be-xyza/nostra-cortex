@@ -20,6 +20,7 @@ import type {
   EmitGateSummaryHeapBlockResponse,
   ArtifactPublishRequest,
   AuthSession,
+  InternetIdentityDelegationProof,
   HeapBlocksQueryParams,
   HeapChangedBlocksResponse,
   HeapStewardGateApplyResponse,
@@ -350,6 +351,16 @@ export const workbenchApi = {
         throw error;
       }
       return buildFallbackAuthSession(actorId, role);
+    }),
+  createInternetIdentitySession: (proof: InternetIdentityDelegationProof, actorId?: string) =>
+    request<AuthSession>("/api/system/session/internet-identity", {
+      method: "POST",
+      headers: actorId
+        ? {
+            "x-cortex-actor": actorId,
+          }
+        : undefined,
+      body: JSON.stringify(proof),
     }),
   getWhoami: (actorRole: string, actorId: string) =>
     request<WhoAmIResponse>("/api/system/whoami", {

@@ -3319,6 +3319,10 @@ impl GatewayService {
             .route("/api/system/status", get(get_system_status))
             .route("/api/system/session", get(get_system_session))
             .route(
+                "/api/system/session/internet-identity",
+                post(post_system_session_internet_identity),
+            )
+            .route(
                 "/api/system/session/active-role",
                 post(post_system_session_active_role),
             )
@@ -27530,6 +27534,16 @@ struct SystemSessionActiveRoleRequest {
     space_id: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct InternetIdentitySessionRequest {
+    principal: String,
+    identity_provider: String,
+    public_key_der: String,
+    delegation: Value,
+    signed_at: String,
+}
+
 async fn get_system_session(headers: HeaderMap) -> impl IntoResponse {
     let (session, set_cookie) =
         match issue_gateway_session_from_identity(&headers, "get_system_session", None, false) {
@@ -27543,6 +27557,31 @@ async fn get_system_session(headers: HeaderMap) -> impl IntoResponse {
         Json(session),
     )
         .into_response()
+}
+
+async fn post_system_session_internet_identity(
+    Json(payload): Json<InternetIdentitySessionRequest>,
+) -> impl IntoResponse {
+    let principal = payload.principal.trim();
+    if Principal::from_text(principal).is_err() || principal == "2vxsx-fae" {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "INVALID_INTERNET_IDENTITY_PRINCIPAL",
+            "Internet Identity session requires a valid non-anonymous principal.",
+            Some(json!({ "principal": payload.principal })),
+        );
+    }
+
+    cortex_ux_error(
+        StatusCode::NOT_IMPLEMENTED,
+        "INTERNET_IDENTITY_DELEGATION_VERIFICATION_REQUIRED",
+        "Internet Identity operator sessions require gateway-side delegation verification before operator authority can be issued.",
+        Some(json!({
+            "principal": principal,
+            "identityProvider": payload.identity_provider,
+            "operatorAuthorityIssued": false
+        })),
+    )
 }
 
 async fn post_system_session_active_role(
@@ -38070,6 +38109,36 @@ mod tests {
             json!(["viewer", "editor", "operator", "steward", "admin"])
         );
         assert!(body["spaceGrants"].as_array().is_some());
+    }
+
+    #[tokio::test]
+    async fn internet_identity_session_endpoint_fails_closed_until_delegation_verification_exists() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
+        let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
+
+        let response = post_system_session_internet_identity(Json(InternetIdentitySessionRequest {
+            principal: "aaaaa-aa".to_string(),
+            identity_provider: "https://id.ai/authorize".to_string(),
+            public_key_der: "test-key".to_string(),
+            delegation: json!({ "delegations": [] }),
+            signed_at: "2026-04-30T00:00:00.000Z".to_string(),
+        }))
+        .await
+        .into_response();
+
+        assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
+        let body = response_json(response).await;
+        assert_eq!(
+            body["errorCode"],
+            "INTERNET_IDENTITY_DELEGATION_VERIFICATION_REQUIRED"
+        );
+        assert_eq!(body["details"]["operatorAuthorityIssued"], false);
     }
 
     #[tokio::test]

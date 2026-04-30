@@ -8,6 +8,8 @@ import {
   describeAuthorityMode,
   formatAuthorityStatus,
   formatReadFallbackNotice,
+  formatReadOnlyObserverDetailLines,
+  formatReadOnlyObserverSummary,
   formatShellBootstrapWarning,
 } from "../src/components/commons/shellBootstrapFallback.ts";
 
@@ -79,9 +81,24 @@ test("read fallback notice keeps viewer observability and operator gating explic
   assert.match(notice, /operator action plans and mutations stay gated/i);
 });
 
+test("read-only observer copy separates compact summary from expandable details", () => {
+  const details = formatReadOnlyObserverDetailLines("https://eudaemon-alpha-01.taild09100.ts.net");
+
+  assert.equal(formatReadOnlyObserverSummary(), "Read-only observer mode");
+  assert.ok(details.some((line) => /Gateway reachable/i.test(line)));
+  assert.ok(details.some((line) => /no verified operator identity/i.test(line)));
+  assert.ok(details.some((line) => /Heap data is visible in viewer mode/i.test(line)));
+  assert.ok(details.some((line) => /Operator action plans and mutations remain gated/i.test(line)));
+  assert.ok(details.some((line) => /eudaemon-alpha-01/i.test(line)));
+  assert.equal(
+    [formatReadOnlyObserverSummary(), ...details].some((line) => /degraded/i.test(line)),
+    false,
+  );
+});
+
 test("authority status labels distinguish public viewer, local dev, and verified sessions", () => {
   const readFallback = buildFallbackAuthSession("operator.jo", "operator");
-  assert.equal(describeAuthorityMode(readFallback), "Read Only");
+  assert.equal(describeAuthorityMode(readFallback), "Read-only observer mode");
   assert.match(formatAuthorityStatus(readFallback), /read-only observability/i);
   assert.match(formatAuthorityStatus(readFallback), /operator actions are gated/i);
 
@@ -95,7 +112,7 @@ test("authority status labels distinguish public viewer, local dev, and verified
       allowRoleSwitch: true,
       allowUnverifiedRoleHeader: true,
     }),
-    "Local Dev",
+    "Local operator mode",
   );
 
   assert.equal(
@@ -108,6 +125,6 @@ test("authority status labels distinguish public viewer, local dev, and verified
       grantedRoles: ["viewer", "operator"],
       allowRoleSwitch: true,
     }),
-    "Verified Principal",
+    "Verified operator mode",
   );
 });

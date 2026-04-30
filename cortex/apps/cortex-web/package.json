@@ -23,6 +23,8 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",
+    "@icp-sdk/auth": "^6.2.2",
+    "@icp-sdk/core": "^5.4.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@xyflow/react": "^12.10.1",
     "clsx": "^2.1.1",
