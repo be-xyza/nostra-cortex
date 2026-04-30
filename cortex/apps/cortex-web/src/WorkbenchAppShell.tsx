@@ -9,6 +9,7 @@ import { WorkbenchSurfaceView } from "./components/commons/WorkbenchSurfaceView"
 import { ContributionsWorkbenchHost } from "./components/contributions/ContributionsWorkbenchHost";
 import { ConversationsPage } from "./components/conversations/ConversationsPage";
 import { HeapBlockGrid } from "./components/heap/HeapBlockGrid";
+import { InboxPage } from "./components/inbox/InboxPage";
 import { LogsPage } from "./components/live/LogsPage";
 import { ExecutionContainmentHeader } from "./components/layout/ExecutionContainmentHeader";
 import { SpaceDetailPage } from "./components/spaces/SpaceDetailPage";
@@ -66,6 +67,7 @@ export function WorkbenchAppShell() {
             />
             <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/spaces/:id" element={<SpaceDetailPage />} />
+            <Route path="/inbox" element={<InboxPage />} />
             <Route path="/conversations" element={<ConversationsPage />} />
             <Route path="/explore" element={<HeapBlockGrid showFilterSidebar={true} />} />
             <Route path="/logs" element={<LogsPage />} />
