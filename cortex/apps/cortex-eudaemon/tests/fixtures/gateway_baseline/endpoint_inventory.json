@@ -922,6 +922,10 @@
     },
     {
       "method": "POST",
+      "path": "/api/system/session/internet-identity"
+    },
+    {
+      "method": "POST",
       "path": "/api/workflow/read"
     },
     {

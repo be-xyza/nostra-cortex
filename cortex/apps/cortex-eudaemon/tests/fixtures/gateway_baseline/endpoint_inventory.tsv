@@ -228,6 +228,7 @@ POST	/api/system/local-gateway/queue/:mutation_id/retry
 POST	/api/system/providers/discover
 POST	/api/system/providers/validate
 POST	/api/system/session/active-role
+POST	/api/system/session/internet-identity
 POST	/api/workflow/read
 POST	/api/workflow/run
 POST	/api/workflow/save

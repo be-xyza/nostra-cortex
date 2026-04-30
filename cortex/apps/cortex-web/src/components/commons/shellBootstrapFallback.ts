@@ -212,18 +212,36 @@ export function formatReadFallbackNotice(gatewayTarget?: string): string {
   return `Gateway is reachable, but no verified operator identity is attached to this browser session.${targetSuffix} Viewer-scoped heap data remains available; operator action plans and mutations stay gated until an operator session is verified.`;
 }
 
+export function formatReadOnlyObserverSummary(): string {
+  return "Read-only observer mode";
+}
+
+export function formatReadOnlyObserverDetailLines(gatewayTarget?: string): string[] {
+  const lines = [
+    "Gateway reachable.",
+    "Browser session has no verified operator identity.",
+    "Heap data is visible in viewer mode.",
+    "Operator action plans and mutations remain gated.",
+  ];
+  const target = gatewayTarget?.trim();
+  if (target) {
+    lines.push(`Gateway target: ${target}.`);
+  }
+  return lines;
+}
+
 export function describeAuthorityMode(session: AuthSession): string {
   if (session.authMode === "dev_override" || session.identitySource === "localhost_dev_bootstrap") {
-    return "Local Dev";
+    return "Local operator mode";
   }
   if (session.authMode === "read_fallback") {
-    return "Read Only";
+    return "Read-only observer mode";
   }
   if (session.identityVerified && session.authMode === "principal_binding") {
-    return "Verified Principal";
+    return "Verified operator mode";
   }
   if (session.identityVerified && session.authMode === "session_claims") {
-    return "Verified Session";
+    return "Verified operator mode";
   }
   return session.identityVerified ? "Verified" : "Unverified";
 }

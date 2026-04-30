@@ -95,6 +95,14 @@ export interface AuthSession {
   expiresAt?: string;
 }
 
+export interface InternetIdentityDelegationProof {
+  principal: string;
+  identityProvider: string;
+  publicKeyDer: string;
+  delegation: unknown;
+  signedAt: string;
+}
+
 export interface WhoAmIResponse {
   schemaVersion: string;
   generatedAt: string;
