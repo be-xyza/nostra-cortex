@@ -38329,6 +38329,106 @@ mod tests {
         assert_eq!(body["details"]["operatorAuthorityIssued"], false);
     }
 
+    fn valid_internet_identity_session_request() -> InternetIdentitySessionRequest {
+        const IDENTITY_FILE: &str = "-----BEGIN EC PARAMETERS-----
+BgUrgQQACg==
+-----END EC PARAMETERS-----
+-----BEGIN EC PRIVATE KEY-----
+MHQCAQEEIAgy7nZEcVHkQ4Z1Kdqby8SwyAiyKDQmtbEHTIM+WNeBoAcGBSuBBAAK
+oUQDQgAEgO87rJ1ozzdMvJyZQ+GABDqUxGLvgnAnTlcInV3NuhuPv4O3VGzMGzeB
+N3d26cRxD99TPtm8uo2OuzKhSiq6EQ==
+-----END EC PRIVATE KEY-----
+";
+        let identity = ic_agent::identity::Secp256k1Identity::from_pem(IDENTITY_FILE.as_bytes())
+            .expect("test secp256k1 identity");
+        let public_key = identity.public_key().expect("test public key");
+        let expiration = now_unix_epoch_nanos().saturating_add(60 * 60 * 1_000_000_000);
+        let delegation = IcDelegation {
+            pubkey: public_key.clone(),
+            expiration,
+            targets: None,
+        };
+        let signature = identity
+            .sign_delegation(&delegation)
+            .expect("test delegation signature")
+            .signature
+            .expect("test delegation signature bytes");
+
+        InternetIdentitySessionRequest {
+            principal: identity.sender().expect("test principal").to_text(),
+            identity_provider: "https://id.ai/authorize".to_string(),
+            delegation_chain: InternetIdentityDelegationChain {
+                public_key: hex::encode(&public_key),
+                delegations: vec![InternetIdentitySignedDelegation {
+                    delegation: InternetIdentityDelegation {
+                        pubkey: hex::encode(&public_key),
+                        expiration: format!("{expiration:x}"),
+                        targets: None,
+                    },
+                    signature: hex::encode(signature),
+                }],
+            },
+            signed_at: "2026-04-30T00:00:00.000Z".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn internet_identity_session_bound_operator_returns_verified_operator_session() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
+        let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
+        let request = valid_internet_identity_session_request();
+        let binding = format!(r#"{{"{}":"operator"}}"#, request.principal);
+        let _binding_guard = EnvVarGuard::set("NOSTRA_DECISION_PRINCIPAL_ROLE_BINDINGS", &binding);
+
+        let response = post_system_session_internet_identity(HeaderMap::new(), Json(request))
+            .await
+            .into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["identityVerified"], true);
+        assert_eq!(body["identitySource"], "internet_identity_principal_binding");
+        assert_eq!(body["authMode"], "principal_binding");
+        assert_eq!(body["activeRole"], "operator");
+        assert_eq!(body["grantedRoles"], json!(["viewer", "editor", "operator"]));
+        assert_eq!(body["allowUnverifiedRoleHeader"], false);
+    }
+
+    #[tokio::test]
+    async fn internet_identity_session_valid_unbound_principal_remains_viewer() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _workspace_guard = EnvVarGuard::set(
+            "NOSTRA_WORKSPACE_ROOT",
+            temp.path().display().to_string().as_str(),
+        );
+        let _dev_mode_guard = EnvVarGuard::set("NOSTRA_AUTHZ_DEV_MODE", "false");
+        let _allow_header_guard = EnvVarGuard::unset("NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER");
+        let _binding_guard = EnvVarGuard::unset("NOSTRA_DECISION_PRINCIPAL_ROLE_BINDINGS");
+
+        let response = post_system_session_internet_identity(
+            HeaderMap::new(),
+            Json(valid_internet_identity_session_request()),
+        )
+        .await
+        .into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["identityVerified"], true);
+        assert_eq!(body["identitySource"], "internet_identity_unbound_viewer");
+        assert_eq!(body["authMode"], "read_fallback");
+        assert_eq!(body["activeRole"], "viewer");
+        assert_eq!(body["grantedRoles"], json!(["viewer"]));
+        assert_eq!(body["allowRoleSwitch"], false);
+    }
+
     #[tokio::test]
     async fn system_session_active_role_switch_rejects_ungranted_roles() {
         let _lock = acquire_testing_env_lock();
