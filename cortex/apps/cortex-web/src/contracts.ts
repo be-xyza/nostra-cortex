@@ -98,8 +98,17 @@ export interface AuthSession {
 export interface InternetIdentityDelegationProof {
   principal: string;
   identityProvider: string;
-  publicKeyDer: string;
-  delegation: unknown;
+  delegationChain: {
+    publicKey: string;
+    delegations: Array<{
+      delegation: {
+        pubkey: string;
+        expiration: string;
+        targets?: string[];
+      };
+      signature: string;
+    }>;
+  };
   signedAt: string;
 }
 
