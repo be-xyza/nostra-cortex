@@ -170,10 +170,23 @@ export function isGatewayApiPath(path: string): boolean {
   return isWorkflowGatewayApiPath(path);
 }
 
+function resolveRequestCredentials(): RequestCredentials {
+  const baseUrl = resolveGatewayBaseUrl();
+  if (!baseUrl || typeof window === "undefined") {
+    return "include";
+  }
+  try {
+    const gatewayOrigin = new URL(baseUrl, window.location.origin).origin;
+    return gatewayOrigin === window.location.origin ? "include" : "omit";
+  } catch {
+    return "include";
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${resolveGatewayBaseUrl()}${path}`, {
     ...init,
-    credentials: "include",
+    credentials: init?.credentials ?? resolveRequestCredentials(),
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {})
@@ -189,7 +202,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 async function requestTextOrJson(path: string, init?: RequestInit): Promise<string | Record<string, unknown>> {
   const response = await fetch(`${resolveGatewayBaseUrl()}${path}`, {
     ...init,
-    credentials: "include",
+    credentials: init?.credentials ?? resolveRequestCredentials(),
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {})
@@ -209,7 +222,7 @@ async function requestTextOrJson(path: string, init?: RequestInit): Promise<stri
 async function requestMultipart<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${resolveGatewayBaseUrl()}${path}`, {
     ...init,
-    credentials: "include",
+    credentials: init?.credentials ?? resolveRequestCredentials(),
     headers: {
       ...(init?.headers ?? {})
     }
