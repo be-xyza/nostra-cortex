@@ -71,6 +71,26 @@ function defaultZonesForPageType(pageType: "heap_board" | "heap_detail"): Surfac
         : ["heap_page_bar", "heap_selection_bar", "heap_card_menu"];
 }
 
+function formatActionPlanError(error: unknown, actorRole?: string): string {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+        message.includes("ACTION_PLAN_FORBIDDEN")
+        || message.includes("capability:action_plan")
+        || message.includes("below required 'operator'")
+    ) {
+        return actorRole === "operator"
+            ? "Operator action plan is unavailable because this browser session is not identity-verified."
+            : "Operator action plan is unavailable in viewer mode. Fallback actions are shown.";
+    }
+    if (message.includes("ACTOR_IDENTITY_UNVERIFIED")) {
+        return "Operator action plan is unavailable because this browser session is not identity-verified.";
+    }
+    if (message.includes("Failed to fetch") || message.includes("Load failed")) {
+        return "Action plan service is unreachable. Fallback actions are shown.";
+    }
+    return "Action plan unavailable. Fallback actions are shown.";
+}
+
 function buildFallbackCompiledActionPlan({
     spaceId,
     actorRole,
@@ -204,7 +224,7 @@ export function useHeapActionPlan({
                 setActionPlan(plan);
                 setSource("remote");
             } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load action plan");
+                setError(formatActionPlanError(err, sessionUser.role));
                 setActionPlan(
                     buildFallbackCompiledActionPlan({
                         spaceId: activeSpaceId,
