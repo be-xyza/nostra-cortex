@@ -35,6 +35,7 @@ import { useActiveSpaceContext, useCanonicalActiveSpaces } from "../../store/spa
 import {
     buildFallbackAuthSession,
     buildFallbackShellLayoutSpec,
+    formatReadFallbackNotice,
     formatShellBootstrapWarning,
 } from "./shellBootstrapFallback.ts";
 import { resolveShellEntries } from "./shellNavigationModel.ts";
@@ -716,11 +717,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                 : "Running in local preview fallback mode"}
                         </div>
                         <div className="mt-1 text-amber-100/80">
-                            {bootstrapWarning || sessionError || formatShellBootstrapWarning(
-                                "identity",
-                                "Gateway identity session unavailable; viewer-scoped fallback is active.",
-                                configuredGatewayTarget,
-                            )}
+                            {bootstrapWarning || sessionError || formatReadFallbackNotice(configuredGatewayTarget)}
                         </div>
                     </div>
                 )}

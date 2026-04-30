@@ -1620,7 +1620,7 @@ export function HeapDetailModal({
                             ? "Using fallback heap actions."
                             : "Contextual graph actions live."}
                     {error && (
-                        <span className="ml-2 text-red-400 truncate" title={error}>
+                        <span className="ml-2 text-amber-300/90 truncate" title={error}>
                             {error}
                         </span>
                     )}
