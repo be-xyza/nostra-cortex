@@ -224,8 +224,16 @@ export function ShellLayout({ children }: ShellLayoutProps) {
             .getSession(actorRoleHint, actorId)
             .then((payload) => {
                 setAuthSession(payload);
-                if (sessionUser.role !== payload.activeRole) {
-                    setSessionUser({ actorId: sessionUser.actorId, role: payload.activeRole });
+                const configuredRole = actorRoleEnv.trim().toLowerCase();
+                const shouldPromoteDevOverrideRole =
+                    payload.authMode === "dev_override"
+                    && payload.activeRole === "viewer"
+                    && sessionUser.role === "viewer"
+                    && configuredRole !== "viewer"
+                    && payload.grantedRoles.includes(configuredRole);
+                const nextRole = shouldPromoteDevOverrideRole ? configuredRole : payload.activeRole;
+                if (sessionUser.role !== nextRole) {
+                    setSessionUser({ actorId: sessionUser.actorId, role: nextRole });
                 }
             })
             .catch((err) => {
