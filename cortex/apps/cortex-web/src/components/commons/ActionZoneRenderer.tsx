@@ -15,7 +15,9 @@ import {
     Sparkles,
     Pin,
     Wand2,
-    MessageSquare
+    MessageSquare,
+    GitBranch,
+    CircleHelp,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -33,7 +35,8 @@ const ICON_MAP: Record<string, React.ReactNode> = {
     "sparkles": <Sparkles className="w-4 h-4" />,
     "pin": <Pin className="w-4 h-4" />,
     "wand2": <Wand2 className="w-4 h-4" />,
-    "messagesquare": <MessageSquare className="w-4 h-4" />
+    "messagesquare": <MessageSquare className="w-4 h-4" />,
+    "gitbranch": <GitBranch className="w-4 h-4" />,
 };
 
 function normalizeIconKey(icon: string): string {
@@ -55,7 +58,7 @@ export function ActionZoneRenderer({ actions, onActionClick, layoutHint = "pillb
         <div className={`flex items-center gap-1 ${layoutHint === "pillbar" ? "px-2" : ""}`}>
             {visibleActions.map((action, i) => {
                 const iconNode = action.icon
-                    ? (ICON_MAP[normalizeIconKey(action.icon)] || <span className="text-sm">{action.icon}</span>)
+                    ? (ICON_MAP[normalizeIconKey(action.icon)] || <CircleHelp className="w-4 h-4 opacity-70" />)
                     : null;
                 const isPrimary = action.emphasis === "primary" || action.emphasis === "accent";
                 const isDanger = action.emphasis === "danger";
