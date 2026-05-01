@@ -169,7 +169,7 @@
 | 135 | 135-nostra-contribution-protocol | draft |
 | 136 | 136-cortex-explore-graph | draft |
 | 137 | 137-local-model-orchestration | active |
-| 138 | 138-protected-resources-and-secret-egress | draft |
+| 138 | 138-reserved-placeholder | placeholder |
 | 139 | 139-reserved-placeholder | placeholder |
 | 140 | 140-reserved-placeholder | placeholder |
 | 141 | 141-reserved-placeholder | placeholder |
