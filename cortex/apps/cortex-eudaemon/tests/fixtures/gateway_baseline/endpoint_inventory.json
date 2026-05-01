@@ -506,6 +506,10 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/worker-generation/health"
+    },
+    {
+      "method": "GET",
       "path": "/api/testing/catalog"
     },
     {
@@ -778,11 +782,11 @@
     },
     {
       "method": "POST",
-      "path": "/api/cortex/viewspecs/validate"
+      "path": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id"
     },
     {
       "method": "POST",
-      "path": "/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id"
+      "path": "/api/cortex/viewspecs/validate"
     },
     {
       "method": "POST",
@@ -922,6 +926,14 @@
     },
     {
       "method": "POST",
+      "path": "/api/system/session/internet-identity"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/worker-generation/grounded"
+    },
+    {
+      "method": "POST",
       "path": "/api/workflow/read"
     },
     {
@@ -938,11 +950,11 @@
     },
     {
       "method": "PUT",
-      "path": "/api/spaces/:space_id/capability-graph"
+      "path": "/api/spaces/:space_id/agents/:agent_id/routing"
     },
     {
       "method": "PUT",
-      "path": "/api/spaces/:space_id/agents/:agent_id/routing"
+      "path": "/api/spaces/:space_id/capability-graph"
     },
     {
       "method": "PUT",

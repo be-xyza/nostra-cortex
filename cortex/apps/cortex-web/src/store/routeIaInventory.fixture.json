@@ -1,0 +1,433 @@
+{
+  "schema_version": "CortexWebRouteIaInventoryV1",
+  "snapshot_id": "system:ux:route-ia-inventory",
+  "inventory_id": "cortex-web-route-settings-ia-observability",
+  "authority_mode": "recommendation_only",
+  "scope_boundaries": {
+    "includes": [
+      "declared_routes",
+      "seeded_navigation_entries",
+      "utility_navigation_entries",
+      "a2ui_only_exemptions",
+      "settings_absence_contract",
+      "route_readiness"
+    ],
+    "excludes": [
+      "runtime_mutation_authority",
+      "new_settings_page",
+      "route_redesign",
+      "frontend_capability_block_observability",
+      "heap_capability_observability"
+    ]
+  },
+  "settings_absence_contract": {
+    "route_id": "/settings",
+    "readiness_status": "missing",
+    "global_settings_page_allowed_this_stage": false,
+    "current_owner_rule": "Settings-like affordances must declare their current owner route until global settings IA is implemented."
+  },
+  "routes": [
+    {
+      "route_id": "/spaces",
+      "declared_route_owner": "WorkbenchAppShell -> SpacesPage",
+      "nav_source": "seeded_capability_catalog_hidden",
+      "route_class": "native_cortex_host_surface",
+      "typed_route": true,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": ["space_identity", "space_registry_readiness"],
+      "operator_boundary": "space_admin_read",
+      "readiness_status": "inconsistent",
+      "known_gap": {
+        "severity": "high",
+        "summary": "Spaces can show contradictory local preview state and registry-readiness signals.",
+        "recommended_action": "Expose registry source, fallback mode, and readiness diagnostics before treating this route as authoritative."
+      },
+      "recommended_action": "Keep route typed and add route IA smoke for list readiness and empty/error states."
+    },
+    {
+      "route_id": "/spaces/:id?tab=overview",
+      "declared_route_owner": "WorkbenchAppShell -> SpaceDetailPage",
+      "nav_source": "typed_detail_route",
+      "route_class": "native_cortex_host_surface",
+      "typed_route": true,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": false,
+      "detail_tabs": ["overview", "routing", "agents", "history"],
+      "settings_affordances": ["space_profile", "navigation_plan", "agent_policy", "history"],
+      "operator_boundary": "space_admin_read_write_when_actions_enabled",
+      "readiness_status": "functional_thin",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Space detail tabs exist but route IA does not yet state which settings-like controls belong to each tab.",
+        "recommended_action": "Keep tab ownership explicit before adding global settings."
+      },
+      "recommended_action": "Add smoke for overview, routing, agents, and history tabs."
+    },
+    {
+      "route_id": "/contributions",
+      "declared_route_owner": "WorkbenchAppShell -> ContributionsWorkbenchHost",
+      "nav_source": "seeded_capability_catalog_hidden",
+      "route_class": "native_cortex_host_surface",
+      "typed_route": true,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": false,
+      "detail_tabs": ["runs", "graph", "edge_quality", "weak_edge_review", "blast_radius"],
+      "settings_affordances": ["steward_review_filters", "graph_projection_controls"],
+      "operator_boundary": "steward_read_with_future_gated_write",
+      "readiness_status": "functional",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Contributions is functional but not a WorkbenchSurfaceView/A2UI surface.",
+        "recommended_action": "Keep native host classification explicit and add route smoke coverage."
+      },
+      "recommended_action": "Do not require A2UI fallback for this native cockpit."
+    },
+    {
+      "route_id": "/artifacts",
+      "declared_route_owner": "WorkbenchAppShell -> ArtifactsWorkbenchHost",
+      "nav_source": "seeded_capability_catalog_hidden",
+      "route_class": "governed_a2ui_surface",
+      "typed_route": true,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": ["inspector", "workflow_trace", "checkpoint", "replay"],
+      "settings_affordances": ["artifact_filters", "inspector_preferences"],
+      "operator_boundary": "runtime_read",
+      "readiness_status": "functional_thin",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Artifacts has a native inspector overlay and thin interaction/error-state coverage.",
+        "recommended_action": "Keep A2UI host plus native inspector ownership visible in route IA."
+      },
+      "recommended_action": "Add route smoke for list, selection, and inspector placeholder states."
+    },
+    {
+      "route_id": "/workflows",
+      "declared_route_owner": "WorkbenchAppShell -> WorkflowWorkbenchHost",
+      "nav_source": "seeded_capability_catalog_hidden",
+      "route_class": "native_cortex_host_surface",
+      "typed_route": true,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": false,
+      "detail_tabs": ["drafts", "runs", "topology"],
+      "settings_affordances": ["workflow_filters", "draft_visibility"],
+      "operator_boundary": "runtime_read_with_future_execution_write",
+      "readiness_status": "degraded_empty",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Workflow cockpit can render a degraded empty state without an explicit cause.",
+        "recommended_action": "Expose readiness cause and empty-state provenance before promotion."
+      },
+      "recommended_action": "Add route smoke that asserts degraded state is explicit."
+    },
+    {
+      "route_id": "/system",
+      "declared_route_owner": "WorkbenchAppShell -> WorkbenchSurfaceView",
+      "nav_source": "seeded_capability_catalog_hidden",
+      "route_class": "governed_a2ui_surface",
+      "typed_route": true,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": ["capability_graph"],
+      "settings_affordances": ["capability_graph_visibility"],
+      "operator_boundary": "operator_read",
+      "readiness_status": "functional",
+      "recommended_action": "Keep System graph distinct from global settings."
+    },
+    {
+      "route_id": "/system/providers",
+      "declared_route_owner": "WorkbenchAppShell -> ProviderDashboard",
+      "nav_source": "utility_navigation_entry",
+      "route_class": "operator_only_admin",
+      "typed_route": true,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": true,
+      "detail_tabs": ["inventory", "bindings", "discovery", "runtime_status"],
+      "settings_affordances": ["provider_inventory", "provider_bindings", "provider_discovery"],
+      "operator_boundary": "operator_only",
+      "readiness_status": "functional",
+      "known_gap": {
+        "severity": "high",
+        "summary": "Provider settings-like controls are operator-only and must not become general settings by accident.",
+        "recommended_action": "Preserve route-level operator boundary and provenance metadata."
+      },
+      "recommended_action": "Keep visible as operator utility entry only."
+    },
+    {
+      "route_id": "/labs",
+      "declared_route_owner": "WorkbenchAppShell -> labs catch-all",
+      "nav_source": "seeded_capability_catalog_hidden",
+      "route_class": "labs_experiment",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": [],
+      "operator_boundary": "labs_read",
+      "readiness_status": "under_construction",
+      "known_gap": {
+        "severity": "low",
+        "summary": "Base Labs path is a grouping route, while concrete labs live under typed subroutes.",
+        "recommended_action": "Keep hidden unless promoted as an experiment index."
+      },
+      "recommended_action": "Treat base Labs as hidden grouping route."
+    },
+    {
+      "route_id": "/labs/space-studio",
+      "declared_route_owner": "WorkbenchAppShell -> SpaceStudioPage",
+      "nav_source": "typed_labs_route",
+      "route_class": "labs_experiment",
+      "typed_route": true,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": false,
+      "detail_tabs": ["brief", "design", "preview"],
+      "settings_affordances": ["draft_design_profile", "space_template_import"],
+      "operator_boundary": "labs_draft",
+      "readiness_status": "functional",
+      "recommended_action": "Keep as labs-owned draft surface for template/design primitive bootstrapping."
+    },
+    {
+      "route_id": "/labs/execution-canvas",
+      "declared_route_owner": "WorkbenchAppShell -> ExecutionCanvasPage",
+      "nav_source": "typed_labs_route",
+      "route_class": "labs_experiment",
+      "typed_route": true,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": false,
+      "detail_tabs": ["canvas", "spatial_plane"],
+      "settings_affordances": ["layout_projection_controls"],
+      "operator_boundary": "execution_labs_read",
+      "readiness_status": "failing_500",
+      "known_gap": {
+        "severity": "high",
+        "summary": "Execution Canvas route can fail surface fetch in local preview.",
+        "recommended_action": "Expose route readiness and topology/render drift before promotion."
+      },
+      "recommended_action": "Keep failure explicit in IA and smoke tests."
+    },
+    {
+      "route_id": "/labs/layout-catalogue",
+      "declared_route_owner": "WorkbenchAppShell -> LayoutMatrixCatalogue",
+      "nav_source": "typed_labs_route",
+      "route_class": "labs_experiment",
+      "typed_route": true,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": false,
+      "detail_tabs": ["catalogue"],
+      "settings_affordances": ["layout_preview_filters"],
+      "operator_boundary": "labs_read",
+      "readiness_status": "functional",
+      "recommended_action": "Keep as labs reference surface."
+    },
+    {
+      "route_id": "/settings",
+      "declared_route_owner": "none",
+      "nav_source": "absence_contract",
+      "route_class": "settings_absence_contract",
+      "typed_route": false,
+      "a2ui_fallback_allowed": false,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": [],
+      "operator_boundary": "none",
+      "readiness_status": "missing",
+      "known_gap": {
+        "severity": "high",
+        "summary": "No global settings page exists in this stage.",
+        "recommended_action": "Do not build /settings yet; require settings-like controls to declare owner route."
+      },
+      "recommended_action": "Maintain explicit absence contract until global settings IA is implemented."
+    },
+    {
+      "route_id": "/studio",
+      "declared_route_owner": "WorkbenchSurfaceView or A2UI fallback candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": [],
+      "operator_boundary": "labs_or_execution_read",
+      "readiness_status": "under_construction",
+      "known_gap": {
+        "severity": "medium",
+        "summary": "Studio appears in seeded capability data but lacks typed route ownership.",
+        "recommended_action": "Either map to a typed labs route or keep as A2UI-only exemption."
+      },
+      "recommended_action": "Keep hidden until owner route is selected."
+    },
+    {
+      "route_id": "/notifications",
+      "declared_route_owner": "seeded navigation candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": ["notification_preferences_future"],
+      "operator_boundary": "operator_read_future",
+      "readiness_status": "under_construction",
+      "recommended_action": "Keep as A2UI-only candidate until notification surface exists."
+    },
+    {
+      "route_id": "/metrics",
+      "declared_route_owner": "seeded navigation candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": ["metric_filter_preferences_future"],
+      "operator_boundary": "operator_read_future",
+      "readiness_status": "under_construction",
+      "recommended_action": "Keep metrics separate from operator settings until typed telemetry route exists."
+    },
+    {
+      "route_id": "/vfs",
+      "declared_route_owner": "seeded navigation candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": [],
+      "operator_boundary": "operator_read_future",
+      "readiness_status": "under_construction",
+      "recommended_action": "Keep hidden until a typed VFS surface exists."
+    },
+    {
+      "route_id": "/siq",
+      "declared_route_owner": "seeded navigation candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": ["siq_thresholds_future"],
+      "operator_boundary": "operator_read_future",
+      "readiness_status": "under_construction",
+      "recommended_action": "Keep SIQ route separate from SIQ artifact checks until typed UI exists."
+    },
+    {
+      "route_id": "/memory",
+      "declared_route_owner": "seeded navigation candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": [],
+      "operator_boundary": "agent_memory_read_future",
+      "readiness_status": "under_construction",
+      "recommended_action": "Keep hidden until memory authority and privacy contract exists."
+    },
+    {
+      "route_id": "/simulation",
+      "declared_route_owner": "seeded navigation candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": [],
+      "operator_boundary": "execution_labs_read_future",
+      "readiness_status": "under_construction",
+      "recommended_action": "Keep simulation as hidden candidate until labs route is typed."
+    },
+    {
+      "route_id": "/institutions",
+      "declared_route_owner": "seeded navigation candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": ["governance_scope_future"],
+      "operator_boundary": "governance_admin_future",
+      "readiness_status": "under_construction",
+      "recommended_action": "Keep hidden until governance admin ownership is defined."
+    },
+    {
+      "route_id": "/testing",
+      "declared_route_owner": "seeded navigation candidate",
+      "nav_source": "seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": false,
+      "detail_tabs": [],
+      "settings_affordances": ["test_gate_preferences_future"],
+      "operator_boundary": "operator_read_future",
+      "readiness_status": "under_construction",
+      "recommended_action": "Keep hidden until test catalog UI ownership is defined."
+    },
+    {
+      "route_id": "/discovery",
+      "declared_route_owner": "WorkbenchSurfaceView fallback",
+      "nav_source": "visible_primary_nav_and_seeded_capability_catalog",
+      "route_class": "a2ui_candidate",
+      "typed_route": false,
+      "a2ui_fallback_allowed": true,
+      "visible_in_nav": true,
+      "detail_tabs": [],
+      "settings_affordances": [],
+      "operator_boundary": "runtime_read_future",
+      "readiness_status": "under_construction",
+      "known_gap": {
+        "severity": "high",
+        "summary": "Discovery is visible in primary nav but currently resolves to an under-construction A2UI placeholder.",
+        "recommended_action": "Hide, relabel as Labs, or implement before treating as product-ready navigation."
+      },
+      "recommended_action": "Keep visible-nav gap explicit."
+    }
+  ],
+  "known_gaps": [
+    {
+      "id": "route.settings.absent",
+      "severity": "high",
+      "summary": "/settings is intentionally missing in this stage.",
+      "recommended_action": "Do not build global settings yet; keep settings-like controls owner-route scoped."
+    },
+    {
+      "id": "route.discovery.visible_placeholder",
+      "severity": "high",
+      "summary": "/discovery is visible in nav while under construction.",
+      "recommended_action": "Hide, relabel, or implement before promoting as a product navigation item."
+    },
+    {
+      "id": "route.a2ui.seeded_candidates_untyped",
+      "severity": "medium",
+      "summary": "Several seeded capability routes are A2UI-only candidates without typed route ownership.",
+      "recommended_action": "Keep them hidden and explicitly exempted until typed routes or real A2UI surfaces exist."
+    },
+    {
+      "id": "route.operator_settings.boundary",
+      "severity": "high",
+      "summary": "Provider controls are settings-like but operator-only.",
+      "recommended_action": "Do not merge provider controls into general settings without a redaction and identity provenance contract."
+    },
+    {
+      "id": "route.spaces.readiness_inconsistent",
+      "severity": "high",
+      "summary": "Spaces readiness can be inconsistent in local preview.",
+      "recommended_action": "Surface registry source and fallback diagnostics before asserting authoritative Space state."
+    }
+  ],
+  "next_validation_targets": [
+    "Route IA smoke for /spaces and /spaces/:id tabs",
+    "Route IA smoke for /contributions, /artifacts, /workflows",
+    "Route IA smoke for /system/providers and labs routes",
+    "A2UI-only candidate exemption check",
+    "Settings absence contract check"
+  ]
+}

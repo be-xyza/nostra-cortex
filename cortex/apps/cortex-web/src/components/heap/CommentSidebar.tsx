@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useUiStore, type Comment } from "../../store/uiStore";
+import { buildLocalHeapComment } from "./heapCommentAuthority.ts";
 
 interface CommentSidebarProps {
     blockId: string;
@@ -16,12 +17,12 @@ export const CommentSidebar: React.FC<CommentSidebarProps> = ({ blockId, onClose
 
     const handleAddComment = () => {
         if (!newComment.trim()) return;
-        const comment: Comment = {
+        const comment = buildLocalHeapComment({
             id: `comment-${Date.now()}`,
             author: sessionUser?.actorId || "anonymous",
             text: newComment.trim(),
             createdAt: new Date().toISOString(),
-        };
+        });
         addComment(blockId, comment);
         setNewComment("");
     };
@@ -102,7 +103,7 @@ export const CommentSidebar: React.FC<CommentSidebarProps> = ({ blockId, onClose
                     </button>
                 </div>
                 <p className="mt-2 text-[10px] text-slate-500 text-center">
-                    Press Enter to send, Shift + Enter for new line • <b>System Intelligence</b> Active
+                    Press Enter to send, Shift + Enter for new line • Local annotation
                 </p>
             </div>
         </aside>

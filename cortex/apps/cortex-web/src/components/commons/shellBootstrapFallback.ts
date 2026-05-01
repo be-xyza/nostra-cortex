@@ -211,3 +211,80 @@ export function formatReadFallbackNotice(gatewayTarget?: string): string {
     : "";
   return `Gateway is reachable, but no verified operator identity is attached to this browser session.${targetSuffix} Viewer-scoped heap data remains available; operator action plans and mutations stay gated until an operator session is verified.`;
 }
+
+export function formatReadOnlyObserverSummary(): string {
+  return "Read-only observer mode";
+}
+
+export type ReadOnlyObserverGatewayState = "reachable" | "public_restricted";
+
+export function formatReadOnlyObserverDetailLines(
+  gatewayTarget?: string,
+  gatewayState: ReadOnlyObserverGatewayState = "reachable",
+): string[] {
+  const lines = gatewayState === "public_restricted"
+    ? [
+        "Gateway target is private or browser-restricted from this public session.",
+        "Browser session has no verified operator identity.",
+        "Viewer shell remains available; live heap data may be limited until a trusted operator session is used.",
+        "Operator action plans and mutations remain gated.",
+      ]
+    : [
+        "Gateway reachable.",
+        "Browser session has no verified operator identity.",
+        "Heap data is visible in viewer mode.",
+        "Operator action plans and mutations remain gated.",
+      ];
+  const target = gatewayTarget?.trim();
+  if (target) {
+    lines.push(`Gateway target: ${target}.`);
+  }
+  return lines;
+}
+
+export function isPublicObserverGatewayBoundary(
+  error: string,
+  gatewayTarget?: string,
+  publicHost = false,
+): boolean {
+  const target = gatewayTarget?.trim();
+  if (!publicHost || !target || target === "same-origin /api proxy") {
+    return false;
+  }
+  const normalizedError = error.toLowerCase();
+  return (
+    normalizedError.includes("failed to fetch")
+    || normalizedError.includes("load failed")
+    || normalizedError.includes("networkerror")
+    || normalizedError.includes("cors")
+    || normalizedError.includes("private network")
+  );
+}
+
+export function describeAuthorityMode(session: AuthSession): string {
+  if (session.authMode === "dev_override" || session.identitySource === "localhost_dev_bootstrap") {
+    return "Local operator mode";
+  }
+  if (session.authMode === "read_fallback") {
+    return "Read-only observer mode";
+  }
+  if (session.identityVerified && session.authMode === "principal_binding") {
+    return "Verified operator mode";
+  }
+  if (session.identityVerified && session.authMode === "session_claims") {
+    return "Verified operator mode";
+  }
+  return session.identityVerified ? "Verified" : "Unverified";
+}
+
+export function formatAuthorityStatus(session: AuthSession): string {
+  const role = session.activeRole || "viewer";
+  const mode = describeAuthorityMode(session);
+  if (session.authMode === "read_fallback") {
+    return `${role} / ${mode}: read-only observability; operator actions are gated.`;
+  }
+  if (session.authMode === "dev_override") {
+    return `${role} / ${mode}: trusted local or preview-only authority; do not use as public production auth.`;
+  }
+  return `${role} / ${mode}: authority granted by gateway identity claims.`;
+}

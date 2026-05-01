@@ -23,6 +23,7 @@ import {
     MoreHorizontal,
     PencilLine,
     Trash2,
+    KeyRound,
 } from "lucide-react";
 import { ShellLayoutSpec, NavigationEntrySpec, CompiledNavigationPlan, AuthSession } from "../../contracts";
 import { gatewayBaseUrl, workbenchApi } from "../../api";
@@ -35,9 +36,16 @@ import { useActiveSpaceContext, useCanonicalActiveSpaces } from "../../store/spa
 import {
     buildFallbackAuthSession,
     buildFallbackShellLayoutSpec,
-    formatReadFallbackNotice,
+    formatReadOnlyObserverDetailLines,
+    formatReadOnlyObserverSummary,
     formatShellBootstrapWarning,
+    isPublicObserverGatewayBoundary,
+    type ReadOnlyObserverGatewayState,
 } from "./shellBootstrapFallback.ts";
+import {
+    createInternetIdentityDelegationProof,
+    isInternetIdentityOperatorLoginEnabled,
+} from "./internetIdentityOperatorSession.ts";
 import { resolveShellEntries } from "./shellNavigationModel.ts";
 import { appendShellUtilityEntries } from "./shellUtilityEntries.ts";
 import { GripVertical } from "lucide-react";
@@ -171,6 +179,9 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const [compiledPlan, setCompiledPlan] = useState<CompiledNavigationPlan | null>(null);
     const [authSession, setAuthSession] = useState<AuthSession | null>(null);
     const [sessionError, setSessionError] = useState<string | null>(null);
+    const [observerGatewayState, setObserverGatewayState] = useState<ReadOnlyObserverGatewayState>("reachable");
+    const [operatorLoginError, setOperatorLoginError] = useState<string | null>(null);
+    const [operatorLoginPending, setOperatorLoginPending] = useState(false);
     const [bootstrapWarning, setBootstrapWarning] = useState<string | null>(null);
     const dynamicNavEnabled =
         (((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_DYNAMIC_NAV_ENABLED as string | undefined) ?? "true").toLowerCase() !== "false";
@@ -198,6 +209,12 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const actorId = sessionUser?.actorId?.trim() || "unknown";
     const activeRole = authSession?.activeRole || actorRoleHint;
     const configuredGatewayTarget = gatewayBaseUrl().trim() || "same-origin /api proxy";
+    const readOnlyObserverActive = !bootstrapWarning && !sessionError && authSession?.authMode === "read_fallback";
+    const readOnlyObserverDetails = formatReadOnlyObserverDetailLines(configuredGatewayTarget, observerGatewayState);
+    const operatorLoginEnabled = isInternetIdentityOperatorLoginEnabled();
+    const publicHost = typeof window !== "undefined"
+        && window.location.hostname !== "localhost"
+        && window.location.hostname !== "127.0.0.1";
 
     useEffect(() => {
         setActiveRoute(location.pathname);
@@ -224,28 +241,26 @@ export function ShellLayout({ children }: ShellLayoutProps) {
             .getSession(actorRoleHint, actorId)
             .then((payload) => {
                 setAuthSession(payload);
-                const configuredRole = actorRoleEnv.trim().toLowerCase();
-                const shouldPromoteDevOverrideRole =
-                    payload.authMode === "dev_override"
-                    && payload.activeRole === "viewer"
-                    && sessionUser.role === "viewer"
-                    && configuredRole !== "viewer"
-                    && payload.grantedRoles.includes(configuredRole);
-                const nextRole = shouldPromoteDevOverrideRole ? configuredRole : payload.activeRole;
-                if (sessionUser.role !== nextRole) {
-                    setSessionUser({ actorId: sessionUser.actorId, role: nextRole });
+                if (sessionUser.role !== payload.activeRole) {
+                    setSessionUser({ actorId: sessionUser.actorId, role: payload.activeRole });
                 }
             })
             .catch((err) => {
                 const message = err instanceof Error ? err.message : "unknown error";
                 const fallback = buildFallbackAuthSession(actorId, actorRoleHint);
-                setSessionError(message);
+                if (isPublicObserverGatewayBoundary(message, configuredGatewayTarget, publicHost)) {
+                    setSessionError(null);
+                    setObserverGatewayState("public_restricted");
+                } else {
+                    setSessionError(message);
+                    setObserverGatewayState("reachable");
+                }
                 setAuthSession(fallback);
                 if (sessionUser.role !== fallback.activeRole) {
                     setSessionUser({ actorId: sessionUser.actorId, role: fallback.activeRole });
                 }
             });
-    }, [sessionUser, actorRoleHint, actorId, setSessionUser]);
+    }, [sessionUser, actorRoleHint, actorId, configuredGatewayTarget, publicHost, setSessionUser]);
 
     useEffect(() => {
         const load = async () => {
@@ -266,14 +281,20 @@ export function ShellLayout({ children }: ShellLayoutProps) {
             } catch (err) {
                 const message = err instanceof Error ? err.message : "unknown error";
                 setLayoutSpec(buildFallbackShellLayoutSpec());
-                setBootstrapWarning(
-                    formatShellBootstrapWarning("layout", message, configuredGatewayTarget),
-                );
+                if (isPublicObserverGatewayBoundary(message, configuredGatewayTarget, publicHost)) {
+                    setBootstrapWarning(null);
+                    setObserverGatewayState("public_restricted");
+                } else {
+                    setBootstrapWarning(
+                        formatShellBootstrapWarning("layout", message, configuredGatewayTarget),
+                    );
+                    setObserverGatewayState("reachable");
+                }
                 setCompiledPlan(null);
             }
         };
         void load();
-    }, [activeRole, activeSpaceId, configuredGatewayTarget]);
+    }, [activeRole, activeSpaceId, configuredGatewayTarget, publicHost]);
 
     useEffect(() => {
         if (!dynamicNavEnabled) return;
@@ -384,6 +405,26 @@ export function ShellLayout({ children }: ShellLayoutProps) {
         } catch (err) {
             const message = err instanceof Error ? err.message : "unknown error";
             setSessionError(message);
+        }
+    };
+
+    const handleInternetIdentityLogin = async () => {
+        if (operatorLoginPending) {
+            return;
+        }
+        setOperatorLoginPending(true);
+        setOperatorLoginError(null);
+        try {
+            const proof = await createInternetIdentityDelegationProof();
+            const nextSession = await workbenchApi.createInternetIdentitySession(proof, actorId);
+            setAuthSession(nextSession);
+            setSessionUser({ actorId, role: nextSession.activeRole });
+            setSessionError(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Internet Identity login failed.";
+            setOperatorLoginError(message);
+        } finally {
+            setOperatorLoginPending(false);
         }
     };
 
@@ -717,17 +758,48 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                         <Menu className="w-5 h-5" />
                     </button>
                 )}
-                {(bootstrapWarning || sessionError || authSession?.authMode === "read_fallback") && (
-                    <div className="mx-4 mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-sm text-amber-100 shadow-[0_8px_32px_rgba(245,158,11,0.08)]">
+                {(bootstrapWarning || sessionError) && (
+                    <div className="ml-16 mr-4 mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-sm text-amber-100 shadow-[0_8px_32px_rgba(245,158,11,0.08)]">
                         <div className="font-medium">
-                            {authSession?.authMode === "read_fallback"
-                                ? "Running in degraded read-fallback mode"
-                                : "Running in local preview fallback mode"}
+                            {bootstrapWarning ? "Gateway unavailable" : "Identity check unavailable"}
                         </div>
                         <div className="mt-1 text-amber-100/80">
-                            {bootstrapWarning || sessionError || formatReadFallbackNotice(configuredGatewayTarget)}
+                            {bootstrapWarning || sessionError}
                         </div>
                     </div>
+                )}
+                {readOnlyObserverActive && (
+                    <details className="group ml-16 mr-4 mt-4 w-fit max-w-[calc(100%-5rem)] rounded-full border border-sky-300/15 bg-sky-300/7 text-sky-50 shadow-[0_8px_28px_rgba(56,189,248,0.08)] open:rounded-2xl open:bg-slate-950/80 open:px-4 open:py-3">
+                        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[12px] font-semibold tracking-wide marker:hidden">
+                            <span className="h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_14px_rgba(125,211,252,0.9)]" />
+                            <span>{formatReadOnlyObserverSummary()}</span>
+                            <span className="hidden text-sky-100/55 sm:inline">Operator actions gated</span>
+                            <ChevronDown className="h-3.5 w-3.5 text-sky-100/55 transition group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-2 max-w-xl border-t border-white/8 pt-3 text-[12px] leading-5 text-sky-50/74">
+                            <ul className="space-y-1">
+                                {readOnlyObserverDetails.map((line) => (
+                                    <li key={line}>{line}</li>
+                                ))}
+                            </ul>
+                            {operatorLoginEnabled && (
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleInternetIdentityLogin}
+                                        disabled={operatorLoginPending}
+                                        className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-400/16 disabled:cursor-wait disabled:opacity-60"
+                                    >
+                                        <KeyRound className="h-3.5 w-3.5" />
+                                        {operatorLoginPending ? "Verifying..." : "Verify operator"}
+                                    </button>
+                                    {operatorLoginError && (
+                                        <span className="text-[11px] text-red-200/80">{operatorLoginError}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </details>
                 )}
                 {children}
             </main>

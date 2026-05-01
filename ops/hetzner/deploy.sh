@@ -15,6 +15,7 @@ GATEWAY_EXEC="$GATEWAY_WORKDIR/target/release/cortex-gateway"
 WORKER_EXEC="$WORKER_WORKDIR/target/release/cortex_worker"
 WORKROUTER_WORKDIR="$REPO_ROOT"
 WORKROUTER_EXEC="$REPO_ROOT/scripts/work_router_service_stub.sh"
+WORKER_KEYS_PATH="$STATE_ROOT/worker_keys.json"
 OPERATIONS_INDEX="$REPO_ROOT/docs/cortex/README.md"
 PRIMARY_RUNBOOK="$REPO_ROOT/docs/cortex/eudaemon-alpha-phase6-hetzner.md"
 TARGET_COMMIT="${1:-}"
@@ -43,6 +44,8 @@ sync_repo_to_target() {
 
 mkdir -p "$DEPLOY_ROOT/logs"
 mkdir -p "$STATE_ROOT"
+sudo chown "$SERVICE_USER:$SERVICE_USER" "$DEPLOY_ROOT/logs"
+sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$STATE_ROOT"
 
 render_systemd_unit() {
     local template_path="$1"
@@ -51,12 +54,30 @@ render_systemd_unit() {
     sed         -e "s|__DEPLOY_ROOT__|$DEPLOY_ROOT|g"         -e "s|__SERVICE_USER__|$SERVICE_USER|g"         "$template_path" | sudo tee "$destination_path" >/dev/null
 }
 
+render_worker_systemd_override() {
+    sudo mkdir -p /etc/systemd/system/cortex-worker.service.d
+    sudo tee /etc/systemd/system/cortex-worker.service.d/state.conf >/dev/null <<EOF
+[Service]
+Environment=NOSTRA_WORKER_KEYS_PATH=$WORKER_KEYS_PATH
+EOF
+}
+
+redact_git_origin() {
+    local origin="$1"
+
+    if [[ "$origin" =~ ^https://[^/@]+@(.+)$ ]]; then
+        printf 'https://REDACTED@%s\n' "${BASH_REMATCH[1]}"
+    else
+        printf '%s\n' "$origin"
+    fi
+}
+
 write_authority_manifest() {
     local git_branch git_commit git_origin generated_at
 
     git_branch="$(git -C "$REPO_ROOT" symbolic-ref --short -q HEAD || echo detached)"
     git_commit="$(git -C "$REPO_ROOT" rev-parse HEAD)"
-    git_origin="$(git -C "$REPO_ROOT" remote get-url origin)"
+    git_origin="$(redact_git_origin "$(git -C "$REPO_ROOT" remote get-url origin)")"
     generated_at="$(date -u +%FT%TZ)"
 
     cat >"$AUTHORITY_MANIFEST" <<EOF
@@ -126,6 +147,7 @@ log "   > Rendering systemd units from repo templates..."
 render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-gateway.service" "/etc/systemd/system/cortex-gateway.service"
 render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-worker.service" "/etc/systemd/system/cortex-worker.service"
 render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-workrouter.service" "/etc/systemd/system/cortex-workrouter.service"
+render_worker_systemd_override
 sudo systemctl daemon-reload
 
 log "   > Restarting services..."

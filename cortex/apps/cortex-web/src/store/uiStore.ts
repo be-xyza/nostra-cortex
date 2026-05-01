@@ -11,6 +11,13 @@ export interface Comment {
     author: string;
     text: string;
     createdAt: string;
+    authority?: {
+        persistence: "local_ui_state";
+        durableEvidence: false;
+        governedHeapRecord: false;
+        exportableAsEvidence: false;
+        recommendedPersistenceTarget: "undecided";
+    };
 }
 
 function normalizeRole(role: string): CortexRole | null {

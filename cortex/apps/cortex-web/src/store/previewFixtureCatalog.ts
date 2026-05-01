@@ -1,4 +1,9 @@
 import type { HeapBlockListItem, HeapDeletedListItem } from "../contracts.ts";
+import { GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID } from "./graphSurfaceInventoryContract.ts";
+import { HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID } from "./heapBlockCapabilityInventoryContract.ts";
+import { OVERLAY_SURFACE_INVENTORY_SNAPSHOT_ID } from "./overlaySurfaceInventoryContract.ts";
+import { ROUTE_IA_INVENTORY_SNAPSHOT_ID } from "./routeIaInventoryContract.ts";
+import { SHELL_SURFACE_INVENTORY_SNAPSHOT_ID } from "./shellSurfaceInventoryContract.ts";
 import { SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID } from "./spaceDesignProfilePreviewContract.ts";
 import { INTRO_SPACE_ID, SEED_EVENTS } from "./seedData.ts";
 
@@ -13,6 +18,11 @@ export const PREVIEW_SNAPSHOT_IDS = new Set([
     "system:ux:workbench:/spaces",
     "system:ux:workbench:/heap",
     "system:ux:workbench:/studio",
+    GRAPH_SURFACE_INVENTORY_SNAPSHOT_ID,
+    HEAP_BLOCK_CAPABILITY_INVENTORY_SNAPSHOT_ID,
+    OVERLAY_SURFACE_INVENTORY_SNAPSHOT_ID,
+    ROUTE_IA_INVENTORY_SNAPSHOT_ID,
+    SHELL_SURFACE_INVENTORY_SNAPSHOT_ID,
     SPACE_DESIGN_PROFILE_PREVIEW_SNAPSHOT_ID,
 ]);
 

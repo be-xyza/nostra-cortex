@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_system_session_internet_identity",
+  "class": "system",
+  "request": {
+    "method": "POST",
+    "path": "/api/system/session/internet-identity"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/system/session/internet-identity"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/system/session/internet-identity"
+  }
+}

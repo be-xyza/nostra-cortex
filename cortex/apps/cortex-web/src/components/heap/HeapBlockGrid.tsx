@@ -57,6 +57,7 @@ import { useUserPreferences } from "../../store/userPreferences.ts";
 import { useCustomViewsStore } from "../../store/customViewsStore.ts";
 import type { ConversationAnchor } from "../conversations/conversationRegistry.ts";
 import { ExploreSavedViewModal } from "./ExploreSavedViewModal";
+import { isPublicObserverGatewayBoundary } from "../commons/shellBootstrapFallback.ts";
 import {
     INITIATIVE_KICKOFF_TEMPLATES,
     buildInitiativeKickoffEmitRequest,
@@ -328,6 +329,10 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     const sessionUser = useUiStore((state) => state.sessionUser);
     const reduceMotion = useUserPreferences((state) => state.reduceMotion);
     const saveCustomView = useCustomViewsStore((state) => state.saveView);
+    const configuredGatewayTarget = gatewayBaseUrl().trim() || "same-origin /api proxy";
+    const publicHost = typeof window !== "undefined"
+        && window.location.hostname !== "localhost"
+        && window.location.hostname !== "127.0.0.1";
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -1788,6 +1793,25 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
     };
 
     if (error) {
+        if (isPublicObserverGatewayBoundary(error, configuredGatewayTarget, publicHost)) {
+            return (
+                <div className="m-4 max-w-3xl rounded-2xl border border-sky-300/15 bg-sky-300/7 px-5 py-4 text-sm text-sky-50 shadow-[0_18px_54px_-38px_rgba(56,189,248,0.45)]">
+                    <div className="flex flex-wrap items-center gap-2 font-semibold">
+                        <span className="h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_14px_rgba(125,211,252,0.9)]" />
+                        <span>Read-only observer mode</span>
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-sky-100/65">
+                            Operator actions gated
+                        </span>
+                    </div>
+                    <p className="mt-2 leading-6 text-sky-50/72">
+                        This public browser session cannot reach the private gateway target, so live heap data is limited until a trusted local or verified operator session is used.
+                    </p>
+                    <p className="mt-2 break-all text-[11px] leading-5 text-sky-50/45">
+                        Gateway target: {configuredGatewayTarget}
+                    </p>
+                </div>
+            );
+        }
         return <div style={{ padding: "1rem", background: "rgba(127,29,29,0.5)", border: "1px solid #7f1d1d", color: "#fca5a5", borderRadius: "0.5rem" }}>Failed to load heap: {error}</div>;
     }
 
@@ -1947,13 +1971,13 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                 {settingsOpen && (
                                     <>
                                         <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-                                        <div className="absolute right-0 mt-2 w-88 max-w-[calc(100vw-1rem)] overflow-hidden rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.96))] shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="fixed right-2 top-16 z-50 max-h-[calc(100vh-5rem)] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.96))] shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                                             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.08),transparent_35%)]" />
                                             <div className="relative p-3.5">
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div>
-                                                        <h4 className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">Details</h4>
-                                                        <p className="mt-1 text-[11px] leading-5 text-cortex-300/70">
+                                                        <h4 className="text-[10px] font-black uppercase tracking-[0.24em] text-cortex-500">Details</h4>
+                                                        <p className="mt-1.5 text-[11px] leading-6 text-cortex-300/70">
                                                             Space defaults first, then personal overrides, then session links.
                                                         </p>
                                                     </div>
@@ -1986,8 +2010,8 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                                         <div key={section.id} className="rounded-2xl border border-white/10 bg-white/3 p-2.5">
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div>
-                                                                    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cortex-500">{section.title}</div>
-                                                                    <p className="mt-1 text-[11px] leading-5 text-cortex-300/60">{section.description}</p>
+                                                                    <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cortex-500">{section.title}</div>
+                                                                    <p className="mt-1.5 text-[11px] leading-6 text-cortex-300/60">{section.description}</p>
                                                                 </div>
                                                                 {section.icon === "sliders" && <Sliders className="w-3.5 h-3.5 text-cortex-500/70" />}
                                                             </div>

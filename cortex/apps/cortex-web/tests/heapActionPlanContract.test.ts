@@ -107,10 +107,10 @@ test("heap detail action plan reuses shared descriptors", () => {
 
   assert.deepEqual(actionIds(plan, "detail"), [
     "discussion",
-    "edit",
+    "relation_edit",
     "regenerate",
   ]);
-  assert.equal(actionById(plan, "detail", "edit")?.enabled, false);
+  assert.equal(actionById(plan, "detail", "relation_edit")?.enabled, true);
 });
 
 test("heap action plan exposes detail header and card menu zones for contextual actions", () => {
@@ -120,6 +120,19 @@ test("heap action plan exposes detail header and card menu zones for contextual 
     heapParityEnabled: true,
   });
 
-  assert.deepEqual(actionIds(plan, "detailHeader"), ["discussion", "edit", "regenerate"]);
+  assert.deepEqual(actionIds(plan, "detailHeader"), ["discussion", "relation_edit", "regenerate"]);
   assert.deepEqual(actionIds(plan, "cardMenu"), ["discussion", "history", "pin", "delete"]);
+});
+
+test("heap action plan marks destructive delete actions with confirmation metadata", () => {
+  const plan = buildHeapActionPlan({
+    selectionCount: 1,
+    heapCreateFlowEnabled: true,
+    heapParityEnabled: true,
+  });
+
+  assert.equal(actionById(plan, "selection", "delete")?.confirmation?.required, true);
+  assert.equal(actionById(plan, "selection", "delete")?.confirmation?.style, "danger");
+  assert.equal(actionById(plan, "cardMenu", "delete")?.confirmation?.required, true);
+  assert.equal(actionById(plan, "cardMenu", "delete")?.confirmation?.style, "danger");
 });

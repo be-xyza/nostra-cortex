@@ -20,6 +20,7 @@ import type {
   EmitGateSummaryHeapBlockResponse,
   ArtifactPublishRequest,
   AuthSession,
+  InternetIdentityDelegationProof,
   HeapBlocksQueryParams,
   HeapChangedBlocksResponse,
   HeapStewardGateApplyResponse,
@@ -170,8 +171,7 @@ export function isGatewayApiPath(path: string): boolean {
   return isWorkflowGatewayApiPath(path);
 }
 
-function resolveRequestCredentials(): RequestCredentials {
-  const baseUrl = resolveGatewayBaseUrl();
+export function resolveRequestCredentialsForBase(baseUrl: string): RequestCredentials {
   if (!baseUrl || typeof window === "undefined") {
     return "include";
   }
@@ -181,6 +181,10 @@ function resolveRequestCredentials(): RequestCredentials {
   } catch {
     return "include";
   }
+}
+
+export function resolveRequestCredentials(): RequestCredentials {
+  return resolveRequestCredentialsForBase(resolveGatewayBaseUrl());
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -347,6 +351,16 @@ export const workbenchApi = {
         throw error;
       }
       return buildFallbackAuthSession(actorId, role);
+    }),
+  createInternetIdentitySession: (proof: InternetIdentityDelegationProof, actorId?: string) =>
+    request<AuthSession>("/api/system/session/internet-identity", {
+      method: "POST",
+      headers: actorId
+        ? {
+            "x-cortex-actor": actorId,
+          }
+        : undefined,
+      body: JSON.stringify(proof),
     }),
   getWhoami: (actorRole: string, actorId: string) =>
     request<WhoAmIResponse>("/api/system/whoami", {

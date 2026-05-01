@@ -14,6 +14,7 @@ STATE_ROOT="${NOSTRA_VPS_STATE_ROOT:-$DEPLOY_ROOT/state}"
 MANIFEST_PATH="${NOSTRA_VPS_AUTHORITY_MANIFEST:-$STATE_ROOT/cortex_runtime_authority.json}"
 SYSTEMD_ROOT="${NOSTRA_VPS_SYSTEMD_ROOT:-/etc/systemd/system}"
 SKIP_PROCESS_PROVENANCE="${NOSTRA_VPS_SKIP_PROCESS_PROVENANCE:-0}"
+ENV_FILE="${NOSTRA_VPS_ENV_FILE:-$DEPLOY_ROOT/config/eudaemon-alpha.env}"
 
 REPO_TEMPLATE_GATEWAY="$ROOT_DIR/ops/hetzner/systemd/cortex-gateway.service"
 REPO_TEMPLATE_WORKER="$ROOT_DIR/ops/hetzner/systemd/cortex-worker.service"
@@ -57,6 +58,12 @@ extract_json_string() {
 }
 
 unit_value() {
+  local key="$1"
+  local path="$2"
+  grep -E "^${key}=" "$path" | tail -n 1 | cut -d= -f2-
+}
+
+env_value() {
   local key="$1"
   local path="$2"
   grep -E "^${key}=" "$path" | tail -n 1 | cut -d= -f2-
@@ -302,6 +309,7 @@ check_host_contract() {
   check_dir_exists "repo_root" "$REPO_ROOT"
   check_dir_exists "state_root" "$STATE_ROOT"
   check_file_exists "manifest" "$MANIFEST_PATH"
+  check_file_exists "env_file" "$ENV_FILE"
   check_json_parse "manifest_json" "$MANIFEST_PATH"
 
   if git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -314,6 +322,7 @@ check_host_contract() {
   local manifest_worker_exec manifest_worker_workdir manifest_workrouter_exec manifest_workrouter_workdir
   local manifest_web_mode manifest_web_root manifest_runbook manifest_index actual_commit gateway_unit worker_unit workrouter_unit
   local gateway_exec gateway_workdir worker_exec worker_workdir workrouter_exec workrouter_workdir
+  local authz_dev_mode allow_unverified_role_header agent_identity_enforcement agent_id
 
   manifest_commit="$(extract_json_string "commit" "$MANIFEST_PATH" 1 || true)"
   manifest_repo_root="$(extract_json_string "repoRoot" "$MANIFEST_PATH" 1 || true)"
@@ -363,6 +372,37 @@ check_host_contract() {
     push_check "manifest_repo_root_matches_expected:true"
   else
     push_error "manifest repoRoot does not match expected repo root"
+  fi
+
+  if [[ -f "$ENV_FILE" ]]; then
+    authz_dev_mode="$(env_value "NOSTRA_AUTHZ_DEV_MODE" "$ENV_FILE" || true)"
+    allow_unverified_role_header="$(env_value "NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER" "$ENV_FILE" || true)"
+    agent_identity_enforcement="$(env_value "NOSTRA_AGENT_IDENTITY_ENFORCEMENT" "$ENV_FILE" || true)"
+    agent_id="$(env_value "NOSTRA_AGENT_ID" "$ENV_FILE" || true)"
+
+    if [[ "$authz_dev_mode" == "0" ]]; then
+      push_check "authz_dev_mode:0"
+    else
+      push_error "NOSTRA_AUTHZ_DEV_MODE must be 0 for Phase 6 production auth posture"
+    fi
+
+    if [[ "$allow_unverified_role_header" == "0" ]]; then
+      push_check "allow_unverified_role_header:0"
+    else
+      push_error "NOSTRA_AUTHZ_ALLOW_UNVERIFIED_ROLE_HEADER must be 0 for Phase 6 production auth posture"
+    fi
+
+    if [[ "$agent_identity_enforcement" == "1" ]]; then
+      push_check "agent_identity_enforcement:1"
+    else
+      push_error "NOSTRA_AGENT_IDENTITY_ENFORCEMENT must be 1 for Phase 6 production auth posture"
+    fi
+
+    if [[ "$agent_id" == "agent:eudaemon-alpha-01" ]]; then
+      push_check "agent_id:agent:eudaemon-alpha-01"
+    else
+      push_error "NOSTRA_AGENT_ID must be agent:eudaemon-alpha-01"
+    fi
   fi
 
   gateway_unit="$SYSTEMD_ROOT/cortex-gateway.service"

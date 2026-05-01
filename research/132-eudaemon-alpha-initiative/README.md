@@ -2,7 +2,7 @@
 
 **Status**: Active
 **Created**: 2026-03-07
-**Updated**: 2026-04-27
+**Updated**: 2026-04-30
 **Category**: Institutional Intelligence / Agent Architecture
 
 ## Summary
@@ -11,10 +11,32 @@ Initiative 132 establishes Eudaemon Alpha as the first institutional research ag
 
 - **Host**: Hetzner VPS
 - **Gateway**: Rust `cortex-gateway` on the same host, bound to `127.0.0.1:3000`
-- **Worker**: Rust `cortex_worker` from `nostra/worker` is the active VPS worker target declared by the current deploy authority; PR #69 restores it as a passive build/preflight binary, while live polling/runtime execution remains gated by production identity and host-mode VPS authority proof
+- **Worker**: Rust `cortex_worker` from `nostra/worker` is the active VPS worker target declared by the current deploy authority; it is validated as a passive build/preflight binary, while live polling/runtime execution remains gated by a separate governed runtime-expansion decision
 - **Runtime posture**: Linux `systemd` services, production auth enabled, no Docker assumption
 
-Gateway parity passes locally in this checkout. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. The worker build/preflight blocker is addressed by PR #69, but runtime readiness still requires promotion plus host-mode authority validation. Prompt override remains unverified and should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
+Gateway parity passes locally in this checkout. The active VPS contract is `cortex-gateway` plus `cortex_worker`, validated through the runtime authority manifest and operator-local promotion flow. The worker build/preflight blocker, host-mode authority proof, production-auth posture proof, and observe-once worker proof are now passed. Prompt override remains unverified and should be treated as a future capability rather than a live dependency. Meta-Harness findings are recommendation-only and do not change authority boundaries.
+
+The first runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md), has passed on the VPS at commit `a8af1afe312b521ab3d448b15716d9d6fd219312`: the worker performed one opt-in observational pass, read only `/api/system/whoami`, wrote local evidence, and exited. It does not authorize live polling, autonomous task selection, provider calls, heap/proposal/workflow emission, repo mutation, runtime mutation, graph mutation, or untrusted execution.
+
+The second runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md), has passed on the VPS at commit `62ecf2d3d6c9112c4021b33b46344d41a8d3e387`: the worker performed one opt-in pass, read only `/api/system/whoami` and `/api/cortex/studio/heap/changed_blocks`, wrote local summarized evidence, and exited. It does not authorize context bundling, heap emission, proposals, workflow drafts, provider calls, polling, or mutation.
+
+The third runtime-expansion gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md), has passed on the VPS at commit `6cbf62c6e5d4977e7e1eb41b953aa35d22e25de4` with a sentinel operator-provided block ID: the worker performed one opt-in pass, read `/api/system/whoami`, posted explicit `block_ids` to `/api/cortex/studio/heap/blocks/context`, wrote local summarized evidence, and exited. It does not authorize autonomous block selection, heap emission, proposals, workflow drafts, provider calls, polling, or mutation.
+
+A follow-up real-heap context bundle prep pass also passed on the VPS on 2026-04-29 UTC using three explicit heap block IDs from a bounded read-only heap list. The worker returned three context block summaries and persisted only local summarized evidence, including `surfaceJsonBytes` counts rather than raw heap payloads.
+
+The steward-reviewed heap emission worker mode is implemented and has passed fail-closed VPS validation at commit `8a3b2fe35d818b66c4545a489f1e4bc21b328d66`: without an operator principal, signed session, or operator-mediated proxy, it resolved as unverified viewer, wrote a local `needs_review` artifact, and did not call `POST /api/cortex/studio/heap/emit`.
+
+The authorized publication proof for [`RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md) has also passed on the VPS at commit `b40c0ad14a20562e2f48ac2478d28a5f44488ae1`: the worker resolved a verified operator principal binding, emitted exactly one operator-approved rich-text heap block through `POST /api/cortex/studio/heap/emit`, wrote one local publication artifact, and exited with `exitStatus=pass`.
+
+Evidence: [20260429T051551Z_vps_heap_emission_authorized_publication_proof.md](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260429T051551Z_vps_heap_emission_authorized_publication_proof.md)
+
+This closes only the single-block steward-reviewed publication proof. It does not authorize autonomous synthesis, provider calls, polling, proposal/workflow projection, graph mutation, runtime execution, repo mutation, production promotion, or untrusted execution.
+
+The provider cognition local synthesis gate, [`RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md`](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_PROVIDER_COGNITION_LOCAL_SYNTHESIS.md), has passed on the VPS at merge commit `ce91705c14ff7d61779794ca49ac461093a8ec2b`: after governed promotion and rebuild, the worker made one operator-approved provider call through a transient loopback-local wrapper, wrote one redacted local synthesis artifact, and exited with `exitStatus=pass`.
+
+Evidence: [20260430T004726Z_vps_provider_cognition_local_synthesis_proof.md](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260430T004726Z_vps_provider_cognition_local_synthesis_proof.md)
+
+This closes only the local synthesis proof. It does not authorize autonomous provider calls, retries, polling, heap publication, proposal/workflow projection, graph mutation, execution workers, provider job submission, or treating provider output as governance authority.
 
 The newly reviewed Doubleword batch-strategy transcript is adopted here only as an advisory architecture pattern: Eudaemon should design and synthesize a cognitive audit pipeline, not become the primary batch analyzer itself. Phase 6 communication and main-cycle analysis stay on the native live cognition lane first.
 
@@ -108,11 +130,29 @@ Eudaemon Alpha acts as the integration pioneer for the active Nostra/Cortex stac
 - **Hermes developer posture**: `hermescortexdev` may prepare local patch handoffs only; Codex/operator applies implementation separately
 - **Hermes record-sync posture**: local Hermes artifacts do not update Initiative 132 by implication; they need explicit evidence/decision/plan promotion or a local-only disposition
 - **Hermes capability discovery posture**: Hermes may classify capabilities and propose observer lanes or skill improvements, but the result is local planning material only; feature enablement and execution adapters require later governed decisions
+- **Runtime expansion posture**: observe-once authority and read-only heap delta visibility have passed; live polling and execution authority still require separate governed packets
+- **Context bundle posture**: context bundle prep has passed only for explicit operator-provided block IDs and local summarized artifacts; it does not authorize autonomous block selection or publication
+- **Heap emission posture**: steward-reviewed heap emission was scoped only to a single operator-approved rich-text block and does not authorize autonomous publication
+- **Heap emission proof posture**: the single-block authorized publication proof has passed; any further publication, provider cognition, proposal/workflow projection, polling, or execution requires a separate governed authority packet
+- **Provider cognition posture**: provider cognition local synthesis is proven only as an operator-approved local-evidence gate through a transient loopback wrapper; hardening it into a runtime adapter or keeping it operator-mediated requires a separate governed decision
 - **Hermes runbook posture**: local runbooks may standardize bounded pass operation, but preflight/postflight, evidence promotion, commits, and pushes remain operator-mediated
 - **Provider posture**: low-latency live cognition is the primary Phase 6 path; batch audit stays secondary
 - **Subscription posture**: ChatGPT Pro matters only through official Codex subscription access; it is not a generic API-credit source for the worker
 - **Developer isolation posture**: request work belongs in clean `.worktrees/`; the shared root worktree is reserved for repo-wide stewardship tasks
 - **Evidence posture**: mutable `logs/*` outputs remain local operational artifacts; durable evidence is preserved by promoting immutable copies into governed initiative surfaces
+
+## Current Passive Runtime Proof
+
+As of 2026-04-28, Eudaemon Alpha is validated on the VPS for passive runtime only:
+
+- `cortex-gateway.service` and `cortex-worker.service` are active.
+- Host-mode authority passes with repo/service provenance and production-auth posture checks.
+- Unverified operator role headers are rejected for provider inventory.
+- A bound operator principal can inspect provider inventory.
+- Unknown `x-cortex-agent-id` values are rejected under identity enforcement.
+- `cortex_worker` remains in passive preflight mode with runtime polling disabled.
+
+Evidence: [20260428T071000Z_vps_passive_runtime_production_auth_proof.md](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T071000Z_vps_passive_runtime_production_auth_proof.md)
 
 ## Validated Phase 7 Sequencing
 
@@ -165,6 +205,16 @@ Older deployment notes reference an `eudaemon-alpha/` companion implementation r
 - [Batch 1 Decision Gate](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/BATCH1_DECISION_GATE.md)
 - [Phase 7 Execution Plan](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/PHASE7_EXECUTION_PLAN.md)
 - [Hermes first advisory activation](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260423T083435Z_hermes_first_advisory_activation.md)
+- [VPS passive runtime and production auth proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T071000Z_vps_passive_runtime_production_auth_proof.md)
+- [VPS observe-once worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T080222Z_vps_observe_once_worker_proof.md)
+- [VPS read-only heap delta worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T152202Z_vps_readonly_heap_delta_worker_proof.md)
+- [VPS context bundle prep worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260428T160203Z_vps_context_bundle_prep_worker_proof.md)
+- [VPS real-heap context bundle prep worker proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260429T001625Z_vps_context_bundle_real_heap_worker_proof.md)
+- [VPS provider cognition local synthesis proof](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260430T004726Z_vps_provider_cognition_local_synthesis_proof.md)
+- [Observe-once authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_OBSERVE_ONCE.md)
+- [Read-only heap delta authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_READONLY_HEAP_DELTA.md)
+- [Context bundle prep authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_CONTEXT_BUNDLE_PREP.md)
+- [Steward-reviewed heap emission authority packet](/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/RUNTIME_EXPANSION_AUTHORITY_PACKET_STEWARD_REVIEWED_HEAP_EMISSION.md)
 
 ## References
 
