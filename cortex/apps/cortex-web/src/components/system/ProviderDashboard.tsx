@@ -24,6 +24,7 @@ import type {
   ProviderValidationResponse,
   RuntimeHostRecord,
   SystemProviderRuntimeStatusResponse,
+  WorkRouterStatusResponse,
 } from "../../contracts.ts";
 import { providerRegistryStatusCopy, useProvidersRegistry } from "../../store/providersRegistry";
 import {
@@ -226,6 +227,8 @@ export const ProviderDashboard: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [adapterStatus, setAdapterStatus] = useState<SystemProviderRuntimeStatusResponse | null>(null);
   const [adapterStatusError, setAdapterStatusError] = useState<string | null>(null);
+  const [workRouterStatus, setWorkRouterStatus] = useState<WorkRouterStatusResponse | null>(null);
+  const [workRouterStatusError, setWorkRouterStatusError] = useState<string | null>(null);
   const [isRefreshingAdapterModels, setIsRefreshingAdapterModels] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [providerTypeFilter, setProviderTypeFilter] = useState<ProviderRegistryTypeFilter>("all");
@@ -283,6 +286,33 @@ export const ProviderDashboard: React.FC = () => {
         );
       }
     });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void workbenchApi.getSystemWorkRouterStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setWorkRouterStatus(status);
+          setWorkRouterStatusError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setWorkRouterStatus(null);
+          const message = err instanceof Error ? err.message : String(err);
+          setWorkRouterStatusError(
+            /^403\b/.test(message)
+              ? "Operator access is required to inspect WorkRouter status."
+              : message,
+          );
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -1024,6 +1054,54 @@ export const ProviderDashboard: React.FC = () => {
                   <span className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1">{providers.length} configured</span>
                   <span className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1">{readyProviderCount} ready</span>
                   <span className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1">{localProviderCount} local</span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 border-t border-white/8 pt-4 md:grid-cols-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">
+                    <Shield className="h-3.5 w-3.5 text-cyan-200" />
+                    WorkRouter
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-white">
+                    {workRouterStatus
+                      ? `${workRouterStatus.mode} · ${workRouterStatus.maxDispatchLevel}`
+                      : workRouterStatusError
+                        ? "Unavailable"
+                        : "Loading"}
+                  </div>
+                  <div className="mt-1 text-[11px] text-white/50">
+                    {workRouterStatus?.lastObservedAt ?? workRouterStatusError ?? "Checking latest heartbeat"}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">Health</div>
+                  <div className={`mt-2 text-sm font-semibold ${workRouterStatus?.health === "active" ? "text-emerald-200" : workRouterStatus ? "text-amber-200" : "text-white/65"}`}>
+                    {workRouterStatus?.health ?? "Unknown"}
+                  </div>
+                  <div className="mt-1 text-[11px] text-white/50">
+                    {workRouterStatus?.mutationAllowed || workRouterStatus?.liveTransportEnabled
+                      ? "Boundary attention required"
+                      : "Mutation and live transport disabled"}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">Queue</div>
+                  <div className="mt-2 text-sm font-semibold text-white">
+                    {workRouterStatus ? `${workRouterStatus.pendingCount} pending` : "-"}
+                  </div>
+                  <div className="mt-1 text-[11px] text-white/50">
+                    {workRouterStatus ? `${workRouterStatus.outboxEnvelopeCount} outbox · ${workRouterStatus.exportedCount} exported last pass` : "No status loaded"}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">Unknowns</div>
+                  <div className="mt-2 text-sm font-semibold text-white">
+                    {workRouterStatus?.unknownResponseCount ?? "-"}
+                  </div>
+                  <div className="mt-1 text-[11px] text-white/50">
+                    {workRouterStatus?.lastEvidenceStatus ?? "Awaiting evidence"}
+                  </div>
                 </div>
               </div>
 

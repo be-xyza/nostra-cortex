@@ -77,6 +77,7 @@ import type {
   WorkflowProjectionResponse,
   WorkflowReplayResponse,
   WorkflowTraceResponse,
+  WorkRouterStatusResponse,
   SystemProvidersResponse,
   OperatorProviderInventoryResponse,
   RuntimeHostInventoryResponse,
@@ -475,6 +476,8 @@ export const workbenchApi = {
     request<AgentRunSummary[]>(`/api/system/agents/runs?space_id=${encodeURIComponent(resolveWorkbenchSpaceId(spaceId))}`),
   getSystemAgentRun: (spaceId: string, runId: string) =>
     request<AgentRunRecord>(`/api/system/agents/runs/${encodeURIComponent(spaceId)}/${encodeURIComponent(runId)}`),
+  getSystemWorkRouterStatus: () =>
+    request<WorkRouterStatusResponse>("/api/system/work-router/status"),
   getContributionBlastRadius: (contributionId: string, spaceId?: string) =>
     request<DpubBlastRadiusResponse>(
       `/api/kg/spaces/${encodeURIComponent(resolveWorkbenchSpaceId(spaceId))}/contribution-graph/blast-radius?contributionId=${encodeURIComponent(contributionId)}`

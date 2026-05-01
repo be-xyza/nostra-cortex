@@ -3471,6 +3471,10 @@ impl GatewayService {
             )
             .route("/api/system/agents/runs", get(get_system_agents_runs))
             .route(
+                "/api/system/work-router/status",
+                get(get_system_work_router_status),
+            )
+            .route(
                 "/api/system/agents/runs/:space_id/:run_id",
                 get(get_system_agents_run),
             )
@@ -29582,6 +29586,36 @@ pub(crate) async fn get_system_agents_runs(
     }
 }
 
+pub(crate) async fn get_system_work_router_status(headers: HeaderMap) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "get_system_work_router_status",
+        None,
+        "capability:system_work_router_status",
+        "read",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SYSTEM_WORK_ROUTER_STATUS_FORBIDDEN",
+        "Operator role or higher is required to read WorkRouter status.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    match crate::services::ops_agents::get_work_router_status() {
+        Ok(status) => Json(status).into_response(),
+        Err(err) => cortex_ux_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "SYSTEM_WORK_ROUTER_STATUS_UNAVAILABLE",
+            "WorkRouter status is unavailable.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
 pub(crate) async fn get_system_agents_run(
     headers: HeaderMap,
     Path((space_id, run_id)): Path<(String, String)>,
@@ -37056,6 +37090,87 @@ mod tests {
         assert_eq!(body[0]["runId"], "run-b");
         assert_eq!(body[0]["requiresReview"], true);
         assert_eq!(body[1]["runId"], "run-a");
+    }
+
+    #[tokio::test]
+    async fn system_work_router_status_requires_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let response = get_system_work_router_status(role_headers("viewer", "viewer-1")).await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SYSTEM_WORK_ROUTER_STATUS_FORBIDDEN");
+    }
+
+    #[tokio::test]
+    async fn system_work_router_status_returns_redacted_operational_summary() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let log_root = temp.path().join("work_router");
+        std::fs::create_dir_all(log_root.join("service")).expect("service dir");
+        std::fs::create_dir_all(log_root.join("agent_run_evidence")).expect("evidence dir");
+        std::fs::create_dir_all(log_root.join("outbox")).expect("outbox dir");
+        std::fs::create_dir_all(log_root.join("unknown")).expect("unknown dir");
+        std::fs::write(log_root.join("outbox").join("pending.json"), "{}").expect("outbox");
+        std::fs::write(log_root.join("unknown").join("typo.json"), "{}").expect("unknown");
+        std::fs::write(
+            log_root.join("service").join("heartbeat.json"),
+            serde_json::to_string(&json!({
+                "schemaVersion": "1.0.0",
+                "service": "cortex-workrouter",
+                "mode": "observe",
+                "maxDispatchLevel": "D1",
+                "mutationAllowed": false,
+                "liveTransportEnabled": false,
+                "pendingCount": 1,
+                "exportedCount": 1,
+                "outbox": log_root.join("outbox").display().to_string(),
+                "observedAt": chrono::Utc::now().to_rfc3339()
+            }))
+            .expect("heartbeat json"),
+        )
+        .expect("write heartbeat");
+        std::fs::write(
+            log_root
+                .join("agent_run_evidence")
+                .join("workrouter-observe-loop-latest.json"),
+            serde_json::to_string(&json!({
+                "evidenceId": "agent-run:workrouter:test",
+                "agentId": "workrouter",
+                "status": "recorded",
+                "finishedAt": "2026-05-01T18:17:52Z",
+                "authority": {
+                    "maxDispatchLevel": "D1",
+                    "sourceMutationAllowed": false,
+                    "runtimeMutationAllowed": false
+                },
+                "forbiddenActionsConfirmed": [
+                    "source_mutation",
+                    "runtime_mutation",
+                    "provider_topology_exposure"
+                ]
+            }))
+            .expect("evidence json"),
+        )
+        .expect("write evidence");
+        let _guard = EnvVarGuard::set("WORK_ROUTER_LOG_ROOT", &log_root.display().to_string());
+
+        let response = get_system_work_router_status(role_headers("operator", "operator-1")).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["service"], "cortex-workrouter");
+        assert_eq!(body["mode"], "observe");
+        assert_eq!(body["maxDispatchLevel"], "D1");
+        assert_eq!(body["mutationAllowed"], false);
+        assert_eq!(body["liveTransportEnabled"], false);
+        assert_eq!(body["pendingCount"], 1);
+        assert_eq!(body["exportedCount"], 1);
+        assert_eq!(body["outboxEnvelopeCount"], 1);
+        assert_eq!(body["unknownResponseCount"], 1);
+        assert_eq!(body["authority"]["sourceMutationAllowed"], false);
+        assert_eq!(body["authority"]["runtimeMutationAllowed"], false);
+        assert!(body.get("providerInventory").is_none());
+        assert!(body.get("runtimeHosts").is_none());
+        assert!(body.get("authBindings").is_none());
     }
 
     #[tokio::test]

@@ -1,4 +1,5 @@
 use crate::gateway::server::workspace_root;
+use chrono::{DateTime, Utc};
 use cortex_domain::agent::contracts::{ActionTarget, AgentRun, AgentRunEvent};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -47,6 +48,38 @@ pub(crate) struct AgentRunSummaryResponse {
     pub requires_review: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkRouterStatusResponse {
+    pub service: String,
+    pub mode: String,
+    pub max_dispatch_level: String,
+    pub mutation_allowed: bool,
+    pub live_transport_enabled: bool,
+    pub health: String,
+    pub pending_count: usize,
+    pub exported_count: usize,
+    pub outbox_envelope_count: usize,
+    pub unknown_response_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_observed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_evidence_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_evidence_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_evidence_finished_at: Option<String>,
+    pub authority: WorkRouterAuthoritySummary,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkRouterAuthoritySummary {
+    pub source_mutation_allowed: bool,
+    pub runtime_mutation_allowed: bool,
+    pub forbidden_actions_confirmed: Vec<String>,
+}
+
 fn sanitize_fs_component(raw: &str) -> String {
     raw.trim()
         .chars()
@@ -76,6 +109,76 @@ fn decision_surface_log_dir() -> PathBuf {
 
 fn agent_runs_dir() -> PathBuf {
     decision_surface_log_dir().join("agent_runs")
+}
+
+fn work_router_log_root() -> PathBuf {
+    std::env::var("WORK_ROUTER_LOG_ROOT")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| workspace_root().join("logs").join("work_router"))
+}
+
+fn count_json_files(dir: PathBuf) -> usize {
+    fs::read_dir(dir)
+        .ok()
+        .into_iter()
+        .flat_map(|entries| entries.flatten())
+        .filter(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("json"))
+        .count()
+}
+
+fn count_pending_work_router_runs(root: &PathBuf) -> usize {
+    let runs_dir = root.join("runs");
+    let Ok(entries) = fs::read_dir(runs_dir) else {
+        return 0;
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| fs::read_to_string(entry.path().join("run.json")).ok())
+        .filter_map(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .filter(|value| value.get("status").and_then(|status| status.as_str()) == Some("pending_decision"))
+        .count()
+}
+
+fn read_json_value(path: PathBuf) -> Option<serde_json::Value> {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+}
+
+fn as_bool(value: &serde_json::Value, key: &str) -> bool {
+    value.get(key).and_then(|item| item.as_bool()).unwrap_or(false)
+}
+
+fn as_string(value: &serde_json::Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(|item| item.as_str())
+        .map(ToString::to_string)
+}
+
+fn as_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
+    value
+        .get(key)
+        .and_then(|item| item.as_u64())
+        .and_then(|item| usize::try_from(item).ok())
+}
+
+fn work_router_health(last_observed_at: Option<&str>) -> String {
+    let Some(raw) = last_observed_at else {
+        return "unknown".to_string();
+    };
+    let Ok(observed_at) = DateTime::parse_from_rfc3339(raw).map(|value| value.with_timezone(&Utc)) else {
+        return "unknown".to_string();
+    };
+    let age_seconds = Utc::now().signed_duration_since(observed_at).num_seconds();
+    if age_seconds <= 900 {
+        "active".to_string()
+    } else {
+        "stale".to_string()
+    }
 }
 
 fn agent_run_path(space_id: &str, run_id: &str) -> PathBuf {
@@ -159,4 +262,55 @@ pub(crate) fn list_agent_runs(
     });
     summaries.truncate(clamped_limit);
     Ok(summaries)
+}
+
+pub(crate) fn get_work_router_status() -> Result<WorkRouterStatusResponse, String> {
+    let root = work_router_log_root();
+    let heartbeat_path = root.join("service").join("heartbeat.json");
+    let evidence_path = root
+        .join("agent_run_evidence")
+        .join("workrouter-observe-loop-latest.json");
+    let heartbeat = read_json_value(heartbeat_path)
+        .ok_or_else(|| "work_router_heartbeat_unavailable".to_string())?;
+    let evidence = read_json_value(evidence_path).unwrap_or_else(|| serde_json::json!({}));
+    let last_observed_at = as_string(&heartbeat, "observedAt");
+
+    let forbidden_actions_confirmed = evidence
+        .get("forbiddenActionsConfirmed")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(ToString::to_string))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let authority = evidence
+        .get("authority")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    Ok(WorkRouterStatusResponse {
+        service: as_string(&heartbeat, "service").unwrap_or_else(|| "cortex-workrouter".to_string()),
+        mode: as_string(&heartbeat, "mode").unwrap_or_else(|| "unknown".to_string()),
+        max_dispatch_level: as_string(&heartbeat, "maxDispatchLevel")
+            .unwrap_or_else(|| "unknown".to_string()),
+        mutation_allowed: as_bool(&heartbeat, "mutationAllowed"),
+        live_transport_enabled: as_bool(&heartbeat, "liveTransportEnabled"),
+        health: work_router_health(last_observed_at.as_deref()),
+        pending_count: as_usize(&heartbeat, "pendingCount")
+            .unwrap_or_else(|| count_pending_work_router_runs(&root)),
+        exported_count: as_usize(&heartbeat, "exportedCount").unwrap_or(0),
+        outbox_envelope_count: count_json_files(root.join("outbox")),
+        unknown_response_count: count_json_files(root.join("unknown")),
+        last_observed_at,
+        last_evidence_id: as_string(&evidence, "evidenceId"),
+        last_evidence_status: as_string(&evidence, "status"),
+        last_evidence_finished_at: as_string(&evidence, "finishedAt"),
+        authority: WorkRouterAuthoritySummary {
+            source_mutation_allowed: as_bool(&authority, "sourceMutationAllowed"),
+            runtime_mutation_allowed: as_bool(&authority, "runtimeMutationAllowed"),
+            forbidden_actions_confirmed,
+        },
+    })
 }
