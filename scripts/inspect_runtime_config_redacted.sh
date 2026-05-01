@@ -61,6 +61,10 @@ secret_name_re = re.compile(
     r"(API[_-]?KEY|TOKEN|SECRET|PRIVATE[_-]?KEY|PASSWORD|CREDENTIAL|AUTH[_-]?BINDING|BEARER)",
     re.IGNORECASE,
 )
+non_secret_name_re = re.compile(
+    r"(COST[_-]?PER[_-]?1K[_-]?TOKENS|MAX[_-]?TOKENS|TOKEN[_-]?LIMIT|TOKEN[_-]?BUDGET|TOKENIZER)",
+    re.IGNORECASE,
+)
 
 records = []
 seen = set()
@@ -71,7 +75,7 @@ for raw_line in env_file.read_text(encoding="utf-8", errors="replace").splitline
         continue
     name, value = line.split("=", 1)
     name = name.strip()
-    if not name or name in seen or not secret_name_re.search(name):
+    if not name or name in seen or not secret_name_re.search(name) or non_secret_name_re.search(name):
         continue
     seen.add(name)
     value = value.strip().strip('"').strip("'")
@@ -107,4 +111,3 @@ else:
             )
         )
 PY
-

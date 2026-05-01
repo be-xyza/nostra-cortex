@@ -11,10 +11,8 @@ execution_plane: "cortex"
 depends_on:
   - "118"
   - "125"
-  - "130"
   - "132"
   - "134"
-  - "137"
 authors:
   - "User"
   - "Codex"
@@ -100,24 +98,3 @@ Full vault-backed protected resources remain a later phase after egress controls
 - CI invokes the scanner in the static-analysis job.
 - Dynamic config checks pass after script additions.
 
-## Scope Validation and Trust Gaps
-
-The implemented Phase 0-2 slice matches the incident class from the originating conversation: a provider key or sensitive runtime value can leak through terminal output, AI-visible transcripts, logs, CI artifacts, screenshots, or diagnostics. The current controls close the fastest path to harm by treating AI-visible exposure as compromise, giving operators a redacted inspection command, and adding a repo/artifact scanner that fails on high-confidence credentials without printing the raw match.
-
-For stable production trust, Initiative 138 must also close these gaps before it can be considered complete:
-
-1. Runtime redaction must cover gateway and worker log/error envelopes, upstream provider errors, request headers, auth bindings, env values, and diagnostic payloads.
-2. Evidence promotion must require secret scanning before mutable runtime outputs are copied into governed initiative surfaces.
-3. User-facing trust surfaces must explain whether a protected resource was used, which tool boundary resolved it, and what audit event was written without revealing the value.
-4. Capability grants must bind each `SecretRef` use to purpose, Space, tool, expiry, render mode, and audit requirement.
-5. Operator diagnostics must avoid noisy secret classification so safe metadata such as token budgets or cost-per-token settings do not look like credentials.
-6. Stable production must include incident-drill evidence for rotate, revoke, scrub, audit, and post-rotation runtime validation.
-
-## Cross-Initiative Alignment
-
-- Initiative 118 provides the runtime purity and adapter boundary. 138 must use that boundary to keep secret resolution in host-side sealed adapters, not in portable runtime/domain crates.
-- Initiative 125 provides SIQ gates and artifact consistency. 138 should register secret egress scanning as a SIQ-aligned release control and use SIQ evidence promotion only after redaction.
-- Initiative 130 provides the Space capability model. 138 should express protected-resource access as capability grants scoped to a Space and tool.
-- Initiative 132 provides the active Eudaemon Alpha runtime context. 138 must keep live provider cognition operator-mediated until sealed provider invocation is implemented and audited.
-- Initiative 134 provides the workflow adapter model. 138 should use workflow adapters for sealed render/provider operations so protected resources are consumed at a trusted boundary.
-- Initiative 137 introduces Local/Tunneled/Cloud provider topology. 138 must ensure provider locality labels are visible without exposing provider keys, tunnel credentials, or auth bindings.
