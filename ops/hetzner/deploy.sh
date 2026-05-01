@@ -13,6 +13,8 @@ GATEWAY_WORKDIR="$REPO_ROOT/cortex"
 WORKER_WORKDIR="$REPO_ROOT/nostra/worker"
 GATEWAY_EXEC="$GATEWAY_WORKDIR/target/release/cortex-gateway"
 WORKER_EXEC="$WORKER_WORKDIR/target/release/cortex_worker"
+WORKROUTER_WORKDIR="$REPO_ROOT"
+WORKROUTER_EXEC="$REPO_ROOT/scripts/work_router_service_stub.sh"
 OPERATIONS_INDEX="$REPO_ROOT/docs/cortex/README.md"
 PRIMARY_RUNBOOK="$REPO_ROOT/docs/cortex/eudaemon-alpha-phase6-hetzner.md"
 TARGET_COMMIT="${1:-}"
@@ -22,7 +24,7 @@ log() {
 }
 
 resolve_target_commit() {
-    git -C "$REPO_ROOT" fetch origin main
+    git -C "$REPO_ROOT" fetch origin '+refs/heads/*:refs/remotes/origin/*'
 
     if [[ -z "$TARGET_COMMIT" ]]; then
         TARGET_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify "origin/main^{commit}")"
@@ -77,6 +79,13 @@ write_authority_manifest() {
       "execPath": "$WORKER_EXEC",
       "workingDirectory": "$WORKER_WORKDIR"
     },
+    "workrouter": {
+      "execPath": "$WORKROUTER_EXEC",
+      "workingDirectory": "$WORKROUTER_WORKDIR",
+      "mode": "observe",
+      "maxDispatchLevel": "D1",
+      "liveTransportEnabled": false
+    },
     "cortexWeb": {
       "deploymentMode": "not_deployed",
       "sourceRoot": "$REPO_ROOT/cortex/apps/cortex-web"
@@ -116,13 +125,16 @@ log "   > Rebuilding cortex_worker from $WORKER_WORKDIR at $TARGET_COMMIT..."
 log "   > Rendering systemd units from repo templates..."
 render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-gateway.service" "/etc/systemd/system/cortex-gateway.service"
 render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-worker.service" "/etc/systemd/system/cortex-worker.service"
+render_systemd_unit "$REPO_ROOT/ops/hetzner/systemd/cortex-workrouter.service" "/etc/systemd/system/cortex-workrouter.service"
 sudo systemctl daemon-reload
 
 log "   > Restarting services..."
 sudo systemctl restart cortex-gateway.service
 sudo systemctl restart cortex-worker.service
+sudo systemctl restart cortex-workrouter.service
 sudo systemctl is-active --quiet cortex-gateway.service
 sudo systemctl is-active --quiet cortex-worker.service
+sudo systemctl is-active --quiet cortex-workrouter.service
 
 if [[ "$(git -C "$REPO_ROOT" rev-parse HEAD)" != "$TARGET_COMMIT" ]]; then
     log " ! Host repo HEAD drifted away from target commit after service restart."

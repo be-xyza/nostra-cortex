@@ -16,9 +16,10 @@ import jsonschema
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTBOX = ROOT / "logs" / "work_router" / "outbox"
-DEFAULT_HEARTBEAT = ROOT / "logs" / "work_router" / "service" / "heartbeat.json"
-DEFAULT_EVIDENCE = ROOT / "logs" / "work_router" / "agent_run_evidence" / "workrouter-observe-loop-latest.json"
+LOG_ROOT = Path(os.environ.get("WORK_ROUTER_LOG_ROOT", ROOT / "logs" / "work_router"))
+DEFAULT_OUTBOX = LOG_ROOT / "outbox"
+DEFAULT_HEARTBEAT = LOG_ROOT / "service" / "heartbeat.json"
+DEFAULT_EVIDENCE = LOG_ROOT / "agent_run_evidence" / "workrouter-observe-loop-latest.json"
 AGENT_EVIDENCE_SCHEMA = (
     ROOT
     / "research"

@@ -17,6 +17,7 @@ Environment=WORK_ROUTER_UNKNOWN_REPLIES_REVIEW_ONLY=1
 Environment=WORK_ROUTER_TRANSPORTS_ENABLED=cli
 Environment=WORK_ROUTER_LIVE_TRANSPORT_ENABLED=0
 Environment=WORK_ROUTER_MODE=observe
+Environment=WORK_ROUTER_LOG_ROOT=__DEPLOY_ROOT__/logs/work_router
 ExecStart=__DEPLOY_ROOT__/repo/scripts/work_router_service_stub.sh
 Restart=on-failure
 RestartSec=10

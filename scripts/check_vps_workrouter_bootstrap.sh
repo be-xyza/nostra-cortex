@@ -50,6 +50,7 @@ require_contains "$UNIT" "Environment=WORK_ROUTER_UNKNOWN_REPLIES_REVIEW_ONLY=1"
 require_contains "$UNIT" "Environment=WORK_ROUTER_TRANSPORTS_ENABLED=cli" "CLI-only bootstrap transport"
 require_contains "$UNIT" "Environment=WORK_ROUTER_LIVE_TRANSPORT_ENABLED=0" "live transport disabled"
 require_contains "$UNIT" "Environment=WORK_ROUTER_MODE=observe" "observe mode"
+require_contains "$UNIT" "Environment=WORK_ROUTER_LOG_ROOT=__DEPLOY_ROOT__/logs/work_router" "runtime log root"
 require_contains "$UNIT" "ExecStart=__DEPLOY_ROOT__/repo/scripts/work_router_service_stub.sh" "observe service wrapper exec"
 require_contains "$UNIT" "StandardOutput=append:__DEPLOY_ROOT__/logs/cortex-workrouter.log" "local runtime log"
 

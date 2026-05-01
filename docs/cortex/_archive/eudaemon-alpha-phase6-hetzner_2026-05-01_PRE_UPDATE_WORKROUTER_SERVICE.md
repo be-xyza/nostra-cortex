@@ -12,11 +12,10 @@ This is the canonical VPS runtime runbook for the current Eudaemon Alpha host.
 - Deployed runtime components:
   - `cortex-gateway`
   - `cortex_worker`
-  - `cortex-workrouter.service` in observe-only D0-D1 mode
 - Not deployed on the VPS:
   - `cortex-web`
 
-`cortex-web` source remains in the mirrored repo for development and reference, but it is not part of live VPS runtime behavior. WorkRouter is a Cortex runtime helper, not a mutation authority: it may observe pending dispatch records, export handoff envelopes, write heartbeat/evidence, and notify through approved adapters after later approval. VPS analysis must start from the repo mirror plus the authority manifest, then compare the running services against those declared paths.
+`cortex-web` source remains in the mirrored repo for development and reference, but it is not part of live VPS runtime behavior. VPS analysis must start from the repo mirror plus the authority manifest, then compare the running services against those declared paths.
 
 ## Server Layout
 
@@ -38,7 +37,6 @@ Canonical roots:
 - authority manifest: `/srv/nostra/eudaemon-alpha/state/cortex_runtime_authority.json`
 - gateway workspace root: `/srv/nostra/eudaemon-alpha/repo/cortex`
 - worker workspace root: `/srv/nostra/eudaemon-alpha/repo/nostra/worker`
-- WorkRouter runtime log root: `/srv/nostra/eudaemon-alpha/logs/work_router`
 - `cortex-web` source root: `/srv/nostra/eudaemon-alpha/repo/cortex/apps/cortex-web`
 
 ## Runtime Components
@@ -54,18 +52,6 @@ Canonical roots:
 - systemd unit: `cortex-worker.service`
 - working directory: `/srv/nostra/eudaemon-alpha/repo/nostra/worker`
 - executable: `/srv/nostra/eudaemon-alpha/repo/nostra/worker/target/release/cortex_worker`
-
-### WorkRouter
-
-- systemd unit: `cortex-workrouter.service`
-- working directory: `/srv/nostra/eudaemon-alpha/repo`
-- executable: `/srv/nostra/eudaemon-alpha/repo/scripts/work_router_service_stub.sh`
-- authority ceiling: D1
-- mode: observe
-- live transport: disabled for v1 bootstrap
-- runtime outputs: `/srv/nostra/eudaemon-alpha/logs/work_router`
-
-WorkRouter may not mutate source, commit, push, deploy, call canisters, mutate graphs, or expose provider/runtime/auth topology. Unknown replies are review-only until an operator classifies them.
 
 ### `cortex-web`
 
@@ -93,7 +79,7 @@ The on-host deploy path must:
 4. Build the gateway from `/srv/nostra/eudaemon-alpha/repo/cortex`.
 5. Build the worker from `/srv/nostra/eudaemon-alpha/repo/nostra/worker`.
 6. Render and install the systemd units from repo templates.
-7. Restart the gateway, worker, and WorkRouter services.
+7. Restart the gateway and worker.
 8. Write `/srv/nostra/eudaemon-alpha/state/cortex_runtime_authority.json`.
 
 The authority manifest is the first source of truth for the VPS agent. Running services must be treated as derived state that is validated against that manifest, not as authority by themselves.
@@ -111,9 +97,8 @@ This check must confirm:
 - the repo mirror is a valid git checkout
 - the authority manifest exists and parses
 - manifest commit matches repo `HEAD`
-- installed gateway, worker, and WorkRouter units run repo-declared executables under the repo mirror
+- installed gateway and worker units run binaries under the repo mirror
 - running gateway and worker processes match the manifest executable paths
-- WorkRouter is constrained to D1 observe mode with source mutation, runtime mutation, and live transport disabled
 - declared working directories exist
 - authority docs referenced by the manifest exist and match the runtime boundary
 - `cortex-web` deployment mode is explicitly `not_deployed`
@@ -159,9 +144,6 @@ curl -sS http://127.0.0.1:3000/api/system/ready
 curl -sS http://127.0.0.1:3000/api/system/status
 systemctl status cortex-gateway.service --no-pager
 systemctl status cortex-worker.service --no-pager
-systemctl status cortex-workrouter.service --no-pager
-cat /srv/nostra/eudaemon-alpha/logs/work_router/service/heartbeat.json
-cat /srv/nostra/eudaemon-alpha/logs/work_router/agent_run_evidence/workrouter-observe-loop-latest.json
 ```
 
 For browser-side validation, use an operator-local or separately hosted `cortex-web` instance pointed at the live gateway. Do not treat browser behavior as VPS-hosted runtime unless the authority manifest and this runbook are updated to declare `cortex-web` as deployed.

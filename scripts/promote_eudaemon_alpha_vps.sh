@@ -48,7 +48,7 @@ if [[ "$#" -gt 1 ]]; then
 fi
 
 if [[ "$FETCH_REMOTE" == "1" ]]; then
-  "$GIT_BIN" -C "$ROOT_DIR" fetch origin main >/dev/null
+  "$GIT_BIN" -C "$ROOT_DIR" fetch origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null
 fi
 
 target_ref="${1:-$PROMOTABLE_REF}"
