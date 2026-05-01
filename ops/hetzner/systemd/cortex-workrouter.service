@@ -1,0 +1,27 @@
+[Unit]
+Description=Cortex WorkRouter D0-D1 Bootstrap Service
+After=network-online.target cortex-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=__DEPLOY_ROOT__/repo
+EnvironmentFile=__DEPLOY_ROOT__/config/eudaemon-alpha.env
+Environment=WORK_ROUTER_MAX_DISPATCH_LEVEL=D1
+Environment=WORK_ROUTER_SOURCE_MUTATION_ALLOWED=0
+Environment=WORK_ROUTER_RUNTIME_MUTATION_ALLOWED=0
+Environment=WORK_ROUTER_REQUIRE_REQUEST_ID=1
+Environment=WORK_ROUTER_UNKNOWN_REPLIES_REVIEW_ONLY=1
+Environment=WORK_ROUTER_TRANSPORTS_ENABLED=cli
+Environment=WORK_ROUTER_LIVE_TRANSPORT_ENABLED=0
+Environment=WORK_ROUTER_MODE=observe
+ExecStart=__DEPLOY_ROOT__/repo/scripts/work_router_service_stub.sh
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:__DEPLOY_ROOT__/logs/cortex-workrouter.log
+StandardError=append:__DEPLOY_ROOT__/logs/cortex-workrouter.log
+
+[Install]
+WantedBy=multi-user.target

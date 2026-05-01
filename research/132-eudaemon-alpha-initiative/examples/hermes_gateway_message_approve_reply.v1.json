@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "gateway": "hermes_gateway",
+  "messageId": "hermes-gateway-msg-approve-001",
+  "profileId": "hermescortexdev",
+  "conversationId": "operator-private",
+  "sender": {
+    "kind": "operator",
+    "id": "user"
+  },
+  "text": "approved",
+  "createdAt": "2026-05-01T01:00:00Z",
+  "requestId": "dispatch-request:initiative-132.hermescortexdev-low-risk-patch-prep"
+}

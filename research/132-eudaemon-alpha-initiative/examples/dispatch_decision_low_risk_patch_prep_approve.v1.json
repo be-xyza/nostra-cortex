@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0.0",
+  "decisionId": "dispatch-decision:initiative-132.hermescortexdev-low-risk-patch-prep",
+  "requestId": "dispatch-request:initiative-132.hermescortexdev-low-risk-patch-prep",
+  "decision": "approve",
+  "approvedLevel": "D1",
+  "decider": {
+    "kind": "operator",
+    "id": "user"
+  },
+  "rationale": "Approve patch-prep handoff only; no source mutation, commit, push, deploy, or runtime mutation.",
+  "conditions": [
+    "handoff_only",
+    "no_repo_mutation"
+  ],
+  "decidedAt": "2026-04-30T12:36:00Z"
+}

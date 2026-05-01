@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "initiative-132.workflow-failure-capability-review",
+  "spaceId": "initiative-132-research",
+  "requester": {
+    "kind": "steward",
+    "id": "systems-steward",
+    "displayName": "Systems Steward"
+  },
+  "intent": "Review whether workflow failure analysis needs a new governed capability or can be handled by existing workflow, evaluation, and Hermes advisory surfaces.",
+  "desiredOutcome": "A recommendation-only finding that maps the task to existing primitives and identifies whether a capability proposal is needed.",
+  "knownContextRefs": [
+    {
+      "kind": "initiative",
+      "ref": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/NOVEL_TASK_INTAKE_CONTRACT.md",
+      "authorityTier": "governed",
+      "label": "Novel task intake contract"
+    },
+    {
+      "kind": "initiative",
+      "ref": "/Users/xaoj/ICP/research/130-space-capability-graph-governance/PLAN.md",
+      "authorityTier": "governed",
+      "label": "Space capability graph governance"
+    },
+    {
+      "kind": "initiative",
+      "ref": "/Users/xaoj/ICP/research/133-eval-driven-orchestration/PLAN.md",
+      "authorityTier": "governed",
+      "label": "Eval-driven orchestration"
+    },
+    {
+      "kind": "initiative",
+      "ref": "/Users/xaoj/ICP/research/134-hybrid-workflow-authority-and-execution/PLAN.md",
+      "authorityTier": "governed",
+      "label": "Hybrid workflow authority"
+    }
+  ],
+  "constraints": {
+    "budget": {
+      "maxTokens": 12000,
+      "maxCostUsd": 0,
+      "latencyTargetMs": 0,
+      "currency": "USD"
+    },
+    "authority": [
+      "recommendation_only",
+      "no_runtime_mutation",
+      "no_repo_mutation"
+    ],
+    "runtime": [
+      "hermes132_advisory_only"
+    ],
+    "policy": [
+      "operator_only_runtime_topology",
+      "steward_review_before_promotion"
+    ]
+  },
+  "requiredCapabilities": [
+    {
+      "capabilityId": "workflow-orchestration",
+      "requiredClaims": [
+        "capability:navigate"
+      ],
+      "selectionRationale": "Workflow failure review begins by inspecting existing workflow contracts and failure/evaluation surfaces."
+    },
+    {
+      "capabilityId": "evaluation",
+      "requiredClaims": [
+        "capability:navigate"
+      ],
+      "selectionRationale": "The question depends on whether existing evaluation gates and benchmark records already cover the need."
+    },
+    {
+      "capabilityId": "hermes-advisory-review",
+      "requiredClaims": [],
+      "selectionRationale": "Hermes132 may produce bounded source-linked synthesis, but cannot execute or mutate."
+    }
+  ],
+  "uncertainties": [
+    {
+      "kind": "capability_unknown",
+      "summary": "It is not yet proven that existing workflow and evaluation capabilities cover all workflow failure analysis needs.",
+      "severity": "medium",
+      "recommendedAction": "Run a bounded hermes132 advisory synthesis before proposing a new capability."
+    },
+    {
+      "kind": "authority_unknown",
+      "summary": "Any new capability affecting workflow failure handling may become structural if it changes workflow authority or runtime behavior.",
+      "severity": "medium",
+      "recommendedAction": "Keep the first output recommendation-only and route structural changes through proposal and steward review."
+    }
+  ],
+  "riskLevel": "medium",
+  "recommendedPrimitive": "hermes_advisory",
+  "authorityCeiling": "l1",
+  "evaluationRequirements": [
+    {
+      "kind": "source_manifest",
+      "required": true,
+      "notes": "Hermes132 pass must name exact initiative and workflow sources."
+    },
+    {
+      "kind": "audit_unit",
+      "required": true,
+      "notes": "Audit unit must be bounded to capability gap review."
+    },
+    {
+      "kind": "hermes_session_record",
+      "required": true,
+      "notes": "Hermes132 must emit one session record and one synthesis artifact."
+    },
+    {
+      "kind": "steward_review",
+      "required": true,
+      "notes": "Any capability proposal must be reviewed before promotion."
+    }
+  ],
+  "memoryPolicy": {
+    "shortTerm": {
+      "surface": "context_bundle",
+      "required": true,
+      "retention": "ephemeral",
+      "notes": "Use only the bounded source manifest and audit unit for the advisory pass."
+    },
+    "working": {
+      "surface": "heap",
+      "required": true,
+      "retention": "local_runtime",
+      "notes": "Project reviewed recommendation to heap only after operator review."
+    },
+    "execution": {
+      "surface": "lifecycle_trace",
+      "required": false,
+      "retention": "local_runtime",
+      "notes": "No runtime execution occurs in the Hermes132 advisory route."
+    },
+    "institutional": {
+      "surface": "governed_evidence",
+      "required": false,
+      "retention": "governed",
+      "notes": "Promote only if the steward accepts the recommendation as durable evidence."
+    }
+  },
+  "promotionPath": {
+    "mode": "hermes_to_reviewed_artifact",
+    "reviewRequired": true,
+    "targetRefs": [
+      {
+        "kind": "evidence",
+        "ref": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/",
+        "authorityTier": "governed",
+        "label": "Initiative 132 evidence directory"
+      }
+    ],
+    "notes": "A surviving capability gap should become a proposal or governed evidence note, not a direct runtime change."
+  },
+  "hermesProfile": "hermes132",
+  "provenance": {
+    "createdBy": "codex",
+    "createdAt": "2026-04-27T18:45:00Z",
+    "sourceMode": "agent",
+    "sourceRefs": [
+      {
+        "kind": "evidence",
+        "ref": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/20260427T181514Z_core_process_gap_validation.md",
+        "authorityTier": "governed",
+        "label": "Core process gap validation"
+      }
+    ]
+  }
+}

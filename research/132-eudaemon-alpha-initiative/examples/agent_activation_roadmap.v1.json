@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "1.0.0",
+  "roadmapId": "agent-activation-roadmap:init132:v1",
+  "authorityMode": "recommendation_only",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "entries": [
+    {
+      "candidateAgentId": "agent:workrouter-vps-observer",
+      "proposedHarnessId": "native-workrouter",
+      "activationStage": "current_stage",
+      "targetLifecycleState": "sandboxed",
+      "authorityCeiling": "D1",
+      "activationConditions": [
+        "VPS WorkRouter bootstrap check passes",
+        "observe-loop emits heartbeat and AgentRunEvidenceV1 locally",
+        "live transports remain disabled"
+      ],
+      "requiredEvidenceRefs": [
+        "bash scripts/check_vps_workrouter_bootstrap.sh",
+        "research/132-eudaemon-alpha-initiative/VPS_WORKROUTER_BOOTSTRAP_CONTRACT.md"
+      ],
+      "forbiddenBeforeActivation": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation", "live_transport_ingestion"],
+      "rationale": "This is the only new near-term agent lane: observe pending work and export local outbox envelopes on the existing VPS."
+    },
+    {
+      "candidateAgentId": "agent:test-gate-monitor",
+      "proposedHarnessId": "native-workrouter",
+      "activationStage": "next_stage",
+      "targetLifecycleState": "proposed",
+      "authorityCeiling": "D1",
+      "activationConditions": [
+        "test catalog consistency checks pass",
+        "gate summary artifacts are stable",
+        "agent output remains recommendation-only"
+      ],
+      "requiredEvidenceRefs": [
+        "scripts/test_catalog_refresh.sh",
+        "scripts/check_test_catalog_consistency.sh"
+      ],
+      "forbiddenBeforeActivation": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "rationale": "A test monitor can speed operator awareness without executing fixes or mutating repo state."
+    },
+    {
+      "candidateAgentId": "agent:evidence-curator",
+      "proposedHarnessId": "native-workrouter",
+      "activationStage": "next_stage",
+      "targetLifecycleState": "proposed",
+      "authorityCeiling": "D1",
+      "activationConditions": [
+        "evidence promotion command contract is stable",
+        "mutable runtime outputs remain local unless explicitly promoted",
+        "curator can propose evidence bundles without writing governed records automatically"
+      ],
+      "requiredEvidenceRefs": [
+        "scripts/promote_evidence_artifact.sh",
+        "AGENTS.md"
+      ],
+      "forbiddenBeforeActivation": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "rationale": "Evidence drift is a near-term risk; a curator should propose promotion targets, not promote silently."
+    },
+    {
+      "candidateAgentId": "agent:space-bootstrap-architect",
+      "proposedHarnessId": "cortex-worker",
+      "activationStage": "platform_maturity",
+      "targetLifecycleState": "proposed",
+      "authorityCeiling": "D1",
+      "activationConditions": [
+        "Space binding is explicit in AgentProfileV1",
+        "workflow/proposal surfaces are stable",
+        "Space structure changes route through proposals or steward gates"
+      ],
+      "requiredEvidenceRefs": [
+        "docs/architecture/nostra-cortex-boundary.md",
+        "research/132-eudaemon-alpha-initiative/PLAN.md"
+      ],
+      "forbiddenBeforeActivation": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation", "space_mutation"],
+      "rationale": "Space agents are valuable later, but they must draft structures and workflows through governed Space surfaces before mutation authority exists."
+    },
+    {
+      "candidateAgentId": "agent:workflow-closeout-steward",
+      "proposedHarnessId": "native-workrouter",
+      "activationStage": "platform_maturity",
+      "targetLifecycleState": "proposed",
+      "authorityCeiling": "D1",
+      "activationConditions": [
+        "workflow artifact pipeline is stable",
+        "closeout ledgers are canonical for follow-through",
+        "agent can propose workflow drafts without applying them"
+      ],
+      "requiredEvidenceRefs": [
+        "research/134-hybrid-workflow-authority-and-execution/PLAN.md",
+        "research/132-eudaemon-alpha-initiative/WORK_ROUTER_DISPATCH_CONTRACT.md"
+      ],
+      "forbiddenBeforeActivation": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "rationale": "This agent should reduce dropped follow-through only after workflow authority contracts are stable."
+    },
+    {
+      "candidateAgentId": "agent:runtime-health-sentinel",
+      "proposedHarnessId": "cortex-worker",
+      "activationStage": "platform_maturity",
+      "targetLifecycleState": "proposed",
+      "authorityCeiling": "D0",
+      "activationConditions": [
+        "operator-only runtime topology redaction is enforced",
+        "health summaries can be emitted without provider inventory exposure",
+        "VPS authority validation passes"
+      ],
+      "requiredEvidenceRefs": [
+        "bash scripts/check_vps_runtime_authority.sh",
+        "docs/architecture/nostra-cortex-boundary.md"
+      ],
+      "forbiddenBeforeActivation": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation", "live_transport_ingestion"],
+      "rationale": "Runtime health visibility is useful, but it must not leak operator-only topology or become runtime mutation authority."
+    },
+    {
+      "candidateAgentId": "agent:d2-patch-operator",
+      "proposedHarnessId": "codex-operator",
+      "activationStage": "future_governed_lane",
+      "targetLifecycleState": "proposed",
+      "authorityCeiling": "D2",
+      "activationConditions": [
+        "isolated request worktree enforcement exists",
+        "allowed write scopes are machine-validated",
+        "verification gates are mandatory",
+        "human approval is required per request"
+      ],
+      "requiredEvidenceRefs": [
+        "research/132-eudaemon-alpha-initiative/WORK_ROUTER_DISPATCH_CONTRACT.md",
+        "AGENTS.md"
+      ],
+      "forbiddenBeforeActivation": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "rationale": "D2 patch preparation should remain future-gated and separate from messenger routing until isolated implementation controls are governed."
+    }
+  ]
+}

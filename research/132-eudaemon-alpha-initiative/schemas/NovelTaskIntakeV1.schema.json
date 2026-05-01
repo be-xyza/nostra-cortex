@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nostra://research/132/schemas/NovelTaskIntakeV1.schema.json",
+  "title": "NovelTaskIntakeV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "spaceId",
+    "requester",
+    "intent",
+    "desiredOutcome",
+    "knownContextRefs",
+    "constraints",
+    "requiredCapabilities",
+    "uncertainties",
+    "riskLevel",
+    "recommendedPrimitive",
+    "authorityCeiling",
+    "evaluationRequirements",
+    "memoryPolicy",
+    "promotionPath",
+    "hermesProfile",
+    "provenance"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "spaceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requester": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["human", "steward", "agent", "system"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string"
+        }
+      }
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "desiredOutcome": {
+      "type": "string",
+      "minLength": 1
+    },
+    "knownContextRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contextRef"
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "budget": {
+          "$ref": "#/$defs/budget"
+        },
+        "deadline": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "privacy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "runtime": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "policy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "requiredCapabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capabilityRef"
+      }
+    },
+    "uncertainties": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/uncertainty"
+      }
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "structural"]
+    },
+    "recommendedPrimitive": {
+      "type": "string",
+      "enum": [
+        "heap",
+        "closeout",
+        "workflow",
+        "proposal",
+        "chronicle",
+        "steward_review",
+        "hermes_advisory",
+        "stop"
+      ]
+    },
+    "authorityCeiling": {
+      "type": "string",
+      "enum": ["l0", "l1", "l2", "l3", "l4"]
+    },
+    "evaluationRequirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evaluationRequirement"
+      }
+    },
+    "memoryPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shortTerm", "working", "execution", "institutional"],
+      "properties": {
+        "shortTerm": {
+          "$ref": "#/$defs/memoryRoute"
+        },
+        "working": {
+          "$ref": "#/$defs/memoryRoute"
+        },
+        "execution": {
+          "$ref": "#/$defs/memoryRoute"
+        },
+        "institutional": {
+          "$ref": "#/$defs/memoryRoute"
+        }
+      }
+    },
+    "promotionPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "reviewRequired", "targetRefs"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "heap_to_proposal",
+            "heap_to_evidence",
+            "workflow_draft_to_definition",
+            "closeout_to_evidence",
+            "hermes_to_reviewed_artifact",
+            "chronicle_draft",
+            "steward_gate"
+          ]
+        },
+        "reviewRequired": {
+          "type": "boolean"
+        },
+        "targetRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contextRef"
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "hermesProfile": {
+      "type": "string",
+      "enum": ["none", "hermes132", "hermescortexdev"],
+      "description": "Optional Hermes profile boundary for this intake. hermescortexdev is the correct developer patch-prep profile; hermecortexdev is a typo and must be rejected."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdBy", "createdAt", "sourceMode"],
+      "properties": {
+        "createdBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sourceMode": {
+          "type": "string",
+          "enum": ["human", "agent", "system", "hybrid"]
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contextRef"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "contextRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "heap_block",
+            "artifact",
+            "proposal",
+            "workflow",
+            "closeout",
+            "evidence",
+            "initiative",
+            "file",
+            "source_manifest",
+            "audit_unit",
+            "chronicle",
+            "external"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorityTier": {
+          "type": "string",
+          "enum": ["governed", "runtime", "local", "external", "unknown"]
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxCostUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "latencyTargetMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "default": "USD"
+        }
+      }
+    },
+    "capabilityRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capabilityId"],
+      "properties": {
+        "capabilityId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredClaims": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "selectionRationale": {
+          "type": "string"
+        }
+      }
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "summary", "severity"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "missing_context",
+            "ambiguous_intent",
+            "authority_unknown",
+            "capability_unknown",
+            "runtime_safety",
+            "source_quality",
+            "cost_unknown",
+            "dependency_unknown"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "blocking"]
+        },
+        "recommendedAction": {
+          "type": "string"
+        }
+      }
+    },
+    "evaluationRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "required"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "source_links",
+            "confidence_note",
+            "steward_review",
+            "workflow_validation",
+            "compile_result",
+            "lifecycle_record",
+            "benchmark",
+            "siq",
+            "test_catalog",
+            "hermes_session_record",
+            "source_manifest",
+            "audit_unit"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "memoryRoute": {
+      "type": "object",
+      "description": "Memory surface selected for the intake route. contribution_graph is a read-only context surface reserved for hermes132 advisory intake and must not be used by hermescortexdev patch-prep packets.",
+      "additionalProperties": false,
+      "required": ["surface", "required"],
+      "properties": {
+        "surface": {
+          "type": "string",
+          "enum": [
+            "context_bundle",
+            "heap",
+            "workflow_context",
+            "lifecycle_trace",
+            "closeout_evidence",
+            "governed_evidence",
+            "proposal",
+            "chronicle",
+            "contribution_graph",
+            "none"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "retention": {
+          "type": "string",
+          "enum": ["ephemeral", "local_runtime", "governed", "published"]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/DispatchCommandV1.schema.json",
+  "title": "DispatchCommandV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "commandId", "rawText", "kind", "createdAt"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "commandId": { "type": "string", "minLength": 3 },
+    "rawText": { "type": "string" },
+    "kind": {
+      "type": "string",
+      "enum": ["pending", "status", "latest", "show", "help", "decision_alias", "unknown"]
+    },
+    "args": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runId": { "type": "string" },
+        "decision": { "type": "string", "enum": ["approve", "reject", "revise", "escalate", "pause"] }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

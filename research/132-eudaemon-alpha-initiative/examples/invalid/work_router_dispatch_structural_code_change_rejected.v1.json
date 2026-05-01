@@ -1,0 +1,36 @@
+{
+  "workRouterDecision": {
+    "schemaVersion": "1.0.0",
+    "routerDecisionId": "router-decision-invalid-structural-001",
+    "taskRef": "task:invalid-structural-example",
+    "classification": {
+      "taskShape": "code_change",
+      "riskLevel": "structural",
+      "uncertainty": "medium"
+    },
+    "recommendedRoute": "code_change_candidate",
+    "authorityCeiling": "D2",
+    "requiredDispatchLevel": "D2",
+    "rationale": "Invalid fixture: structural work cannot route to code mutation candidate.",
+    "createdAt": "2026-04-30T12:00:00Z"
+  },
+  "dispatchRequest": {
+    "schemaVersion": "1.0.0",
+    "requestId": "dispatch-request-invalid-structural-001",
+    "taskRef": "task:invalid-structural-example",
+    "transport": {
+      "kind": "telegram",
+      "channelRef": "operator-private"
+    },
+    "requestedLevel": "D2",
+    "authorityCeiling": "D2",
+    "riskLevel": "structural",
+    "prompt": {
+      "title": "Invalid structural code request",
+      "summary": "This structural task is incorrectly routed as a code-change candidate."
+    },
+    "allowedDecisions": ["approve", "reject"],
+    "forbiddenActions": ["commit", "push", "deploy"],
+    "createdAt": "2026-04-30T12:00:01Z"
+  }
+}

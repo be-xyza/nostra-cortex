@@ -45,7 +45,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Institutional Agent Architecture"
 created: "2026-03-07"
-updated: "2026-05-01"
+updated: "2026-04-27"
 ---
 
 # Initiative 132: Eudaemon Alpha
@@ -59,14 +59,11 @@ Current validated reality for this pass:
 - The root repo is the authoritative source for this planning pass.
 - The companion `eudaemon-alpha/` repo has been deprecated. Initiative 132 authority lives entirely in the root ICP tree. Older references to `eudaemon-alpha/` in archived documents are historical only.
 - The active VPS deployment contract is `cortex-gateway` plus `cortex_worker`, rendered and checked through the Hetzner runbook and runtime authority manifest.
-- WorkRouter v1 may be installed on the existing VPS as a separate, low-authority `cortex-workrouter.service` only after the bootstrap contract passes; it remains D0-D1 observe, route, ask, handoff, and notify only.
 - The `cortex_worker` build restoration is currently represented by PR #69 as a passive preflight worker: it can build, load config, manage HPKE key material, and report canister visibility, but live polling/runtime execution remains disabled until production identity and VPS authority proof pass.
 - Prompt override remains a target hypothesis, not a validated runtime dependency.
 - Meta-Harness adoption is recommendation-only and does not bypass Nostra or Cortex authority boundaries.
 - Hermes is allowed only as a local, read-only advisory meta-observer for batch-design planning; live batch-provider execution and execution-adapter logic remain out of scope.
 - `hermescortexdev` is a separate patch-prep-only Hermes developer/operator profile. Its local handoff artifacts may inform Codex/operator implementation, but they do not mutate the repo/runtime and they do not become governed Initiative 132 evidence until manually promoted.
-- Agent harnesses are now tracked as replaceable, evidence-evaluated substrates. Hermes Agent, OpenClaw, ZeroClaw, and Monopi may be compared through `AgentHarnessRegistryV1`; project-facing profiles such as `hermes132`, `hermescortexdev`, WorkRouter, and `agent:eudaemon-alpha-01` must declare authority ceilings, forbidden actions, and lifecycle status before promotion.
-- Future agents are tracked conditionally through `AgentActivationRoadmapV1`; the current stage should add the VPS WorkRouter observer only, while test monitoring, evidence curation, Space bootstrap, workflow closeout, runtime health, and D2 patch operation remain gated by platform progress.
 
 ## Phase 6 Runtime Resolution
 
@@ -168,9 +165,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 9. Treat clean request worktrees, durable checkpointing, and immutable evidence promotion as operator safety controls for the system-definition layer.
 10. Define a local Hermes observer envelope as a planned advisory environment rather than a Cortex runtime component, with a dedicated activation workspace and local synthesis outputs.
 11. Define a separate Hermes developer-profile envelope for patch-prep handoffs only, with local task packets as v1 intake and Codex/operator retaining implementation authority.
-12. Define an Agent Operating Model that compares external and native harnesses, records project-facing profiles, and gates promotion/demotion through evidence rather than preference.
-13. Define the VPS WorkRouter bootstrap posture as a colocated, separate, low-authority Cortex service on the existing VPS rather than new infrastructure.
-14. Define a conditional future-agent roadmap so new agents are activated by platform readiness signals, not by default.
 
 ## Out of Scope
 
@@ -182,7 +176,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 6. Treating developer Git worktree state as a Cortex runtime primitive.
 7. Running live Doubleword or other batch-provider APIs, queue workers, polling loops, or execution-control extraction as part of the Hermes advisory pass.
 8. Treating `hermescortexdev` as an autonomous implementation agent, runtime worker, commit/push actor, deploy actor, or production mutation surface.
-9. Treating Hermes Agent, OpenClaw, ZeroClaw, Monopi, Telegram, or any messenger/gateway as durable project authority rather than replaceable adapters or harnesses.
 
 ## Delivery Phases
 
@@ -237,9 +230,6 @@ See `WORK_PRIMITIVES_ARCHITECTURE.md` for the full readiness analysis.
 - Define `HermesAuditRunbookV1` as a local runbook contract for operator-mediated preflight, one bounded pass, postflight, optional evidence drafting, and manual promotion.
 - Define explicit Hermes stage stabilization signals so update, upgrade, and deprecate decisions are made from evidence rather than intuition.
 - Use the hybrid companion skill strategy: keep `nostra-cortex-dev-core` lean as the governance/preflight gate and draft `nostra-platform-knowledge` as a progressive-disclosure proposal before any skill registry change.
-- Add the Agent Operating Model: `AgentHarnessRegistryV1` compares candidate harnesses, `AgentProfileV1` records project-facing profiles and authority ceilings, and `AgentPromotionGateV1` defines promotion/demotion criteria.
-- Keep Hermes Gateway, Telegram direct, Cortex Web, CLI, Matrix, email, and webhooks as peer dispatch adapters. WorkRouter remains the decision layer and v1 stays D0-D1 only.
-- Track future Space agents through the same profile and gate contracts before they bootstrap Space structures, workflows, or processes.
 - Use Hermes locally to reason over batch-design references without provider execution; any later external batch backend must remain advisory cognition behind Initiative 134.
 - Re-enter Eudaemon Alpha for synthesis, prioritization, contradiction review, and recommendation drafting.
 - Publish outputs through heap blocks, proposals, closeout work, workflow drafts, or chronicle drafts instead of direct authority mutation.

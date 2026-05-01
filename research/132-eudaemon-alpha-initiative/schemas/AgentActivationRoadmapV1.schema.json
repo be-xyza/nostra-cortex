@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/AgentActivationRoadmapV1.schema.json",
+  "title": "AgentActivationRoadmapV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "roadmapId",
+    "authorityMode",
+    "generatedAt",
+    "entries"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "roadmapId": { "type": "string", "minLength": 3 },
+    "authorityMode": { "type": "string", "enum": ["recommendation_only"] },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidateAgentId",
+          "proposedHarnessId",
+          "activationStage",
+          "targetLifecycleState",
+          "authorityCeiling",
+          "activationConditions",
+          "requiredEvidenceRefs",
+          "forbiddenBeforeActivation",
+          "rationale"
+        ],
+        "properties": {
+          "candidateAgentId": { "type": "string", "minLength": 3 },
+          "proposedHarnessId": { "type": "string", "minLength": 3 },
+          "activationStage": {
+            "type": "string",
+            "enum": ["current_stage", "next_stage", "platform_maturity", "future_governed_lane"]
+          },
+          "targetLifecycleState": {
+            "type": "string",
+            "enum": ["proposed", "sandboxed", "pilot", "active", "restricted", "deprecated", "retired"]
+          },
+          "authorityCeiling": { "type": "string", "enum": ["D0", "D1", "D2", "D3", "D4", "D5"] },
+          "activationConditions": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1
+          },
+          "requiredEvidenceRefs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "forbiddenBeforeActivation": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "source_mutation",
+                "runtime_mutation",
+                "commit",
+                "push",
+                "pull_request",
+                "deploy",
+                "canister_call",
+                "graph_mutation",
+                "provider_topology_exposure",
+                "authority_escalation",
+                "live_transport_ingestion",
+                "space_mutation"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "rationale": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

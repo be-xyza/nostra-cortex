@@ -1,31 +1,5 @@
 # Initiative 132 Decisions
 
-## 2026-05-01 — Agent Harnesses Are Evaluated Substrates, Not Authority
-
-**Decision**
-
-Adopt a v1 Agent Operating Model for Initiative 132 that tracks agentic harnesses, project-facing profiles, and promotion/demotion gates as governed recommendation-only contracts.
-
-Hermes Agent, OpenClaw, ZeroClaw, and Monopi are candidate harnesses to compare over time. Hermes Gateway may bootstrap near-term WorkRouter communications because it already provides profile-aware gateway behavior, but Hermes, Telegram, Cortex Web, CLI, Matrix, email, and webhooks are all transport or harness adapters under WorkRouter and Cortex contracts. None of them becomes project authority.
-
-**Why**
-
-- The project now has multiple agent lanes: `hermes132`, `hermescortexdev`, WorkRouter, and `agent:eudaemon-alpha-01`.
-- Long-term performance requires evidence-based promotion and demotion rather than locking into one external harness.
-- WorkRouter already provides the correct D0-D1 authority boundary for dispatch, approval, handoff generation, and unknown-response review.
-
-**Consequences**
-
-- `AgentHarnessRegistryV1`, `AgentProfileV1`, `AgentPromotionGateV1`, `AgentRunEvidenceV1`, and `AgentActivationRoadmapV1` are Initiative 132 planning contracts.
-- Active harnesses require evaluation evidence; unvalidated harnesses may be tracked only with explicit `unvalidated` status.
-- D0-D1 profiles must forbid source mutation, runtime mutation, commit, push, pull request, deploy, canister calls, graph mutation, and authority escalation.
-- The VPS WorkRouter bootstrap path uses the existing VPS and a separate low-authority `cortex-workrouter.service`; it does not require new infrastructure for v1.
-- Future agents are tracked as conditional candidates. The only current-stage new agent lane is the VPS WorkRouter observer; test monitoring, evidence curation, Space bootstrap, workflow closeout, runtime health, and D2 patch operation remain gated.
-- `hermescortexdev` must not expose terminal, code execution, delegation, cron, browser, image generation, web, or Codex CLI access in v1. It may prepare handoff artifacts only; Codex/operator remains the implementation lane.
-- Runtime boundary checks must compare declared agent profiles to live profile/tool configuration where the profile is locally inspectable. This prevents a profile from drifting into tools that its governed authority forbids.
-- New project-looking Hermes profiles and agent-like Cortex systemd services must be registered or explicitly ignored in the runtime-boundary declaration. Unregistered agent-like surfaces fail validation.
-- Actual code mutation remains Codex/operator-owned until a separate D2 implementation lane is governed.
-
 ## 2026-04-27 — Worker Build Is Passive-Preflight Only and Hermes Records Need Explicit Sync
 
 **Decision**

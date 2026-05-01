@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryId": "agent-profile-registry:invalid:mutation-d1",
+  "authorityMode": "recommendation_only",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "profiles": [
+    {
+      "agentId": "invalid-mutating-agent",
+      "harnessId": "hermes-agent",
+      "spaceBinding": { "mode": "operator_only" },
+      "purpose": "Invalid profile claiming D1 while allowing source mutation.",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": true,
+        "runtimeMutationAllowed": false
+      },
+      "allowedOutputs": ["patch"],
+      "forbiddenActions": ["runtime_mutation"],
+      "transportBindings": ["telegram"],
+      "runtimeBoundary": {
+        "status": "planned",
+        "rationale": "Invalid fixture supplies boundary metadata so mutation violation is tested directly."
+      },
+      "memoryPolicy": "none",
+      "healthStatus": "unknown",
+      "lifecycleState": "proposed"
+    }
+  ]
+}

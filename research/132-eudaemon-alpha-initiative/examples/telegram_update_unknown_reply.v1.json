@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "result": [
+    {
+      "update_id": 1320002,
+      "message": {
+        "message_id": 102,
+        "from": {
+          "id": 424242,
+          "is_bot": false,
+          "first_name": "Operator"
+        },
+        "chat": {
+          "id": 424242,
+          "type": "private"
+        },
+        "date": 1770000001,
+        "text": "apprve please"
+      }
+    }
+  ]
+}

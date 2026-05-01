@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/AgentRunEvidenceV1.schema.json",
+  "title": "AgentRunEvidenceV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "evidenceId",
+    "agentId",
+    "harnessId",
+    "profileRef",
+    "runKind",
+    "authority",
+    "status",
+    "startedAt",
+    "finishedAt",
+    "inputRefs",
+    "outputRefs",
+    "forbiddenActionsConfirmed",
+    "summary"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "evidenceId": {
+      "type": "string",
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "agentId": { "type": "string", "minLength": 3 },
+    "harnessId": { "type": "string", "minLength": 3 },
+    "profileRef": { "type": "string", "minLength": 1 },
+    "runKind": {
+      "type": "string",
+      "enum": ["observe", "summarize", "route", "ask", "handoff", "notify", "review_unknown", "orchestrate"]
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxDispatchLevel", "sourceMutationAllowed", "runtimeMutationAllowed"],
+      "properties": {
+        "maxDispatchLevel": { "type": "string", "enum": ["D0", "D1", "D2", "D3", "D4", "D5"] },
+        "sourceMutationAllowed": { "type": "boolean" },
+        "runtimeMutationAllowed": { "type": "boolean" }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["dry_run", "recorded", "blocked", "failed"]
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "inputRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "outputRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "forbiddenActionsConfirmed": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "source_mutation",
+          "runtime_mutation",
+          "commit",
+          "push",
+          "pull_request",
+          "deploy",
+          "canister_call",
+          "graph_mutation",
+          "provider_topology_exposure",
+          "authority_escalation"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "summary": { "type": "string", "minLength": 1 },
+    "notes": { "type": "string" }
+  }
+}

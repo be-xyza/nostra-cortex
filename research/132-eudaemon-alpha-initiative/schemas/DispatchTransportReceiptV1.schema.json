@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/DispatchTransportReceiptV1.schema.json",
+  "title": "DispatchTransportReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "receiptId",
+    "requestId",
+    "transport",
+    "status",
+    "recordedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "receiptId": { "type": "string", "minLength": 3 },
+    "requestId": { "type": "string", "minLength": 3 },
+    "decisionId": { "type": "string" },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "messageRef"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["hermes_gateway", "telegram", "cortex_web", "cli", "matrix", "email", "webhook", "other"]
+        },
+        "messageRef": { "type": "string", "minLength": 1 }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["queued", "sent", "delivered", "read", "replied", "failed"]
+    },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "errorSummary": { "type": "string" }
+  }
+}

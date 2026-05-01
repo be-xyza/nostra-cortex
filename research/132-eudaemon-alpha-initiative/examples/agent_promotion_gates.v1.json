@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0.0",
+  "gateSetId": "agent-promotion-gates:init132:v1",
+  "authorityMode": "recommendation_only",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "gates": [
+    {
+      "gateId": "gate:workrouter:pilot-to-active",
+      "agentId": "workrouter",
+      "currentState": "pilot",
+      "targetState": "active",
+      "promotionCriteria": [
+        "D0-D1 dispatch checks pass",
+        "unknown-response handling records reviewable artifacts",
+        "transport adapters preserve matching request ids and authority ceilings",
+        "no source or runtime mutation occurs"
+      ],
+      "demotionCriteria": [
+        "any dispatch decision bypasses a matching request",
+        "any transport-specific field raises authority",
+        "operator-only topology is exposed through agent-facing output"
+      ],
+      "evidenceRefs": ["bash scripts/check_work_router_dispatch.sh"],
+      "decisionMode": "operator_required"
+    },
+    {
+      "gateId": "gate:eudaemon-alpha-01:blocked-to-pilot",
+      "agentId": "agent:eudaemon-alpha-01",
+      "currentState": "restricted",
+      "targetState": "pilot",
+      "promotionCriteria": [
+        "host-mode VPS authority validation passes",
+        "production identity enforcement is enabled",
+        "agent run records are visible through operator-only surfaces",
+        "Space membership and routing state are explicit"
+      ],
+      "demotionCriteria": [
+        "identity enforcement is disabled",
+        "runtime authority manifest drifts",
+        "agent attempts source mutation or production mutation outside approved gate"
+      ],
+      "evidenceRefs": ["bash scripts/check_vps_runtime_authority.sh"],
+      "decisionMode": "operator_required"
+    }
+  ]
+}

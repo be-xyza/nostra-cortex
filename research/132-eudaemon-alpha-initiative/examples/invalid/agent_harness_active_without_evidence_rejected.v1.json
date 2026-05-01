@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryId": "agent-harness-registry:invalid:active-without-evidence",
+  "authorityMode": "recommendation_only",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "harnesses": [
+    {
+      "harnessId": "invalid-active-harness",
+      "sourceRef": "unvalidated:invalid",
+      "status": "active",
+      "roleFit": ["gateway"],
+      "transportSupport": ["telegram"],
+      "profileSupport": "basic",
+      "executionModel": "unknown",
+      "securityPosture": "unknown",
+      "observability": "unknown",
+      "integrationCost": "unknown",
+      "performanceNotes": "Invalid active harness without evidence.",
+      "risks": ["missing evaluation evidence"],
+      "recommendation": "This fixture must fail validation.",
+      "evaluationEvidenceRefs": []
+    }
+  ]
+}

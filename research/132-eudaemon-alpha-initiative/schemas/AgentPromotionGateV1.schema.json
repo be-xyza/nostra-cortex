@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/AgentPromotionGateV1.schema.json",
+  "title": "AgentPromotionGateV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "gateSetId", "authorityMode", "generatedAt", "gates"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "gateSetId": { "type": "string", "minLength": 3 },
+    "authorityMode": { "const": "recommendation_only" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/gate" }
+    }
+  },
+  "$defs": {
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gateId",
+        "agentId",
+        "currentState",
+        "targetState",
+        "promotionCriteria",
+        "demotionCriteria",
+        "evidenceRefs",
+        "decisionMode"
+      ],
+      "properties": {
+        "gateId": { "type": "string", "minLength": 3 },
+        "agentId": { "type": "string", "minLength": 3 },
+        "currentState": { "type": "string", "enum": ["proposed", "sandboxed", "pilot", "active", "restricted", "deprecated", "retired"] },
+        "targetState": { "type": "string", "enum": ["sandboxed", "pilot", "active", "restricted", "deprecated", "retired"] },
+        "promotionCriteria": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 3 },
+          "minItems": 1
+        },
+        "demotionCriteria": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 3 },
+          "minItems": 1
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 3 }
+        },
+        "decisionMode": { "type": "string", "enum": ["recommendation_only", "steward_required", "operator_required"] }
+      }
+    }
+  }
+}
