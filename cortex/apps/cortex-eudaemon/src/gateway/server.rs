@@ -282,6 +282,32 @@ struct SystemReady {
     notes: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkerGenerationHealth {
+    status: String,
+    llm_base: String,
+    generation_model: String,
+    auth_configured: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkerGenerationGroundedRequest {
+    question: String,
+    #[serde(default)]
+    contexts: Vec<String>,
+    #[serde(default)]
+    strict_grounding: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct WorkerGenerationGroundedResponse {
+    model: String,
+    answer: String,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SystemBuild {
@@ -3335,6 +3361,14 @@ impl GatewayService {
             .route("/api/system/whoami", get(get_system_whoami))
             .route("/api/system/ready", get(get_system_ready))
             .route("/api/system/build", get(get_system_build))
+            .route(
+                "/api/system/worker-generation/health",
+                get(get_system_worker_generation_health),
+            )
+            .route(
+                "/api/system/worker-generation/grounded",
+                post(post_system_worker_generation_grounded),
+            )
             .route(
                 "/api/system/provider-runtime/status",
                 get(get_system_provider_runtime_status),
@@ -25069,6 +25103,154 @@ async fn get_system_build() -> Json<SystemBuild> {
     })
 }
 
+fn worker_generation_base_url() -> String {
+    std::env::var("NOSTRA_WORKER_LIVE_GENERATION_URL")
+        .ok()
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "http://127.0.0.1:3003".to_string())
+}
+
+async fn enforce_worker_generation_operator(
+    headers: &HeaderMap,
+    endpoint: &str,
+    resource: &str,
+    action: &str,
+    error_code: &str,
+    error_message: &str,
+) -> Result<ResolvedActorIdentity, axum::response::Response> {
+    enforce_role_authorization(
+        headers,
+        endpoint,
+        None,
+        resource,
+        action,
+        "operator",
+        vec![],
+        false,
+        vec![],
+        error_code,
+        error_message,
+    )
+    .await
+}
+
+async fn get_system_worker_generation_health(headers: HeaderMap) -> axum::response::Response {
+    if let Err(response) = enforce_worker_generation_operator(
+        &headers,
+        "get_system_worker_generation_health",
+        "capability:system_worker_generation_health",
+        "read",
+        "SYSTEM_WORKER_GENERATION_HEALTH_FORBIDDEN",
+        "Operator role or higher is required to inspect worker generation health.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    let url = format!("{}/health/model", worker_generation_base_url());
+    match reqwest::Client::new()
+        .get(url.as_str())
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await
+    {
+        Ok(response) if response.status().is_success() => match response
+            .json::<WorkerGenerationHealth>()
+            .await
+        {
+            Ok(body) => Json(body).into_response(),
+            Err(err) => cortex_ux_error(
+                StatusCode::BAD_GATEWAY,
+                "WORKER_GENERATION_HEALTH_PARSE_FAILED",
+                "Worker generation health response could not be parsed.",
+                Some(json!({ "reason": err.to_string() })),
+            ),
+        },
+        Ok(response) => {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            cortex_ux_error(
+                StatusCode::BAD_GATEWAY,
+                "WORKER_GENERATION_HEALTH_UPSTREAM_FAILED",
+                "Worker generation health endpoint returned an error.",
+                Some(json!({ "status": status.as_u16(), "body": body })),
+            )
+        }
+        Err(err) => cortex_ux_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "WORKER_GENERATION_HEALTH_UNREACHABLE",
+            "Worker generation health endpoint is unreachable.",
+            Some(json!({ "reason": err.to_string(), "url": url })),
+        ),
+    }
+}
+
+async fn post_system_worker_generation_grounded(
+    headers: HeaderMap,
+    Json(payload): Json<WorkerGenerationGroundedRequest>,
+) -> axum::response::Response {
+    if let Err(response) = enforce_worker_generation_operator(
+        &headers,
+        "post_system_worker_generation_grounded",
+        "capability:system_worker_generation_grounded",
+        "execute",
+        "SYSTEM_WORKER_GENERATION_EXECUTE_FORBIDDEN",
+        "Operator role or higher is required to call worker generation.",
+    )
+    .await
+    {
+        return response;
+    }
+    if payload.question.trim().is_empty() {
+        return cortex_ux_error(
+            StatusCode::BAD_REQUEST,
+            "WORKER_GENERATION_QUESTION_REQUIRED",
+            "question is required.",
+            None,
+        );
+    }
+
+    let url = format!("{}/generation/grounded", worker_generation_base_url());
+    match reqwest::Client::new()
+        .post(url.as_str())
+        .json(&payload)
+        .timeout(Duration::from_secs(90))
+        .send()
+        .await
+    {
+        Ok(response) if response.status().is_success() => match response
+            .json::<WorkerGenerationGroundedResponse>()
+            .await
+        {
+            Ok(body) => Json(body).into_response(),
+            Err(err) => cortex_ux_error(
+                StatusCode::BAD_GATEWAY,
+                "WORKER_GENERATION_RESPONSE_PARSE_FAILED",
+                "Worker generation response could not be parsed.",
+                Some(json!({ "reason": err.to_string() })),
+            ),
+        },
+        Ok(response) => {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            cortex_ux_error(
+                StatusCode::BAD_GATEWAY,
+                "WORKER_GENERATION_UPSTREAM_FAILED",
+                "Worker generation endpoint returned an error.",
+                Some(json!({ "status": status.as_u16(), "body": body })),
+            )
+        }
+        Err(err) => cortex_ux_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "WORKER_GENERATION_UNREACHABLE",
+            "Worker generation endpoint is unreachable.",
+            Some(json!({ "reason": err.to_string(), "url": url })),
+        ),
+    }
+}
+
 async fn get_system_providers(headers: HeaderMap) -> axum::response::Response {
     crate::gateway::provider_admin::routes::get_system_providers(headers).await
 }
@@ -42236,6 +42418,60 @@ N3d26cRxD99TPtm8uo2OuzKhSiq6EQ==
             body["errorCode"],
             "SYSTEM_PROVIDER_RUNTIME_STATUS_FORBIDDEN"
         );
+    }
+
+    #[tokio::test]
+    async fn system_worker_generation_health_requires_operator_role() {
+        let _lock = acquire_testing_env_lock();
+
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            get_system_worker_generation_health(role_headers("viewer", "actor-worker-health-1")),
+        )
+        .await
+        .expect("worker generation health route should resolve promptly");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(
+            body["errorCode"],
+            "SYSTEM_WORKER_GENERATION_HEALTH_FORBIDDEN"
+        );
+    }
+
+    #[tokio::test]
+    async fn system_worker_generation_grounded_requires_operator_role_before_upstream() {
+        let _lock = acquire_testing_env_lock();
+
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            post_system_worker_generation_grounded(
+                role_headers("viewer", "actor-worker-generation-1"),
+                Json(WorkerGenerationGroundedRequest {
+                    question: "Say hello".to_string(),
+                    contexts: vec![],
+                    strict_grounding: Some(true),
+                }),
+            ),
+        )
+        .await
+        .expect("worker generation route should resolve promptly");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(
+            body["errorCode"],
+            "SYSTEM_WORKER_GENERATION_EXECUTE_FORBIDDEN"
+        );
+    }
+
+    #[test]
+    fn worker_generation_base_url_trims_env_override() {
+        let _lock = acquire_testing_env_lock();
+        let _url_guard = EnvVarGuard::set(
+            "NOSTRA_WORKER_LIVE_GENERATION_URL",
+            "http://127.0.0.1:3999///",
+        );
+
+        assert_eq!(worker_generation_base_url(), "http://127.0.0.1:3999");
     }
 
     #[tokio::test]
