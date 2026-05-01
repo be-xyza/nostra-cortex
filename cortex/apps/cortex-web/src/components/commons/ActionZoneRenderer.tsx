@@ -55,7 +55,7 @@ export function ActionZoneRenderer({ actions, onActionClick, layoutHint = "pillb
     if (!visibleActions.length) return null;
 
     return (
-        <div className={`flex items-center gap-1 ${layoutHint === "pillbar" ? "px-2" : ""}`}>
+        <div className={`flex max-w-full flex-wrap items-center gap-1 ${layoutHint === "pillbar" ? "px-0 sm:px-2" : ""}`}>
             {visibleActions.map((action, i) => {
                 const iconNode = action.icon
                     ? (ICON_MAP[normalizeIconKey(action.icon)] || <CircleHelp className="w-4 h-4 opacity-70" />)
@@ -63,7 +63,7 @@ export function ActionZoneRenderer({ actions, onActionClick, layoutHint = "pillb
                 const isPrimary = action.emphasis === "primary" || action.emphasis === "accent";
                 const isDanger = action.emphasis === "danger";
 
-                let btnClass = "flex items-center justify-center transition-colors ";
+                let btnClass = "flex min-h-8 shrink-0 items-center justify-center whitespace-nowrap transition-colors ";
                 let spanClass = "tracking-wide ";
 
                 if (layoutHint === "pillbar") {
