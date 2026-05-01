@@ -17,6 +17,21 @@ Optional gateway URL override:
 VITE_CORTEX_GATEWAY_URL=http://127.0.0.1:3000 /Users/xaoj/ICP/run_cortex_web dev
 ```
 
+## Operator Identity
+
+The web host is viewer/read-only by default. Verified operator sessions are available only when a trusted local or private deployment explicitly enables Internet Identity operator auth.
+
+```bash
+VITE_II_OPERATOR_AUTH_ENABLED=true \
+VITE_II_PROVIDER_URL=https://id.ai/authorize \
+VITE_CORTEX_GATEWAY_URL=http://127.0.0.1:3000 \
+/Users/xaoj/ICP/run_cortex_web dev
+```
+
+When enabled, read-only sessions show a compact `Sign in` shortcut beside the role/profile control and a `Verify operator` action inside the read-only details popover. The browser sends the Internet Identity principal and delegation proof to `POST /api/system/session/internet-identity`; the gateway must still verify the delegation and map the principal through role bindings before operator actions are granted.
+
+Do not enable `VITE_II_OPERATOR_AUTH_ENABLED` on public/main Vercel unless that deployment is intended to accept verified operator sessions.
+
 ## A2UI Spatial Plane Experiment
 - `VITE_A2UI_SPATIAL_PLANE=1`: enables `SpatialPlane` A2UI rendering in the web host.
 - `VITE_A2UI_TLDRAW_EXPERIMENT=1`: attempts direct `tldraw` runtime binding. If `tldraw` is unavailable, renderer auto-falls back to SVG.
