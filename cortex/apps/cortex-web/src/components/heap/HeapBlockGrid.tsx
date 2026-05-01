@@ -1947,13 +1947,13 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                 {settingsOpen && (
                                     <>
                                         <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-                                        <div className="absolute right-0 mt-2 w-88 max-w-[calc(100vw-1rem)] overflow-hidden rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.96))] shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="fixed inset-x-2 top-16 z-50 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.96))] shadow-2xl animate-in fade-in zoom-in-95 duration-200 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-88 sm:max-w-[calc(100vw-1rem)] sm:overflow-hidden">
                                             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.08),transparent_35%)]" />
                                             <div className="relative p-3.5">
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div>
-                                                        <h4 className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">Details</h4>
-                                                        <p className="mt-1 text-[11px] leading-5 text-cortex-300/70">
+                                                        <h4 className="text-[10px] font-black uppercase tracking-[0.24em] text-cortex-500">Details</h4>
+                                                        <p className="mt-1.5 text-[11px] leading-6 text-cortex-300/70">
                                                             Space defaults first, then personal overrides, then session links.
                                                         </p>
                                                     </div>
@@ -1986,8 +1986,8 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                                         <div key={section.id} className="rounded-2xl border border-white/10 bg-white/3 p-2.5">
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div>
-                                                                    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cortex-500">{section.title}</div>
-                                                                    <p className="mt-1 text-[11px] leading-5 text-cortex-300/60">{section.description}</p>
+                                                                    <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cortex-500">{section.title}</div>
+                                                                    <p className="mt-1.5 text-[11px] leading-6 text-cortex-300/60">{section.description}</p>
                                                                 </div>
                                                                 {section.icon === "sliders" && <Sliders className="w-3.5 h-3.5 text-cortex-500/70" />}
                                                             </div>
