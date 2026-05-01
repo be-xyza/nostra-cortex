@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK_ROUTER_LOG_ROOT="${WORK_ROUTER_LOG_ROOT:-$ROOT_DIR/logs/work_router}"
 INTAKE_PATH=""
 DECISION_PATH=""
 TRANSPORT="cli"
@@ -84,7 +85,7 @@ if [[ -z "$RUN_ID" ]]; then
   RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-${TASK_ID//[^A-Za-z0-9._:-]/-}"
 fi
 
-RUN_DIR="$ROOT_DIR/logs/work_router/runs/$RUN_ID"
+RUN_DIR="$WORK_ROUTER_LOG_ROOT/runs/$RUN_ID"
 mkdir -p "$RUN_DIR"
 
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -208,6 +209,7 @@ pathlib.Path(run_json).write_text(json.dumps(payload, indent=2) + "\n", encoding
 PY
 
 python3 "$ROOT_DIR/scripts/validate_work_router_run.py" "$RUN_JSON" >/dev/null
-cp "$RUN_JSON" "$ROOT_DIR/logs/work_router/latest.json"
+mkdir -p "$WORK_ROUTER_LOG_ROOT"
+cp "$RUN_JSON" "$WORK_ROUTER_LOG_ROOT/latest.json"
 
 echo "$RUN_JSON"

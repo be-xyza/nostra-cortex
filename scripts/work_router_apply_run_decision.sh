@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK_ROUTER_LOG_ROOT="${WORK_ROUTER_LOG_ROOT:-$ROOT_DIR/logs/work_router}"
 RUN_ID=""
 DECISION_PATH=""
 
@@ -41,7 +42,7 @@ if [[ -z "$RUN_ID" || -z "$DECISION_PATH" ]]; then
   exit 1
 fi
 
-RUN_DIR="$ROOT_DIR/logs/work_router/runs/$RUN_ID"
+RUN_DIR="$WORK_ROUTER_LOG_ROOT/runs/$RUN_ID"
 RUN_JSON="$RUN_DIR/run.json"
 ROUTER_BUNDLE="$RUN_DIR/router_bundle.json"
 APPROVED_BUNDLE="$RUN_DIR/approved_bundle.json"
@@ -115,5 +116,6 @@ path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 
 python3 "$ROOT_DIR/scripts/validate_work_router_run.py" "$RUN_JSON" >/dev/null
-cp "$RUN_JSON" "$ROOT_DIR/logs/work_router/latest.json"
+mkdir -p "$WORK_ROUTER_LOG_ROOT"
+cp "$RUN_JSON" "$WORK_ROUTER_LOG_ROOT/latest.json"
 echo "$RUN_JSON"

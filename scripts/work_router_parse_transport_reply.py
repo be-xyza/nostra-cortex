@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "research" / "132-eudaemon-alpha-initiative"
 ENVELOPE_SCHEMA = BASE / "schemas" / "DispatchTransportEnvelopeV1.schema.json"
 DECISION_SCHEMA = BASE / "schemas" / "DispatchDecisionV1.schema.json"
+ALIASES_PATH = BASE / "dispatch_aliases.v1.json"
 
 DECISIONS = {"approve", "reject", "revise", "escalate", "pause"}
 
@@ -30,17 +31,7 @@ def utc_now() -> str:
 
 def normalize_reply(reply: str) -> str:
     normalized = reply.strip().lower()
-    aliases = {
-        "approved": "approve",
-        "yes": "approve",
-        "y": "approve",
-        "no": "reject",
-        "n": "reject",
-        "hold": "pause",
-        "stop": "pause",
-        "change": "revise",
-        "edit": "revise",
-    }
+    aliases = load_json(ALIASES_PATH)["decisionAliases"]
     return aliases.get(normalized, normalized)
 
 

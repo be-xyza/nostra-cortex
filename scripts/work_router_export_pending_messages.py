@@ -11,10 +11,13 @@ from pathlib import Path
 
 import jsonschema
 
+from work_router_paths import work_router_log_root
+
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNS_DIR = ROOT / "logs" / "work_router" / "runs"
-DEFAULT_OUTBOX = ROOT / "logs" / "work_router" / "outbox"
+LOG_ROOT = work_router_log_root()
+RUNS_DIR = LOG_ROOT / "runs"
+DEFAULT_OUTBOX = LOG_ROOT / "outbox"
 SCHEMA_PATH = (
     ROOT
     / "research"
