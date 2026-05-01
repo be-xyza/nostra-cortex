@@ -249,6 +249,18 @@ export function HeapDetailModal({
         zones: ["heap_detail_header", "heap_detail_footer"],
         selection: selectionContext
     });
+    const isReadOnlyActionFallback = source === "fallback" && Boolean(error) && (
+        error?.includes("viewer mode")
+        || error?.includes("not identity-verified")
+    );
+    const visibleActionPlanError = isReadOnlyActionFallback ? null : error;
+    const footerStatusMessage = planLoading
+        ? "Syncing contextual actions..."
+        : source === "fallback"
+            ? isReadOnlyActionFallback
+                ? "Read-only observer mode. Operator actions are gated; viewer-safe actions remain available."
+                : "Using fallback heap actions."
+            : "Contextual graph actions live.";
     const uploadId = typeof projection.attributes?.upload_id === "string" ? projection.attributes.upload_id : null;
     const requestedParserProfileAttribute =
         typeof projection.attributes?.requested_parser_profile === "string"
@@ -481,7 +493,9 @@ export function HeapDetailModal({
     const productionReadinessLabel = String(projection.attributes?.bootstrap ?? "") === "localhost_dev"
         ? "Local dev fixture"
         : source === "fallback"
-            ? "Fallback actions"
+            ? isReadOnlyActionFallback
+                ? "Read-only actions"
+                : "Fallback actions"
             : "Live action plan";
     const artifactIdDisplay = shortenId(projection.artifactId);
     const copyStateForArtifactId = copiedField === "artifact-id"
@@ -1614,14 +1628,10 @@ export function HeapDetailModal({
 
                 {/* Slim status footer */}
                 <div className="px-6 py-3 border-t border-white/5 bg-slate-900/80 text-[11px] text-slate-500">
-                    {planLoading
-                        ? "Syncing contextual actions..."
-                        : source === "fallback"
-                            ? "Using fallback heap actions."
-                            : "Contextual graph actions live."}
-                    {error && (
-                        <span className="ml-2 text-amber-300/90 truncate" title={error}>
-                            {error}
+                    {footerStatusMessage}
+                    {visibleActionPlanError && (
+                        <span className="ml-2 text-amber-300/90 truncate" title={visibleActionPlanError}>
+                            {visibleActionPlanError}
                         </span>
                     )}
                 </div>
@@ -1633,7 +1643,7 @@ export function HeapDetailModal({
                         selection={selectionContext}
                         handlers={actionHandlers}
                         onCreate={() => {}}
-                        status={{ loading: planLoading, source, error }}
+                        status={{ loading: planLoading, source, error: visibleActionPlanError }}
                     />
                 )}
             </div>
