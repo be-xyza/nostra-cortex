@@ -305,12 +305,12 @@ export function HeapBlockCard({
                     </div>
                 )}
 
-                <h3 className={`font-bold text-slate-100 px-0.5 leading-tight ${presentationDepth === "title" ? "text-sm" : "text-[15px]"} ${showFullSurface ? "mb-1.5" : "mb-1"} line-clamp-2`}>
+                <h3 className={`font-bold text-slate-100 px-0.5 leading-6 ${presentationDepth === "title" ? "text-sm" : "text-[15px]"} ${showFullSurface ? "mb-2" : "mb-1.5"} line-clamp-2`}>
                     {projection.title}
                 </h3>
 
                 {presentationDepth !== "title" && summaryText !== projection.title && (
-                    <p className={`px-0.5 text-slate-300/80 leading-5 ${presentationDepth === "full" ? "text-sm line-clamp-3" : "text-xs line-clamp-2"}`}>
+                    <p className={`px-0.5 text-slate-300/80 ${presentationDepth === "full" ? "text-sm leading-6 line-clamp-3" : "text-xs leading-5 line-clamp-2"}`}>
                         {summaryText}
                     </p>
                 )}
