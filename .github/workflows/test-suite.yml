@@ -191,6 +191,11 @@ jobs:
         run: |
           chmod +x scripts/check_ci_warning_bypass.sh
           bash scripts/check_ci_warning_bypass.sh --strict
+      - name: Secret Egress Check
+        if: steps.preflight.outputs.run == 'true'
+        run: |
+          chmod +x scripts/check_secret_egress.py
+          python3 scripts/check_secret_egress.py
       - name: DID Declaration Sync Check
         if: steps.preflight.outputs.run == 'true'
         run: |
