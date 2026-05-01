@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "initiative-132.invalid-hermescortexdev-advisory",
+  "spaceId": "initiative-132-research",
+  "requester": {
+    "kind": "steward",
+    "id": "systems-steward"
+  },
+  "intent": "Incorrectly classify a hermescortexdev patch-prep handoff as an Initiative 132 Hermes advisory pass.",
+  "desiredOutcome": "This fixture must fail the local boundary validator.",
+  "knownContextRefs": [
+    {
+      "kind": "initiative",
+      "ref": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/NOVEL_TASK_INTAKE_CONTRACT.md",
+      "authorityTier": "governed"
+    }
+  ],
+  "constraints": {
+    "authority": [
+      "recommendation_only"
+    ]
+  },
+  "requiredCapabilities": [
+    {
+      "capabilityId": "developer-patch-prep",
+      "selectionRationale": "This is a developer handoff lane, not the Initiative 132 observer lane."
+    }
+  ],
+  "uncertainties": [
+    {
+      "kind": "authority_unknown",
+      "summary": "The fixture intentionally conflates hermescortexdev patch prep with hermes132 advisory output.",
+      "severity": "blocking"
+    }
+  ],
+  "riskLevel": "medium",
+  "recommendedPrimitive": "hermes_advisory",
+  "authorityCeiling": "l1",
+  "evaluationRequirements": [
+    {
+      "kind": "steward_review",
+      "required": true
+    }
+  ],
+  "memoryPolicy": {
+    "shortTerm": {
+      "surface": "context_bundle",
+      "required": true,
+      "retention": "ephemeral"
+    },
+    "working": {
+      "surface": "heap",
+      "required": false,
+      "retention": "local_runtime"
+    },
+    "execution": {
+      "surface": "lifecycle_trace",
+      "required": false,
+      "retention": "local_runtime"
+    },
+    "institutional": {
+      "surface": "governed_evidence",
+      "required": false,
+      "retention": "governed"
+    }
+  },
+  "promotionPath": {
+    "mode": "none",
+    "reviewRequired": true,
+    "targetRefs": []
+  },
+  "hermesProfile": "hermescortexdev",
+  "provenance": {
+    "createdBy": "codex",
+    "createdAt": "2026-04-27T19:00:00Z",
+    "sourceMode": "agent"
+  }
+}

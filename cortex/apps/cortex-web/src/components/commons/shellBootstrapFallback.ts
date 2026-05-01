@@ -216,18 +216,49 @@ export function formatReadOnlyObserverSummary(): string {
   return "Read-only observer mode";
 }
 
-export function formatReadOnlyObserverDetailLines(gatewayTarget?: string): string[] {
-  const lines = [
-    "Gateway reachable.",
-    "Browser session has no verified operator identity.",
-    "Heap data is visible in viewer mode.",
-    "Operator action plans and mutations remain gated.",
-  ];
+export type ReadOnlyObserverGatewayState = "reachable" | "public_restricted";
+
+export function formatReadOnlyObserverDetailLines(
+  gatewayTarget?: string,
+  gatewayState: ReadOnlyObserverGatewayState = "reachable",
+): string[] {
+  const lines = gatewayState === "public_restricted"
+    ? [
+        "Gateway target is private or browser-restricted from this public session.",
+        "Browser session has no verified operator identity.",
+        "Viewer shell remains available; live heap data may be limited until a trusted operator session is used.",
+        "Operator action plans and mutations remain gated.",
+      ]
+    : [
+        "Gateway reachable.",
+        "Browser session has no verified operator identity.",
+        "Heap data is visible in viewer mode.",
+        "Operator action plans and mutations remain gated.",
+      ];
   const target = gatewayTarget?.trim();
   if (target) {
     lines.push(`Gateway target: ${target}.`);
   }
   return lines;
+}
+
+export function isPublicObserverGatewayBoundary(
+  error: string,
+  gatewayTarget?: string,
+  publicHost = false,
+): boolean {
+  const target = gatewayTarget?.trim();
+  if (!publicHost || !target || target === "same-origin /api proxy") {
+    return false;
+  }
+  const normalizedError = error.toLowerCase();
+  return (
+    normalizedError.includes("failed to fetch")
+    || normalizedError.includes("load failed")
+    || normalizedError.includes("networkerror")
+    || normalizedError.includes("cors")
+    || normalizedError.includes("private network")
+  );
 }
 
 export function describeAuthorityMode(session: AuthSession): string {

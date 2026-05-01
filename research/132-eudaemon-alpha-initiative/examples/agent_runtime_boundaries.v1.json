@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "1.0.0",
+  "boundarySetId": "agent-runtime-boundaries:init132:v1",
+  "authorityMode": "recommendation_only",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "discovery": {
+    "hermesProfilesRoot": "~/.hermes/profiles",
+    "projectHermesProfilePrefixes": ["hermes"],
+    "ignoredHermesProfiles": ["abundantwix"],
+    "systemdRoot": "ops/hetzner/systemd",
+    "agentLikeSystemdServices": ["cortex-worker.service", "cortex-workrouter.service"],
+    "ignoredSystemdServices": ["cortex-gateway.service", "cortex-icp-network.service"]
+  },
+  "boundaries": [
+    {
+      "agentId": "hermes132",
+      "runtimeKind": "hermes_profile",
+      "profileDirEnv": "HERMES132_PROFILE_DIR",
+      "defaultProfileDir": "~/.hermes/profiles/hermes132",
+      "configFile": "config.yaml",
+      "charterFile": "SOUL.md",
+      "forbiddenToolsets": ["terminal", "code_execution", "delegation", "cronjob", "browser", "image_gen", "web"],
+      "requiredDisabledToolsets": ["terminal", "code_execution", "delegation", "cronjob", "browser", "image_gen", "web"],
+      "forbiddenCliToolsets": ["terminal", "code_execution", "delegation", "cronjob", "browser", "image_gen", "web"],
+      "forbiddenModelProviders": ["codex", "openai-codex"],
+      "requiredConfigAssertions": [
+        {
+          "path": "delegation.orchestrator_enabled",
+          "equals": false
+        }
+      ],
+      "requiredCharterPhrases": [
+        "codex cli invocation",
+        "terminal, shell, python/code execution",
+        "codex or the operator applies patches"
+      ],
+      "allowedOutputs": ["session_record", "source_linked_finding", "synthesis_artifact", "heap_candidate"],
+      "notes": "Advisory only. Findings may inform governed surfaces but may not execute."
+    },
+    {
+      "agentId": "hermescortexdev",
+      "runtimeKind": "hermes_profile",
+      "profileDirEnv": "HERMESCORTEXDEV_PROFILE_DIR",
+      "defaultProfileDir": "~/.hermes/profiles/hermescortexdev",
+      "configFile": "config.yaml",
+      "charterFile": "SOUL.md",
+      "forbiddenToolsets": ["terminal", "code_execution", "delegation", "cronjob", "browser", "image_gen", "web"],
+      "requiredDisabledToolsets": ["terminal", "code_execution", "delegation", "cronjob", "browser", "image_gen", "web"],
+      "forbiddenCliToolsets": ["terminal", "code_execution", "delegation", "cronjob", "browser", "image_gen", "web"],
+      "forbiddenModelProviders": ["codex", "openai-codex"],
+      "requiredConfigAssertions": [
+        {
+          "path": "delegation.orchestrator_enabled",
+          "equals": false
+        }
+      ],
+      "requiredCharterPhrases": [
+        "codex cli invocation",
+        "terminal, shell, python/code execution",
+        "codex or the operator applies patches"
+      ],
+      "allowedOutputs": ["developer_handoff", "patch_plan", "verification_command_list", "risk_note"],
+      "notes": "Patch-prep only. Handoff artifacts may be produced, but Codex/operator applies patches outside Hermes."
+    },
+    {
+      "agentId": "workrouter",
+      "runtimeKind": "systemd_service",
+      "servicePath": "ops/hetzner/systemd/cortex-workrouter.service",
+      "requiredContains": [
+        "Environment=WORK_ROUTER_MAX_DISPATCH_LEVEL=D1",
+        "Environment=WORK_ROUTER_SOURCE_MUTATION_ALLOWED=0",
+        "Environment=WORK_ROUTER_RUNTIME_MUTATION_ALLOWED=0",
+        "Environment=WORK_ROUTER_LIVE_TRANSPORT_ENABLED=0",
+        "ExecStart=__DEPLOY_ROOT__/repo/scripts/work_router_service_stub.sh"
+      ],
+      "forbiddenContains": [
+        "git commit",
+        "git push",
+        "gh pr",
+        "dfx deploy",
+        "dfx canister call",
+        "icp deploy",
+        "PROVIDER_API_KEY",
+        "DEPLOY_KEY"
+      ],
+      "notes": "Observe/file-outbox only service boundary for current-stage VPS WorkRouter."
+    },
+    {
+      "agentId": "agent:eudaemon-alpha-01",
+      "runtimeKind": "systemd_service",
+      "servicePath": "ops/hetzner/systemd/cortex-worker.service",
+      "requiredContains": [
+        "ExecStart=__DEPLOY_ROOT__/repo/nostra/worker/target/release/cortex_worker",
+        "EnvironmentFile=__DEPLOY_ROOT__/config/eudaemon-alpha.env"
+      ],
+      "forbiddenContains": [
+        "git commit",
+        "git push",
+        "gh pr",
+        "dfx deploy",
+        "dfx canister call",
+        "icp deploy"
+      ],
+      "notes": "Runtime candidate remains restricted by VPS authority checks and production identity gates."
+    }
+  ]
+}

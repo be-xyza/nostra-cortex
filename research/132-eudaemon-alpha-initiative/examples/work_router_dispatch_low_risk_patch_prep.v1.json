@@ -1,0 +1,84 @@
+{
+  "workRouterDecision": {
+    "schemaVersion": "1.0.0",
+    "routerDecisionId": "router-decision-low-risk-docs-001",
+    "taskRef": "task:docs-fast-lane-example",
+    "classification": {
+      "taskShape": "patch_prep",
+      "riskLevel": "low",
+      "uncertainty": "low"
+    },
+    "recommendedRoute": "patch_prep",
+    "authorityCeiling": "D1",
+    "requiredDispatchLevel": "D1",
+    "rationale": "The request is a bounded documentation planning update with no runtime, provider, auth, deploy, schema, or graph mutation.",
+    "nextRequestRef": "dispatch-request-low-risk-docs-001",
+    "createdAt": "2026-04-30T12:00:00Z"
+  },
+  "dispatchRequest": {
+    "schemaVersion": "1.0.0",
+    "requestId": "dispatch-request-low-risk-docs-001",
+    "taskRef": "task:docs-fast-lane-example",
+    "transport": {
+      "kind": "telegram",
+      "channelRef": "operator-private",
+      "adapterRef": "dispatch_transport_telegram"
+    },
+    "requestedLevel": "D1",
+    "authorityCeiling": "D1",
+    "riskLevel": "low",
+    "prompt": {
+      "title": "Approve patch-prep handoff",
+      "summary": "Prepare a bounded developer handoff for a low-risk documentation update.",
+      "detailsRef": "task:docs-fast-lane-example"
+    },
+    "allowedDecisions": ["approve", "reject", "revise", "pause"],
+    "forbiddenActions": ["repo_mutation", "runtime_mutation", "commit", "push", "deploy"],
+    "createdAt": "2026-04-30T12:00:01Z",
+    "idempotencyKey": "dispatch-request-low-risk-docs-001"
+  },
+  "dispatchDecision": {
+    "schemaVersion": "1.0.0",
+    "decisionId": "dispatch-decision-low-risk-docs-001",
+    "requestId": "dispatch-request-low-risk-docs-001",
+    "decision": "approve",
+    "approvedLevel": "D1",
+    "decider": {
+      "kind": "operator",
+      "id": "user"
+    },
+    "rationale": "Patch-prep only; no source mutation approved.",
+    "conditions": ["handoff_only", "no_repo_mutation"],
+    "decidedAt": "2026-04-30T12:01:00Z",
+    "transportReceiptRef": "dispatch-receipt-low-risk-docs-001"
+  },
+  "codeChangeRequest": {
+    "schemaVersion": "1.0.0",
+    "codeChangeRequestId": "code-change-request-low-risk-docs-001",
+    "dispatchDecisionRef": "dispatch-decision-low-risk-docs-001",
+    "taskRef": "task:docs-fast-lane-example",
+    "mode": "patch_prep",
+    "authorityLevel": "D1",
+    "riskLevel": "low",
+    "scope": {
+      "allowedPaths": ["research/132-eudaemon-alpha-initiative/"],
+      "notes": "Patch-prep handoff only; this does not authorize edits."
+    },
+    "requiredChecks": ["bash scripts/check_dynamic_config_contract.sh"],
+    "forbiddenActions": ["repo_mutation", "runtime_mutation", "commit", "push", "deploy"],
+    "expectedOutputs": ["handoff", "risk_note", "review_prompt"],
+    "createdAt": "2026-04-30T12:01:10Z"
+  },
+  "transportReceipt": {
+    "schemaVersion": "1.0.0",
+    "receiptId": "dispatch-receipt-low-risk-docs-001",
+    "requestId": "dispatch-request-low-risk-docs-001",
+    "decisionId": "dispatch-decision-low-risk-docs-001",
+    "transport": {
+      "kind": "telegram",
+      "messageRef": "telegram:operator-private:1001"
+    },
+    "status": "replied",
+    "recordedAt": "2026-04-30T12:01:01Z"
+  }
+}

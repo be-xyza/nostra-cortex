@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "initiative-132.invalid-hermecortexdev-typo",
+  "spaceId": "initiative-132-research",
+  "requester": {
+    "kind": "steward",
+    "id": "systems-steward"
+  },
+  "intent": "Use the misspelled Hermes profile name hermecortexdev.",
+  "desiredOutcome": "This fixture must fail schema validation because hermescortexdev is the correct profile.",
+  "knownContextRefs": [
+    {
+      "kind": "initiative",
+      "ref": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/NOVEL_TASK_INTAKE_CONTRACT.md",
+      "authorityTier": "governed"
+    }
+  ],
+  "constraints": {
+    "authority": [
+      "recommendation_only"
+    ]
+  },
+  "requiredCapabilities": [
+    {
+      "capabilityId": "developer-patch-prep"
+    }
+  ],
+  "uncertainties": [
+    {
+      "kind": "authority_unknown",
+      "summary": "The fixture intentionally uses a typo for the Hermes developer profile.",
+      "severity": "blocking"
+    }
+  ],
+  "riskLevel": "medium",
+  "recommendedPrimitive": "proposal",
+  "authorityCeiling": "l1",
+  "evaluationRequirements": [
+    {
+      "kind": "steward_review",
+      "required": true
+    }
+  ],
+  "memoryPolicy": {
+    "shortTerm": {
+      "surface": "context_bundle",
+      "required": true,
+      "retention": "ephemeral"
+    },
+    "working": {
+      "surface": "heap",
+      "required": false,
+      "retention": "local_runtime"
+    },
+    "execution": {
+      "surface": "lifecycle_trace",
+      "required": false,
+      "retention": "local_runtime"
+    },
+    "institutional": {
+      "surface": "governed_evidence",
+      "required": false,
+      "retention": "governed"
+    }
+  },
+  "promotionPath": {
+    "mode": "none",
+    "reviewRequired": true,
+    "targetRefs": []
+  },
+  "hermesProfile": "hermecortexdev",
+  "provenance": {
+    "createdBy": "codex",
+    "createdAt": "2026-04-27T19:10:00Z",
+    "sourceMode": "agent"
+  }
+}

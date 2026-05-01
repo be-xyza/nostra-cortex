@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "initiative-132.hermescortexdev-low-risk-patch-prep",
+  "spaceId": "initiative-132-research",
+  "requester": {
+    "kind": "steward",
+    "id": "systems-steward",
+    "displayName": "Systems Steward"
+  },
+  "intent": "Prepare a developer handoff for a low-risk Initiative 132 documentation follow-up without editing source files.",
+  "desiredOutcome": "A patch-prep handoff that lists likely files, risks, verification commands, and acceptance criteria.",
+  "knownContextRefs": [
+    {
+      "kind": "initiative",
+      "ref": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/WORK_ROUTER_DISPATCH_CONTRACT.md",
+      "authorityTier": "governed",
+      "label": "Work router dispatch contract"
+    },
+    {
+      "kind": "file",
+      "ref": "research/132-eudaemon-alpha-initiative/",
+      "authorityTier": "governed",
+      "label": "Initiative 132 planning surface"
+    }
+  ],
+  "constraints": {
+    "budget": {
+      "maxTokens": 8000,
+      "maxCostUsd": 0,
+      "latencyTargetMs": 0,
+      "currency": "USD"
+    },
+    "authority": [
+      "recommendation_only",
+      "no_runtime_mutation",
+      "no_repo_mutation"
+    ],
+    "runtime": [
+      "hermescortexdev_patch_prep_only"
+    ],
+    "policy": [
+      "handoff_only",
+      "steward_review_before_implementation"
+    ]
+  },
+  "requiredCapabilities": [
+    {
+      "capabilityId": "developer-patch-prep",
+      "requiredClaims": [],
+      "selectionRationale": "The task needs a bounded implementation handoff, not source mutation."
+    }
+  ],
+  "uncertainties": [
+    {
+      "kind": "missing_context",
+      "summary": "Exact target files should be selected by the implementation actor after reviewing the handoff.",
+      "severity": "low",
+      "recommendedAction": "Keep the handoff bounded to Initiative 132 planning surfaces."
+    }
+  ],
+  "riskLevel": "low",
+  "recommendedPrimitive": "closeout",
+  "authorityCeiling": "l1",
+  "evaluationRequirements": [
+    {
+      "kind": "source_manifest",
+      "required": false,
+      "notes": "Source manifest is optional because this is a local patch-prep handoff."
+    },
+    {
+      "kind": "steward_review",
+      "required": true,
+      "notes": "Implementation requires a separate dispatch approval."
+    }
+  ],
+  "memoryPolicy": {
+    "shortTerm": {
+      "surface": "context_bundle",
+      "required": true,
+      "retention": "ephemeral",
+      "notes": "Use bounded Initiative 132 context only."
+    },
+    "working": {
+      "surface": "heap",
+      "required": false,
+      "retention": "local_runtime",
+      "notes": "Project handoff to heap only after operator review."
+    },
+    "execution": {
+      "surface": "none",
+      "required": false,
+      "retention": "ephemeral",
+      "notes": "No runtime execution occurs in patch-prep."
+    },
+    "institutional": {
+      "surface": "none",
+      "required": false,
+      "retention": "ephemeral",
+      "notes": "Patch-prep output is not institutional evidence."
+    }
+  },
+  "promotionPath": {
+    "mode": "none",
+    "reviewRequired": true,
+    "targetRefs": [],
+    "notes": "A handoff may inform later implementation, but it is not promoted automatically."
+  },
+  "hermesProfile": "hermescortexdev",
+  "provenance": {
+    "createdBy": "codex",
+    "createdAt": "2026-04-30T13:45:00Z",
+    "sourceMode": "agent"
+  }
+}

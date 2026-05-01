@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryId": "agent-harness-registry:init132:v1",
+  "authorityMode": "recommendation_only",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "harnesses": [
+    {
+      "harnessId": "hermes-agent",
+      "sourceRef": "https://github.com/NousResearch/hermes-agent",
+      "status": "pilot",
+      "roleFit": ["gateway", "research", "coding"],
+      "transportSupport": ["hermes_gateway", "telegram", "cli", "discord", "slack", "webhook"],
+      "profileSupport": "profile_isolated",
+      "executionModel": "local_or_vps_gateway_with_profile_scoped_home",
+      "securityPosture": "gateway callers are trusted; Nostra Cortex use requires WorkRouter ceilings and profile guardrails",
+      "observability": "profile logs, sessions, gateway status, and local artifacts",
+      "integrationCost": "medium",
+      "performanceNotes": "Useful near-term bootstrap harness for profile-scoped messenger interaction; project-specific throughput remains unbenchmarked.",
+      "risks": [
+        "broad terminal tooling must not bypass WorkRouter",
+        "profile convenience state is not governed authority",
+        "gateway transport must not imply code mutation authority"
+      ],
+      "recommendation": "Use as near-term DispatchTransport bridge and profile substrate while keeping WorkRouter as the project authority layer.",
+      "evaluationEvidenceRefs": [
+        "research/132-eudaemon-alpha-initiative/WORK_ROUTER_DISPATCH_CONTRACT.md",
+        "research/132-eudaemon-alpha-initiative/DECISIONS.md"
+      ]
+    },
+    {
+      "harnessId": "openclaw",
+      "sourceRef": "unvalidated:openclaw",
+      "status": "unvalidated",
+      "roleFit": ["unknown"],
+      "transportSupport": ["unknown"],
+      "profileSupport": "unknown",
+      "executionModel": "unknown",
+      "securityPosture": "unvalidated",
+      "observability": "unvalidated",
+      "integrationCost": "unknown",
+      "performanceNotes": "Candidate harness retained for comparison; no local authority claim.",
+      "risks": ["unknown integration and authority posture"],
+      "recommendation": "Track as a candidate only until source, runtime, and guardrail behavior are validated.",
+      "evaluationEvidenceRefs": []
+    },
+    {
+      "harnessId": "zeroclaw",
+      "sourceRef": "unvalidated:zeroclaw",
+      "status": "unvalidated",
+      "roleFit": ["provider_broker", "unknown"],
+      "transportSupport": ["unknown"],
+      "profileSupport": "unknown",
+      "executionModel": "unknown",
+      "securityPosture": "unvalidated",
+      "observability": "unvalidated",
+      "integrationCost": "unknown",
+      "performanceNotes": "Previously considered as a sidecar or profile broker pattern source; not workflow authority.",
+      "risks": ["subscription or provider brokerage must not become runtime authority"],
+      "recommendation": "Keep as an explicit candidate for provider-broker comparison only.",
+      "evaluationEvidenceRefs": []
+    },
+    {
+      "harnessId": "monopi",
+      "sourceRef": "unvalidated:monopi",
+      "status": "unvalidated",
+      "roleFit": ["unknown"],
+      "transportSupport": ["unknown"],
+      "profileSupport": "unknown",
+      "executionModel": "unknown",
+      "securityPosture": "unvalidated",
+      "observability": "unvalidated",
+      "integrationCost": "unknown",
+      "performanceNotes": "Candidate harness retained for long-term comparison; no local validation yet.",
+      "risks": ["unknown integration and authority posture"],
+      "recommendation": "Track as a candidate only until concrete source and capability evidence is available.",
+      "evaluationEvidenceRefs": []
+    },
+    {
+      "harnessId": "native-workrouter",
+      "sourceRef": "research/132-eudaemon-alpha-initiative/WORK_ROUTER_DISPATCH_CONTRACT.md",
+      "status": "pilot",
+      "roleFit": ["gateway", "background_worker", "workflow_runner"],
+      "transportSupport": ["cli", "telegram", "hermes_gateway", "cortex_web", "matrix", "email", "webhook"],
+      "profileSupport": "basic",
+      "executionModel": "local_contract_scripts_now_vps_orchestrator_candidate_later",
+      "securityPosture": "D0-D1 only; no source mutation, runtime mutation, commit, push, deploy, canister call, or graph mutation",
+      "observability": "validated run artifacts, dispatch envelopes, receipts, unknown-response logs, and handoffs",
+      "integrationCost": "low",
+      "performanceNotes": "Project-native governance router; throughput is currently contract-validated rather than live-benchmarked.",
+      "risks": [
+        "D2 mutation lane must remain disabled until separately governed",
+        "local runtime logs are not durable governed evidence"
+      ],
+      "recommendation": "Use as the stable governance boundary for D0-D1 dispatch and harness-neutral evaluation.",
+      "evaluationEvidenceRefs": ["bash scripts/check_work_router_dispatch.sh"]
+    },
+    {
+      "harnessId": "cortex-worker",
+      "sourceRef": "nostra/worker",
+      "status": "restricted",
+      "roleFit": ["background_worker", "research"],
+      "transportSupport": ["cortex_gateway"],
+      "profileSupport": "none",
+      "executionModel": "Rust worker candidate for Hetzner Phase 6 and future Cortex-native migration",
+      "securityPosture": "passive preflight only until production identity and VPS authority validation pass",
+      "observability": "build/preflight evidence and future operator-only agent run surfaces",
+      "integrationCost": "medium",
+      "performanceNotes": "Runtime candidate remains blocked for live authority until host-mode validation and identity enforcement are proven.",
+      "risks": [
+        "must not overstate passive build/preflight as live runtime readiness",
+        "must not expose operator-only provider or runtime topology through agent-facing paths"
+      ],
+      "recommendation": "Keep restricted until VPS authority, identity enforcement, and Space binding evidence are complete.",
+      "evaluationEvidenceRefs": [
+        "research/132-eudaemon-alpha-initiative/DECISIONS.md",
+        "bash scripts/check_vps_runtime_authority.sh"
+      ]
+    },
+    {
+      "harnessId": "codex-operator",
+      "sourceRef": "operator-local:codex",
+      "status": "restricted",
+      "roleFit": ["coding", "research"],
+      "transportSupport": ["cli", "cortex_web"],
+      "profileSupport": "basic",
+      "executionModel": "local operator-controlled implementation lane with explicit approvals and repo preflight",
+      "securityPosture": "source mutation authority exists only through explicit operator-governed coding sessions, not through WorkRouter or messenger adapters",
+      "observability": "git diff, test outputs, preflight checks, and final closeout evidence",
+      "integrationCost": "low",
+      "performanceNotes": "Current source mutation lane; not available to WorkRouter, Hermes Gateway, Telegram, or autonomous runtime agents.",
+      "risks": [
+        "must not be confused with an unattended messenger-driven executor",
+        "D2+ automation requires separate governance and isolated request-worktree controls"
+      ],
+      "recommendation": "Keep as the explicit code mutation authority until a separate D2 implementation lane is governed.",
+      "evaluationEvidenceRefs": [
+        "AGENTS.md",
+        "research/132-eudaemon-alpha-initiative/WORK_ROUTER_DISPATCH_CONTRACT.md"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0.0",
+  "adapterId": "dispatch-transport-telegram-guarded",
+  "transportKind": "telegram",
+  "mode": "dry_run",
+  "supportedOperations": [
+    "read_outbox",
+    "send_envelope",
+    "record_receipt",
+    "ingest_reply",
+    "emit_dispatch_decision",
+    "apply_decision"
+  ],
+  "authority": {
+    "maxLevel": "D1",
+    "mutationAllowed": false,
+    "requiresMatchingRequest": true
+  },
+  "notes": "Telegram adapter consumes DispatchTransportEnvelopeV1 records. Live send requires explicit bot token and chat id environment; reply ingestion still routes through DispatchDecisionV1 validation."
+}

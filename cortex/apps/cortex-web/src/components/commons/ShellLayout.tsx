@@ -39,6 +39,8 @@ import {
     formatReadOnlyObserverDetailLines,
     formatReadOnlyObserverSummary,
     formatShellBootstrapWarning,
+    isPublicObserverGatewayBoundary,
+    type ReadOnlyObserverGatewayState,
 } from "./shellBootstrapFallback.ts";
 import {
     createInternetIdentityDelegationProof,
@@ -177,6 +179,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const [compiledPlan, setCompiledPlan] = useState<CompiledNavigationPlan | null>(null);
     const [authSession, setAuthSession] = useState<AuthSession | null>(null);
     const [sessionError, setSessionError] = useState<string | null>(null);
+    const [observerGatewayState, setObserverGatewayState] = useState<ReadOnlyObserverGatewayState>("reachable");
     const [operatorLoginError, setOperatorLoginError] = useState<string | null>(null);
     const [operatorLoginPending, setOperatorLoginPending] = useState(false);
     const [bootstrapWarning, setBootstrapWarning] = useState<string | null>(null);
@@ -207,8 +210,12 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const activeRole = authSession?.activeRole || actorRoleHint;
     const configuredGatewayTarget = gatewayBaseUrl().trim() || "same-origin /api proxy";
     const readOnlyObserverActive = !bootstrapWarning && !sessionError && authSession?.authMode === "read_fallback";
-    const readOnlyObserverDetails = formatReadOnlyObserverDetailLines(configuredGatewayTarget);
+    const readOnlyObserverDetails = formatReadOnlyObserverDetailLines(configuredGatewayTarget, observerGatewayState);
     const operatorLoginEnabled = isInternetIdentityOperatorLoginEnabled();
+    const showOperatorSignInShortcut = operatorLoginEnabled && authSession?.authMode === "read_fallback";
+    const publicHost = typeof window !== "undefined"
+        && window.location.hostname !== "localhost"
+        && window.location.hostname !== "127.0.0.1";
 
     useEffect(() => {
         setActiveRoute(location.pathname);
@@ -242,13 +249,19 @@ export function ShellLayout({ children }: ShellLayoutProps) {
             .catch((err) => {
                 const message = err instanceof Error ? err.message : "unknown error";
                 const fallback = buildFallbackAuthSession(actorId, actorRoleHint);
-                setSessionError(message);
+                if (isPublicObserverGatewayBoundary(message, configuredGatewayTarget, publicHost)) {
+                    setSessionError(null);
+                    setObserverGatewayState("public_restricted");
+                } else {
+                    setSessionError(message);
+                    setObserverGatewayState("reachable");
+                }
                 setAuthSession(fallback);
                 if (sessionUser.role !== fallback.activeRole) {
                     setSessionUser({ actorId: sessionUser.actorId, role: fallback.activeRole });
                 }
             });
-    }, [sessionUser, actorRoleHint, actorId, setSessionUser]);
+    }, [sessionUser, actorRoleHint, actorId, configuredGatewayTarget, publicHost, setSessionUser]);
 
     useEffect(() => {
         const load = async () => {
@@ -269,14 +282,20 @@ export function ShellLayout({ children }: ShellLayoutProps) {
             } catch (err) {
                 const message = err instanceof Error ? err.message : "unknown error";
                 setLayoutSpec(buildFallbackShellLayoutSpec());
-                setBootstrapWarning(
-                    formatShellBootstrapWarning("layout", message, configuredGatewayTarget),
-                );
+                if (isPublicObserverGatewayBoundary(message, configuredGatewayTarget, publicHost)) {
+                    setBootstrapWarning(null);
+                    setObserverGatewayState("public_restricted");
+                } else {
+                    setBootstrapWarning(
+                        formatShellBootstrapWarning("layout", message, configuredGatewayTarget),
+                    );
+                    setObserverGatewayState("reachable");
+                }
                 setCompiledPlan(null);
             }
         };
         void load();
-    }, [activeRole, activeSpaceId, configuredGatewayTarget]);
+    }, [activeRole, activeSpaceId, configuredGatewayTarget, publicHost]);
 
     useEffect(() => {
         if (!dynamicNavEnabled) return;
@@ -614,6 +633,18 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                     isCentered={true}
                                 />
                             )}
+                            {!showRail && showOperatorSignInShortcut && (
+                                <button
+                                    type="button"
+                                    onClick={handleInternetIdentityLogin}
+                                    disabled={operatorLoginPending}
+                                    className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/18 bg-emerald-400/10 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-100 transition hover:bg-emerald-400/16 disabled:cursor-wait disabled:opacity-60"
+                                    title="Verify this browser session with Internet Identity passkeys"
+                                >
+                                    <KeyRound className="h-3.5 w-3.5" />
+                                    {operatorLoginPending ? "Verifying" : "Sign in"}
+                                </button>
+                            )}
                             {!showRail && (attentionEntries.length > 0 || totalBadgeCount > 0) && (
                                 <div className="group/status relative mt-2 flex w-full justify-center">
                                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-cortex-300">
@@ -636,6 +667,11 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                 </div>
                             )}
                         </div>
+                        {!showRail && showOperatorSignInShortcut && operatorLoginError && (
+                            <div className="max-w-[210px] rounded-xl border border-red-300/15 bg-red-400/8 px-3 py-2 text-center text-[10px] leading-4 text-red-100/80">
+                                {operatorLoginError}
+                            </div>
+                        )}
 
                         {!showRail && activeSpaceIds.length > 1 && (
                             <div className="flex items-center gap-3 w-full p-3 rounded-xl transition-all duration-200 group hover:bg-white/5 active:scale-[0.98] relative">

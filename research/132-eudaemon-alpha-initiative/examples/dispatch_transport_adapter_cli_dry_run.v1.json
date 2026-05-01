@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0.0",
+  "adapterId": "dispatch-transport-cli-dry-run",
+  "transportKind": "cli",
+  "mode": "dry_run",
+  "supportedOperations": [
+    "read_outbox",
+    "send_envelope",
+    "record_receipt",
+    "ingest_reply",
+    "emit_dispatch_decision",
+    "apply_decision"
+  ],
+  "authority": {
+    "maxLevel": "D1",
+    "mutationAllowed": false,
+    "requiresMatchingRequest": true
+  },
+  "notes": "CLI adapter consumes local DispatchTransportEnvelopeV1 records and applies structured DispatchDecisionV1 files only when they match a pending request."
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/WorkRouterDecisionV1.schema.json",
+  "title": "WorkRouterDecisionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "routerDecisionId",
+    "taskRef",
+    "classification",
+    "recommendedRoute",
+    "authorityCeiling",
+    "requiredDispatchLevel",
+    "rationale",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "routerDecisionId": { "type": "string", "minLength": 3 },
+    "taskRef": { "type": "string", "minLength": 3 },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskShape", "riskLevel"],
+      "properties": {
+        "taskShape": {
+          "type": "string",
+          "enum": ["status", "advisory", "patch_prep", "code_change", "workflow", "governance", "runtime_operation", "blocked"]
+        },
+        "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "structural"] },
+        "uncertainty": { "type": "string", "enum": ["low", "medium", "high"] }
+      }
+    },
+    "recommendedRoute": {
+      "type": "string",
+      "enum": ["status_digest", "hermes_advisory", "patch_prep", "code_change_candidate", "steward_gate", "operator_only", "blocked"]
+    },
+    "authorityCeiling": {
+      "type": "string",
+      "enum": ["D0", "D1", "D2", "D3", "D4", "D5"]
+    },
+    "requiredDispatchLevel": {
+      "type": "string",
+      "enum": ["D0", "D1", "D2", "D3", "D4", "D5"]
+    },
+    "rationale": { "type": "string", "minLength": 1 },
+    "nextRequestRef": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -11,6 +11,7 @@ import {
   formatReadOnlyObserverDetailLines,
   formatReadOnlyObserverSummary,
   formatShellBootstrapWarning,
+  isPublicObserverGatewayBoundary,
 } from "../src/components/commons/shellBootstrapFallback.ts";
 
 test("buildFallbackShellLayoutSpec exposes a usable local navigation shell", () => {
@@ -92,6 +93,40 @@ test("read-only observer copy separates compact summary from expandable details"
   assert.ok(details.some((line) => /eudaemon-alpha-01/i.test(line)));
   assert.equal(
     [formatReadOnlyObserverSummary(), ...details].some((line) => /degraded/i.test(line)),
+    false,
+  );
+});
+
+test("read-only observer copy handles public browser private-gateway boundaries", () => {
+  const details = formatReadOnlyObserverDetailLines(
+    "https://eudaemon-alpha-01.taild09100.ts.net",
+    "public_restricted",
+  );
+
+  assert.ok(details.some((line) => /private or browser-restricted/i.test(line)));
+  assert.ok(details.some((line) => /trusted operator session/i.test(line)));
+  assert.equal(
+    isPublicObserverGatewayBoundary(
+      "Failed to fetch",
+      "https://eudaemon-alpha-01.taild09100.ts.net",
+      true,
+    ),
+    true,
+  );
+  assert.equal(
+    isPublicObserverGatewayBoundary(
+      "Failed to fetch",
+      "same-origin /api proxy",
+      true,
+    ),
+    false,
+  );
+  assert.equal(
+    isPublicObserverGatewayBoundary(
+      "Failed to fetch",
+      "https://eudaemon-alpha-01.taild09100.ts.net",
+      false,
+    ),
     false,
   );
 });

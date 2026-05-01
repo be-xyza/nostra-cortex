@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryId": "agent-run-evidence:init132:v1",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "evidence": [
+    {
+      "schemaVersion": "1.0.0",
+      "evidenceId": "agent-run:hermes132:advisory-observe-001",
+      "agentId": "hermes132",
+      "harnessId": "hermes-agent",
+      "profileRef": "agent-profile-registry:init132:v1#hermes132",
+      "runKind": "summarize",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "status": "recorded",
+      "startedAt": "2026-05-01T00:00:00Z",
+      "finishedAt": "2026-05-01T00:01:00Z",
+      "inputRefs": ["research/132-eudaemon-alpha-initiative/PLAN.md"],
+      "outputRefs": ["local:hermes132/session/advisory-summary-001"],
+      "forbiddenActionsConfirmed": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "summary": "Hermes 132 may summarize and surface advisory observations only; outputs require manual promotion before becoming governed evidence."
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "evidenceId": "agent-run:hermescortexdev:handoff-001",
+      "agentId": "hermescortexdev",
+      "harnessId": "hermes-agent",
+      "profileRef": "agent-profile-registry:init132:v1#hermescortexdev",
+      "runKind": "handoff",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "status": "recorded",
+      "startedAt": "2026-05-01T00:02:00Z",
+      "finishedAt": "2026-05-01T00:03:00Z",
+      "inputRefs": ["research/132-eudaemon-alpha-initiative/examples/novel_task_intake_hermescortexdev_low_risk_patch_prep.v1.json"],
+      "outputRefs": ["local:hermescortexdev/handoff/patch-prep-001"],
+      "forbiddenActionsConfirmed": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "summary": "Hermes Cortex Dev may prepare implementation handoffs after approval but does not edit, stage, commit, push, deploy, or mutate runtime state."
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "evidenceId": "agent-run:workrouter:route-ask-001",
+      "agentId": "workrouter",
+      "harnessId": "native-workrouter",
+      "profileRef": "agent-profile-registry:init132:v1#workrouter",
+      "runKind": "route",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "status": "recorded",
+      "startedAt": "2026-05-01T00:04:00Z",
+      "finishedAt": "2026-05-01T00:05:00Z",
+      "inputRefs": ["research/132-eudaemon-alpha-initiative/examples/work_router_dispatch_low_risk_patch_prep.v1.json"],
+      "outputRefs": ["DispatchRequestV1:dispatch:req-low-risk-patch-prep-001", "UnknownDispatchRouteReviewV1:local-review-queue"],
+      "forbiddenActionsConfirmed": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "summary": "WorkRouter may classify, route, ask, record decisions, and capture unknown responses; it remains D0-D1 and non-mutating."
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "evidenceId": "agent-run:eudaemon-alpha-01:notify-001",
+      "agentId": "agent:eudaemon-alpha-01",
+      "harnessId": "cortex-worker",
+      "profileRef": "agent-profile-registry:init132:v1#agent:eudaemon-alpha-01",
+      "runKind": "notify",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "status": "blocked",
+      "startedAt": "2026-05-01T00:06:00Z",
+      "finishedAt": "2026-05-01T00:07:00Z",
+      "inputRefs": ["research/132-eudaemon-alpha-initiative/PLAN.md#phase-6-runtime-resolution"],
+      "outputRefs": ["local:vps-workrouter/bootstrap-readiness"],
+      "forbiddenActionsConfirmed": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "summary": "The VPS/eudaemon lane is limited to observe, orchestrate, and notify until production identity and VPS authority validation pass."
+    }
+  ]
+}
