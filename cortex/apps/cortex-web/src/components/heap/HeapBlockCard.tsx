@@ -32,6 +32,7 @@ import type { ActionHandlers } from "./actionExecutor";
 import { summarizeHeapBlockText } from "./heapTextSummary.ts";
 import type { ExploreCardDepth } from "./exploreViewSettings.ts";
 import { displayBlockType } from "../a2ui/ArtifactAssetViewer";
+import { formatHeapCardTimestamp } from "./heapCardTimestamp.ts";
 
 interface HeapBlockCardProps {
     block: HeapBlockListItem;
@@ -252,7 +253,7 @@ export function HeapBlockCard({
                     </div>
                     <div className="flex items-center gap-1.5 text-slate-500 mt-0.5">
                         <span className="text-[9px] font-bold uppercase tracking-tighter leading-none">
-                            {formatTime(emittedAt)}
+                            {formatHeapCardTimestamp(emittedAt)}
                         </span>
                     </div>
                 </div>
@@ -289,7 +290,7 @@ export function HeapBlockCard({
                             />
                         ) : (
                             <div className="text-[10px] uppercase tracking-[0.24em] text-cortex-500">
-                                {displayBlockType(blockType)} · {formatTime(emittedAt)}
+                                {displayBlockType(blockType)}
                             </div>
                         )}
                         {cardActions.length > 0 && cardActionSelection && actionHandlers && (
@@ -443,14 +444,6 @@ export function HeapBlockCard({
             </div>
         </div>
     );
-}
-
-function formatTime(isoString: string): string {
-    try {
-        return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    } catch {
-        return isoString || "n/a";
-    }
 }
 
 export { surfaceToPayloadContent };
