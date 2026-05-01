@@ -1,0 +1,27 @@
+{
+  "case_id": "post_api_system_worker_generation_grounded",
+  "class": "system",
+  "request": {
+    "method": "POST",
+    "path": "/api/system/worker-generation/grounded"
+  },
+  "normalization": {
+    "mode": "strict",
+    "ignored_fields": [],
+    "required_keys": [
+      "status"
+    ]
+  },
+  "legacy_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/system/worker-generation/grounded"
+  },
+  "runtime_response": {
+    "status": "ok",
+    "class": "system",
+    "method": "POST",
+    "path": "/api/system/worker-generation/grounded"
+  }
+}
