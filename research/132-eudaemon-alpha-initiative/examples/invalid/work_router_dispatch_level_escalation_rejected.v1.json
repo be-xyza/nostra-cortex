@@ -1,0 +1,36 @@
+{
+  "workRouterDecision": {
+    "schemaVersion": "1.0.0",
+    "routerDecisionId": "router-decision-invalid-escalation-001",
+    "taskRef": "task:invalid-escalation-example",
+    "classification": {
+      "taskShape": "code_change",
+      "riskLevel": "low",
+      "uncertainty": "low"
+    },
+    "recommendedRoute": "code_change_candidate",
+    "authorityCeiling": "D1",
+    "requiredDispatchLevel": "D2",
+    "rationale": "Invalid fixture: required dispatch level exceeds ceiling.",
+    "createdAt": "2026-04-30T12:00:00Z"
+  },
+  "dispatchRequest": {
+    "schemaVersion": "1.0.0",
+    "requestId": "dispatch-request-invalid-escalation-001",
+    "taskRef": "task:invalid-escalation-example",
+    "transport": {
+      "kind": "telegram",
+      "channelRef": "operator-private"
+    },
+    "requestedLevel": "D2",
+    "authorityCeiling": "D1",
+    "riskLevel": "low",
+    "prompt": {
+      "title": "Invalid approval request",
+      "summary": "This request asks for D2 while capped at D1."
+    },
+    "allowedDecisions": ["approve", "reject"],
+    "forbiddenActions": ["commit", "push", "deploy"],
+    "createdAt": "2026-04-30T12:00:01Z"
+  }
+}

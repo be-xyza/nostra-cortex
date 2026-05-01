@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0.0",
+  "adapterId": "dispatch-transport:hermes-gateway:candidate",
+  "transportKind": "hermes_gateway",
+  "mode": "dry_run",
+  "supportedOperations": ["read_outbox", "send_envelope", "record_receipt", "ingest_reply", "emit_dispatch_decision"],
+  "authority": {
+    "maxLevel": "D1",
+    "mutationAllowed": false,
+    "requiresMatchingRequest": true
+  },
+  "notes": "Hermes Gateway is a peer DispatchTransport candidate. It may carry WorkRouter prompts and replies, but it is not WorkRouter authority and cannot mutate source or runtime state."
+}

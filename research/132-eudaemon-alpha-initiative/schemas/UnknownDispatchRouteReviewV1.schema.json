@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/UnknownDispatchRouteReviewV1.schema.json",
+  "title": "UnknownDispatchRouteReviewV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "reviewId",
+    "unknownRef",
+    "rawText",
+    "normalizedText",
+    "recommendedClassification",
+    "status",
+    "reviewer",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "reviewId": { "type": "string", "minLength": 3 },
+    "unknownRef": { "type": "string", "minLength": 1 },
+    "rawText": { "type": "string" },
+    "normalizedText": { "type": "string" },
+    "recommendedClassification": {
+      "type": "string",
+      "enum": ["decision_alias", "d0_command", "task_intake_candidate", "ignore_or_reject"]
+    },
+    "proposedMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alias": { "type": "string" },
+        "canonical": {
+          "type": "string",
+          "enum": ["approve", "reject", "revise", "escalate", "pause", "help", "pending", "status", "latest", "show"]
+        }
+      }
+    },
+    "status": { "type": "string", "enum": ["draft", "accepted", "rejected"] },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["human", "steward", "operator", "agent"] },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "notes": { "type": "string" }
+  }
+}

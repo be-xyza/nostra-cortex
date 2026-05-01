@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0.0",
+  "decisionId": "dispatch-decision:invalid-level-escalation",
+  "requestId": "dispatch-request:initiative-132.hermescortexdev-low-risk-patch-prep",
+  "decision": "approve",
+  "approvedLevel": "D2",
+  "decider": {
+    "kind": "operator",
+    "id": "user"
+  },
+  "rationale": "Invalid fixture: tries to approve D2 from a D1 request.",
+  "decidedAt": "2026-04-30T12:36:00Z"
+}

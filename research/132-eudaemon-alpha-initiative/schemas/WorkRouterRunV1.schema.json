@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/WorkRouterRunV1.schema.json",
+  "title": "WorkRouterRunV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "status",
+    "startedAt",
+    "finishedAt",
+    "inputRefs",
+    "artifactRefs",
+    "authority",
+    "summary"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "runId": {
+      "type": "string",
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["dry_run", "pending_decision", "decision_applied", "handoff_generated", "blocked", "failed"]
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "inputRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intake"],
+      "properties": {
+        "intake": { "type": "string", "minLength": 1 },
+        "decision": { "type": "string" }
+      }
+    },
+    "artifactRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routerBundle", "message", "receipt"],
+      "properties": {
+        "routerBundle": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "receipt": { "type": "string", "minLength": 1 },
+        "approvedBundle": { "type": "string" },
+        "handoff": { "type": "string" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxLevel", "mutationAllowed", "transportKind"],
+      "properties": {
+        "maxLevel": { "type": "string", "enum": ["D0", "D1", "D2", "D3", "D4", "D5"] },
+        "mutationAllowed": { "type": "boolean" },
+        "transportKind": {
+          "type": "string",
+          "enum": ["hermes_gateway", "telegram", "cortex_web", "cli", "matrix", "email", "webhook", "other"]
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskRef", "route", "riskLevel", "decision"],
+      "properties": {
+        "taskRef": { "type": "string", "minLength": 1 },
+        "route": { "type": "string", "minLength": 1 },
+        "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "structural"] },
+        "decision": { "type": "string", "enum": ["none", "approve", "reject", "revise", "escalate", "pause"] },
+        "notes": { "type": "string" }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

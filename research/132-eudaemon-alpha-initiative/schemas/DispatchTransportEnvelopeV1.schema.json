@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/DispatchTransportEnvelopeV1.schema.json",
+  "title": "DispatchTransportEnvelopeV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "envelopeId",
+    "runId",
+    "requestId",
+    "transport",
+    "message",
+    "artifactRefs",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "envelopeId": {
+      "type": "string",
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "runId": { "type": "string", "minLength": 3 },
+    "requestId": { "type": "string", "minLength": 3 },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "channelRef"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["hermes_gateway", "telegram", "cortex_web", "cli", "matrix", "email", "webhook", "other"]
+        },
+        "channelRef": { "type": "string", "minLength": 1 }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "body"],
+      "properties": {
+        "format": { "type": "string", "enum": ["text", "json"] },
+        "body": { "type": "string", "minLength": 1 }
+      }
+    },
+    "artifactRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run", "dispatchRequest", "message", "receipt"],
+      "properties": {
+        "run": { "type": "string", "minLength": 1 },
+        "dispatchRequest": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "receipt": { "type": "string", "minLength": 1 }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/DispatchCommandResponseV1.schema.json",
+  "title": "DispatchCommandResponseV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "commandId", "status", "body", "mutationAllowed", "createdAt"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "commandId": { "type": "string", "minLength": 3 },
+    "status": { "type": "string", "enum": ["ok", "needs_review", "error"] },
+    "body": { "type": "string" },
+    "mutationAllowed": { "type": "boolean" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "unknownRef": { "type": "string" }
+  }
+}

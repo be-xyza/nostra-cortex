@@ -49,6 +49,7 @@
       "required": [
         "gateway",
         "worker",
+        "workrouter",
         "cortexWeb"
       ],
       "properties": {
@@ -56,6 +57,9 @@
           "$ref": "#/$defs/runtimeComponent"
         },
         "worker": {
+          "$ref": "#/$defs/runtimeComponent"
+        },
+        "workrouter": {
           "$ref": "#/$defs/runtimeComponent"
         },
         "cortexWeb": {

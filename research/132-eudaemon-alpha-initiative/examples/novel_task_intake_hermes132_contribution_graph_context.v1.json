@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "initiative-132.hermes132-contribution-graph-context",
+  "spaceId": "initiative-132-research",
+  "requester": {
+    "kind": "steward",
+    "id": "systems-steward",
+    "displayName": "Systems Steward"
+  },
+  "intent": "Review Initiative 132 dependency and lineage context using a bounded read-only ContributionGraph excerpt.",
+  "desiredOutcome": "A recommendation-only Hermes132 synthesis that cites graph context without mutating graph storage or promoting evidence.",
+  "knownContextRefs": [
+    {
+      "kind": "initiative",
+      "ref": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/NOVEL_TASK_INTAKE_CONTRACT.md",
+      "authorityTier": "governed",
+      "label": "Novel task intake contract"
+    },
+    {
+      "kind": "artifact",
+      "ref": "/Users/xaoj/ICP/research/000-contribution-graph/contribution_graph.json",
+      "authorityTier": "governed",
+      "label": "ContributionGraph artifact"
+    }
+  ],
+  "constraints": {
+    "authority": [
+      "recommendation_only",
+      "no_runtime_mutation",
+      "no_repo_mutation"
+    ],
+    "runtime": [
+      "hermes132_advisory_only"
+    ],
+    "policy": [
+      "read_only_graph_context",
+      "steward_review_before_promotion"
+    ]
+  },
+  "requiredCapabilities": [
+    {
+      "capabilityId": "hermes-advisory-review",
+      "requiredClaims": [],
+      "selectionRationale": "Hermes132 may synthesize bounded graph context but cannot execute or mutate."
+    },
+    {
+      "capabilityId": "contribution-graph-read",
+      "requiredClaims": [
+        "capability:navigate"
+      ],
+      "selectionRationale": "The task needs read-only lineage and dependency context from ContributionGraph."
+    }
+  ],
+  "uncertainties": [
+    {
+      "kind": "authority_unknown",
+      "summary": "Any graph-derived recommendation may affect initiative sequencing if promoted.",
+      "severity": "medium",
+      "recommendedAction": "Keep Hermes output recommendation-only and require steward review before durable promotion."
+    }
+  ],
+  "riskLevel": "medium",
+  "recommendedPrimitive": "hermes_advisory",
+  "authorityCeiling": "l1",
+  "evaluationRequirements": [
+    {
+      "kind": "source_manifest",
+      "required": true,
+      "notes": "Source manifest must identify the exact graph artifact or graph excerpt."
+    },
+    {
+      "kind": "audit_unit",
+      "required": true,
+      "notes": "Audit unit must bound the graph question and prohibit mutation."
+    },
+    {
+      "kind": "hermes_session_record",
+      "required": true,
+      "notes": "Hermes132 must emit one session record and one synthesis artifact."
+    },
+    {
+      "kind": "steward_review",
+      "required": true,
+      "notes": "Any graph-derived promotion requires steward review."
+    }
+  ],
+  "memoryPolicy": {
+    "shortTerm": {
+      "surface": "contribution_graph",
+      "required": true,
+      "retention": "ephemeral",
+      "notes": "Read-only graph excerpt for bounded advisory synthesis."
+    },
+    "working": {
+      "surface": "heap",
+      "required": false,
+      "retention": "local_runtime",
+      "notes": "Project reviewed synthesis to heap only after operator review."
+    },
+    "execution": {
+      "surface": "none",
+      "required": false,
+      "retention": "ephemeral",
+      "notes": "No runtime execution occurs in this route."
+    },
+    "institutional": {
+      "surface": "governed_evidence",
+      "required": false,
+      "retention": "governed",
+      "notes": "Promote only after steward acceptance."
+    }
+  },
+  "promotionPath": {
+    "mode": "hermes_to_reviewed_artifact",
+    "reviewRequired": true,
+    "targetRefs": [
+      {
+        "kind": "evidence",
+        "ref": "/Users/xaoj/ICP/research/132-eudaemon-alpha-initiative/evidence/",
+        "authorityTier": "governed",
+        "label": "Initiative 132 evidence directory"
+      }
+    ],
+    "notes": "Graph context informs advisory synthesis only; it does not create graph authority."
+  },
+  "hermesProfile": "hermes132",
+  "provenance": {
+    "createdBy": "codex",
+    "createdAt": "2026-04-28T00:00:00Z",
+    "sourceMode": "agent"
+  }
+}

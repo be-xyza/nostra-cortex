@@ -18,6 +18,7 @@ ENV_FILE="${NOSTRA_VPS_ENV_FILE:-$DEPLOY_ROOT/config/eudaemon-alpha.env}"
 
 REPO_TEMPLATE_GATEWAY="$ROOT_DIR/ops/hetzner/systemd/cortex-gateway.service"
 REPO_TEMPLATE_WORKER="$ROOT_DIR/ops/hetzner/systemd/cortex-worker.service"
+REPO_TEMPLATE_WORKROUTER="$ROOT_DIR/ops/hetzner/systemd/cortex-workrouter.service"
 DEPLOY_SCRIPT="$ROOT_DIR/ops/hetzner/deploy.sh"
 PROMOTION_SCRIPT="$ROOT_DIR/scripts/promote_eudaemon_alpha_vps.sh"
 DOCS_INDEX="$ROOT_DIR/docs/cortex/README.md"
@@ -131,6 +132,7 @@ check_repo_contract() {
   check_file_exists "promotion_script" "$PROMOTION_SCRIPT"
   check_file_exists "gateway_template" "$REPO_TEMPLATE_GATEWAY"
   check_file_exists "worker_template" "$REPO_TEMPLATE_WORKER"
+  check_file_exists "workrouter_template" "$REPO_TEMPLATE_WORKROUTER"
   check_file_exists "docs_index" "$DOCS_INDEX"
   check_file_exists "primary_runbook" "$PRIMARY_RUNBOOK"
   check_file_exists "checklist_doc" "$CHECKLIST_DOC"
@@ -142,10 +144,10 @@ check_repo_contract() {
     push_error "deploy script missing explicit commit input"
   fi
 
-  if grep -Fq 'git -C "$REPO_ROOT" fetch origin main' "$DEPLOY_SCRIPT"; then
-    push_check "deploy_fetch_origin_main:present"
+  if grep -Fq "git -C \"\$REPO_ROOT\" fetch origin '+refs/heads/*:refs/remotes/origin/*'" "$DEPLOY_SCRIPT"; then
+    push_check "deploy_fetch_origin_branches:present"
   else
-    push_error "deploy script missing origin/main fetch"
+    push_error "deploy script missing origin branch fetch"
   fi
 
   if grep -Fq 'cat-file -e "${TARGET_COMMIT}^{commit}"' "$DEPLOY_SCRIPT"; then
@@ -179,6 +181,18 @@ check_repo_contract() {
     push_error "deploy script missing worker workspace build step"
   fi
 
+  if grep -Fq 'cortex-workrouter.service' "$DEPLOY_SCRIPT"; then
+    push_check "deploy_renders_workrouter:present"
+  else
+    push_error "deploy script missing WorkRouter systemd render step"
+  fi
+
+  if grep -Fq 'sudo systemctl restart cortex-workrouter.service' "$DEPLOY_SCRIPT"; then
+    push_check "deploy_restarts_workrouter:present"
+  else
+    push_error "deploy script missing WorkRouter restart step"
+  fi
+
   if grep -Fq 'write_authority_manifest' "$DEPLOY_SCRIPT"; then
     push_check "deploy_manifest_generation:present"
   else
@@ -197,9 +211,10 @@ check_repo_contract() {
     push_error "deploy script missing cortex-web not_deployed declaration"
   fi
 
-  local worker_exec gateway_exec
+  local worker_exec gateway_exec workrouter_exec
   worker_exec="$(unit_value "ExecStart" "$REPO_TEMPLATE_WORKER" || true)"
   gateway_exec="$(unit_value "ExecStart" "$REPO_TEMPLATE_GATEWAY" || true)"
+  workrouter_exec="$(unit_value "ExecStart" "$REPO_TEMPLATE_WORKROUTER" || true)"
 
   if [[ "$worker_exec" == "__DEPLOY_ROOT__/repo/nostra/worker/target/release/cortex_worker" ]]; then
     push_check "worker_exec_template:repo_local"
@@ -211,6 +226,12 @@ check_repo_contract() {
     push_check "gateway_exec_template:repo_local"
   else
     push_error "gateway template ExecStart is not repo-local"
+  fi
+
+  if [[ "$workrouter_exec" == "__DEPLOY_ROOT__/repo/scripts/work_router_service_stub.sh" ]]; then
+    push_check "workrouter_exec_template:repo_local"
+  else
+    push_error "workrouter template ExecStart is not repo-local"
   fi
 
   if grep -Fq '`docs/cortex/eudaemon-alpha-phase6-hetzner.md`' "$DOCS_INDEX" && \
@@ -225,6 +246,7 @@ check_repo_contract() {
   check_file_contains "runbook_repo_authority" "$PRIMARY_RUNBOOK" "/srv/nostra/eudaemon-alpha/repo"
   check_file_contains "runbook_operator_ssh" "$PRIMARY_RUNBOOK" "operator-initiated"
   check_file_contains "runbook_cortex_web_not_deployed" "$PRIMARY_RUNBOOK" "not_deployed"
+  check_file_contains "runbook_workrouter_service" "$PRIMARY_RUNBOOK" "cortex-workrouter.service"
   check_file_contains "checklist_promotion_path" "$CHECKLIST_DOC" "scripts/promote_eudaemon_alpha_vps.sh"
   check_file_contains "docs_index_promotion_path" "$DOCS_INDEX" "scripts/promote_eudaemon_alpha_vps.sh"
 
@@ -297,17 +319,19 @@ check_host_contract() {
   fi
 
   local manifest_commit manifest_repo_root manifest_gateway_exec manifest_gateway_workdir
-  local manifest_worker_exec manifest_worker_workdir manifest_web_mode manifest_web_root
-  local manifest_runbook manifest_index actual_commit gateway_unit worker_unit
-  local gateway_exec gateway_workdir worker_exec worker_workdir
+  local manifest_worker_exec manifest_worker_workdir manifest_workrouter_exec manifest_workrouter_workdir
+  local manifest_web_mode manifest_web_root manifest_runbook manifest_index actual_commit gateway_unit worker_unit workrouter_unit
+  local gateway_exec gateway_workdir worker_exec worker_workdir workrouter_exec workrouter_workdir
   local authz_dev_mode allow_unverified_role_header agent_identity_enforcement agent_id
 
   manifest_commit="$(extract_json_string "commit" "$MANIFEST_PATH" 1 || true)"
   manifest_repo_root="$(extract_json_string "repoRoot" "$MANIFEST_PATH" 1 || true)"
   manifest_gateway_exec="$(extract_json_string "execPath" "$MANIFEST_PATH" 1 || true)"
   manifest_worker_exec="$(extract_json_string "execPath" "$MANIFEST_PATH" 2 || true)"
+  manifest_workrouter_exec="$(extract_json_string "execPath" "$MANIFEST_PATH" 3 || true)"
   manifest_gateway_workdir="$(extract_json_string "workingDirectory" "$MANIFEST_PATH" 1 || true)"
   manifest_worker_workdir="$(extract_json_string "workingDirectory" "$MANIFEST_PATH" 2 || true)"
+  manifest_workrouter_workdir="$(extract_json_string "workingDirectory" "$MANIFEST_PATH" 3 || true)"
   manifest_web_mode="$(extract_json_string "deploymentMode" "$MANIFEST_PATH" 1 || true)"
   manifest_web_root="$(extract_json_string "sourceRoot" "$MANIFEST_PATH" 1 || true)"
   manifest_runbook="$(extract_json_string "primaryRunbook" "$MANIFEST_PATH" 1 || true)"
@@ -383,8 +407,10 @@ check_host_contract() {
 
   gateway_unit="$SYSTEMD_ROOT/cortex-gateway.service"
   worker_unit="$SYSTEMD_ROOT/cortex-worker.service"
+  workrouter_unit="$SYSTEMD_ROOT/cortex-workrouter.service"
   check_file_exists "gateway_unit" "$gateway_unit"
   check_file_exists "worker_unit" "$worker_unit"
+  check_file_exists "workrouter_unit" "$workrouter_unit"
 
   if [[ -f "$gateway_unit" ]]; then
     gateway_exec="$(unit_value "ExecStart" "$gateway_unit" || true)"
@@ -436,6 +462,37 @@ check_host_contract() {
       push_error "worker WorkingDirectory does not match manifest"
     fi
     check_running_process_provenance "cortex-worker.service" "$manifest_worker_exec"
+  fi
+
+  if [[ -f "$workrouter_unit" ]]; then
+    workrouter_exec="$(unit_value "ExecStart" "$workrouter_unit" || true)"
+    workrouter_workdir="$(unit_value "WorkingDirectory" "$workrouter_unit" || true)"
+    if rendered_under_repo "$workrouter_exec" "$REPO_ROOT/"; then
+      push_check "workrouter_exec_under_repo:true"
+    else
+      push_error "workrouter ExecStart is outside repo mirror: $workrouter_exec"
+    fi
+    if [[ -d "$workrouter_workdir" ]]; then
+      push_check "workrouter_workdir_exists:true"
+    else
+      push_error "workrouter WorkingDirectory missing: $workrouter_workdir"
+    fi
+    if [[ -n "$manifest_workrouter_exec" && "$manifest_workrouter_exec" == "$workrouter_exec" ]]; then
+      push_check "workrouter_exec_matches_manifest:true"
+    else
+      push_error "workrouter ExecStart does not match manifest"
+    fi
+    if [[ -n "$manifest_workrouter_workdir" && "$manifest_workrouter_workdir" == "$workrouter_workdir" ]]; then
+      push_check "workrouter_workdir_matches_manifest:true"
+    else
+      push_error "workrouter WorkingDirectory does not match manifest"
+    fi
+    check_file_contains "workrouter_unit_d1_ceiling" "$workrouter_unit" "Environment=WORK_ROUTER_MAX_DISPATCH_LEVEL=D1"
+    check_file_contains "workrouter_unit_no_source_mutation" "$workrouter_unit" "Environment=WORK_ROUTER_SOURCE_MUTATION_ALLOWED=0"
+    check_file_contains "workrouter_unit_no_runtime_mutation" "$workrouter_unit" "Environment=WORK_ROUTER_RUNTIME_MUTATION_ALLOWED=0"
+    check_file_contains "workrouter_unit_live_transport_disabled" "$workrouter_unit" "Environment=WORK_ROUTER_LIVE_TRANSPORT_ENABLED=0"
+    check_file_contains "workrouter_unit_observe_mode" "$workrouter_unit" "Environment=WORK_ROUTER_MODE=observe"
+    check_file_contains "workrouter_unit_log_root" "$workrouter_unit" "Environment=WORK_ROUTER_LOG_ROOT=$DEPLOY_ROOT/logs/work_router"
   fi
 
   if [[ "$manifest_web_mode" == "not_deployed" ]]; then

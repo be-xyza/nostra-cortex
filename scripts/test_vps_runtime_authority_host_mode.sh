@@ -20,7 +20,9 @@ make_fixture() {
     "$tmpdir/repo/cortex/target/release" \
     "$tmpdir/repo/nostra/worker/target/release" \
     "$tmpdir/repo/cortex/apps/cortex-web" \
+    "$tmpdir/repo/scripts" \
     "$tmpdir/config" \
+    "$tmpdir/logs/work_router" \
     "$tmpdir/state" \
     "$tmpdir/systemd"
 
@@ -52,6 +54,13 @@ make_fixture() {
       "execPath": "$tmpdir/repo/nostra/worker/target/release/cortex_worker",
       "workingDirectory": "$tmpdir/repo/nostra/worker"
     },
+    "workrouter": {
+      "execPath": "$tmpdir/repo/scripts/work_router_service_stub.sh",
+      "workingDirectory": "$tmpdir/repo",
+      "mode": "observe",
+      "maxDispatchLevel": "D1",
+      "liveTransportEnabled": false
+    },
     "cortexWeb": {
       "deploymentMode": "$web_mode",
       "sourceRoot": "$tmpdir/repo/cortex/apps/cortex-web"
@@ -74,6 +83,18 @@ EOF2
 [Service]
 WorkingDirectory=$tmpdir/repo/nostra/worker
 ExecStart=$worker_exec
+EOF2
+
+  cat >"$tmpdir/systemd/cortex-workrouter.service" <<EOF2
+[Service]
+WorkingDirectory=$tmpdir/repo
+ExecStart=$tmpdir/repo/scripts/work_router_service_stub.sh
+Environment=WORK_ROUTER_MAX_DISPATCH_LEVEL=D1
+Environment=WORK_ROUTER_SOURCE_MUTATION_ALLOWED=0
+Environment=WORK_ROUTER_RUNTIME_MUTATION_ALLOWED=0
+Environment=WORK_ROUTER_LIVE_TRANSPORT_ENABLED=0
+Environment=WORK_ROUTER_MODE=observe
+Environment=WORK_ROUTER_LOG_ROOT=$tmpdir/logs/work_router
 EOF2
 
   cat >"$tmpdir/config/eudaemon-alpha.env" <<EOF2

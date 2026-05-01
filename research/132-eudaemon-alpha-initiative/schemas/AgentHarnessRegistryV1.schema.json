@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/AgentHarnessRegistryV1.schema.json",
+  "title": "AgentHarnessRegistryV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "registryId", "authorityMode", "generatedAt", "harnesses"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "registryId": { "type": "string", "minLength": 3 },
+    "authorityMode": { "const": "recommendation_only" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "harnesses": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/harness" }
+    }
+  },
+  "$defs": {
+    "harness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "harnessId",
+        "sourceRef",
+        "status",
+        "roleFit",
+        "transportSupport",
+        "profileSupport",
+        "executionModel",
+        "securityPosture",
+        "observability",
+        "integrationCost",
+        "performanceNotes",
+        "risks",
+        "recommendation",
+        "evaluationEvidenceRefs"
+      ],
+      "properties": {
+        "harnessId": { "type": "string", "minLength": 3 },
+        "sourceRef": { "type": "string", "minLength": 3 },
+        "status": {
+          "type": "string",
+          "enum": ["unvalidated", "proposed", "sandboxed", "pilot", "active", "restricted", "deprecated", "retired"]
+        },
+        "roleFit": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["gateway", "coding", "research", "background_worker", "space_agent", "workflow_runner", "provider_broker", "unknown"]
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "transportSupport": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "profileSupport": { "type": "string", "enum": ["none", "basic", "profile_isolated", "unknown"] },
+        "executionModel": { "type": "string", "minLength": 3 },
+        "securityPosture": { "type": "string", "minLength": 3 },
+        "observability": { "type": "string", "minLength": 3 },
+        "integrationCost": { "type": "string", "enum": ["low", "medium", "high", "unknown"] },
+        "performanceNotes": { "type": "string" },
+        "risks": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 3 }
+        },
+        "recommendation": { "type": "string", "minLength": 3 },
+        "evaluationEvidenceRefs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 3 }
+        }
+      }
+    }
+  }
+}

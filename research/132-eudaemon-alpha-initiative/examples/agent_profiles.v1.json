@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryId": "agent-profile-registry:init132:v1",
+  "authorityMode": "recommendation_only",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "profiles": [
+    {
+      "agentId": "hermes132",
+      "harnessId": "hermes-agent",
+      "spaceBinding": { "mode": "operator_only" },
+      "purpose": "Initiative 132 advisory synthesis, contradiction review, drift detection, and bounded source-manifested audit passes.",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "allowedOutputs": ["session_record", "source_linked_finding", "synthesis_artifact", "heap_candidate"],
+      "forbiddenActions": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "transportBindings": ["local_cli", "hermes_gateway_candidate"],
+      "runtimeBoundary": {
+        "status": "checked",
+        "boundaryRef": "agent-runtime-boundaries:init132:v1#hermes132",
+        "rationale": "Local Hermes profile is inspectable and must remain advisory-only with terminal/code/delegation disabled."
+      },
+      "memoryPolicy": "local profile memory is convenience state; governed evidence requires manual promotion",
+      "healthStatus": "healthy",
+      "lifecycleState": "active"
+    },
+    {
+      "agentId": "hermescortexdev",
+      "harnessId": "hermes-agent",
+      "spaceBinding": { "mode": "operator_only" },
+      "purpose": "Patch-prep handoff generation from approved task packets; Codex/operator retains implementation authority.",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "allowedOutputs": ["developer_handoff", "patch_plan", "verification_command_list", "risk_note"],
+      "forbiddenActions": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "transportBindings": ["local_cli", "hermes_gateway_candidate"],
+      "runtimeBoundary": {
+        "status": "checked",
+        "boundaryRef": "agent-runtime-boundaries:init132:v1#hermescortexdev",
+        "rationale": "Local Hermes profile is inspectable and must remain patch-prep-only with terminal/code/delegation disabled."
+      },
+      "memoryPolicy": "local task packets and handoffs are local-only until promoted into Initiative 132 evidence",
+      "healthStatus": "healthy",
+      "lifecycleState": "active"
+    },
+    {
+      "agentId": "workrouter",
+      "harnessId": "native-workrouter",
+      "spaceBinding": { "mode": "operator_only" },
+      "purpose": "Transport-neutral D0-D1 routing, dispatch requests, decision ingestion, handoff generation, and unknown-response review.",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "allowedOutputs": ["dispatch_request", "dispatch_decision_record", "code_change_request_patch_prep", "handoff", "status_digest", "unknown_response_review"],
+      "forbiddenActions": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "transportBindings": ["cli", "telegram_direct_dry_run", "hermes_gateway_candidate", "cortex_web_candidate"],
+      "runtimeBoundary": {
+        "status": "checked",
+        "boundaryRef": "agent-runtime-boundaries:init132:v1#workrouter-vps-service",
+        "rationale": "WorkRouter service template and observe-loop guardrails are locally inspectable."
+      },
+      "memoryPolicy": "local WorkRouter logs are mutable runtime outputs; durable evidence must be promoted explicitly",
+      "healthStatus": "healthy",
+      "lifecycleState": "pilot"
+    },
+    {
+      "agentId": "agent:eudaemon-alpha-01",
+      "harnessId": "cortex-worker",
+      "spaceBinding": {
+        "mode": "single_space",
+        "spaceId": "unknown",
+        "roleOrArchetype": "institutional_research_agent"
+      },
+      "purpose": "Phase 6 institutional research agent runtime candidate for governed heap, lifecycle, and workflow-oriented operation.",
+      "authority": {
+        "maxDispatchLevel": "D1",
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "allowedOutputs": ["heap_note", "status_digest", "lifecycle_record", "advisory_recommendation"],
+      "forbiddenActions": ["source_mutation", "runtime_mutation", "commit", "push", "pull_request", "deploy", "canister_call", "graph_mutation", "provider_topology_exposure", "authority_escalation"],
+      "transportBindings": ["cortex_gateway_candidate"],
+      "runtimeBoundary": {
+        "status": "blocked",
+        "boundaryRef": "bash scripts/check_vps_runtime_authority.sh",
+        "rationale": "Live runtime profile remains blocked until production identity and host-mode VPS authority validation pass."
+      },
+      "memoryPolicy": "host-local memory remains draft state until promoted through governed surfaces",
+      "healthStatus": "blocked",
+      "lifecycleState": "pilot"
+    }
+  ]
+}

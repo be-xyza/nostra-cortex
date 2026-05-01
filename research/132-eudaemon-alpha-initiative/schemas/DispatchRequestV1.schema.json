@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.local/schemas/DispatchRequestV1.schema.json",
+  "title": "DispatchRequestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "taskRef",
+    "transport",
+    "requestedLevel",
+    "authorityCeiling",
+    "riskLevel",
+    "prompt",
+    "allowedDecisions",
+    "forbiddenActions",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "requestId": { "type": "string", "minLength": 3 },
+    "taskRef": { "type": "string", "minLength": 3 },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "channelRef"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["hermes_gateway", "telegram", "cortex_web", "cli", "matrix", "email", "webhook", "other"]
+        },
+        "channelRef": { "type": "string", "minLength": 1 },
+        "adapterRef": { "type": "string" }
+      }
+    },
+    "requestedLevel": { "$ref": "#/$defs/dispatchLevel" },
+    "authorityCeiling": { "$ref": "#/$defs/dispatchLevel" },
+    "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "structural"] },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "summary"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "detailsRef": { "type": "string" }
+      }
+    },
+    "allowedDecisions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["approve", "reject", "revise", "escalate", "pause"]
+      },
+      "uniqueItems": true
+    },
+    "forbiddenActions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "idempotencyKey": { "type": "string" }
+  },
+  "$defs": {
+    "dispatchLevel": {
+      "type": "string",
+      "enum": ["D0", "D1", "D2", "D3", "D4", "D5"]
+    }
+  }
+}

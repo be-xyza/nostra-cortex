@@ -56,3 +56,4 @@ This document is the canonical index for architecture-level standards referenced
 22. `/Users/xaoj/ICP/scripts/check_clean_worktree.sh`
 23. `/Users/xaoj/ICP/scripts/check_tracked_generated_artifacts.sh`
 24. `/Users/xaoj/ICP/scripts/check_ndl_design_profiles.py`
+25. `/Users/xaoj/ICP/scripts/check_agent_runtime_boundaries.py`

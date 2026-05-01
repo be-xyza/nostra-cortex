@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryId": "agent-profile-registry:invalid:missing-authority",
+  "authorityMode": "recommendation_only",
+  "generatedAt": "2026-05-01T00:00:00Z",
+  "profiles": [
+    {
+      "agentId": "invalid-agent",
+      "harnessId": "hermes-agent",
+      "spaceBinding": { "mode": "operator_only" },
+      "purpose": "Invalid profile missing an authority ceiling.",
+      "authority": {
+        "sourceMutationAllowed": false,
+        "runtimeMutationAllowed": false
+      },
+      "allowedOutputs": ["status_digest"],
+      "forbiddenActions": ["source_mutation"],
+      "transportBindings": ["cli"],
+      "memoryPolicy": "none",
+      "healthStatus": "unknown",
+      "lifecycleState": "proposed"
+    }
+  ]
+}
