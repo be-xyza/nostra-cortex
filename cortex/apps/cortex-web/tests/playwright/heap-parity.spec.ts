@@ -45,6 +45,34 @@ const ACTION_PLAN_FIXTURE = {
   ]
 };
 
+function actionPlanFixtureForPayload(payload: Record<string, unknown> | null) {
+  if (payload?.pageType === "heap_detail") {
+    return {
+      schemaVersion: "1.0.0",
+      zones: [
+        {
+          zone: "heap_detail_header",
+          layoutHint: "pillbar",
+          actions: [
+            { id: "mock.detail.discussion", capabilityId: "cap.heap.discussion", label: "Discussion", shortLabel: "Discuss", icon: "message-square", kind: "navigation", action: "view_discussion", enabled: true, visible: true, group: "secondary" },
+            { id: "mock.detail.relations", capabilityId: "cap.heap.relation_edit", label: "Relations", shortLabel: "Relations", icon: "git-branch", kind: "panel_toggle", action: "relation_edit", enabled: true, visible: true, group: "secondary" },
+            { id: "mock.detail.history", capabilityId: "cap.heap.history", label: "History", shortLabel: "History", icon: "history", kind: "command", action: "history", enabled: true, visible: true, group: "secondary" },
+          ],
+        },
+        {
+          zone: "heap_detail_footer",
+          layoutHint: "row",
+          actions: [
+            { id: "mock.detail.refine", capabilityId: "cap.heap.refine", label: "Refine", icon: "wand-2", kind: "command", action: "refine_selection", enabled: true, visible: true, group: "secondary" },
+          ],
+        },
+      ],
+    };
+  }
+
+  return ACTION_PLAN_FIXTURE;
+}
+
 const HEAP_WORKBENCH_FIXTURE = {
   type: "surface",
   surfaceId: "surface.heap.parity",
@@ -215,10 +243,11 @@ test.beforeEach(async ({ page }) => {
   });
 
   await page.route(/\/api\/spaces\/.*\/action-plan/, async (route) => {
+    const payload = route.request().postDataJSON?.() as Record<string, unknown> | null;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(ACTION_PLAN_FIXTURE),
+      body: JSON.stringify(actionPlanFixtureForPayload(payload)),
     });
   });
 
@@ -292,6 +321,71 @@ test("heap parity renders structural controls and interactions", async ({ page }
   await expect(page.locator("button", { hasText: "attributes" })).toBeVisible();
   await expect(page.locator("button", { hasText: "relations" })).toBeVisible();
   await expect(page.locator("button", { hasText: "code" })).toBeVisible();
+});
+
+test("heap detail remains stable across responsive widths", async ({ page }) => {
+  await page.route(/\/api\/cortex\/studio\/heap\/changed_blocks/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(noDeltaResponse()),
+    });
+  });
+
+  const widths = [390, 768, 1024, 1440, 1728];
+
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 950 });
+    await page.goto("/explore");
+
+    const firstCard = page.locator(".heap-block-card").filter({ hasText: "Heap Parity Card" }).first();
+    await expect(firstCard).toBeVisible();
+    await firstCard.dblclick();
+
+    const modal = page.locator(".heap-modal-content");
+    await expect(modal).toBeVisible();
+    await expect(page.locator("button", { hasText: "Relations" })).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("git-branch");
+
+    const layout = await page.evaluate(() => {
+      const viewportWidth = document.documentElement.clientWidth;
+      const rootOverflow = document.documentElement.scrollWidth - viewportWidth;
+      const modal = document.querySelector(".heap-modal-content");
+      const modalRect = modal?.getBoundingClientRect();
+      const overflowingNodes = Array.from(document.querySelectorAll("body *"))
+        .map((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            tag: node.tagName,
+            className: String(node.getAttribute("class") ?? ""),
+            text: String(node.textContent ?? "").trim().slice(0, 80),
+            rightOverflow: Math.ceil(rect.right - viewportWidth),
+            leftOverflow: Math.ceil(0 - rect.left),
+            width: Math.ceil(rect.width),
+          };
+        })
+        .filter((node) => node.width > 24 && (node.rightOverflow > 1 || node.leftOverflow > 1))
+        .slice(0, 5);
+
+      return {
+        viewportWidth,
+        rootOverflow,
+        modalWidth: modalRect ? Math.round(modalRect.width) : 0,
+        modalLeft: modalRect ? Math.round(modalRect.left) : 0,
+        modalRight: modalRect ? Math.round(modalRect.right) : 0,
+        overflowingNodes,
+      };
+    });
+
+    expect(layout.rootOverflow, `root overflow at ${width}px`).toBeLessThanOrEqual(1);
+    expect(layout.modalWidth, `modal width at ${width}px`).toBeGreaterThan(0);
+    expect(layout.modalLeft, `modal left bound at ${width}px`).toBeGreaterThanOrEqual(0);
+    expect(layout.modalRight, `modal right bound at ${width}px`).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.overflowingNodes, `overflowing nodes at ${width}px`).toEqual([]);
+
+    await page.keyboard.press("Escape");
+    await expect(modal).not.toBeVisible();
+  }
 });
 
 test("heap parity delta polling reconciles changed blocks when local flag is enabled", async ({ page }) => {
