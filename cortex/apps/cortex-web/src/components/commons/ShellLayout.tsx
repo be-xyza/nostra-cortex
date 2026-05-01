@@ -39,6 +39,8 @@ import {
     formatReadOnlyObserverDetailLines,
     formatReadOnlyObserverSummary,
     formatShellBootstrapWarning,
+    isPublicObserverGatewayBoundary,
+    type ReadOnlyObserverGatewayState,
 } from "./shellBootstrapFallback.ts";
 import {
     createInternetIdentityDelegationProof,
@@ -177,6 +179,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const [compiledPlan, setCompiledPlan] = useState<CompiledNavigationPlan | null>(null);
     const [authSession, setAuthSession] = useState<AuthSession | null>(null);
     const [sessionError, setSessionError] = useState<string | null>(null);
+    const [observerGatewayState, setObserverGatewayState] = useState<ReadOnlyObserverGatewayState>("reachable");
     const [operatorLoginError, setOperatorLoginError] = useState<string | null>(null);
     const [operatorLoginPending, setOperatorLoginPending] = useState(false);
     const [bootstrapWarning, setBootstrapWarning] = useState<string | null>(null);
@@ -207,8 +210,11 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const activeRole = authSession?.activeRole || actorRoleHint;
     const configuredGatewayTarget = gatewayBaseUrl().trim() || "same-origin /api proxy";
     const readOnlyObserverActive = !bootstrapWarning && !sessionError && authSession?.authMode === "read_fallback";
-    const readOnlyObserverDetails = formatReadOnlyObserverDetailLines(configuredGatewayTarget);
+    const readOnlyObserverDetails = formatReadOnlyObserverDetailLines(configuredGatewayTarget, observerGatewayState);
     const operatorLoginEnabled = isInternetIdentityOperatorLoginEnabled();
+    const publicHost = typeof window !== "undefined"
+        && window.location.hostname !== "localhost"
+        && window.location.hostname !== "127.0.0.1";
 
     useEffect(() => {
         setActiveRoute(location.pathname);
@@ -242,13 +248,19 @@ export function ShellLayout({ children }: ShellLayoutProps) {
             .catch((err) => {
                 const message = err instanceof Error ? err.message : "unknown error";
                 const fallback = buildFallbackAuthSession(actorId, actorRoleHint);
-                setSessionError(message);
+                if (isPublicObserverGatewayBoundary(message, configuredGatewayTarget, publicHost)) {
+                    setSessionError(null);
+                    setObserverGatewayState("public_restricted");
+                } else {
+                    setSessionError(message);
+                    setObserverGatewayState("reachable");
+                }
                 setAuthSession(fallback);
                 if (sessionUser.role !== fallback.activeRole) {
                     setSessionUser({ actorId: sessionUser.actorId, role: fallback.activeRole });
                 }
             });
-    }, [sessionUser, actorRoleHint, actorId, setSessionUser]);
+    }, [sessionUser, actorRoleHint, actorId, configuredGatewayTarget, publicHost, setSessionUser]);
 
     useEffect(() => {
         const load = async () => {
@@ -269,14 +281,20 @@ export function ShellLayout({ children }: ShellLayoutProps) {
             } catch (err) {
                 const message = err instanceof Error ? err.message : "unknown error";
                 setLayoutSpec(buildFallbackShellLayoutSpec());
-                setBootstrapWarning(
-                    formatShellBootstrapWarning("layout", message, configuredGatewayTarget),
-                );
+                if (isPublicObserverGatewayBoundary(message, configuredGatewayTarget, publicHost)) {
+                    setBootstrapWarning(null);
+                    setObserverGatewayState("public_restricted");
+                } else {
+                    setBootstrapWarning(
+                        formatShellBootstrapWarning("layout", message, configuredGatewayTarget),
+                    );
+                    setObserverGatewayState("reachable");
+                }
                 setCompiledPlan(null);
             }
         };
         void load();
-    }, [activeRole, activeSpaceId, configuredGatewayTarget]);
+    }, [activeRole, activeSpaceId, configuredGatewayTarget, publicHost]);
 
     useEffect(() => {
         if (!dynamicNavEnabled) return;
