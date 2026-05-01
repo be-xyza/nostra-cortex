@@ -1036,6 +1036,28 @@ export interface AgentRunSummary {
   requiresReview: boolean;
 }
 
+export interface WorkRouterStatusResponse {
+  service: string;
+  mode: string;
+  maxDispatchLevel: string;
+  mutationAllowed: boolean;
+  liveTransportEnabled: boolean;
+  health: string;
+  pendingCount: number;
+  exportedCount: number;
+  outboxEnvelopeCount: number;
+  unknownResponseCount: number;
+  lastObservedAt?: string;
+  lastEvidenceId?: string;
+  lastEvidenceStatus?: string;
+  lastEvidenceFinishedAt?: string;
+  authority: {
+    sourceMutationAllowed: boolean;
+    runtimeMutationAllowed: boolean;
+    forbiddenActionsConfirmed: string[];
+  };
+}
+
 export type SpatialSurfaceVariant = "linear" | "spatial" | "compare";
 
 export interface SpatialPlaneLayoutPoint {

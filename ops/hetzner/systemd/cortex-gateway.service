@@ -9,6 +9,7 @@ User=__SERVICE_USER__
 Group=__SERVICE_USER__
 WorkingDirectory=__DEPLOY_ROOT__/repo/cortex
 EnvironmentFile=__DEPLOY_ROOT__/config/eudaemon-alpha.env
+Environment=WORK_ROUTER_LOG_ROOT=__DEPLOY_ROOT__/logs/work_router
 ExecStart=__DEPLOY_ROOT__/repo/cortex/target/release/cortex-gateway
 Restart=on-failure
 RestartSec=5

@@ -506,6 +506,10 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/work-router/status"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/worker-generation/health"
     },
     {
