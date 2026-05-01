@@ -938,9 +938,9 @@ export function HeapDetailModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/88 p-2 backdrop-blur-md animate-fade-in sm:items-center sm:p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/88 p-2 backdrop-blur-md transition-colors duration-300 animate-fade-in sm:items-center sm:p-4" onClick={onClose}>
             <div
-                className="heap-modal-content relative flex max-h-[96dvh] w-full max-w-[min(96vw,96rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.95))] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_32px_100px_-42px_rgba(0,0,0,0.95)] animate-slide-up sm:max-h-[92vh] sm:rounded-[1.9rem]"
+                className="heap-modal-content relative flex max-h-[96dvh] w-full max-w-[min(96vw,96rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.95))] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_32px_100px_-42px_rgba(0,0,0,0.95)] transition-[max-width,max-height,border-radius] duration-300 ease-out animate-slide-up sm:max-h-[92vh] sm:rounded-[1.9rem]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Soft Background Layer */}
@@ -957,7 +957,7 @@ export function HeapDetailModal({
 
                 {/* Header */}
                 <div className="relative z-10 border-b border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(15,23,42,0.54))] backdrop-blur-xl">
-                    <div className="flex flex-col items-stretch justify-between gap-3 px-4 py-3 sm:flex-row sm:items-start sm:px-6 sm:py-4">
+                    <div className="flex flex-col items-stretch justify-between gap-3 px-4 py-3 transition-[padding,gap] duration-300 ease-out sm:px-6 sm:py-4 lg:flex-row lg:items-start">
                         <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                                 <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100 sm:px-3 sm:py-1">
@@ -1025,8 +1025,8 @@ export function HeapDetailModal({
                                 )}
                             </div>
                         </div>
-                        <div className="flex w-full items-start justify-between gap-2 sm:ml-4 sm:w-auto sm:justify-end">
-                            <div className="flex min-w-0 flex-1 flex-wrap items-start gap-2 sm:flex-none sm:justify-end">
+                        <div className="flex w-full items-start justify-between gap-2 lg:ml-4 lg:w-auto lg:justify-end">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-start gap-2 lg:flex-none lg:justify-end">
                                 {headerZonePlan && (
                                     <ActionZoneRenderer
                                         actions={headerZonePlan.actions}
@@ -1048,8 +1048,8 @@ export function HeapDetailModal({
 
                 {/* Body Content */}
                 <div className="relative z-10 flex-1 overflow-y-auto bg-slate-900/20 custom-scrollbar">
-                    <div className="grid min-w-0 gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
-                        <div className="min-w-0 px-4 pb-24 pt-4 sm:px-8 sm:pb-8 sm:pt-5">
+                    <div className="grid min-w-0 gap-0 transition-[grid-template-columns] duration-300 ease-out 2xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+                        <div className="min-w-0 px-4 pb-24 pt-4 transition-[padding] duration-300 ease-out sm:px-8 sm:pb-8 sm:pt-5">
                             {(block.warnings?.length ?? 0) > 0 && (activeTab === 'preview' || activeTab === 'code') && (
                                 <div className="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 flex gap-3 items-start animate-in fade-in slide-in-from-top-2">
                                     <span className="text-xl">⚠️</span>
@@ -1155,8 +1155,8 @@ export function HeapDetailModal({
                             </section>
 
                             {/* Tabs Navigation */}
-                            <div 
-                                className="mb-6 flex w-full max-w-full gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.05] p-1.5 shadow-inner sm:w-fit"
+                            <div
+                                className="mb-6 flex w-full max-w-full scroll-px-1 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.05] p-1.5 shadow-inner transition-[width,border-radius] duration-300 ease-out xl:w-fit"
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={handleTabDrop}
                             >
@@ -1627,7 +1627,7 @@ export function HeapDetailModal({
                 </div>
 
                 {/* Slim status footer */}
-                <div className="px-6 py-3 border-t border-white/5 bg-slate-900/80 text-[11px] text-slate-500">
+                <div className="border-t border-white/5 bg-slate-900/80 px-4 py-3 text-[11px] leading-5 text-slate-500 transition-[padding] duration-300 ease-out sm:px-6">
                     {footerStatusMessage}
                     {visibleActionPlanError && (
                         <span className="ml-2 text-amber-300/90 truncate" title={visibleActionPlanError}>
