@@ -9,6 +9,8 @@ from pathlib import Path
 
 import jsonschema
 
+from work_router_paths import work_router_log_root
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = (
@@ -28,7 +30,7 @@ def load_json(path: Path) -> object:
 def main(argv: list[str]) -> int:
     paths = [Path(arg) for arg in argv[1:]]
     if not paths:
-        paths = sorted((ROOT / "logs" / "work_router" / "runs").glob("*/run.json"))
+        paths = sorted((work_router_log_root() / "runs").glob("*/run.json"))
     if not paths:
         print("No WorkRouterRunV1 artifacts found.", file=sys.stderr)
         return 1

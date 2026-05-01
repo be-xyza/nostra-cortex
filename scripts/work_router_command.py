@@ -12,12 +12,15 @@ from pathlib import Path
 
 import jsonschema
 
+from work_router_paths import work_router_log_root
+
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "research" / "132-eudaemon-alpha-initiative"
-RUNS_DIR = ROOT / "logs" / "work_router" / "runs"
-LATEST = ROOT / "logs" / "work_router" / "latest.json"
-UNKNOWN_DIR = ROOT / "logs" / "work_router" / "unknown"
+LOG_ROOT = work_router_log_root()
+RUNS_DIR = LOG_ROOT / "runs"
+LATEST = LOG_ROOT / "latest.json"
+UNKNOWN_DIR = LOG_ROOT / "unknown"
 COMMAND_SCHEMA = BASE / "schemas" / "DispatchCommandV1.schema.json"
 RESPONSE_SCHEMA = BASE / "schemas" / "DispatchCommandResponseV1.schema.json"
 ALIASES_PATH = BASE / "dispatch_aliases.v1.json"

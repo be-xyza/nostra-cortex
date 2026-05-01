@@ -9,10 +9,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+from work_router_paths import work_router_log_root
+
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTBOX = ROOT / "logs" / "work_router" / "outbox"
-PROCESSED_DIR = ROOT / "logs" / "work_router" / "telegram_processed"
+LOG_ROOT = work_router_log_root()
+DEFAULT_OUTBOX = LOG_ROOT / "outbox"
+PROCESSED_DIR = LOG_ROOT / "telegram_processed"
 
 
 def load_json(path: Path) -> dict:

@@ -12,6 +12,8 @@ from pathlib import Path
 
 import jsonschema
 
+from work_router_paths import work_router_log_root
+
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "research" / "132-eudaemon-alpha-initiative"
@@ -19,7 +21,7 @@ ENVELOPE_SCHEMA = BASE / "schemas" / "DispatchTransportEnvelopeV1.schema.json"
 DECISION_SCHEMA = BASE / "schemas" / "DispatchDecisionV1.schema.json"
 ADAPTER_SCHEMA = BASE / "schemas" / "DispatchTransportAdapterV1.schema.json"
 ADAPTER_FIXTURE = BASE / "examples" / "dispatch_transport_adapter_cli_dry_run.v1.json"
-DEFAULT_OUTBOX = ROOT / "logs" / "work_router" / "outbox"
+DEFAULT_OUTBOX = work_router_log_root() / "outbox"
 
 
 def load_json(path: Path) -> dict:

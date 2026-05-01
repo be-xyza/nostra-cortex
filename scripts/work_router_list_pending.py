@@ -7,9 +7,11 @@ import json
 import sys
 from pathlib import Path
 
+from work_router_paths import work_router_log_root
+
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNS_DIR = ROOT / "logs" / "work_router" / "runs"
+RUNS_DIR = work_router_log_root() / "runs"
 
 
 def load_json(path: Path) -> dict:

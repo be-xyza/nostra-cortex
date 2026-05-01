@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK_ROUTER_LOG_ROOT="${WORK_ROUTER_LOG_ROOT:-$ROOT_DIR/logs/work_router}"
 VALIDATOR="$ROOT_DIR/scripts/validate_work_router_dispatch.py"
 DRY_RUN="$ROOT_DIR/scripts/work_router_dispatch_dry_run.py"
 APPLY_DECISION="$ROOT_DIR/scripts/work_router_apply_dispatch_decision.py"
@@ -104,9 +105,9 @@ python3 "$TELEGRAM_ADAPTER" \
   >/tmp/work_router_telegram_receive_path.txt
 rm -rf /tmp/work_router_telegram_receive_outbox
 python3 "$EXPORT_PENDING" --outbox /tmp/work_router_telegram_receive_outbox --run-id check-work-router-telegram-receive --created-at 2026-04-30T12:46:00Z >/tmp/work_router_telegram_receive_export.json
-rm -f "$ROOT_DIR/logs/work_router/telegram_processed/1320001.json" "$ROOT_DIR/logs/work_router/telegram_processed/1320002.json"
+rm -f "$WORK_ROUTER_LOG_ROOT/telegram_processed/1320001.json" "$WORK_ROUTER_LOG_ROOT/telegram_processed/1320002.json"
 python3 "$TELEGRAM_RECEIVE" "$TELEGRAM_UPDATE_APPROVE" --outbox /tmp/work_router_telegram_receive_outbox --created-at 2026-04-30T12:47:00Z >/tmp/work_router_telegram_receive_approve.json
-python3 "$VALIDATE_RUN" "$ROOT_DIR/logs/work_router/runs/check-work-router-telegram-receive/run.json" >/tmp/work_router_telegram_receive_validate.out
+python3 "$VALIDATE_RUN" "$WORK_ROUTER_LOG_ROOT/runs/check-work-router-telegram-receive/run.json" >/tmp/work_router_telegram_receive_validate.out
 python3 "$TELEGRAM_RECEIVE" "$TELEGRAM_UPDATE_APPROVE" --outbox /tmp/work_router_telegram_receive_outbox --created-at 2026-04-30T12:47:00Z >/tmp/work_router_telegram_receive_duplicate.json
 python3 "$TELEGRAM_RECEIVE" "$TELEGRAM_UPDATE_UNKNOWN" --outbox /tmp/work_router_telegram_receive_outbox --created-at 2026-04-30T12:48:00Z >/tmp/work_router_telegram_receive_unknown.json
 "$RUN_D1" \
@@ -117,15 +118,15 @@ python3 "$TELEGRAM_RECEIVE" "$TELEGRAM_UPDATE_UNKNOWN" --outbox /tmp/work_router
   >/tmp/work_router_hermes_gateway_receive_path.txt
 rm -rf /tmp/work_router_hermes_gateway_outbox
 python3 "$EXPORT_PENDING" --outbox /tmp/work_router_hermes_gateway_outbox --run-id check-work-router-hermes-gateway-receive --created-at 2026-05-01T01:00:00Z >/tmp/work_router_hermes_gateway_export.json
-rm -f "$ROOT_DIR/logs/work_router/hermes_gateway_processed/hermes-gateway-msg-approve-001.json" "$ROOT_DIR/logs/work_router/hermes_gateway_processed/hermes-gateway-msg-unknown-001.json"
+rm -f "$WORK_ROUTER_LOG_ROOT/hermes_gateway_processed/hermes-gateway-msg-approve-001.json" "$WORK_ROUTER_LOG_ROOT/hermes_gateway_processed/hermes-gateway-msg-unknown-001.json"
 python3 "$HERMES_GATEWAY_RECEIVE" "$HERMES_GATEWAY_APPROVE" --outbox /tmp/work_router_hermes_gateway_outbox --created-at 2026-05-01T01:00:10Z >/tmp/work_router_hermes_gateway_approve.json
-python3 "$VALIDATE_RUN" "$ROOT_DIR/logs/work_router/runs/check-work-router-hermes-gateway-receive/run.json" >/tmp/work_router_hermes_gateway_receive_validate.out
+python3 "$VALIDATE_RUN" "$WORK_ROUTER_LOG_ROOT/runs/check-work-router-hermes-gateway-receive/run.json" >/tmp/work_router_hermes_gateway_receive_validate.out
 python3 "$HERMES_GATEWAY_RECEIVE" "$HERMES_GATEWAY_APPROVE" --outbox /tmp/work_router_hermes_gateway_outbox --created-at 2026-05-01T01:00:10Z >/tmp/work_router_hermes_gateway_duplicate.json
 python3 "$HERMES_GATEWAY_RECEIVE" "$HERMES_GATEWAY_UNKNOWN" --outbox /tmp/work_router_hermes_gateway_outbox --created-at 2026-05-01T01:01:00Z >/tmp/work_router_hermes_gateway_unknown.json
 python3 "$COMMAND" --text pending --created-at 2026-04-30T12:44:00Z --json >/tmp/work_router_command_pending.json
 python3 "$COMMAND" --text approved --created-at 2026-04-30T12:44:01Z --json >/tmp/work_router_command_approved.json
 python3 "$COMMAND" --text "apprve please" --created-at 2026-04-30T12:44:02Z --json >/tmp/work_router_command_unknown.json
-python3 "$REVIEW_UNKNOWNS" --unknown "$ROOT_DIR/logs/work_router/unknown/20260430T124402Z-apprve-please.json" --out-dir /tmp/work_router_unknown_reviews --created-at 2026-04-30T12:45:00Z >/tmp/work_router_unknown_review_index.json
+python3 "$REVIEW_UNKNOWNS" --unknown "$WORK_ROUTER_LOG_ROOT/unknown/20260430T124402Z-apprve-please.json" --out-dir /tmp/work_router_unknown_reviews --created-at 2026-04-30T12:45:00Z >/tmp/work_router_unknown_review_index.json
 python3 "$APPLY_UNKNOWN_REVIEW" /tmp/work_router_unknown_reviews/20260430T124402Z-apprve-please.review.json >/tmp/work_router_unknown_review_apply.json
 if ! grep -q '"runId": "check-work-router-pending"' /tmp/work_router_pending_list.json; then
   echo "FAIL: pending run was not listed" >&2
@@ -162,8 +163,8 @@ if ! grep -q '"canonical": "approve"' /tmp/work_router_unknown_review_apply.json
   cat /tmp/work_router_unknown_review_apply.json >&2 || true
   exit 1
 fi
-python3 "$VALIDATE_RUN" "$ROOT_DIR/logs/work_router/runs/check-work-router-pending/run.json" >/tmp/work_router_pending_applied_validate.out
-python3 "$VALIDATE_RUN" "$ROOT_DIR/logs/work_router/runs/check-work-router-telegram-dry-run/run.json" >/tmp/work_router_telegram_dry_run_validate.out
+python3 "$VALIDATE_RUN" "$WORK_ROUTER_LOG_ROOT/runs/check-work-router-pending/run.json" >/tmp/work_router_pending_applied_validate.out
+python3 "$VALIDATE_RUN" "$WORK_ROUTER_LOG_ROOT/runs/check-work-router-telegram-dry-run/run.json" >/tmp/work_router_telegram_dry_run_validate.out
 if ! grep -q '"status": "decision_applied"' /tmp/work_router_telegram_receive_approve.json; then
   echo "FAIL: telegram receive fixture did not apply approval decision" >&2
   cat /tmp/work_router_telegram_receive_approve.json >&2 || true

@@ -11,11 +11,14 @@ from pathlib import Path
 
 import jsonschema
 
+from work_router_paths import work_router_log_root
+
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "research" / "132-eudaemon-alpha-initiative"
-UNKNOWN_DIR = ROOT / "logs" / "work_router" / "unknown"
-REVIEW_DIR = ROOT / "logs" / "work_router" / "unknown_reviews"
+LOG_ROOT = work_router_log_root()
+UNKNOWN_DIR = LOG_ROOT / "unknown"
+REVIEW_DIR = LOG_ROOT / "unknown_reviews"
 SCHEMA_PATH = BASE / "schemas" / "UnknownDispatchRouteReviewV1.schema.json"
 
 
