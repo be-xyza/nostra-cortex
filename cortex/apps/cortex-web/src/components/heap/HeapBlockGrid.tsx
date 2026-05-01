@@ -1947,7 +1947,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                 {settingsOpen && (
                                     <>
                                         <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-                                        <div className="fixed inset-x-2 top-16 z-50 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.96))] shadow-2xl animate-in fade-in zoom-in-95 duration-200 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-88 sm:max-w-[calc(100vw-1rem)] sm:overflow-hidden">
+                                        <div className="fixed inset-x-2 top-16 z-50 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.96))] shadow-2xl animate-in fade-in zoom-in-95 duration-200 lg:absolute lg:inset-x-auto lg:right-0 lg:top-auto lg:mt-2 lg:w-88 lg:max-w-[calc(100vw-1rem)] lg:overflow-hidden">
                                             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.08),transparent_35%)]" />
                                             <div className="relative p-3.5">
                                                 <div className="flex items-start justify-between gap-3">
