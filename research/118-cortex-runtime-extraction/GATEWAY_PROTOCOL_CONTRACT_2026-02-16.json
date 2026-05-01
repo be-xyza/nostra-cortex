@@ -5096,6 +5096,50 @@
     },
     {
       "method": "GET",
+      "path_template": "/api/system/worker-generation/health",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "none"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [],
+      "transaction_boundary": "read_only",
+      "idempotency_semantics": {
+        "mode": "not_applicable",
+        "header": null,
+        "dedupe_key": null,
+        "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "GET",
       "path_template": "/api/testing/catalog",
       "endpoint_class": "testing",
       "request_schema": {
@@ -9646,6 +9690,52 @@
         "header": null,
         "dedupe_key": null,
         "replay_behavior": "none"
+      }
+    },
+    {
+      "method": "POST",
+      "path_template": "/api/system/worker-generation/grounded",
+      "endpoint_class": "system",
+      "request_schema": {
+        "path_params": "templated path params are required when present",
+        "query": "endpoint-specific query parameters",
+        "headers": {
+          "content-type": "application/json for JSON payload endpoints",
+          "x-idempotency-key": "used per idempotency_semantics"
+        },
+        "body": "json object"
+      },
+      "response_schema": {
+        "status_code": "http status code",
+        "body": "endpoint-specific JSON payload",
+        "error_envelope": {
+          "code": "stable_machine_code",
+          "message": "operator-readable summary",
+          "details": "optional structured details"
+        }
+      },
+      "error_normalization": {
+        "default_code": "gateway_error",
+        "retryable_statuses": [
+          429,
+          500,
+          502,
+          503,
+          504
+        ],
+        "validation_status": 400,
+        "authz_status": 403,
+        "not_found_status": 404
+      },
+      "event_emissions": [
+        "nostra.gateway.request.accepted"
+      ],
+      "transaction_boundary": "host_managed",
+      "idempotency_semantics": {
+        "mode": "optional_header",
+        "header": "X-Idempotency-Key",
+        "dedupe_key": "method:path:header",
+        "replay_behavior": "last_success_response_replay"
       }
     },
     {

@@ -124,6 +124,7 @@ GET	/api/system/siq/runs/:run_id
 GET	/api/system/status
 GET	/api/system/ux/workbench
 GET	/api/system/whoami
+GET	/api/system/worker-generation/health
 GET	/api/testing/catalog
 GET	/api/testing/gates/latest
 GET	/api/testing/health
@@ -192,8 +193,8 @@ POST	/api/cortex/viewspecs/proposals/:proposal_id/merge
 POST	/api/cortex/viewspecs/proposals/:proposal_id/ratify
 POST	/api/cortex/viewspecs/proposals/:proposal_id/reject
 POST	/api/cortex/viewspecs/proposals/:proposal_id/review
-POST	/api/cortex/viewspecs/validate
 POST	/api/cortex/viewspecs/spatial/layouts/:space_id/:view_spec_id
+POST	/api/cortex/viewspecs/validate
 POST	/api/cortex/workflow-drafts/:workflow_draft_id/propose
 POST	/api/cortex/workflow-drafts/candidates
 POST	/api/cortex/workflow-drafts/candidates/:candidate_set_id/stage
@@ -229,12 +230,13 @@ POST	/api/system/providers/discover
 POST	/api/system/providers/validate
 POST	/api/system/session/active-role
 POST	/api/system/session/internet-identity
+POST	/api/system/worker-generation/grounded
 POST	/api/workflow/read
 POST	/api/workflow/run
 POST	/api/workflow/save
 PUT	/api/cortex/preferences/theme-policy
-PUT	/api/spaces/:space_id/capability-graph
 PUT	/api/spaces/:space_id/agents/:agent_id/routing
+PUT	/api/spaces/:space_id/capability-graph
 PUT	/api/spaces/:space_id/routing
 PUT	/api/system/auth-bindings/:auth_binding_id
 PUT	/api/system/provider-bindings/:binding_id
