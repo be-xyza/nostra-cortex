@@ -41553,6 +41553,158 @@ N3d26cRxD99TPtm8uo2OuzKhSiq6EQ==
     }
 
     #[tokio::test]
+    async fn workflow_gateway_canister_and_local_paths_reach_supported_motif_parity() {
+        if std::env::var("NOSTRA_IC_HOST").is_err()
+            || std::env::var("CANISTER_ID_WORKFLOW_ENGINE").is_err()
+        {
+            eprintln!(
+                "skipping live workflow canister parity test; NOSTRA_IC_HOST and CANISTER_ID_WORKFLOW_ENGINE are required"
+            );
+            return;
+        }
+
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let _guard = DecisionSurfaceLogDirGuard::set(temp.path());
+
+        let (definition_id, _proposal_id, _scope_key, _space_id) =
+            ratify_workflow_definition_fixture(
+                "human_gate",
+                "Validate local and canister gateway parity for a supported workflow motif.",
+            )
+            .await;
+
+        async fn run_supported_workflow_lifecycle(
+            definition_id: &str,
+            adapter: &str,
+            suffix: &str,
+        ) -> Value {
+            let instance_id = format!("workflow_instance_gateway_parity_{suffix}");
+            let start_response =
+                post_cortex_workflow_instance_start(Json(WorkflowInstanceStartRequest {
+                    definition_id: definition_id.to_string(),
+                    binding_id: Some(format!("workflow_binding_gateway_parity_{suffix}")),
+                    instance_id: Some(instance_id.clone()),
+                    adapter: Some(adapter.to_string()),
+                    execution_profile: Some("async".to_string()),
+                    checkpoint_policy: Some(WorkflowCheckpointPolicyV1 {
+                        resume_allowed: true,
+                        cancel_allowed: true,
+                        pause_allowed: true,
+                        timeout_seconds: Some(120),
+                    }),
+                    runtime_limits: BTreeMap::new(),
+                    started_by: Some("tester".to_string()),
+                }))
+                .await
+                .into_response();
+            assert_eq!(start_response.status(), StatusCode::OK);
+            let start_body = response_json(start_response).await;
+            assert_eq!(start_body["accepted"], true);
+            assert_eq!(start_body["instance"]["sourceOfTruth"], adapter);
+
+            let checkpoints_response =
+                get_cortex_workflow_instance_checkpoints(Path(instance_id.clone()))
+                    .await
+                    .into_response();
+            assert_eq!(checkpoints_response.status(), StatusCode::OK);
+            let checkpoints_body = response_json(checkpoints_response).await;
+            let checkpoint_id = checkpoints_body["checkpoints"]
+                .as_array()
+                .and_then(|checkpoints| checkpoints.first())
+                .and_then(|checkpoint| checkpoint["checkpointId"].as_str())
+                .expect("pending checkpoint id")
+                .to_string();
+
+            let signal_response = post_cortex_workflow_instance_signal(
+                Path(instance_id.clone()),
+                Json(WorkflowInstanceSignalRequest {
+                    signal_type: "approve".to_string(),
+                    checkpoint_id: Some(checkpoint_id),
+                    payload: json!({ "decision": "approve", "actor": "tester" }),
+                }),
+            )
+            .await
+            .into_response();
+            assert_eq!(signal_response.status(), StatusCode::OK);
+
+            let instance_response = get_cortex_workflow_instance(Path(instance_id.clone()))
+                .await
+                .into_response();
+            assert_eq!(instance_response.status(), StatusCode::OK);
+            let instance_body = response_json(instance_response).await;
+
+            let trace_response = get_cortex_workflow_instance_trace(Path(instance_id.clone()))
+                .await
+                .into_response();
+            assert_eq!(trace_response.status(), StatusCode::OK);
+            let trace_body = response_json(trace_response).await;
+
+            let checkpoints_response =
+                get_cortex_workflow_instance_checkpoints(Path(instance_id.clone()))
+                    .await
+                    .into_response();
+            assert_eq!(checkpoints_response.status(), StatusCode::OK);
+            let checkpoints_body = response_json(checkpoints_response).await;
+
+            let outcome_response = get_cortex_workflow_instance_outcome(Path(instance_id))
+                .await
+                .into_response();
+            assert_eq!(outcome_response.status(), StatusCode::OK);
+            let outcome_body = response_json(outcome_response).await;
+
+            let trace_events: Vec<Value> = trace_body["trace"]
+                .as_array()
+                .expect("trace")
+                .iter()
+                .map(|event| event["eventType"].clone())
+                .collect();
+            let checkpoint_statuses: Vec<Value> = checkpoints_body["checkpoints"]
+                .as_array()
+                .expect("checkpoints")
+                .iter()
+                .map(|checkpoint| checkpoint["status"].clone())
+                .collect();
+
+            json!({
+                "instanceStatus": instance_body["instance"]["status"],
+                "traceEvents": trace_events,
+                "checkpointStatuses": checkpoint_statuses,
+                "outcomeStatus": outcome_body["outcome"]["status"],
+            })
+        }
+
+        let canister = run_supported_workflow_lifecycle(
+            definition_id.as_str(),
+            "workflow_engine_canister_v1",
+            "canister",
+        )
+        .await;
+        let local = run_supported_workflow_lifecycle(
+            definition_id.as_str(),
+            "local_durable_worker_v1",
+            "local",
+        )
+        .await;
+
+        assert_eq!(canister, local);
+        assert_eq!(canister["instanceStatus"], "completed");
+        assert_eq!(canister["outcomeStatus"], "completed");
+        assert!(
+            canister["traceEvents"]
+                .as_array()
+                .expect("trace events")
+                .contains(&json!("workflow_started"))
+        );
+        assert!(
+            canister["checkpointStatuses"]
+                .as_array()
+                .expect("checkpoint statuses")
+                .contains(&json!("resolved"))
+        );
+    }
+
+    #[tokio::test]
     async fn spatial_experiment_event_pipeline_persists_summary_and_readback() {
         let _lock = acquire_testing_env_lock();
         let run_id = format!("spatial-run-{}", Utc::now().timestamp_millis());
