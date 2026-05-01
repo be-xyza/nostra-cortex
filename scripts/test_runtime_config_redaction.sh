@@ -13,6 +13,8 @@ cat > "$ENV_FILE" <<EOF
 NOSTRA_LLM_API_KEY=$SAMPLE_VALUE
 NOSTRA_PUBLIC_MODE=enabled
 NOSTRA_WEBHOOK_SECRET=short
+NOSTRA_LLM_COST_PER_1K_TOKENS=0.002
+NOSTRA_LLM_MAX_TOKENS=8192
 EOF
 
 output="$(bash "$ROOT_DIR/scripts/inspect_runtime_config_redacted.sh" --env-file "$ENV_FILE")"
@@ -29,6 +31,11 @@ fi
 
 if ! grep -Fq '"fingerprint": "sha256:' <<<"$output"; then
   echo "FAIL: redacted inspection missing fingerprint"
+  exit 1
+fi
+
+if grep -Fq 'NOSTRA_LLM_COST_PER_1K_TOKENS' <<<"$output" || grep -Fq 'NOSTRA_LLM_MAX_TOKENS' <<<"$output"; then
+  echo "FAIL: redacted inspection classified non-secret token budget metadata as secret-bearing"
   exit 1
 fi
 

@@ -26,3 +26,28 @@
 - Phase 2 delivers scanning and CI protection.
 - Nostra protected-resource primitives follow after current egress surfaces are controlled.
 
+## DEC-138-003: Trust evidence must be user-legible without value disclosure
+
+**Date**: 2026-05-01
+
+**Decision**: Protected-resource use must produce user-legible trust evidence without exposing the protected value. Evidence should identify purpose, Space, tool, grant, expiry, render mode, trusted boundary, result status, and audit reference.
+
+**Rationale**: After stable production, trust cannot rely only on internal policy claims. Users need to understand when sensitive resources were used and why, while still being protected from transcript, terminal, log, screenshot, and artifact leakage.
+
+**Implications**:
+- Agents receive references, redacted previews, fingerprints, or status objects rather than raw values.
+- Runtime adapters must emit redacted audit events for protected-resource use.
+- UI/operator surfaces should explain protection state and audit lineage, not secret contents.
+
+## DEC-138-004: Provider topology is not secret value, but remains protected metadata
+
+**Date**: 2026-05-01
+
+**Decision**: Provider locality, model identity, tunnel status, auth binding presence, and runtime topology are protected operational metadata. They may be shown only through redacted contracts that avoid credentials, host-sensitive details, and mutation affordances.
+
+**Rationale**: Initiatives 132 and 137 require Local/Tunneled/Cloud provider visibility for operations and trust. That visibility must not recreate the original failure mode by exposing provider keys, tunnel credentials, auth bindings, or privileged topology.
+
+**Implications**:
+- Provider dashboards may show safe badges and status summaries.
+- Detailed provider inventory remains operator-only unless redacted.
+- Secret egress controls apply to topology diagnostics as well as credential values.
