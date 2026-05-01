@@ -283,7 +283,6 @@ struct SystemReady {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
 struct WorkerGenerationHealth {
     status: String,
     llm_base: String,
@@ -42461,6 +42460,23 @@ N3d26cRxD99TPtm8uo2OuzKhSiq6EQ==
             body["errorCode"],
             "SYSTEM_WORKER_GENERATION_EXECUTE_FORBIDDEN"
         );
+    }
+
+    #[test]
+    fn worker_generation_health_decodes_worker_payload_shape() {
+        let payload = r#"{
+            "status": "configured",
+            "llm_base": "https://openrouter.ai/api/v1/chat/completions",
+            "generation_model": "~moonshotai/kimi-latest",
+            "auth_configured": true
+        }"#;
+
+        let health: WorkerGenerationHealth =
+            serde_json::from_str(payload).expect("worker health payload should decode");
+
+        assert_eq!(health.status, "configured");
+        assert_eq!(health.generation_model, "~moonshotai/kimi-latest");
+        assert!(health.auth_configured);
     }
 
     #[test]
