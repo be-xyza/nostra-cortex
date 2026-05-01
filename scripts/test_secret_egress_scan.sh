@@ -34,5 +34,6 @@ if grep -Fq "$SAMPLE_VALUE" <<<"$leak_output"; then
 fi
 
 python3 "$ROOT_DIR/scripts/check_secret_egress.py" --paths "$SAFE_FILE" >/dev/null
+(cd "$TMP_DIR" && python3 "$ROOT_DIR/scripts/check_secret_egress.py" --paths "$SAFE_FILE" >/dev/null)
 
 echo "PASS: secret egress scanner blocks leaks without emitting raw secrets"

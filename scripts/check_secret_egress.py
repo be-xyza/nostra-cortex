@@ -67,13 +67,18 @@ class Finding:
 
 
 def repo_root() -> Path:
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-    )
-    return Path(result.stdout.strip())
+    script_root = Path(__file__).resolve().parent.parent
+    candidates = [Path.cwd(), script_root]
+    for candidate in candidates:
+        result = subprocess.run(
+            ["git", "-C", str(candidate), "rev-parse", "--show-toplevel"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode == 0:
+            return Path(result.stdout.strip())
+    return script_root
 
 
 def tracked_files(root: Path) -> list[Path]:
