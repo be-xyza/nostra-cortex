@@ -33,6 +33,7 @@ use nostra_workflow_core::builder::{WorkflowParser, WorkflowTemplates};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
+use std::env;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -138,12 +139,8 @@ struct ModelHealthResponse {
 
 async fn get_model_health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let config = ConfigService::get();
-    let llm_base = config
-        .get_llm_config()
-        .map(|c| c.api_base.clone())
-        .unwrap_or_else(|| "http://localhost:11434".to_string());
-    let generation_model = std::env::var("NOSTRA_LOCAL_GENERATION_MODEL")
-        .unwrap_or_else(|_| "llama3.1:8b".to_string());
+    let llm_base = resolve_generation_base(config);
+    let generation_model = resolve_generation_model();
 
     if let Some(vs) = &state.vector_service {
         let vector_health = vs.health().await;
@@ -1327,12 +1324,8 @@ async fn generate_grounded_answer(
     strict_grounding: bool,
 ) -> Result<(String, String), String> {
     let config = ConfigService::get();
-    let llm_base = config
-        .get_llm_config()
-        .map(|c| c.api_base.trim_end_matches('/').to_string())
-        .unwrap_or_else(|| "http://localhost:11434".to_string());
-    let model =
-        std::env::var("NOSTRA_LOCAL_GENERATION_MODEL").unwrap_or_else(|_| "llama3.1:8b".into());
+    let llm_base = resolve_generation_base(config);
+    let model = resolve_generation_model();
 
     let system_prompt = if strict_grounding {
         "You are a grounded knowledge assistant. Use only the provided context. If context is insufficient, explicitly say so. Cite chunk IDs in brackets like [chunk-id]."
@@ -1356,11 +1349,19 @@ async fn generate_grounded_answer(
     });
 
     let client = reqwest::Client::new();
-    let url = format!("{}/api/chat", llm_base);
+    let url = generation_chat_url(&llm_base);
+    let mut request = client.post(url).json(&payload);
+    if let Some(api_key) = generation_api_key() {
+        request = request.bearer_auth(api_key);
+    }
+    let timeout_seconds = env::var("NOSTRA_LLM_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(40);
 
     let response = tokio::time::timeout(
-        Duration::from_secs(40),
-        client.post(url).json(&payload).send(),
+        Duration::from_secs(timeout_seconds),
+        request.send(),
     )
     .await
     .map_err(|_| "generator timeout".to_string())
@@ -1377,14 +1378,7 @@ async fn generate_grounded_answer(
         .await
         .map_err(|e| format!("generator parse error: {}", e))?;
 
-    let answer = value
-        .get("message")
-        .and_then(|m| m.get("content"))
-        .and_then(|c| c.as_str())
-        .or_else(|| value.get("response").and_then(|c| c.as_str()))
-        .unwrap_or("")
-        .trim()
-        .to_string();
+    let answer = extract_generation_answer(&value);
 
     if answer.is_empty() {
         return Err("generator returned empty answer".to_string());
@@ -1394,6 +1388,79 @@ async fn generate_grounded_answer(
         answer,
         payload["model"].as_str().unwrap_or("unknown").to_string(),
     ))
+}
+
+fn resolve_generation_base(config: &ConfigService) -> String {
+    env::var("NOSTRA_LLM_BASE_URL")
+        .or_else(|_| env::var("NOSTRA_LLM_API_BASE"))
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| value.trim_end_matches('/').to_string())
+        .or_else(|| {
+            config
+                .get_llm_config()
+                .map(|c| c.api_base.trim_end_matches('/').to_string())
+        })
+        .unwrap_or_else(|| "http://localhost:11434".to_string())
+}
+
+fn resolve_generation_model() -> String {
+    generation_model_from_values(
+        env::var("NOSTRA_LLM_MODEL").ok().as_deref(),
+        env::var("NOSTRA_LOCAL_GENERATION_MODEL").ok().as_deref(),
+    )
+}
+
+fn generation_model_from_values(llm_model: Option<&str>, local_model: Option<&str>) -> String {
+    llm_model
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            local_model
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or("llama3.1:8b")
+        .to_string()
+}
+
+fn generation_api_key() -> Option<String> {
+    env::var("NOSTRA_LLM_API_KEY")
+        .or_else(|_| env::var("OPENROUTER_API_KEY"))
+        .or_else(|_| env::var("OPENAI_API_KEY"))
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+}
+
+fn generation_chat_url(base: &str) -> String {
+    let trimmed = base.trim_end_matches('/');
+    if trimmed.ends_with("/chat/completions") || trimmed.ends_with("/api/chat") {
+        trimmed.to_string()
+    } else if trimmed.contains("openrouter.ai") || trimmed.ends_with("/v1") {
+        format!("{trimmed}/chat/completions")
+    } else {
+        format!("{trimmed}/api/chat")
+    }
+}
+
+fn extract_generation_answer(value: &serde_json::Value) -> String {
+    value
+        .get("choices")
+        .and_then(|choices| choices.as_array())
+        .and_then(|choices| choices.first())
+        .and_then(|choice| choice.get("message"))
+        .and_then(|message| message.get("content"))
+        .and_then(|content| content.as_str())
+        .or_else(|| {
+            value
+                .get("message")
+                .and_then(|message| message.get("content"))
+                .and_then(|content| content.as_str())
+        })
+        .or_else(|| value.get("response").and_then(|content| content.as_str()))
+        .unwrap_or("")
+        .trim()
+        .to_string()
 }
 
 #[cfg(test)]
@@ -1442,6 +1509,63 @@ mod tests {
             extraction_orchestrator: Arc::new(ExtractionOrchestrator::new()),
             extraction_jobs: Arc::new(RwLock::new(HashMap::new())),
         })
+    }
+
+    #[test]
+    fn generation_model_prefers_live_provider_env() {
+        assert_eq!(
+            generation_model_from_values(Some(" ~moonshotai/kimi-latest "), Some("llama3.1:8b")),
+            "~moonshotai/kimi-latest"
+        );
+        assert_eq!(
+            generation_model_from_values(Some(""), Some("llama3.1:8b")),
+            "llama3.1:8b"
+        );
+        assert_eq!(generation_model_from_values(None, None), "llama3.1:8b");
+    }
+
+    #[test]
+    fn generation_chat_url_supports_openrouter_and_ollama_shapes() {
+        assert_eq!(
+            generation_chat_url("https://openrouter.ai/api/v1"),
+            "https://openrouter.ai/api/v1/chat/completions"
+        );
+        assert_eq!(
+            generation_chat_url("https://openrouter.ai/api/v1/chat/completions"),
+            "https://openrouter.ai/api/v1/chat/completions"
+        );
+        assert_eq!(
+            generation_chat_url("http://localhost:11434"),
+            "http://localhost:11434/api/chat"
+        );
+    }
+
+    #[test]
+    fn extract_generation_answer_supports_openai_and_ollama_payloads() {
+        let openai_like = json!({
+            "choices": [
+                {
+                    "message": {
+                        "content": " Kimi answer "
+                    }
+                }
+            ]
+        });
+        let ollama_chat = json!({
+            "message": {
+                "content": " Ollama chat answer "
+            }
+        });
+        let ollama_generate = json!({
+            "response": " Ollama generate answer "
+        });
+
+        assert_eq!(extract_generation_answer(&openai_like), "Kimi answer");
+        assert_eq!(extract_generation_answer(&ollama_chat), "Ollama chat answer");
+        assert_eq!(
+            extract_generation_answer(&ollama_generate),
+            "Ollama generate answer"
+        );
     }
 
     #[tokio::test]

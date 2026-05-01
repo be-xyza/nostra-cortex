@@ -11,6 +11,9 @@ use tokio::time::sleep;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519StaticSecret};
 
 use cortex_worker::config_service::ConfigService;
+use cortex_worker::live_generation::{
+    live_generation_enabled, live_generation_port, start_live_generation_server,
+};
 
 const WORKER_KEYS_PATH_ENV: &str = "NOSTRA_WORKER_KEYS_PATH";
 const DEFAULT_WORKER_KEYS_PATH: &str = "worker_keys.json";
@@ -1609,6 +1612,13 @@ async fn main() -> Result<()> {
             "   > Provider cognition local synthesis artifact written to {}",
             path.display()
         );
+        return Ok(());
+    }
+
+    if live_generation_enabled() {
+        let port = live_generation_port();
+        println!("   > Live generation enabled; runtime polling remains disabled.");
+        start_live_generation_server(port).await?;
         return Ok(());
     }
 
