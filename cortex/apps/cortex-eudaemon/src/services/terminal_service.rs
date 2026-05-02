@@ -1,4 +1,5 @@
 use crate::services::acp_adapter::{EnvVariable, ValidatedTerminalCreate};
+use crate::services::secret_redaction::redact_runtime_text;
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -145,7 +146,7 @@ impl TerminalService {
             loop {
                 match reader.read(&mut buf) {
                     Ok(n) if n > 0 => {
-                        let msg = String::from_utf8_lossy(&buf[..n]).to_string();
+                        let msg = redact_terminal_output(&buf[..n]);
                         let _ = tx.send(msg);
                     }
                     Ok(_) => break,
@@ -261,7 +262,7 @@ impl TerminalService {
 
         Ok(AcpTerminalOutputResponse {
             terminal_id: req.terminal_id,
-            output: String::from_utf8_lossy(slice).to_string(),
+            output: redact_terminal_output(slice),
             output_byte_limit: state.output_limit,
             truncated: dropped > 0 || output_bytes.len() > read_limit,
             dropped_bytes: dropped,
@@ -362,6 +363,10 @@ fn get_terminal_state(terminal_id: &str) -> Result<Arc<AcpTerminalState>, String
         .get(terminal_id)
         .cloned()
         .ok_or_else(|| format!("unknown terminalId: {}", terminal_id))
+}
+
+fn redact_terminal_output(bytes: &[u8]) -> String {
+    redact_runtime_text(&String::from_utf8_lossy(bytes))
 }
 
 async fn pipe_output_stream<R>(mut stream: R, state: Arc<AcpTerminalState>)
@@ -489,6 +494,19 @@ mod tests {
         assert!(output.dropped_bytes >= 6);
 
         let _ = TerminalService::acp_terminal_release(created.terminal_id);
+    }
+
+    #[test]
+    fn terminal_output_redacts_secret_shaped_values() {
+        let provider_key = format!("{}{}", "sk-or-v1-", "A".repeat(40));
+        let ssn = ["123", "45", "6789"].join("-");
+        let output = redact_terminal_output(
+            format!("Authorization: Bearer {provider_key}\nssn={ssn}").as_bytes(),
+        );
+
+        assert!(!output.contains("sk-or-v1-"));
+        assert!(!output.contains(&ssn));
+        assert!(output.contains("[REDACTED]"));
     }
 
     #[tokio::test]

@@ -4,7 +4,7 @@ initiative: "138"
 type: "validation"
 status: draft
 created: "2026-05-01"
-updated: "2026-05-02"
+updated: "2026-05-01"
 ---
 
 # Validation: Protected Resources and Secret Egress
@@ -64,14 +64,12 @@ Status 2026-05-01:
 | Worker live-generation provider errors | Redacted before returning bad-gateway provider errors | `nostra/worker/src/live_generation.rs` |
 | Worker runtime redaction helper | Unit coverage for provider keys, private keys, SSN-like values, and safe operational metadata | `cargo test --manifest-path nostra/worker/Cargo.toml secret_redaction --lib` |
 | Provider-admin inventory diagnostics | Redacted before returning metadata, health payloads, provider runtime status, discovery errors, runtime host health, and auth-binding metadata | `cortex/apps/cortex-eudaemon/src/gateway/provider_admin/{records,contracts,service}.rs` |
-| System log tail responses | Redacted before returning JSON snapshots, JSONL raw payloads, and raw text log lines | `cargo test --manifest-path cortex/apps/cortex-eudaemon/Cargo.toml system_logs --lib` |
-| Terminal service output | Redacted before live PTY broadcast and ACP terminal output retrieval | `cargo test --manifest-path cortex/apps/cortex-eudaemon/Cargo.toml terminal_service --lib` |
 
 Remaining Phase 3 gaps:
 
-1. SIQ artifact checks should include secret egress validation for promoted evidence bundles.
-2. User-facing protected-resource audit events still need the `SecretRef`/grant lifecycle from Phase 4.
-3. Stable production still needs recorded rotate/revoke/scrub/audit incident-drill evidence.
+1. System log and terminal-service output need explicit redaction before any AI-visible or promoted surface.
+2. SIQ artifact checks should include secret egress validation for promoted evidence bundles.
+3. User-facing protected-resource audit events still need the `SecretRef`/grant lifecycle from Phase 4.
 
 ## Evidence Promotion Scan Evidence
 
