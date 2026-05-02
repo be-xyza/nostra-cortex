@@ -29,7 +29,7 @@ stewardship:
   primary_steward: "Systems Steward"
   domain: "Security and Runtime Governance"
 created: "2026-05-01"
-updated: "2026-05-02"
+updated: "2026-05-01"
 ---
 
 # Initiative 138: Protected Resources and Secret Egress
@@ -74,7 +74,7 @@ The immediate driver is an operator incident class: provider keys or sensitive r
 - Ensure gateway and worker logs, error envelopes, upstream provider errors, and diagnostics redact secrets by default.
 - Redact provider keys, auth bindings, request headers, bearer tokens, private keys, SSN-like values, and known sensitive env names.
 - Preserve operator utility by reporting stable fingerprints and policy state rather than raw values.
-- Status 2026-05-02: initial runtime redaction helpers are added for Cortex provider-runtime upstream errors/SSE parse diagnostics, worker live-generation provider errors, provider-admin inventory/diagnostic mapper boundaries, system-log tail responses, and terminal-service output. Evidence promotion now runs secret egress scanning before copying runtime artifacts into governed initiative paths.
+- Status 2026-05-02: initial runtime redaction helpers are added for Cortex provider-runtime upstream errors/SSE parse diagnostics, worker live-generation provider errors, and provider-admin inventory/diagnostic mapper boundaries. Evidence promotion now runs secret egress scanning before copying runtime artifacts into governed initiative paths. Broader system-log and terminal-service coverage remains open.
 
 ### Phase 4: Protected Resource Primitive
 
@@ -114,7 +114,7 @@ For stable production trust, Initiative 138 must also close these gaps before it
 5. Operator diagnostics must avoid noisy secret classification so safe metadata such as token budgets or cost-per-token settings do not look like credentials.
 6. Stable production must include incident-drill evidence for rotate, revoke, scrub, audit, and post-rotation runtime validation.
 
-Current Phase 3 progress covers the highest-risk provider error path, provider-admin inventory diagnostics, system-log tailing, terminal output retrieval/broadcast, and scan-before-promotion for governed evidence. Remaining Phase 3 hardening should add SIQ multi-artifact evidence scanning and production-style incident drill evidence before Phase 4 protected-resource primitives are treated as complete.
+Current Phase 3 progress covers the highest-risk provider error path, provider-admin inventory diagnostics, and scan-before-promotion for governed evidence. Remaining Phase 3 work should extend the same redaction helper pattern to system logs and terminal-service output.
 
 ## Cross-Initiative Alignment
 

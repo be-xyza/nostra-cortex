@@ -1,3 +1,4 @@
+use crate::services::secret_redaction::{redact_json_value, redact_runtime_text};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
@@ -75,6 +76,14 @@ pub struct StreamDefinition {
     pub required_role: &'static str,
     pub source: &'static str,
     pub description: &'static str,
+}
+
+fn redact_log_tail_value(value: &Value) -> Value {
+    redact_json_value(value)
+}
+
+fn redact_log_tail_text(value: &str) -> String {
+    redact_runtime_text(value)
 }
 
 fn workspace_root() -> PathBuf {
@@ -221,16 +230,17 @@ pub fn tail_stream(
                 .map_err(|err| format!("read {}: {}", path.display(), err))?;
             let parsed: Value = serde_json::from_str(&raw)
                 .map_err(|err| format!("parse {}: {}", path.display(), err))?;
+            let redacted = redact_log_tail_value(&parsed);
             let event = LogTailEvent {
-                ts: parsed
+                ts: redacted
                     .get("generated_at")
-                    .or_else(|| parsed.get("generatedAt"))
+                    .or_else(|| redacted.get("generatedAt"))
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string()),
                 level: "info".to_string(),
                 subsystem: stream_id_owned.clone(),
                 message: "json_snapshot".to_string(),
-                raw: Some(parsed),
+                raw: Some(redacted),
                 raw_text_line: None,
             };
             let response = LogTailResponse {
@@ -282,39 +292,42 @@ pub fn tail_stream(
                 }
                 match def.format {
                     StreamFormat::Jsonl => match serde_json::from_str::<Value>(line) {
-                        Ok(value) => events.push(LogTailEvent {
-                            ts: value
-                                .get("generatedAt")
-                                .or_else(|| value.get("generated_at"))
-                                .or_else(|| value.get("ts"))
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.to_string()),
-                            level: value
-                                .get("level")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("info")
-                                .to_string(),
-                            subsystem: value
-                                .get("subsystem")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or(def.stream_id)
-                                .to_string(),
-                            message: value
-                                .get("message")
-                                .or_else(|| value.get("eventType"))
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("event")
-                                .to_string(),
-                            raw: Some(value),
-                            raw_text_line: None,
-                        }),
+                        Ok(value) => {
+                            let redacted = redact_log_tail_value(&value);
+                            events.push(LogTailEvent {
+                                ts: redacted
+                                    .get("generatedAt")
+                                    .or_else(|| redacted.get("generated_at"))
+                                    .or_else(|| redacted.get("ts"))
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string()),
+                                level: redacted
+                                    .get("level")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("info")
+                                    .to_string(),
+                                subsystem: redacted
+                                    .get("subsystem")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or(def.stream_id)
+                                    .to_string(),
+                                message: redacted
+                                    .get("message")
+                                    .or_else(|| redacted.get("eventType"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("event")
+                                    .to_string(),
+                                raw: Some(redacted),
+                                raw_text_line: None,
+                            })
+                        }
                         Err(_) => events.push(LogTailEvent {
                             ts: None,
                             level: "info".to_string(),
                             subsystem: stream_id_owned.clone(),
                             message: "raw_line".to_string(),
                             raw: None,
-                            raw_text_line: Some(line.to_string()),
+                            raw_text_line: Some(redact_log_tail_text(line)),
                         }),
                     },
                     StreamFormat::Text => events.push(LogTailEvent {
@@ -323,7 +336,7 @@ pub fn tail_stream(
                         subsystem: stream_id_owned.clone(),
                         message: "line".to_string(),
                         raw: None,
-                        raw_text_line: Some(line.to_string()),
+                        raw_text_line: Some(redact_log_tail_text(line)),
                     }),
                     StreamFormat::Json => {}
                 }
@@ -354,4 +367,41 @@ pub fn inventory_response(generated_at: &str) -> LogStreamsResponse {
 
 pub fn stream_missing_error(stream_id: &str) -> Value {
     json!({ "streamId": stream_id })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn log_tail_json_values_are_redacted() {
+        let provider_key = format!("{}{}", "sk-or-v1-", "A".repeat(40));
+        let project_key = format!("{}{}", "sk-proj-", "B".repeat(40));
+        let ssn = ["123", "45", "6789"].join("-");
+        let value = json!({
+            "generatedAt": "2026-05-02T00:00:00Z",
+            "message": format!("provider failed with {provider_key}"),
+            "headers": {
+                "authorization": format!("Bearer {project_key}")
+            },
+            "ssn": ssn
+        });
+
+        let redacted = redact_log_tail_value(&value);
+        let serialized = serde_json::to_string(&redacted).unwrap();
+
+        assert!(!serialized.contains("sk-or-v1-"));
+        assert!(!serialized.contains("sk-proj-"));
+        assert!(!serialized.contains(&ssn));
+        assert!(serialized.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn log_tail_text_lines_are_redacted() {
+        let provider_key = format!("{}{}", "sk-or-v1-", "A".repeat(40));
+        let redacted = redact_log_tail_text(&format!("Authorization: Bearer {provider_key}"));
+
+        assert!(!redacted.contains("sk-or-v1-"));
+        assert!(redacted.contains("[REDACTED]"));
+    }
 }
