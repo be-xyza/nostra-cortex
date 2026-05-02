@@ -78,6 +78,8 @@ import type {
   WorkflowReplayResponse,
   WorkflowTraceResponse,
   WorkRouterDispatchQueueResponse,
+  WorkRouterDispatchDecisionRequest,
+  WorkRouterDispatchDecisionResponse,
   WorkRouterStatusResponse,
   SystemProvidersResponse,
   OperatorProviderInventoryResponse,
@@ -481,6 +483,23 @@ export const workbenchApi = {
     request<WorkRouterStatusResponse>("/api/system/work-router/status"),
   getSystemWorkRouterDispatches: () =>
     request<WorkRouterDispatchQueueResponse>("/api/system/work-router/dispatches"),
+  postSystemWorkRouterDispatchDecision: (
+    runId: string,
+    payload: WorkRouterDispatchDecisionRequest,
+    actorRole = "operator",
+    actorId = "cortex-web"
+  ) =>
+    request<WorkRouterDispatchDecisionResponse>(
+      `/api/system/work-router/dispatches/${encodeURIComponent(runId)}/decision`,
+      {
+        method: "POST",
+        headers: {
+          "x-cortex-role": actorRole,
+          "x-cortex-actor": actorId
+        },
+        body: JSON.stringify(payload)
+      }
+    ),
   getContributionBlastRadius: (contributionId: string, spaceId?: string) =>
     request<DpubBlastRadiusResponse>(
       `/api/kg/spaces/${encodeURIComponent(resolveWorkbenchSpaceId(spaceId))}/contribution-graph/blast-radius?contributionId=${encodeURIComponent(contributionId)}`

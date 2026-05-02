@@ -938,6 +938,10 @@
     },
     {
       "method": "POST",
+      "path": "/api/system/work-router/dispatches/:run_id/decision"
+    },
+    {
+      "method": "POST",
       "path": "/api/system/worker-generation/grounded"
     },
     {

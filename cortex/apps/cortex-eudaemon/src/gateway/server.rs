@@ -51,7 +51,9 @@ use crate::services::heap_mapper::{
     validate_emit_heap_block,
 };
 use crate::services::heap_nesting::{NestingProjectionRecord, build_nested_a2ui_tree_by_artifact};
-use crate::services::ops_agents::{AgentContributionApprovalRequest, AgentRunRecord};
+use crate::services::ops_agents::{
+    AgentContributionApprovalRequest, AgentRunRecord, WorkRouterDispatchDecisionRequest,
+};
 #[cfg(test)]
 use crate::services::ops_flows::{WorkflowAutomationDescriptor, WorkflowCatalogEntry};
 use crate::services::provider_probe::ProviderProbeRequest;
@@ -3477,6 +3479,10 @@ impl GatewayService {
             .route(
                 "/api/system/work-router/dispatches",
                 get(get_system_work_router_dispatches),
+            )
+            .route(
+                "/api/system/work-router/dispatches/:run_id/decision",
+                post(post_system_work_router_dispatch_decision),
             )
             .route(
                 "/api/system/agents/runs/:space_id/:run_id",
@@ -29650,6 +29656,54 @@ pub(crate) async fn get_system_work_router_dispatches(headers: HeaderMap) -> axu
     }
 }
 
+pub(crate) async fn post_system_work_router_dispatch_decision(
+    headers: HeaderMap,
+    Path(run_id): Path<String>,
+    Json(payload): Json<WorkRouterDispatchDecisionRequest>,
+) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "post_system_work_router_dispatch_decision",
+        None,
+        "capability:system_work_router_dispatch_decision",
+        "write",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SYSTEM_WORK_ROUTER_DISPATCH_DECISION_FORBIDDEN",
+        "Operator role or higher is required to decide WorkRouter dispatches.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    let actor_id = actor_id_from_headers(&headers);
+    match crate::services::ops_agents::apply_work_router_dispatch_decision(&run_id, payload, &actor_id) {
+        Ok(response) => Json(response).into_response(),
+        Err(err) => {
+            let status = if err == "run_not_pending_decision" {
+                StatusCode::CONFLICT
+            } else if err.starts_with("invalid_")
+                || err.starts_with("authority_")
+                || err.starts_with("approved_level_")
+                || err.starts_with("dispatch_decision_")
+            {
+                StatusCode::BAD_REQUEST
+            } else {
+                StatusCode::SERVICE_UNAVAILABLE
+            };
+            cortex_ux_error(
+                status,
+                "SYSTEM_WORK_ROUTER_DISPATCH_DECISION_UNAVAILABLE",
+                "WorkRouter dispatch decision could not be applied.",
+                Some(json!({ "runId": run_id, "reason": err })),
+            )
+        }
+    }
+}
+
 pub(crate) async fn get_system_agents_run(
     headers: HeaderMap,
     Path((space_id, run_id)): Path<(String, String)>,
@@ -37303,6 +37357,168 @@ mod tests {
         assert!(body.get("providerInventory").is_none());
         assert!(body.get("runtimeHosts").is_none());
         assert!(body.get("authBindings").is_none());
+    }
+
+    fn write_work_router_pending_run(log_root: &std::path::Path, run_id: &str, max_level: &str) {
+        let run_dir = log_root.join("runs").join(run_id);
+        std::fs::create_dir_all(&run_dir).expect("run dir");
+        let message_path = run_dir.join("message.txt");
+        std::fs::write(&message_path, "Approve low-risk patch prep for WorkRouter.").expect("message");
+        let router_bundle_path = run_dir.join("router_bundle.json");
+        std::fs::write(
+            &router_bundle_path,
+            serde_json::to_string(&json!({
+                "workRouterDecision": {
+                    "schemaVersion": "1.0.0",
+                    "decisionId": format!("work-router-decision:{run_id}"),
+                    "taskRef": format!("novel-task:{run_id}"),
+                    "recommendedRoute": "patch_prep",
+                    "recommendedLevel": "D1",
+                    "rationale": "Low-risk patch prep should route to D1 handoff only.",
+                    "createdAt": "2026-05-01T23:21:58Z"
+                },
+                "dispatchRequest": {
+                    "schemaVersion": "1.0.0",
+                    "requestId": format!("dispatch-request:{run_id}"),
+                    "taskRef": format!("novel-task:{run_id}"),
+                    "riskLevel": "low",
+                    "authorityCeiling": max_level,
+                    "allowedDecisions": ["approve", "reject", "revise", "escalate", "pause"],
+                    "transport": {
+                        "kind": "cortex_web",
+                        "channelRef": "operator-dashboard"
+                    },
+                    "prompt": {
+                        "summary": "Prepare WorkRouter patch prep."
+                    },
+                    "createdAt": "2026-05-01T23:22:00Z"
+                }
+            }))
+            .expect("router bundle json"),
+        )
+        .expect("write router bundle");
+        std::fs::write(
+            run_dir.join("run.json"),
+            serde_json::to_string(&json!({
+                "schemaVersion": "1.0.0",
+                "runId": run_id,
+                "status": "pending_decision",
+                "startedAt": "2026-05-01T23:21:59Z",
+                "finishedAt": "2026-05-01T23:21:59Z",
+                "inputRefs": {
+                    "intake": "/tmp/intake.json"
+                },
+                "artifactRefs": {
+                    "routerBundle": router_bundle_path.display().to_string(),
+                    "message": message_path.display().to_string(),
+                    "receipt": "/tmp/receipt.json"
+                },
+                "authority": {
+                    "maxLevel": max_level,
+                    "mutationAllowed": false,
+                    "transportKind": "cortex_web"
+                },
+                "summary": {
+                    "taskRef": format!("novel-task:{run_id}"),
+                    "route": "patch_prep",
+                    "riskLevel": "low",
+                    "decision": "none"
+                }
+            }))
+            .expect("run json"),
+        )
+        .expect("write run");
+    }
+
+    #[tokio::test]
+    async fn system_work_router_dispatch_decision_requires_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let response = post_system_work_router_dispatch_decision(
+            role_headers("viewer", "viewer-1"),
+            Path("pending-run-1".to_string()),
+            Json(WorkRouterDispatchDecisionRequest {
+                decision: "approve".to_string(),
+                rationale: None,
+                decider_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SYSTEM_WORK_ROUTER_DISPATCH_DECISION_FORBIDDEN");
+    }
+
+    #[tokio::test]
+    async fn system_work_router_dispatch_decision_approve_writes_d1_handoff_without_topology() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let log_root = temp.path().join("work_router");
+        write_work_router_pending_run(&log_root, "pending-run-approve", "D1");
+        let _guard = EnvVarGuard::set("WORK_ROUTER_LOG_ROOT", &log_root.display().to_string());
+
+        let response = post_system_work_router_dispatch_decision(
+            role_headers("operator", "operator-1"),
+            Path("pending-run-approve".to_string()),
+            Json(WorkRouterDispatchDecisionRequest {
+                decision: "approve".to_string(),
+                rationale: Some("Approved for D1 handoff only.".to_string()),
+                decider_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["accepted"], true);
+        assert_eq!(body["status"], "handoff_generated");
+        assert_eq!(body["approvedLevel"], "D1");
+        assert_eq!(body["mutationAllowed"], false);
+        assert!(body["handoffPath"].as_str().unwrap_or_default().ends_with("handoff.md"));
+        assert!(body.get("providerInventory").is_none());
+        assert!(body.get("runtimeHosts").is_none());
+        assert!(body.get("authBindings").is_none());
+
+        let run: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                log_root.join("runs").join("pending-run-approve").join("run.json"),
+            )
+            .expect("run json"),
+        )
+        .expect("parse run json");
+        assert_eq!(run["status"], "handoff_generated");
+        assert_eq!(run["summary"]["decision"], "approve");
+        assert!(run["artifactRefs"]["handoff"]
+            .as_str()
+            .unwrap_or_default()
+            .ends_with("handoff.md"));
+    }
+
+    #[tokio::test]
+    async fn system_work_router_dispatch_decision_blocks_approval_above_authority() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let log_root = temp.path().join("work_router");
+        write_work_router_pending_run(&log_root, "pending-run-d0", "D0");
+        let _guard = EnvVarGuard::set("WORK_ROUTER_LOG_ROOT", &log_root.display().to_string());
+
+        let response = post_system_work_router_dispatch_decision(
+            role_headers("operator", "operator-1"),
+            Path("pending-run-d0".to_string()),
+            Json(WorkRouterDispatchDecisionRequest {
+                decision: "approve".to_string(),
+                rationale: Some("Attempt D1 approval.".to_string()),
+                decider_id: None,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = response_json(response).await;
+        assert_eq!(body["details"]["reason"], "approved_level_exceeds_authority");
+        let run: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(log_root.join("runs").join("pending-run-d0").join("run.json"))
+                .expect("run json"),
+        )
+        .expect("parse run json");
+        assert_eq!(run["status"], "pending_decision");
     }
 
     #[tokio::test]
