@@ -82,23 +82,3 @@ Status 2026-05-02:
 | Canonical evidence promotion command | `scripts/promote_evidence_artifact.sh` scans source artifacts before copying into `research/<initiative>/<subdir>` | `bash scripts/test_promote_evidence_secret_scan.sh` |
 | Secret-bearing promotion attempt | High-confidence fake provider key blocks promotion and does not print raw secret | `bash scripts/test_promote_evidence_secret_scan.sh` |
 | Safe redacted promotion attempt | Redacted/fingerprint-only artifact promotes successfully | `bash scripts/test_promote_evidence_secret_scan.sh` |
-
-## Phase 4 Contract Evidence
-
-Status 2026-05-02:
-
-| Contract surface | Coverage | Evidence |
-|---|---|---|
-| Protected resource authority | Draft schema defines kind, Space, authority, sensitivity, storage, policy, and lineage | `research/138-protected-resources-and-secret-egress/schemas/ProtectedResourceV1.schema.json` |
-| Secret reference handle | Draft schema defines expiring non-value handle with fingerprint and render mode | `research/138-protected-resources-and-secret-egress/schemas/SecretRefV1.schema.json` |
-| Capability grant | Draft schema binds reference to purpose, Space, tool, render mode, approval, expiry, and audit requirement | `research/138-protected-resources-and-secret-egress/schemas/ProtectedResourceGrantV1.schema.json` |
-| Sealed tool invocation | Draft schema defines sealed provider/render/inspection invocation with `SecretRef` inputs | `research/138-protected-resources-and-secret-egress/schemas/SealedToolInvocationV1.schema.json` |
-| Protected-resource audit | Draft schema records trusted boundary, result, emitted fields, and fingerprint without raw values | `research/138-protected-resources-and-secret-egress/schemas/ProtectedResourceUsedV1.schema.json` |
-| Schema examples | Example payloads validate against the draft schemas without tracked raw secret-shaped values | `python3` JSON Schema validation over `schemas/*.json` and `examples/*.json` |
-
-Remaining Phase 4 gaps:
-
-1. Runtime Rust/domain types need to be generated or implemented from these draft schemas.
-2. Nostra authority persistence for protected resources, grants, and audit events is not implemented yet.
-3. Cortex sealed provider/render tools do not yet consume `SecretRef` grants directly.
-4. User/operator trust surfaces still need redacted status and audit lineage views.

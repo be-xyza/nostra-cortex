@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0.0",
+  "invocationId": "sealedinv_openrouter_provider_key_001",
+  "tool": "sealed_provider_invoke",
+  "spaceId": "space:nostra-governance-v0",
+  "purpose": "sealed-provider-invocation",
+  "grantId": "grant_openrouter_provider_key_001",
+  "secretRefs": [
+    "secretref_openrouter_provider_key_001"
+  ],
+  "inputMode": "workflow_adapter",
+  "requestedRenderMode": "status_only",
+  "requestedBy": "agent:eudaemon-alpha-01",
+  "requestedAt": "2026-05-02T00:00:00Z"
+}

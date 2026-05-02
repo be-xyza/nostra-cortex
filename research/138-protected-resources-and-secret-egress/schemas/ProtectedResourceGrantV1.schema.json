@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.dev/schemas/protected-resource-grant/v1",
+  "title": "ProtectedResourceGrantV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "grantId",
+    "secretRef",
+    "resourceId",
+    "spaceId",
+    "purpose",
+    "tool",
+    "renderMode",
+    "status",
+    "requestedBy",
+    "approvedBy",
+    "issuedAt",
+    "expiresAt",
+    "auditRequired"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "grantId": {
+      "type": "string",
+      "pattern": "^grant_[a-z0-9][a-z0-9_-]{8,120}$"
+    },
+    "secretRef": {
+      "type": "string",
+      "pattern": "^secretref_[a-z0-9][a-z0-9_-]{8,120}$"
+    },
+    "resourceId": {
+      "type": "string",
+      "pattern": "^pr_[a-z0-9][a-z0-9_-]{6,96}$"
+    },
+    "spaceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "renderMode": {
+      "type": "string",
+      "enum": [
+        "status_only",
+        "fingerprint",
+        "redacted_preview",
+        "sealed_output"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "requested",
+        "approved",
+        "denied",
+        "expired",
+        "revoked",
+        "used"
+      ]
+    },
+    "requestedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "approvedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "auditRequired": {
+      "type": "boolean",
+      "const": true
+    }
+  }
+}

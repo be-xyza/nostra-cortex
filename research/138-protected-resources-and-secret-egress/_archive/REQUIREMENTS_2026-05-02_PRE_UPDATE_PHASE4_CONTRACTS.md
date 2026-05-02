@@ -4,7 +4,7 @@ initiative: "138"
 type: "requirements"
 status: draft
 created: "2026-05-01"
-updated: "2026-05-02"
+updated: "2026-05-01"
 ---
 
 # Requirements: Protected Resources and Secret Egress
@@ -18,8 +18,6 @@ updated: "2026-05-02"
 5. Future protected-resource APIs must expose references and capabilities rather than raw secret values.
 6. User-facing trust surfaces must show protected-resource use as status, purpose, grant, and audit metadata rather than raw values.
 7. Runtime diagnostics must distinguish secret-bearing config from non-secret operational metadata such as token budgets, model limits, and pricing fields.
-8. Protected-resource contracts must define machine-readable schemas for resources, references, grants, sealed tool invocation, and audit events.
-9. Contract examples must validate without embedding secret-shaped raw values in tracked source.
 
 ## Security Requirements
 
@@ -30,8 +28,6 @@ updated: "2026-05-02"
 5. Provider/runtime/auth topology remains operator-only unless a redacted contract explicitly permits disclosure.
 6. Gateway and worker error envelopes must redact request headers, provider upstream errors, auth bindings, env values, private keys, bearer values, and sensitive PII before they reach operators, agents, CI artifacts, or promoted evidence.
 7. Secret resolution must occur only inside trusted sealed boundaries; agents receive `SecretRef`, redacted previews, fingerprints, or status objects.
-8. Capability grants must expire and must name purpose, Space, tool, render mode, approver, and audit requirement.
-9. Protected-resource audit events must identify emitted fields and trusted boundary without serializing raw values.
 
 ## Production Trust Requirements
 
@@ -39,7 +35,6 @@ updated: "2026-05-02"
 2. Stable production readiness requires CI and SIQ-aligned gates for repo files and promoted governed evidence.
 3. Stable production readiness requires an audit event for each protected-resource use, including purpose, Space, tool, grant expiry, render mode, and result status.
 4. Stable production readiness requires user-legible reassurance: the system can explain that a secret was protected, where it was resolved, and what was emitted.
-5. Stable production readiness requires Phase 4 schemas to be backed by runtime types, validation, and audit persistence.
 
 ## Non-Goals
 

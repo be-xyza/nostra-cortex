@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0.0",
+  "eventId": "prevt_openrouter_provider_key_001",
+  "eventType": "ProtectedResourceUsedV1",
+  "occurredAt": "2026-05-02T00:00:01Z",
+  "spaceId": "space:nostra-governance-v0",
+  "resourceId": "pr_openrouter_provider_key",
+  "secretRef": "secretref_openrouter_provider_key_001",
+  "grantId": "grant_openrouter_provider_key_001",
+  "purpose": "sealed-provider-invocation",
+  "tool": "sealed_provider_invoke",
+  "trustedBoundary": "cortex_provider_transport",
+  "renderMode": "status_only",
+  "resultStatus": "success",
+  "emittedFields": [
+    "status",
+    "fingerprint",
+    "audit_ref"
+  ],
+  "fingerprint": "sha256:4ace5fcc4269"
+}

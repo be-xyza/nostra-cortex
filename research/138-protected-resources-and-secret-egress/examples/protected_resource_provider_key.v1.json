@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "resourceId": "pr_openrouter_provider_key",
+  "kind": "provider_key",
+  "spaceId": "space:nostra-governance-v0",
+  "authority": {
+    "owner": "Systems Steward",
+    "stewardRole": "operator",
+    "governanceRef": "research/138-protected-resources-and-secret-egress/DECISIONS.md#dec-138-009"
+  },
+  "sensitivity": {
+    "class": "secret",
+    "containsPii": false,
+    "rotationRequiredOnExposure": true
+  },
+  "storage": {
+    "mode": "operator_env",
+    "locationClass": "cortex_host",
+    "fingerprint": "sha256:4ace5fcc4269"
+  },
+  "policy": {
+    "allowedPurposes": [
+      "sealed-provider-invocation"
+    ],
+    "allowedTools": [
+      "sealed_provider_invoke",
+      "redacted_config_inspect"
+    ],
+    "defaultRenderMode": "status_only",
+    "auditRequired": true,
+    "rawValueExport": "forbidden"
+  },
+  "lineage": {
+    "sourceRef": "operator-env:NOSTRA_LLM_API_KEY",
+    "createdBy": "Systems Steward",
+    "decisionRef": "DEC-138-009"
+  },
+  "createdAt": "2026-05-02T00:00:00Z",
+  "updatedAt": "2026-05-02T00:00:00Z"
+}
