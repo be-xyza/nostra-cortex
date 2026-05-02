@@ -63,10 +63,9 @@ Status 2026-05-01:
 | Cortex runtime redaction helper | Unit coverage for provider keys, bearer-like values, private keys, SSN-like values, and safe operational metadata | `cargo test --manifest-path cortex/apps/cortex-eudaemon/Cargo.toml secret_redaction --lib` |
 | Worker live-generation provider errors | Redacted before returning bad-gateway provider errors | `nostra/worker/src/live_generation.rs` |
 | Worker runtime redaction helper | Unit coverage for provider keys, private keys, SSN-like values, and safe operational metadata | `cargo test --manifest-path nostra/worker/Cargo.toml secret_redaction --lib` |
-| Provider-admin inventory diagnostics | Redacted before returning metadata, health payloads, provider runtime status, discovery errors, runtime host health, and auth-binding metadata | `cortex/apps/cortex-eudaemon/src/gateway/provider_admin/{records,contracts,service}.rs` |
 
 Remaining Phase 3 gaps:
 
-1. System log and terminal-service output need explicit redaction before any AI-visible or promoted surface.
-2. Evidence promotion needs to run the secret scanner automatically before copying runtime outputs into governed initiative paths.
-3. User-facing protected-resource audit events still need the `SecretRef`/grant lifecycle from Phase 4.
+1. Gateway provider-admin route errors and diagnostics need the same redaction helper applied.
+2. System log and terminal-service output need explicit redaction before any AI-visible or promoted surface.
+3. Evidence promotion needs to run the secret scanner automatically before copying runtime outputs into governed initiative paths.

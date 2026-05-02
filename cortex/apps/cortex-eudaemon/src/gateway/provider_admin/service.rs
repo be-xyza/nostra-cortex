@@ -18,6 +18,7 @@ use crate::services::provider_runtime::config::{
 use crate::services::provider_runtime::discovery::{
     ProviderDiagnostics, collect_live_discovery_records, resolve_provider_supported_models,
 };
+use crate::services::secret_redaction::{redact_json_value, redact_runtime_text};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default)]
@@ -279,23 +280,23 @@ pub(crate) async fn build_provider_runtime_status_response() -> ProviderRuntimeS
                 fail_mode,
                 model: cfg.default_model,
                 provider_id: resolved.provider_id,
-                adapter_health_error: Some(err),
+                adapter_health_error: Some(redact_runtime_text(&err)),
                 ..ProviderRuntimeStatusResponse::default()
             };
         }
     };
 
     let (adapter_health, adapter_health_error) = match client.health_adapter().await {
-        Ok(value) => (Some(value), None),
-        Err(err) => (None, Some(err)),
+        Ok(value) => (Some(redact_json_value(&value)), None),
+        Err(err) => (None, Some(redact_runtime_text(&err))),
     };
     let (openapi_paths, openapi_error) = match client.openapi_paths().await {
         Ok(value) => (Some(value), None),
-        Err(err) => (None, Some(err)),
+        Err(err) => (None, Some(redact_runtime_text(&err))),
     };
     let (upstream_models, upstream_models_error) = match client.health_upstream_models().await {
-        Ok(value) => (Some(value), None),
-        Err(err) => (None, Some(err)),
+        Ok(value) => (Some(redact_json_value(&value)), None),
+        Err(err) => (None, Some(redact_runtime_text(&err))),
     };
 
     ProviderRuntimeStatusResponse {

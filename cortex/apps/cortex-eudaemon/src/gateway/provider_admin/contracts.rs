@@ -2,6 +2,9 @@ use crate::services::provider_runtime::config::{
     AuthBindingRecord, ExecutionBindingRecord, ProviderBatchPolicy, ProviderDiscoveryRecord,
     ProviderRuntimeContext, RuntimeHostRecord,
 };
+use crate::services::secret_redaction::{
+    redact_json_value, redact_metadata_map, redact_runtime_text,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -325,7 +328,7 @@ pub(crate) fn map_auth_binding_response(binding: &AuthBindingRecord) -> SystemAu
             .updated_at
             .clone()
             .unwrap_or_else(crate::gateway::server::now_iso),
-        metadata: binding.metadata.clone(),
+        metadata: redact_metadata_map(&binding.metadata),
     }
 }
 
@@ -337,7 +340,7 @@ pub(crate) fn map_execution_binding_response(
         provider_type: binding.provider_type.clone(),
         bound_provider_id: binding.bound_provider_id.clone(),
         updated_at: binding.updated_at.clone(),
-        metadata: binding.metadata.clone(),
+        metadata: redact_metadata_map(&binding.metadata),
     }
 }
 
@@ -350,12 +353,12 @@ pub(crate) fn map_runtime_host_response(host: &RuntimeHostRecord) -> SystemRunti
         locality_kind: format!("{:?}", host.locality_kind),
         device_id: host.device_id.clone(),
         environment_id: host.environment_id.clone(),
-        health: host.health.clone(),
+        health: host.health.as_ref().map(redact_json_value),
         capabilities: host.capabilities.clone(),
         remote_discovery_enabled: host.remote_discovery_enabled,
         execution_routable: host.execution_routable,
         updated_at: host.updated_at.clone(),
-        metadata: host.metadata.clone(),
+        metadata: redact_metadata_map(&host.metadata),
     }
 }
 
@@ -369,13 +372,19 @@ pub(crate) fn map_discovery_response(
         endpoint: record.endpoint.clone(),
         default_model: record.default_model.clone(),
         supported_models: record.supported_models.clone(),
-        adapter_health: record.adapter_health.clone(),
-        adapter_health_error: record.adapter_health_error.clone(),
+        adapter_health: record.adapter_health.as_ref().map(redact_json_value),
+        adapter_health_error: record
+            .adapter_health_error
+            .as_ref()
+            .map(|value| redact_runtime_text(value)),
         openapi_paths: record.openapi_paths.clone(),
-        upstream_models_error: record.upstream_models_error.clone(),
+        upstream_models_error: record
+            .upstream_models_error
+            .as_ref()
+            .map(|value| redact_runtime_text(value)),
         fail_mode: record.fail_mode.clone(),
         topology: record.topology.clone(),
         updated_at: record.updated_at.clone(),
-        metadata: record.metadata.clone(),
+        metadata: redact_metadata_map(&record.metadata),
     }
 }

@@ -6,6 +6,9 @@ use crate::services::provider_runtime::config::{
     infer_provider_locality_kind,
 };
 use crate::services::provider_runtime::discovery::ProviderDiagnostics;
+use crate::services::secret_redaction::{
+    redact_json_value, redact_metadata_map, redact_runtime_text,
+};
 use std::collections::BTreeMap;
 
 pub(crate) fn normalize_provider_type(value: Option<&str>) -> String {
@@ -120,10 +123,16 @@ pub(crate) fn apply_provider_discovery(
     if !discovery.supported_models.is_empty() {
         record.supported_models = discovery.supported_models.clone();
     }
-    record.adapter_health = discovery.adapter_health.clone();
-    record.adapter_health_error = discovery.adapter_health_error.clone();
+    record.adapter_health = discovery.adapter_health.as_ref().map(redact_json_value);
+    record.adapter_health_error = discovery
+        .adapter_health_error
+        .as_ref()
+        .map(|value| redact_runtime_text(value));
     record.openapi_paths = discovery.openapi_paths.clone();
-    record.upstream_models_error = discovery.upstream_models_error.clone();
+    record.upstream_models_error = discovery
+        .upstream_models_error
+        .as_ref()
+        .map(|value| redact_runtime_text(value));
     record.fail_mode = discovery.fail_mode.clone();
     if discovery.topology.is_some() {
         record.topology = discovery.topology.clone();
@@ -330,12 +339,16 @@ pub(crate) fn provider_record_from_settings(
         default_model,
         supported_models,
         adapter_health: if is_llm_provider {
-            diagnostics.and_then(|item| item.adapter_health.clone())
+            diagnostics.and_then(|item| item.adapter_health.as_ref().map(redact_json_value))
         } else {
             None
         },
         adapter_health_error: if is_llm_provider {
-            diagnostics.and_then(|item| item.adapter_health_error.clone())
+            diagnostics.and_then(|item| {
+                item.adapter_health_error
+                    .as_ref()
+                    .map(|value| redact_runtime_text(value))
+            })
         } else {
             None
         },
@@ -347,7 +360,11 @@ pub(crate) fn provider_record_from_settings(
             Vec::new()
         },
         upstream_models_error: if is_llm_provider {
-            diagnostics.and_then(|item| item.upstream_models_error.clone())
+            diagnostics.and_then(|item| {
+                item.upstream_models_error
+                    .as_ref()
+                    .map(|value| redact_runtime_text(value))
+            })
         } else {
             None
         },
@@ -374,7 +391,7 @@ pub(crate) fn provider_record_from_settings(
         binding_ids: Vec::new(),
         topology: Some(context.clone()),
         batch_policy: settings.batch_policy.clone(),
-        metadata: provider_metadata_from_settings(settings, &context),
+        metadata: redact_metadata_map(&provider_metadata_from_settings(settings, &context)),
     }
 }
 

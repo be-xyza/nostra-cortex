@@ -1,9 +1,32 @@
+use serde_json::Value;
+use std::collections::BTreeMap;
+
 const REDACTED: &str = "[REDACTED]";
 
 pub fn redact_runtime_text(input: &str) -> String {
     let mut out = redact_private_key_block(input);
     out = redact_secret_tokens(&out);
     redact_ssn_like(&out)
+}
+
+pub fn redact_json_value(value: &Value) -> Value {
+    match value {
+        Value::String(text) => Value::String(redact_runtime_text(text)),
+        Value::Array(items) => Value::Array(items.iter().map(redact_json_value).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(key, value)| (key.clone(), redact_json_value(value)))
+                .collect(),
+        ),
+        _ => value.clone(),
+    }
+}
+
+pub fn redact_metadata_map(metadata: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+    metadata
+        .iter()
+        .map(|(key, value)| (key.clone(), redact_runtime_text(value)))
+        .collect()
 }
 
 fn redact_private_key_block(input: &str) -> String {
@@ -116,5 +139,26 @@ mod tests {
     fn leaves_safe_operational_metadata_intact() {
         let raw = "model=~moonshotai/kimi-latest max_tokens=8192 cost_per_1k_tokens=0.002";
         assert_eq!(redact_runtime_text(raw), raw);
+    }
+
+    #[test]
+    fn redacts_nested_json_and_metadata_values() {
+        let value = serde_json::json!({
+            "error": {
+                "message": "fake sk-or-v1-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "metadata": ["safe", "fake pii=123-45-6789"]
+            }
+        });
+        let redacted = redact_json_value(&value);
+
+        assert!(!redacted.to_string().contains("sk-or-v1-"));
+        assert!(!redacted.to_string().contains("123-45-6789"));
+
+        let metadata = BTreeMap::from([(
+            "upstreamError".to_string(),
+            "fake sk-proj-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
+        )]);
+        let redacted_metadata = redact_metadata_map(&metadata);
+        assert!(!redacted_metadata["upstreamError"].contains("sk-proj-"));
     }
 }
