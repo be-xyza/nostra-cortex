@@ -46,6 +46,7 @@ import {
     createInternetIdentityDelegationProof,
     isInternetIdentityOperatorLoginEnabled,
 } from "./internetIdentityOperatorSession.ts";
+import { resolveOperatorLoginPlacement } from "./operatorLoginPlacement.ts";
 import { resolveShellEntries } from "./shellNavigationModel.ts";
 import { appendShellUtilityEntries } from "./shellUtilityEntries.ts";
 import { GripVertical } from "lucide-react";
@@ -212,7 +213,6 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const readOnlyObserverActive = !bootstrapWarning && !sessionError && authSession?.authMode === "read_fallback";
     const readOnlyObserverDetails = formatReadOnlyObserverDetailLines(configuredGatewayTarget, observerGatewayState);
     const operatorLoginEnabled = isInternetIdentityOperatorLoginEnabled();
-    const showOperatorSignInShortcut = operatorLoginEnabled && authSession?.authMode === "read_fallback";
     const publicHost = typeof window !== "undefined"
         && window.location.hostname !== "localhost"
         && window.location.hostname !== "127.0.0.1";
@@ -376,6 +376,12 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     );
     const navVisible = !dynamicNavEnabled || (isMobile ? navMode !== "hidden" : true);
     const showRail = dynamicNavEnabled && !isMobile && navMode === "rail";
+    const operatorLoginPlacement = resolveOperatorLoginPlacement({
+        enabled: operatorLoginEnabled,
+        session: authSession,
+        collapsed: showRail,
+    });
+    const showOperatorSignInShortcut = operatorLoginPlacement === "authority_lane";
     const layoutPrefs = useLayoutPreferences((s) => s.cache[activeSpaceId] ?? EMPTY_PREFS);
     const stageChange = useLayoutPreferences((s) => s.stageChange);
     const customViews = useCustomViewsStore((state) => state.cache[activeSpaceId] ?? EMPTY_CUSTOM_VIEWS);
@@ -624,7 +630,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                             isCentered={true}
                         />
                         
-                        <div className="relative flex items-center justify-center w-full">
+                        <div className="flex w-full flex-col items-center gap-2">
                             {authSession && (
                                 <RoleProfileSelector 
                                     session={authSession}
@@ -634,18 +640,28 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                 />
                             )}
                             {!showRail && showOperatorSignInShortcut && (
-                                <button
-                                    type="button"
-                                    onClick={handleInternetIdentityLogin}
-                                    disabled={operatorLoginPending}
-                                    className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/18 bg-emerald-400/10 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-100 transition hover:bg-emerald-400/16 disabled:cursor-wait disabled:opacity-60"
-                                    title="Verify this browser session with Internet Identity passkeys"
-                                >
-                                    <KeyRound className="h-3.5 w-3.5" />
-                                    {operatorLoginPending ? "Verifying" : "Sign in"}
-                                </button>
+                                <div className="w-full max-w-[210px] rounded-2xl border border-emerald-300/14 bg-emerald-300/[0.055] px-3 py-2 shadow-[0_10px_24px_rgba(16,185,129,0.06)]">
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.16em] text-emerald-100/72">
+                                            Operator access
+                                        </span>
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80 shadow-[0_0_12px_rgba(110,231,183,0.85)]" />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleInternetIdentityLogin}
+                                        disabled={operatorLoginPending}
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200/18 bg-emerald-300/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-50 transition hover:border-emerald-200/28 hover:bg-emerald-300/16 disabled:cursor-wait disabled:opacity-60"
+                                        title="Verify this browser session with Internet Identity passkeys"
+                                    >
+                                        <KeyRound className="h-3.5 w-3.5" />
+                                        {operatorLoginPending ? "Verifying" : "Sign in"}
+                                    </button>
+                                </div>
                             )}
-                            {!showRail && (attentionEntries.length > 0 || totalBadgeCount > 0) && (
+                        </div>
+                        {!showRail && (attentionEntries.length > 0 || totalBadgeCount > 0) && (
+                            <div className="relative flex w-full items-center justify-center">
                                 <div className="group/status relative mt-2 flex w-full justify-center">
                                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-cortex-300">
                                         Status
@@ -665,8 +681,8 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                         )}
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                         {!showRail && showOperatorSignInShortcut && operatorLoginError && (
                             <div className="max-w-[210px] rounded-xl border border-red-300/15 bg-red-400/8 px-3 py-2 text-center text-[10px] leading-4 text-red-100/80">
                                 {operatorLoginError}
@@ -800,7 +816,7 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                                     <li key={line}>{line}</li>
                                 ))}
                             </ul>
-                            {operatorLoginEnabled && (
+                            {operatorLoginPlacement === "observer_details" && (
                                 <div className="mt-3 flex flex-wrap items-center gap-2">
                                     <button
                                         type="button"
