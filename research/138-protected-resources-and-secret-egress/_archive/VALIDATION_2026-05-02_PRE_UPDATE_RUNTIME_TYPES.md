@@ -95,10 +95,10 @@ Status 2026-05-02:
 | Sealed tool invocation | Draft schema defines sealed provider/render/inspection invocation with `SecretRef` inputs | `research/138-protected-resources-and-secret-egress/schemas/SealedToolInvocationV1.schema.json` |
 | Protected-resource audit | Draft schema records trusted boundary, result, emitted fields, and fingerprint without raw values | `research/138-protected-resources-and-secret-egress/schemas/ProtectedResourceUsedV1.schema.json` |
 | Schema examples | Example payloads validate against the draft schemas without tracked raw secret-shaped values | `python3` JSON Schema validation over `schemas/*.json` and `examples/*.json` |
-| Cortex runtime types | Runtime structs and validation helpers mirror Phase 4 contracts and enforce raw export/audit invariants | `cargo test --manifest-path cortex/apps/cortex-eudaemon/Cargo.toml protected_resources --lib` |
 
 Remaining Phase 4 gaps:
 
-1. Nostra authority persistence for protected resources, grants, and audit events is not implemented yet.
-2. Cortex sealed provider/render tools do not yet consume `SecretRef` grants directly.
-3. User/operator trust surfaces still need redacted status and audit lineage views.
+1. Runtime Rust/domain types need to be generated or implemented from these draft schemas.
+2. Nostra authority persistence for protected resources, grants, and audit events is not implemented yet.
+3. Cortex sealed provider/render tools do not yet consume `SecretRef` grants directly.
+4. User/operator trust surfaces still need redacted status and audit lineage views.

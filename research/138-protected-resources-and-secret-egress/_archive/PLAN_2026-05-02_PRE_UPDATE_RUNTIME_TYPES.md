@@ -82,7 +82,7 @@ The immediate driver is an operator incident class: provider keys or sensitive r
 - Define `SecretRef` handles and capability grants with purpose, Space, tool, expiry, render mode, and audit requirements.
 - Define sealed provider and document-rendering tools where values resolve only at a trusted boundary.
 - Return status, `SecretRef`, or redacted previews to agents; never raw values.
-- Status 2026-05-02: draft JSON schemas and example payloads now define `ProtectedResourceV1`, `SecretRefV1`, `ProtectedResourceGrantV1`, `SealedToolInvocationV1`, and `ProtectedResourceUsedV1`. Cortex runtime types now mirror the draft contracts and validate non-emission invariants. The contracts remain draft and do not yet create a runtime vault, UI surface, or canister-backed authority.
+- Status 2026-05-02: draft JSON schemas and example payloads now define `ProtectedResourceV1`, `SecretRefV1`, `ProtectedResourceGrantV1`, `SealedToolInvocationV1`, and `ProtectedResourceUsedV1`. The contracts remain draft and do not yet create a runtime vault, UI surface, or canister-backed authority.
 
 ## Initial Implementation Slice
 
@@ -117,7 +117,7 @@ For stable production trust, Initiative 138 must also close these gaps before it
 
 Current Phase 3 progress covers the highest-risk provider error path, provider-admin inventory diagnostics, system-log tailing, terminal output retrieval/broadcast, and scan-before-promotion for governed evidence. Remaining Phase 3 hardening should add SIQ multi-artifact evidence scanning and production-style incident drill evidence before Phase 4 protected-resource primitives are treated as complete.
 
-Phase 4 contract progress now gives later implementation a stable target: Nostra records protected resources, issues expiring `SecretRef` handles, and approves grants; Cortex resolves values only inside sealed provider/render/inspection boundaries and emits `ProtectedResourceUsedV1` audit events. The next implementation slice should add a redacted operator/user status surface backed by these runtime types.
+Phase 4 contract progress now gives later implementation a stable target: Nostra records protected resources, issues expiring `SecretRef` handles, and approves grants; Cortex resolves values only inside sealed provider/render/inspection boundaries and emits `ProtectedResourceUsedV1` audit events. The next implementation slice should turn these draft contracts into runtime types and redacted operator/user status surfaces.
 
 ## Cross-Initiative Alignment
 
