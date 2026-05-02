@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Activity,
@@ -24,6 +24,7 @@ import type {
   ProviderValidationResponse,
   RuntimeHostRecord,
   SystemProviderRuntimeStatusResponse,
+  WorkRouterDispatchDecision,
   WorkRouterDispatchQueueResponse,
   WorkRouterStatusResponse,
 } from "../../contracts.ts";
@@ -232,6 +233,8 @@ export const ProviderDashboard: React.FC = () => {
   const [workRouterStatusError, setWorkRouterStatusError] = useState<string | null>(null);
   const [workRouterDispatches, setWorkRouterDispatches] = useState<WorkRouterDispatchQueueResponse | null>(null);
   const [workRouterDispatchesError, setWorkRouterDispatchesError] = useState<string | null>(null);
+  const [workRouterDecisionBusy, setWorkRouterDecisionBusy] = useState<string | null>(null);
+  const [workRouterDecisionError, setWorkRouterDecisionError] = useState<string | null>(null);
   const [isRefreshingAdapterModels, setIsRefreshingAdapterModels] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [providerTypeFilter, setProviderTypeFilter] = useState<ProviderRegistryTypeFilter>("all");
@@ -295,22 +298,21 @@ export const ProviderDashboard: React.FC = () => {
     };
   }, []);
 
+  const refreshWorkRouter = useCallback(async () => {
+    const [status, dispatches] = await Promise.all([
+      workbenchApi.getSystemWorkRouterStatus(),
+      workbenchApi.getSystemWorkRouterDispatches(),
+    ]);
+    setWorkRouterStatus(status);
+    setWorkRouterStatusError(null);
+    setWorkRouterDispatches(dispatches);
+    setWorkRouterDispatchesError(null);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
-    void Promise.all([
-      workbenchApi.getSystemWorkRouterStatus(),
-      workbenchApi.getSystemWorkRouterDispatches(),
-    ])
-      .then(([status, dispatches]) => {
-        if (!cancelled) {
-          setWorkRouterStatus(status);
-          setWorkRouterStatusError(null);
-          setWorkRouterDispatches(dispatches);
-          setWorkRouterDispatchesError(null);
-        }
-      })
-      .catch((err) => {
+    void refreshWorkRouter().catch((err) => {
         if (!cancelled) {
           setWorkRouterStatus(null);
           setWorkRouterDispatches(null);
@@ -326,7 +328,30 @@ export const ProviderDashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshWorkRouter]);
+
+  const handleWorkRouterDecision = async (runId: string, decision: WorkRouterDispatchDecision) => {
+    const busyKey = `${runId}:${decision}`;
+    setWorkRouterDecisionBusy(busyKey);
+    setWorkRouterDecisionError(null);
+    try {
+      await workbenchApi.postSystemWorkRouterDispatchDecision(runId, {
+        decision,
+        rationale: `Operator ${decision} from Cortex Web WorkRouter console.`,
+        deciderId: "cortex-web",
+      });
+      await refreshWorkRouter();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setWorkRouterDecisionError(
+        /^403\b/.test(message)
+          ? "Operator access is required to decide WorkRouter dispatches."
+          : message,
+      );
+    } finally {
+      setWorkRouterDecisionBusy(null);
+    }
+  };
 
   const applyPanelState = (
     next: Parameters<typeof writeProviderRegistryPanelState>[1],
@@ -1133,10 +1158,35 @@ export const ProviderDashboard: React.FC = () => {
                           </div>
                           <div className="mt-1 truncate text-[11px] text-white/48">{dispatch.taskRef ?? dispatch.runId}</div>
                           <div className="mt-2 line-clamp-2 text-xs leading-5 text-white/62">{dispatch.messagePreview ?? dispatch.requestId ?? "Awaiting dispatch message"}</div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(["approve", "revise", "pause", "reject", "escalate"] as WorkRouterDispatchDecision[]).map((decision) => {
+                              const busyKey = `${dispatch.runId}:${decision}`;
+                              return (
+                                <button
+                                  key={decision}
+                                  type="button"
+                                  disabled={workRouterDecisionBusy !== null}
+                                  onClick={() => void handleWorkRouterDecision(dispatch.runId, decision)}
+                                  className={[
+                                    "rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold capitalize transition",
+                                    decision === "approve"
+                                      ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100 hover:border-emerald-200/45"
+                                      : "border-white/10 bg-white/[0.04] text-white/62 hover:border-white/20 hover:text-white",
+                                    workRouterDecisionBusy !== null ? "cursor-wait opacity-55" : "",
+                                  ].join(" ")}
+                                >
+                                  {workRouterDecisionBusy === busyKey ? "Working" : decision}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       ))}
                       {workRouterDispatches && workRouterDispatches.pending.length === 0 ? (
                         <div className="rounded-xl border border-white/8 bg-black/15 p-3 text-xs text-white/50">No pending dispatches</div>
+                      ) : null}
+                      {workRouterDecisionError ? (
+                        <div className="rounded-xl border border-amber-300/20 bg-amber-400/10 p-3 text-xs text-amber-100">{workRouterDecisionError}</div>
                       ) : null}
                       {workRouterDispatchesError ? (
                         <div className="rounded-xl border border-amber-300/20 bg-amber-400/10 p-3 text-xs text-amber-100">{workRouterDispatchesError}</div>

@@ -5,22 +5,22 @@
   "title": "Gateway Protocol Contract",
   "generated_at": "2026-02-24T07:43:53Z",
   "inventory_source": "cortex/apps/cortex-eudaemon/tests/fixtures/gateway_baseline/endpoint_inventory.tsv",
-  "endpoint_count": 246,
+  "endpoint_count": 245,
   "method_counts": {
     "GET": 139,
-    "POST": 100,
+    "POST": 99,
     "PUT": 7
   },
   "endpoint_class_counts": {
-    "other": 4,
+    "acp": 8,
     "cortex": 124,
     "kg": 26,
     "metrics": 3,
-    "system": 68,
+    "other": 4,
+    "system": 67,
     "testing": 5,
     "workflow": 5,
-    "ws": 3,
-    "acp": 8
+    "ws": 3
   },
   "required_fields": [
     "method",
@@ -4564,54 +4564,6 @@
         "header": null,
         "dedupe_key": null,
         "replay_behavior": "none"
-      }
-    },
-    {
-      "method": "POST",
-      "path_template": "/api/system/work-router/dispatches/:run_id/decision",
-      "endpoint_class": "system",
-      "request_schema": {
-        "path_params": "run_id identifies the pending WorkRouter run",
-        "query": "none",
-        "headers": {
-          "content-type": "application/json",
-          "x-idempotency-key": "not used; run status prevents replay after decision"
-        },
-        "body": {
-          "decision": "approve | reject | revise | escalate | pause",
-          "rationale": "optional operator rationale",
-          "deciderId": "optional operator id; defaults from x-cortex-actor"
-        }
-      },
-      "response_schema": {
-        "status_code": "http status code",
-        "body": "WorkRouterDispatchDecisionResponse with decision, approved bundle, and optional handoff artifact refs only",
-        "error_envelope": {
-          "code": "stable_machine_code",
-          "message": "operator-readable summary",
-          "details": "optional structured details"
-        }
-      },
-      "error_normalization": {
-        "default_code": "gateway_error",
-        "retryable_statuses": [
-          429,
-          500,
-          502,
-          503,
-          504
-        ],
-        "validation_status": 400,
-        "authz_status": 403,
-        "not_found_status": 404
-      },
-      "event_emissions": [],
-      "transaction_boundary": "single_request_mutation",
-      "idempotency_semantics": {
-        "mode": "not_applicable",
-        "header": null,
-        "dedupe_key": "run_id",
-        "replay_behavior": "run status rejects replay after decision"
       }
     },
     {

@@ -1088,6 +1088,26 @@ export interface WorkRouterDispatchQueueResponse {
   unknowns: WorkRouterUnknownResponseSummary[];
 }
 
+export type WorkRouterDispatchDecision = "approve" | "reject" | "revise" | "escalate" | "pause";
+
+export interface WorkRouterDispatchDecisionRequest {
+  decision: WorkRouterDispatchDecision;
+  rationale?: string;
+  deciderId?: string;
+}
+
+export interface WorkRouterDispatchDecisionResponse {
+  accepted: boolean;
+  runId: string;
+  status: string;
+  decisionId: string;
+  approvedLevel: string;
+  mutationAllowed: boolean;
+  decisionPath: string;
+  approvedBundlePath: string;
+  handoffPath?: string;
+}
+
 export type SpatialSurfaceVariant = "linear" | "spatial" | "compare";
 
 export interface SpatialPlaneLayoutPoint {
