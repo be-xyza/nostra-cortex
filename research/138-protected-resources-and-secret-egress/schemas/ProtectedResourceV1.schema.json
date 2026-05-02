@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nostra.dev/schemas/protected-resource/v1",
+  "title": "ProtectedResourceV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "resourceId",
+    "kind",
+    "spaceId",
+    "authority",
+    "sensitivity",
+    "storage",
+    "policy",
+    "lineage",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "resourceId": {
+      "type": "string",
+      "pattern": "^pr_[a-z0-9][a-z0-9_-]{6,96}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "provider_key",
+        "credential",
+        "pii_field",
+        "sealed_document",
+        "identity_claim"
+      ]
+    },
+    "spaceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "stewardRole",
+        "governanceRef"
+      ],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "stewardRole": {
+          "type": "string",
+          "enum": [
+            "user",
+            "space_steward",
+            "systems_steward",
+            "operator"
+          ]
+        },
+        "governanceRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      }
+    },
+    "sensitivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "containsPii",
+        "rotationRequiredOnExposure"
+      ],
+      "properties": {
+        "class": {
+          "type": "string",
+          "enum": [
+            "secret",
+            "restricted_pii",
+            "sealed_content",
+            "protected_metadata"
+          ]
+        },
+        "containsPii": {
+          "type": "boolean"
+        },
+        "rotationRequiredOnExposure": {
+          "type": "boolean"
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "locationClass",
+        "fingerprint"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "external_vault",
+            "operator_env",
+            "sealed_store",
+            "derived_reference"
+          ]
+        },
+        "locationClass": {
+          "type": "string",
+          "enum": [
+            "nostra_authority",
+            "cortex_host",
+            "external_secret_manager",
+            "user_device"
+          ]
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{12,64}$"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowedPurposes",
+        "allowedTools",
+        "defaultRenderMode",
+        "auditRequired",
+        "rawValueExport"
+      ],
+      "properties": {
+        "allowedPurposes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "allowedTools": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "defaultRenderMode": {
+          "type": "string",
+          "enum": [
+            "status_only",
+            "fingerprint",
+            "redacted_preview",
+            "sealed_output"
+          ]
+        },
+        "auditRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "rawValueExport": {
+          "type": "string",
+          "enum": [
+            "forbidden"
+          ]
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceRef",
+        "createdBy",
+        "decisionRef"
+      ],
+      "properties": {
+        "sourceRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "decisionRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

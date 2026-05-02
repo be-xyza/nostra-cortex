@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0.0",
+  "grantId": "grant_openrouter_provider_key_001",
+  "secretRef": "secretref_openrouter_provider_key_001",
+  "resourceId": "pr_openrouter_provider_key",
+  "spaceId": "space:nostra-governance-v0",
+  "purpose": "sealed-provider-invocation",
+  "tool": "sealed_provider_invoke",
+  "renderMode": "status_only",
+  "status": "approved",
+  "requestedBy": "agent:eudaemon-alpha-01",
+  "approvedBy": "Systems Steward",
+  "issuedAt": "2026-05-02T00:00:00Z",
+  "expiresAt": "2026-05-02T01:00:00Z",
+  "auditRequired": true
+}
