@@ -34,7 +34,7 @@ The long-term trust goal is only partially covered. Initiative 138 must continue
 | Gap | Why it matters | Owning initiative relationship | Recommended next step |
 |---|---|---|---|
 | Gateway/worker runtime redaction helpers | Logs and error envelopes remain the highest-risk repeat leak path after env inspection is fixed | 118, 132 | Add a shared redaction helper and tests for provider errors, headers, auth bindings, env values, and PII |
-| Governed evidence promotion scan | `promote_evidence_artifact.sh` now blocks promotion when `check_secret_egress.py` finds high-confidence secrets | 125 | Covered for the canonical promotion command; SIQ artifact checks remain a future hardening path |
+| Governed evidence promotion scan | A secret can still leak when mutable runtime output is promoted into research evidence | 125 | Wire `check_secret_egress.py` into evidence promotion and SIQ artifact checks |
 | Protected-resource audit events | Users need to know when a secret was used without seeing it | 130, 134 | Define `ProtectedResourceUsedV1` audit shape with purpose, Space, tool, grant, expiry, render mode, and result |
 | Sealed provider invocation | Agents should request provider use without receiving raw provider keys | 118, 132, 134 | Add a sealed provider invocation contract that resolves `SecretRef` only at the Cortex boundary |
 | User-legible trust surface | Trust after stable production requires status and lineage, not invisible policy | 107, 108, 130 | Add redacted UI/operator status for protected-resource use and audit lineage |
@@ -68,15 +68,5 @@ Status 2026-05-01:
 Remaining Phase 3 gaps:
 
 1. System log and terminal-service output need explicit redaction before any AI-visible or promoted surface.
-2. SIQ artifact checks should include secret egress validation for promoted evidence bundles.
+2. Evidence promotion needs to run the secret scanner automatically before copying runtime outputs into governed initiative paths.
 3. User-facing protected-resource audit events still need the `SecretRef`/grant lifecycle from Phase 4.
-
-## Evidence Promotion Scan Evidence
-
-Status 2026-05-02:
-
-| Surface | Coverage | Evidence |
-|---|---|---|
-| Canonical evidence promotion command | `scripts/promote_evidence_artifact.sh` scans source artifacts before copying into `research/<initiative>/<subdir>` | `bash scripts/test_promote_evidence_secret_scan.sh` |
-| Secret-bearing promotion attempt | High-confidence fake provider key blocks promotion and does not print raw secret | `bash scripts/test_promote_evidence_secret_scan.sh` |
-| Safe redacted promotion attempt | Redacted/fingerprint-only artifact promotes successfully | `bash scripts/test_promote_evidence_secret_scan.sh` |
