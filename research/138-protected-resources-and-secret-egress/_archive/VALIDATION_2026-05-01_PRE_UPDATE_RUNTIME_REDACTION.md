@@ -52,20 +52,3 @@ Initiative 138 should not be marked complete until all of these are true:
 5. User/operator surfaces can explain protected-resource use without revealing protected values.
 6. A rotate/revoke/scrub/audit drill is recorded with redacted evidence.
 
-## Phase 3 Runtime Redaction Evidence
-
-Status 2026-05-01:
-
-| Runtime surface | Coverage | Evidence |
-|---|---|---|
-| Cortex provider-runtime HTTP error bodies | Redacted before returning provider runtime errors | `cortex/apps/cortex-eudaemon/src/services/provider_runtime/client.rs` |
-| Cortex provider-runtime SSE parse diagnostics | Redacted before including frame data in parse errors | `cortex/apps/cortex-eudaemon/src/services/provider_runtime/client.rs` |
-| Cortex runtime redaction helper | Unit coverage for provider keys, bearer-like values, private keys, SSN-like values, and safe operational metadata | `cargo test --manifest-path cortex/apps/cortex-eudaemon/Cargo.toml secret_redaction --lib` |
-| Worker live-generation provider errors | Redacted before returning bad-gateway provider errors | `nostra/worker/src/live_generation.rs` |
-| Worker runtime redaction helper | Unit coverage for provider keys, private keys, SSN-like values, and safe operational metadata | `cargo test --manifest-path nostra/worker/Cargo.toml secret_redaction --lib` |
-
-Remaining Phase 3 gaps:
-
-1. Gateway provider-admin route errors and diagnostics need the same redaction helper applied.
-2. System log and terminal-service output need explicit redaction before any AI-visible or promoted surface.
-3. Evidence promotion needs to run the secret scanner automatically before copying runtime outputs into governed initiative paths.

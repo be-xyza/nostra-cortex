@@ -87,6 +87,8 @@ pub mod provider_probe;
 pub mod provider_runtime;
 #[cfg(not(feature = "knowledge-graph-tests"))]
 pub mod resilience_service;
+#[cfg(not(feature = "knowledge-graph-tests"))]
+pub mod secret_redaction;
 #[cfg(all(not(feature = "knowledge-graph-tests"), feature = "siq-service-client"))]
 pub mod siq_service;
 #[cfg(not(feature = "knowledge-graph-tests"))]
