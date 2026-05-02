@@ -506,6 +506,10 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/work-router/dispatches"
+    },
+    {
+      "method": "GET",
       "path": "/api/system/work-router/status"
     },
     {

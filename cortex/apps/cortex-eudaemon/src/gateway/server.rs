@@ -3475,6 +3475,10 @@ impl GatewayService {
                 get(get_system_work_router_status),
             )
             .route(
+                "/api/system/work-router/dispatches",
+                get(get_system_work_router_dispatches),
+            )
+            .route(
                 "/api/system/agents/runs/:space_id/:run_id",
                 get(get_system_agents_run),
             )
@@ -29616,6 +29620,36 @@ pub(crate) async fn get_system_work_router_status(headers: HeaderMap) -> axum::r
     }
 }
 
+pub(crate) async fn get_system_work_router_dispatches(headers: HeaderMap) -> axum::response::Response {
+    if let Err(response) = enforce_role_authorization(
+        &headers,
+        "get_system_work_router_dispatches",
+        None,
+        "capability:system_work_router_dispatches",
+        "read",
+        "operator",
+        vec![],
+        true,
+        vec![],
+        "SYSTEM_WORK_ROUTER_DISPATCHES_FORBIDDEN",
+        "Operator role or higher is required to read WorkRouter dispatches.",
+    )
+    .await
+    {
+        return response;
+    }
+
+    match crate::services::ops_agents::get_work_router_dispatch_queue() {
+        Ok(queue) => Json(queue).into_response(),
+        Err(err) => cortex_ux_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "SYSTEM_WORK_ROUTER_DISPATCHES_UNAVAILABLE",
+            "WorkRouter dispatches are unavailable.",
+            Some(json!({ "reason": err })),
+        ),
+    }
+}
+
 pub(crate) async fn get_system_agents_run(
     headers: HeaderMap,
     Path((space_id, run_id)): Path<(String, String)>,
@@ -37168,6 +37202,104 @@ mod tests {
         assert_eq!(body["unknownResponseCount"], 1);
         assert_eq!(body["authority"]["sourceMutationAllowed"], false);
         assert_eq!(body["authority"]["runtimeMutationAllowed"], false);
+        assert!(body.get("providerInventory").is_none());
+        assert!(body.get("runtimeHosts").is_none());
+        assert!(body.get("authBindings").is_none());
+    }
+
+    #[tokio::test]
+    async fn system_work_router_dispatches_requires_operator_role() {
+        let _lock = acquire_testing_env_lock();
+        let response = get_system_work_router_dispatches(role_headers("viewer", "viewer-1")).await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["errorCode"], "SYSTEM_WORK_ROUTER_DISPATCHES_FORBIDDEN");
+    }
+
+    #[tokio::test]
+    async fn system_work_router_dispatches_returns_pending_and_unknowns_without_topology() {
+        let _lock = acquire_testing_env_lock();
+        let temp = TestTempDir::new();
+        let log_root = temp.path().join("work_router");
+        let run_dir = log_root.join("runs").join("pending-run-1");
+        std::fs::create_dir_all(&run_dir).expect("run dir");
+        std::fs::create_dir_all(log_root.join("unknown")).expect("unknown dir");
+        let message_path = run_dir.join("message.txt");
+        std::fs::write(&message_path, "Approve low-risk patch prep for WorkRouter.\nReply proceed to approve.").expect("message");
+        let router_bundle_path = run_dir.join("router_bundle.json");
+        std::fs::write(
+            &router_bundle_path,
+            serde_json::to_string(&json!({
+                "dispatchRequest": {
+                    "requestId": "dispatch-request:pending-run-1",
+                    "taskRef": "novel-task:pending-run-1",
+                    "riskLevel": "low",
+                    "authorityCeiling": "D1",
+                    "transport": {
+                        "kind": "cortex_web",
+                        "channelRef": "operator-dashboard"
+                    },
+                    "createdAt": "2026-05-01T23:22:00Z"
+                }
+            }))
+            .expect("router bundle json"),
+        )
+        .expect("write router bundle");
+        std::fs::write(
+            run_dir.join("run.json"),
+            serde_json::to_string(&json!({
+                "schemaVersion": "1.0.0",
+                "runId": "pending-run-1",
+                "status": "pending_decision",
+                "startedAt": "2026-05-01T23:21:59Z",
+                "finishedAt": "2026-05-01T23:21:59Z",
+                "inputRefs": {
+                    "intake": "/tmp/intake.json"
+                },
+                "artifactRefs": {
+                    "routerBundle": router_bundle_path.display().to_string(),
+                    "message": message_path.display().to_string(),
+                    "receipt": "/tmp/receipt.json"
+                },
+                "authority": {
+                    "maxLevel": "D1",
+                    "mutationAllowed": false,
+                    "transportKind": "cortex_web"
+                },
+                "summary": {
+                    "taskRef": "novel-task:pending-run-1",
+                    "route": "patch_prep",
+                    "riskLevel": "low",
+                    "decision": "none"
+                }
+            }))
+            .expect("run json"),
+        )
+        .expect("write run");
+        std::fs::write(
+            log_root.join("unknown").join("typo.json"),
+            serde_json::to_string(&json!({
+                "schemaVersion": "1.0.0",
+                "commandId": "dispatch-command:test",
+                "rawText": "apprve please",
+                "normalizedText": "apprve please",
+                "status": "needs_routing_review",
+                "createdAt": "2026-05-01T23:23:00Z"
+            }))
+            .expect("unknown json"),
+        )
+        .expect("write unknown");
+        let _guard = EnvVarGuard::set("WORK_ROUTER_LOG_ROOT", &log_root.display().to_string());
+
+        let response = get_system_work_router_dispatches(role_headers("operator", "operator-1")).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["pending"][0]["runId"], "pending-run-1");
+        assert_eq!(body["pending"][0]["transportKind"], "cortex_web");
+        assert_eq!(body["pending"][0]["requestId"], "dispatch-request:pending-run-1");
+        assert_eq!(body["pending"][0]["maxLevel"], "D1");
+        assert_eq!(body["unknowns"][0]["rawText"], "apprve please");
+        assert_eq!(body["unknowns"][0]["status"], "needs_routing_review");
         assert!(body.get("providerInventory").is_none());
         assert!(body.get("runtimeHosts").is_none());
         assert!(body.get("authBindings").is_none());

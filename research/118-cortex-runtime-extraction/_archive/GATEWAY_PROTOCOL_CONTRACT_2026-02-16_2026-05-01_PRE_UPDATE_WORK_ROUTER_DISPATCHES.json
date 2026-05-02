@@ -5,9 +5,9 @@
   "title": "Gateway Protocol Contract",
   "generated_at": "2026-02-24T07:43:53Z",
   "inventory_source": "cortex/apps/cortex-eudaemon/tests/fixtures/gateway_baseline/endpoint_inventory.tsv",
-  "endpoint_count": 245,
+  "endpoint_count": 244,
   "method_counts": {
-    "GET": 139,
+    "GET": 138,
     "POST": 99,
     "PUT": 7
   },
@@ -17,7 +17,7 @@
     "kg": 26,
     "metrics": 3,
     "other": 4,
-    "system": 67,
+    "system": 66,
     "testing": 5,
     "workflow": 5,
     "ws": 3
@@ -4481,50 +4481,6 @@
     {
       "method": "GET",
       "path_template": "/api/system/work-router/status",
-      "endpoint_class": "system",
-      "request_schema": {
-        "path_params": "templated path params are required when present",
-        "query": "endpoint-specific query parameters",
-        "headers": {
-          "content-type": "application/json for JSON payload endpoints",
-          "x-idempotency-key": "used per idempotency_semantics"
-        },
-        "body": "none"
-      },
-      "response_schema": {
-        "status_code": "http status code",
-        "body": "endpoint-specific JSON payload",
-        "error_envelope": {
-          "code": "stable_machine_code",
-          "message": "operator-readable summary",
-          "details": "optional structured details"
-        }
-      },
-      "error_normalization": {
-        "default_code": "gateway_error",
-        "retryable_statuses": [
-          429,
-          500,
-          502,
-          503,
-          504
-        ],
-        "validation_status": 400,
-        "authz_status": 403,
-        "not_found_status": 404
-      },
-      "event_emissions": [],
-      "transaction_boundary": "read_only",
-      "idempotency_semantics": {
-        "mode": "not_applicable",
-        "header": null,
-        "dedupe_key": null,
-        "replay_behavior": "none"
-      }
-    },
-    {
-      "method": "GET",
-      "path_template": "/api/system/work-router/dispatches",
       "endpoint_class": "system",
       "request_schema": {
         "path_params": "templated path params are required when present",

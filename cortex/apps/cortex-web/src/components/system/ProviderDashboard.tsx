@@ -24,6 +24,7 @@ import type {
   ProviderValidationResponse,
   RuntimeHostRecord,
   SystemProviderRuntimeStatusResponse,
+  WorkRouterDispatchQueueResponse,
   WorkRouterStatusResponse,
 } from "../../contracts.ts";
 import { providerRegistryStatusCopy, useProvidersRegistry } from "../../store/providersRegistry";
@@ -229,6 +230,8 @@ export const ProviderDashboard: React.FC = () => {
   const [adapterStatusError, setAdapterStatusError] = useState<string | null>(null);
   const [workRouterStatus, setWorkRouterStatus] = useState<WorkRouterStatusResponse | null>(null);
   const [workRouterStatusError, setWorkRouterStatusError] = useState<string | null>(null);
+  const [workRouterDispatches, setWorkRouterDispatches] = useState<WorkRouterDispatchQueueResponse | null>(null);
+  const [workRouterDispatchesError, setWorkRouterDispatchesError] = useState<string | null>(null);
   const [isRefreshingAdapterModels, setIsRefreshingAdapterModels] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [providerTypeFilter, setProviderTypeFilter] = useState<ProviderRegistryTypeFilter>("all");
@@ -295,22 +298,28 @@ export const ProviderDashboard: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
 
-    void workbenchApi.getSystemWorkRouterStatus()
-      .then((status) => {
+    void Promise.all([
+      workbenchApi.getSystemWorkRouterStatus(),
+      workbenchApi.getSystemWorkRouterDispatches(),
+    ])
+      .then(([status, dispatches]) => {
         if (!cancelled) {
           setWorkRouterStatus(status);
           setWorkRouterStatusError(null);
+          setWorkRouterDispatches(dispatches);
+          setWorkRouterDispatchesError(null);
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setWorkRouterStatus(null);
+          setWorkRouterDispatches(null);
           const message = err instanceof Error ? err.message : String(err);
-          setWorkRouterStatusError(
-            /^403\b/.test(message)
-              ? "Operator access is required to inspect WorkRouter status."
-              : message,
-          );
+          const resolved = /^403\b/.test(message)
+            ? "Operator access is required to inspect WorkRouter status."
+            : message;
+          setWorkRouterStatusError(resolved);
+          setWorkRouterDispatchesError(resolved);
         }
       });
 
@@ -1104,6 +1113,58 @@ export const ProviderDashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {(workRouterDispatches?.pending.length || workRouterDispatches?.unknowns.length || workRouterDispatchesError) ? (
+                <div className="grid gap-3 border-t border-white/8 pt-4 xl:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">Pending Dispatches</div>
+                      <span className="text-xs font-semibold text-white/65">{workRouterDispatches?.pending.length ?? 0}</span>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      {workRouterDispatches?.pending.slice(0, 3).map((dispatch) => (
+                        <div key={dispatch.runId} className="rounded-xl border border-white/8 bg-black/15 p-3">
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-white">
+                            <span>{dispatch.route ?? "route"}</span>
+                            <span className="text-white/30">/</span>
+                            <span>{dispatch.riskLevel ?? "risk"}</span>
+                            <span className="text-white/30">/</span>
+                            <span>{dispatch.maxLevel ?? "D?"}</span>
+                          </div>
+                          <div className="mt-1 truncate text-[11px] text-white/48">{dispatch.taskRef ?? dispatch.runId}</div>
+                          <div className="mt-2 line-clamp-2 text-xs leading-5 text-white/62">{dispatch.messagePreview ?? dispatch.requestId ?? "Awaiting dispatch message"}</div>
+                        </div>
+                      ))}
+                      {workRouterDispatches && workRouterDispatches.pending.length === 0 ? (
+                        <div className="rounded-xl border border-white/8 bg-black/15 p-3 text-xs text-white/50">No pending dispatches</div>
+                      ) : null}
+                      {workRouterDispatchesError ? (
+                        <div className="rounded-xl border border-amber-300/20 bg-amber-400/10 p-3 text-xs text-amber-100">{workRouterDispatchesError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">Unknown Review</div>
+                      <span className="text-xs font-semibold text-white/65">{workRouterDispatches?.unknowns.length ?? 0}</span>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      {workRouterDispatches?.unknowns.slice(0, 3).map((unknown) => (
+                        <div key={unknown.unknownId} className="rounded-xl border border-white/8 bg-black/15 p-3">
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-white">
+                            <span className="truncate">{unknown.rawText || unknown.normalizedText || unknown.unknownId}</span>
+                            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-white/45">{unknown.status}</span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-white/48">{unknown.proposedClassification ?? unknown.createdAt ?? "Needs routing review"}</div>
+                        </div>
+                      ))}
+                      {workRouterDispatches && workRouterDispatches.unknowns.length === 0 ? (
+                        <div className="rounded-xl border border-white/8 bg-black/15 p-3 text-xs text-white/50">No unknown replies</div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="flex flex-col gap-3 border-t border-white/8 pt-4 lg:flex-row lg:items-center lg:justify-between">
                 <label className={["flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white/70 shadow-inner shadow-black/10", chromeState.compactRegistryChrome ? "min-w-0 flex-1 lg:max-w-[30rem]" : "min-w-0 flex-1 lg:max-w-[28rem]"].join(" ")}>
