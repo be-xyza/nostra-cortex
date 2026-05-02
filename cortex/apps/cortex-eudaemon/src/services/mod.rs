@@ -82,6 +82,8 @@ pub mod ops_flows;
 #[cfg(not(feature = "knowledge-graph-tests"))]
 pub mod ops_gates;
 #[cfg(not(feature = "knowledge-graph-tests"))]
+pub mod protected_resources;
+#[cfg(not(feature = "knowledge-graph-tests"))]
 pub mod provider_probe;
 #[cfg(not(feature = "knowledge-graph-tests"))]
 pub mod provider_runtime;
