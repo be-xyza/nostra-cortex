@@ -83,18 +83,6 @@ Status 2026-05-02:
 | Secret-bearing promotion attempt | High-confidence fake provider key blocks promotion and does not print raw secret | `bash scripts/test_promote_evidence_secret_scan.sh` |
 | Safe redacted promotion attempt | Redacted/fingerprint-only artifact promotes successfully | `bash scripts/test_promote_evidence_secret_scan.sh` |
 
-## Safe Model Switch Evidence
-
-Status 2026-05-02:
-
-| Surface | Coverage | Evidence |
-|---|---|---|
-| VPS worker model switch | `deepseek/deepseek-v4-pro` configured without printing raw provider secret values | `/health/model` returned `generation_model=deepseek/deepseek-v4-pro` |
-| Direct worker generation smoke | Worker returned the expected grounded smoke token using `deepseek/deepseek-v4-pro` | `scripts/check_worker_generation_direct.sh` and live VPS smoke response |
-| Redacted secret inspection | Runtime secret state remained fingerprint-only after the switch | `scripts/inspect_runtime_config_redacted.sh` |
-| Gateway smoke auth boundary | Gateway smoke remained blocked by production operator auth rather than weakening auth for validation | `scripts/check_worker_generation_gateway.sh` |
-| Hermes runtime model | Hermes runtime config now uses `deepseek/deepseek-v4-pro` and boundary checks pass | `scripts/check_hermescortexdev_boundary.sh`, `scripts/check_agent_operating_model.sh` |
-
 ## Phase 4 Contract Evidence
 
 Status 2026-05-02:
