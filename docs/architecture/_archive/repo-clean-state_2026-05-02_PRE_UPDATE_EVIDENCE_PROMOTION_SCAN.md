@@ -10,7 +10,6 @@ Clean worktrees are an operator-authority invariant for developer work. They are
 2. Mutable runtime, build, and test outputs are not Git authority.
 3. Logs remain runtime/operator surfaces under `logs/`, but mutable `*_latest.*` and similar generated artifacts stay local.
 4. When evidence must be preserved, promote an immutable copy into a governed initiative surface instead of tracking the mutable runtime output directly.
-5. Evidence promotion must run the secret egress scanner before copying artifacts into governed paths.
 
 ## Request Worktree Contract
 
@@ -31,7 +30,6 @@ Clean worktrees are an operator-authority invariant for developer work. They are
 4. `bash scripts/close_request.sh`
 5. `bash scripts/worktree_gc.sh`
 6. `bash scripts/promote_evidence_artifact.sh --source <path> --initiative <research-dir>`
-   - This command blocks promotion when `scripts/check_secret_egress.py` reports a high-confidence secret in the source artifact.
 
 ## Enforcement
 

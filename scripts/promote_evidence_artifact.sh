@@ -39,6 +39,11 @@ if [[ ! -f "$SOURCE_ABS" ]]; then
   exit 1
 fi
 
+if ! python3 "$ROOT_DIR/scripts/check_secret_egress.py" --paths "$SOURCE_ABS"; then
+  echo "FAIL: source artifact failed secret egress scan; promotion blocked" >&2
+  exit 1
+fi
+
 DEST_DIR="$ROOT_DIR/research/$INITIATIVE_DIR/$DEST_SUBDIR"
 if [[ ! -d "$ROOT_DIR/research/$INITIATIVE_DIR" ]]; then
   echo "FAIL: initiative directory not found: research/$INITIATIVE_DIR" >&2
