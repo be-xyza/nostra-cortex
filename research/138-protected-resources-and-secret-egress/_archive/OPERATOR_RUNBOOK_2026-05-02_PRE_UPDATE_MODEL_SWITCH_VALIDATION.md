@@ -21,20 +21,6 @@ Use this runbook when a live secret appears in terminal output, AI-visible conte
 
 Use `scripts/inspect_runtime_config_redacted.sh` for runtime secret checks. The expected output is metadata only: name, presence, source class, value length, fingerprint, and policy.
 
-## Safe Model Switch
-
-Use this procedure when changing a provider model for VPS or agent runtimes:
-
-1. Confirm the target model ID with the provider before changing runtime config.
-2. Change only the non-secret model identifier. Do not print or edit provider keys in terminal output.
-3. Restart the affected services.
-4. Verify model health through `/health/model`.
-5. Inspect secrets only with `scripts/inspect_runtime_config_redacted.sh`.
-6. Run `scripts/check_worker_generation_direct.sh` against the worker when gateway auth blocks an operator smoke test.
-7. Keep a rollback model identifier ready and record the validation result without raw secret values.
-
-For VPS use, set `NOSTRA_EXPECTED_WORKER_GENERATION_MODEL` and `NOSTRA_WORKER_GENERATION_SMOKE_EXPECTED` before running the direct smoke check. The direct check reports only pass/fail and model identity.
-
 ## User Trust Closeout
 
 After rotation or any protected-resource use, record a short redacted closeout that answers:
