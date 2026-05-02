@@ -74,7 +74,6 @@ The immediate driver is an operator incident class: provider keys or sensitive r
 - Ensure gateway and worker logs, error envelopes, upstream provider errors, and diagnostics redact secrets by default.
 - Redact provider keys, auth bindings, request headers, bearer tokens, private keys, SSN-like values, and known sensitive env names.
 - Preserve operator utility by reporting stable fingerprints and policy state rather than raw values.
-- Status 2026-05-01: initial runtime redaction helpers are added for Cortex provider-runtime upstream errors/SSE parse diagnostics and worker live-generation provider errors. Broader gateway/admin envelope coverage remains open.
 
 ### Phase 4: Protected Resource Primitive
 
@@ -113,8 +112,6 @@ For stable production trust, Initiative 138 must also close these gaps before it
 4. Capability grants must bind each `SecretRef` use to purpose, Space, tool, expiry, render mode, and audit requirement.
 5. Operator diagnostics must avoid noisy secret classification so safe metadata such as token budgets or cost-per-token settings do not look like credentials.
 6. Stable production must include incident-drill evidence for rotate, revoke, scrub, audit, and post-rotation runtime validation.
-
-Current Phase 3 progress covers the highest-risk provider error path but does not yet close every runtime surface. Remaining Phase 3 work should extend the same redaction helper pattern to gateway admin routes, provider inventory diagnostics, system logs, terminal-service output, and promoted runtime evidence.
 
 ## Cross-Initiative Alignment
 

@@ -1,4 +1,5 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Json, Router};
+use crate::secret_redaction::redact_runtime_text;
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{env, sync::Arc, time::Duration};
@@ -62,7 +63,10 @@ pub async fn start_live_generation_server(port: u16) -> anyhow::Result<()> {
     };
     let app = Router::new()
         .route("/health/model", get(get_model_health))
-        .route("/generation/grounded", axum::routing::post(post_grounded_generation))
+        .route(
+            "/generation/grounded",
+            axum::routing::post(post_grounded_generation),
+        )
         .with_state(state);
 
     let addr = format!("127.0.0.1:{port}");
@@ -100,7 +104,7 @@ async fn post_grounded_generation(
             .into_response(),
         Err(error) => (
             StatusCode::BAD_GATEWAY,
-            format!("generation request failed: {error}"),
+            format!("generation request failed: {}", redact_runtime_text(&error)),
         )
             .into_response(),
     }
@@ -130,26 +134,39 @@ async fn generate_grounded_answer(
         "stream": false
     });
 
-    let mut request = client.post(generation_chat_url(&settings.base_url)).json(&payload);
+    let mut request = client
+        .post(generation_chat_url(&settings.base_url))
+        .json(&payload);
     if let Some(api_key) = generation_api_key() {
         request = request.bearer_auth(api_key);
     }
 
-    let response = tokio::time::timeout(Duration::from_secs(settings.timeout_seconds), request.send())
-        .await
-        .map_err(|_| "timeout".to_string())
-        .and_then(|response| response.map_err(|error| error.to_string()))?;
+    let response = tokio::time::timeout(
+        Duration::from_secs(settings.timeout_seconds),
+        request.send(),
+    )
+    .await
+    .map_err(|_| "timeout".to_string())
+    .and_then(|response| response.map_err(|error| redact_runtime_text(&error.to_string())))?;
 
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        return Err(format!("provider status {status}: {body}"));
+        return Err(format!(
+            "provider status {status}: {}",
+            redact_runtime_text(&body)
+        ));
     }
 
     let value = response
         .json::<serde_json::Value>()
         .await
-        .map_err(|error| format!("provider response parse error: {error}"))?;
+        .map_err(|error| {
+            format!(
+                "provider response parse error: {}",
+                redact_runtime_text(&error.to_string())
+            )
+        })?;
     let answer = extract_generation_answer(&value);
     if answer.is_empty() {
         return Err("provider returned an empty answer".to_string());
@@ -185,11 +202,7 @@ fn generation_model_from_values(llm_model: Option<&str>, local_model: Option<&st
     llm_model
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .or_else(|| {
-            local_model
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-        })
+        .or_else(|| local_model.map(str::trim).filter(|value| !value.is_empty()))
         .unwrap_or(DEFAULT_LOCAL_MODEL)
         .to_string()
 }
@@ -294,7 +307,10 @@ mod tests {
         });
 
         assert_eq!(extract_generation_answer(&openai_like), "Kimi answer");
-        assert_eq!(extract_generation_answer(&ollama_chat), "Ollama chat answer");
+        assert_eq!(
+            extract_generation_answer(&ollama_chat),
+            "Ollama chat answer"
+        );
         assert_eq!(
             extract_generation_answer(&ollama_generate),
             "Ollama generate answer"

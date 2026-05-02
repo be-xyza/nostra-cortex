@@ -3,6 +3,7 @@ use crate::services::provider_runtime::responses_types::{
     CompletedResponse, ResponseOutputItem, ResponsesEventEnvelope, ToolCallRequest,
 };
 use crate::services::provider_runtime::sse::{SseDataFrame, decode_sse_response};
+use crate::services::secret_redaction::redact_runtime_text;
 use serde_json::{Value, json};
 use std::time::{Duration, Instant};
 
@@ -71,7 +72,10 @@ impl ProviderRuntimeClient {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
         if !status.is_success() {
-            return Err(format!("provider_runtime_health_http_{status}:{body}"));
+            return Err(format!(
+                "provider_runtime_health_http_{status}:{}",
+                redact_runtime_text(&body)
+            ));
         }
         serde_json::from_str::<Value>(&body)
             .map_err(|err| format!("provider_runtime_health_parse_failed:{err}"))
@@ -87,7 +91,10 @@ impl ProviderRuntimeClient {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
         if !status.is_success() {
-            return Err(format!("provider_runtime_openapi_http_{status}:{body}"));
+            return Err(format!(
+                "provider_runtime_openapi_http_{status}:{}",
+                redact_runtime_text(&body)
+            ));
         }
         let parsed: Value = serde_json::from_str(&body)
             .map_err(|err| format!("provider_runtime_openapi_parse_failed:{err}"))?;
@@ -119,7 +126,10 @@ impl ProviderRuntimeClient {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             if !status.is_success() {
-                last_err = Some(format!("provider_runtime_models_http_{status}:{body}"));
+                last_err = Some(format!(
+                    "provider_runtime_models_http_{status}:{}",
+                    redact_runtime_text(&body)
+                ));
                 continue;
             }
             match serde_json::from_str::<Value>(&body) {
@@ -199,7 +209,10 @@ impl ProviderRuntimeClient {
             if !resp.status().is_success() {
                 let status = resp.status();
                 let text = resp.text().await.unwrap_or_default();
-                last_err = Some(format!("provider_runtime_http_{status}:{text}"));
+                last_err = Some(format!(
+                    "provider_runtime_http_{status}:{}",
+                    redact_runtime_text(&text)
+                ));
                 continue;
             }
 
@@ -234,7 +247,7 @@ fn parse_frames(
         let value: Value = serde_json::from_str(&frame.data).map_err(|err| {
             format!(
                 "provider_runtime_sse_json_parse_failed:{err} data={}",
-                frame.data
+                redact_runtime_text(&frame.data)
             )
         })?;
 
