@@ -124,6 +124,7 @@ GET	/api/system/siq/runs/:run_id
 GET	/api/system/status
 GET	/api/system/ux/workbench
 GET	/api/system/whoami
+GET	/api/system/work-router/dispatches
 GET	/api/system/work-router/status
 GET	/api/system/worker-generation/health
 GET	/api/testing/catalog

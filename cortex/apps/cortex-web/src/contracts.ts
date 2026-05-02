@@ -1058,6 +1058,36 @@ export interface WorkRouterStatusResponse {
   };
 }
 
+export interface WorkRouterPendingDispatchSummary {
+  runId: string;
+  status: string;
+  taskRef?: string;
+  route?: string;
+  riskLevel?: string;
+  maxLevel?: string;
+  transportKind?: string;
+  requestId?: string;
+  channelRef?: string;
+  createdAt?: string;
+  startedAt?: string;
+  messagePreview?: string;
+}
+
+export interface WorkRouterUnknownResponseSummary {
+  unknownId: string;
+  rawText: string;
+  normalizedText: string;
+  status: string;
+  createdAt?: string;
+  proposedClassification?: string;
+  proposedMapping?: Record<string, unknown>;
+}
+
+export interface WorkRouterDispatchQueueResponse {
+  pending: WorkRouterPendingDispatchSummary[];
+  unknowns: WorkRouterUnknownResponseSummary[];
+}
+
 export type SpatialSurfaceVariant = "linear" | "spatial" | "compare";
 
 export interface SpatialPlaneLayoutPoint {

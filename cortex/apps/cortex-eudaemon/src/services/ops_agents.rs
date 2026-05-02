@@ -80,6 +80,44 @@ pub(crate) struct WorkRouterAuthoritySummary {
     pub forbidden_actions_confirmed: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkRouterDispatchQueueResponse {
+    pub pending: Vec<WorkRouterPendingDispatchSummary>,
+    pub unknowns: Vec<WorkRouterUnknownResponseSummary>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkRouterPendingDispatchSummary {
+    pub run_id: String,
+    pub status: String,
+    pub task_ref: Option<String>,
+    pub route: Option<String>,
+    pub risk_level: Option<String>,
+    pub max_level: Option<String>,
+    pub transport_kind: Option<String>,
+    pub request_id: Option<String>,
+    pub channel_ref: Option<String>,
+    pub created_at: Option<String>,
+    pub started_at: Option<String>,
+    pub message_preview: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkRouterUnknownResponseSummary {
+    pub unknown_id: String,
+    pub raw_text: String,
+    pub normalized_text: String,
+    pub status: String,
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposed_classification: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposed_mapping: Option<serde_json::Value>,
+}
+
 fn sanitize_fs_component(raw: &str) -> String {
     raw.trim()
         .chars()
@@ -164,6 +202,23 @@ fn as_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
         .get(key)
         .and_then(|item| item.as_u64())
         .and_then(|item| usize::try_from(item).ok())
+}
+
+fn nested_string(value: &serde_json::Value, keys: &[&str]) -> Option<String> {
+    let mut current = value;
+    for key in keys {
+        current = current.get(*key)?;
+    }
+    current.as_str().map(ToString::to_string)
+}
+
+fn truncate_preview(raw: &str, max_chars: usize) -> String {
+    let trimmed = raw.trim();
+    let mut preview = trimmed.chars().take(max_chars).collect::<String>();
+    if trimmed.chars().count() > max_chars {
+        preview.push_str("...");
+    }
+    preview
 }
 
 fn work_router_health(last_observed_at: Option<&str>) -> String {
@@ -313,4 +368,90 @@ pub(crate) fn get_work_router_status() -> Result<WorkRouterStatusResponse, Strin
             forbidden_actions_confirmed,
         },
     })
+}
+
+pub(crate) fn get_work_router_dispatch_queue() -> Result<WorkRouterDispatchQueueResponse, String> {
+    let root = work_router_log_root();
+    let mut pending = Vec::new();
+    let runs_dir = root.join("runs");
+    if let Ok(entries) = fs::read_dir(&runs_dir) {
+        for entry in entries.flatten() {
+            let run_path = entry.path().join("run.json");
+            let Some(run) = read_json_value(run_path) else {
+                continue;
+            };
+            if run.get("status").and_then(|status| status.as_str()) != Some("pending_decision") {
+                continue;
+            }
+            let artifact_refs = run
+                .get("artifactRefs")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+            let router_bundle_path = as_string(&artifact_refs, "routerBundle").map(PathBuf::from);
+            let router_bundle = router_bundle_path.and_then(read_json_value);
+            let dispatch_request = router_bundle
+                .as_ref()
+                .and_then(|bundle| bundle.get("dispatchRequest"))
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+            let message_preview = as_string(&artifact_refs, "message")
+                .and_then(|path| fs::read_to_string(PathBuf::from(path)).ok())
+                .map(|raw| truncate_preview(&raw, 280));
+
+            pending.push(WorkRouterPendingDispatchSummary {
+                run_id: as_string(&run, "runId").unwrap_or_else(|| "unknown".to_string()),
+                status: as_string(&run, "status").unwrap_or_else(|| "unknown".to_string()),
+                task_ref: nested_string(&run, &["summary", "taskRef"]),
+                route: nested_string(&run, &["summary", "route"]),
+                risk_level: nested_string(&run, &["summary", "riskLevel"]),
+                max_level: nested_string(&run, &["authority", "maxLevel"]),
+                transport_kind: nested_string(&dispatch_request, &["transport", "kind"])
+                    .or_else(|| nested_string(&run, &["authority", "transportKind"])),
+                request_id: as_string(&dispatch_request, "requestId"),
+                channel_ref: nested_string(&dispatch_request, &["transport", "channelRef"]),
+                created_at: as_string(&dispatch_request, "createdAt"),
+                started_at: as_string(&run, "startedAt"),
+                message_preview,
+            });
+        }
+    }
+    pending.sort_by(|a, b| {
+        b.started_at
+            .cmp(&a.started_at)
+            .then_with(|| b.run_id.cmp(&a.run_id))
+    });
+
+    let mut unknowns = Vec::new();
+    if let Ok(entries) = fs::read_dir(root.join("unknown")) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+                continue;
+            }
+            let Some(unknown) = read_json_value(path.clone()) else {
+                continue;
+            };
+            let unknown_id = path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            unknowns.push(WorkRouterUnknownResponseSummary {
+                unknown_id,
+                raw_text: as_string(&unknown, "rawText").unwrap_or_default(),
+                normalized_text: as_string(&unknown, "normalizedText").unwrap_or_default(),
+                status: as_string(&unknown, "status").unwrap_or_else(|| "needs_routing_review".to_string()),
+                created_at: as_string(&unknown, "createdAt"),
+                proposed_classification: as_string(&unknown, "recommendedClassification"),
+                proposed_mapping: unknown.get("proposedMapping").cloned(),
+            });
+        }
+    }
+    unknowns.sort_by(|a, b| {
+        b.created_at
+            .cmp(&a.created_at)
+            .then_with(|| b.unknown_id.cmp(&a.unknown_id))
+    });
+
+    Ok(WorkRouterDispatchQueueResponse { pending, unknowns })
 }
