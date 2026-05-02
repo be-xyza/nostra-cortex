@@ -218,9 +218,14 @@ export function formatReadOnlyObserverSummary(): string {
 
 export type ReadOnlyObserverGatewayState = "reachable" | "public_restricted";
 
+interface ReadOnlyObserverDetailOptions {
+  operatorLoginEnabled?: boolean;
+}
+
 export function formatReadOnlyObserverDetailLines(
   gatewayTarget?: string,
   gatewayState: ReadOnlyObserverGatewayState = "reachable",
+  options: ReadOnlyObserverDetailOptions = {},
 ): string[] {
   const lines = gatewayState === "public_restricted"
     ? [
@@ -235,6 +240,9 @@ export function formatReadOnlyObserverDetailLines(
         "Heap data is visible in viewer mode.",
         "Operator action plans and mutations remain gated.",
       ];
+  if (!options.operatorLoginEnabled) {
+    lines.push("Operator sign-in is disabled for this deployment; use a trusted local or operator-enabled environment to verify a session.");
+  }
   const target = gatewayTarget?.trim();
   if (target) {
     lines.push(`Gateway target: ${target}.`);

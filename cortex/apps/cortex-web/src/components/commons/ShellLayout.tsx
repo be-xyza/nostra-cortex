@@ -210,9 +210,11 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     const actorId = sessionUser?.actorId?.trim() || "unknown";
     const activeRole = authSession?.activeRole || actorRoleHint;
     const configuredGatewayTarget = gatewayBaseUrl().trim() || "same-origin /api proxy";
-    const readOnlyObserverActive = !bootstrapWarning && !sessionError && authSession?.authMode === "read_fallback";
-    const readOnlyObserverDetails = formatReadOnlyObserverDetailLines(configuredGatewayTarget, observerGatewayState);
     const operatorLoginEnabled = isInternetIdentityOperatorLoginEnabled();
+    const readOnlyObserverActive = !bootstrapWarning && !sessionError && authSession?.authMode === "read_fallback";
+    const readOnlyObserverDetails = formatReadOnlyObserverDetailLines(configuredGatewayTarget, observerGatewayState, {
+        operatorLoginEnabled,
+    });
     const publicHost = typeof window !== "undefined"
         && window.location.hostname !== "localhost"
         && window.location.hostname !== "127.0.0.1";

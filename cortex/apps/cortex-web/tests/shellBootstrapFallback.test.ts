@@ -90,11 +90,26 @@ test("read-only observer copy separates compact summary from expandable details"
   assert.ok(details.some((line) => /no verified operator identity/i.test(line)));
   assert.ok(details.some((line) => /Heap data is visible in viewer mode/i.test(line)));
   assert.ok(details.some((line) => /Operator action plans and mutations remain gated/i.test(line)));
+  assert.ok(details.some((line) => /Operator sign-in is disabled for this deployment/i.test(line)));
   assert.ok(details.some((line) => /eudaemon-alpha-01/i.test(line)));
   assert.equal(
     [formatReadOnlyObserverSummary(), ...details].some((line) => /degraded/i.test(line)),
     false,
   );
+});
+
+test("read-only observer copy omits disabled sign-in guidance when operator login is enabled", () => {
+  const details = formatReadOnlyObserverDetailLines(
+    "http://127.0.0.1:3000",
+    "reachable",
+    { operatorLoginEnabled: true },
+  );
+
+  assert.equal(
+    details.some((line) => /Operator sign-in is disabled for this deployment/i.test(line)),
+    false,
+  );
+  assert.ok(details.some((line) => /Gateway reachable/i.test(line)));
 });
 
 test("read-only observer copy handles public browser private-gateway boundaries", () => {
