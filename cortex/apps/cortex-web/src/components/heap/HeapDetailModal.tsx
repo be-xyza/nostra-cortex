@@ -35,6 +35,7 @@ import type { TaskRoutingContext } from "./initiativeKickoffTemplates.ts";
 import { TaskRouteLineageCard } from "./TaskRouteLineageCard";
 import { buildTaskRouteLineageSnapshot } from "./taskRouting.ts";
 import { buildSolicitationRenderModel } from "./solicitationRenderModel";
+import { buildHeapContributorCardModel, buildHeapContributorDetailModel } from "./heapContributorCardModel.ts";
 // Removed local WorkbenchNamingModal import, using global one in ShellLayout
 
 type TabType = 'preview' | 'attributes' | 'relations' | 'code';
@@ -466,6 +467,8 @@ export function HeapDetailModal({
     const semanticLineage = relationIndex.semanticLineage;
     const plainText = extractPlainText(payloadContent);
     const readableSummary = buildReadableHeapSummary(payloadContent, plainText);
+    const contributorCard = buildHeapContributorCardModel(block);
+    const contributorDetail = buildHeapContributorDetailModel(block);
     const summaryWordCount = readableSummary.trim().length ? readableSummary.trim().split(/\s+/).length : 0;
     const wordCount = plainText.trim().length ? plainText.trim().split(/\s+/).length : summaryWordCount;
     const characterCount = plainText.length || readableSummary.length;
@@ -1248,6 +1251,52 @@ export function HeapDetailModal({
 
                                 {activeTab === 'preview' && (
                                     <div className="animate-in fade-in duration-300 space-y-8">
+                                        <section className="overflow-hidden rounded-[1.6rem] border border-cyan-300/12 bg-[linear-gradient(180deg,rgba(8,47,73,0.34),rgba(2,6,23,0.82))] p-5 shadow-[0_24px_80px_-48px_rgba(34,211,238,0.45)] ring-1 ring-white/5">
+                                            <div className="flex flex-wrap items-start justify-between gap-4">
+                                                <div className="min-w-0">
+                                                    <div className="text-[10px] font-black uppercase tracking-[0.32em] text-cyan-200/65">
+                                                        Contributor brief
+                                                    </div>
+                                                    <h4 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                                                        {contributorCard.displayTitle}
+                                                    </h4>
+                                                    <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300">
+                                                        {contributorCard.plainSummary}
+                                                    </p>
+                                                </div>
+                                                <div className="flex shrink-0 flex-wrap gap-2">
+                                                    {[contributorCard.statusLabel, contributorCard.sourceLabel, contributorCard.relevanceLabel].map((label) => (
+                                                        <span
+                                                            key={label}
+                                                            className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cortex-200"
+                                                        >
+                                                            {label}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                                                <ContributorBriefPanel
+                                                    label="What happened"
+                                                    value={contributorDetail.whatHappened}
+                                                />
+                                                <ContributorBriefPanel
+                                                    label="Why it matters"
+                                                    value={contributorDetail.whyItMatters}
+                                                />
+                                                <ContributorBriefPanel
+                                                    label="What to do next"
+                                                    value={contributorDetail.nextStep}
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveTab("code")}
+                                                className="mt-4 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100 transition hover:border-cyan-300/35 hover:bg-cyan-300/16"
+                                            >
+                                                Open technical details
+                                            </button>
+                                        </section>
                                         {routeLineage && (
                                             <TaskRouteLineageCard
                                                 lineage={routeLineage}
@@ -1545,10 +1594,10 @@ export function HeapDetailModal({
                         <aside className="min-w-0 border-t border-white/8 bg-[linear-gradient(180deg,rgba(2,6,23,0.9),rgba(15,23,42,0.7))] p-4 sm:p-6 xl:border-l xl:border-t-0 xl:border-white/8">
                             <div className="sticky top-0 space-y-6">
                                 <section className="rounded-[1.35rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(2,6,23,0.82))] p-5 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)]">
-                                    <div className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">Artifact synopsis</div>
-                                    <div className="mt-3 text-lg font-semibold tracking-tight text-white">{projection.title || "Untitled Block"}</div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">Contributor synopsis</div>
+                                    <div className="mt-3 text-lg font-semibold tracking-tight text-white">{contributorCard.displayTitle}</div>
                                     <div className="mt-1 text-xs leading-6 text-slate-400">
-                                        {readableSummary || "No plain-text preview available."}
+                                        {contributorCard.plainSummary || readableSummary || "No plain-text preview available."}
                                     </div>
                                 </section>
 
@@ -1672,6 +1721,19 @@ function AttributeRow({ label, value }: { label: string; value: string }) {
         <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-2.75 transition-colors hover:border-white/16 hover:bg-white/[0.05]">
             <span className="text-xs font-medium text-white/50">{label}</span>
             <span className="rounded-full border border-white/10 bg-slate-950/70 px-2.5 py-1 text-xs font-mono text-slate-200">{value}</span>
+        </div>
+    );
+}
+
+function ContributorBriefPanel({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.035] p-4">
+            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-white/38">
+                {label}
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-200">
+                {value}
+            </p>
         </div>
     );
 }

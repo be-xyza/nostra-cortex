@@ -16,6 +16,12 @@ export interface HeapContributorCardModel {
   technicalType: string;
 }
 
+export interface HeapContributorDetailModel {
+  whatHappened: string;
+  whyItMatters: string;
+  nextStep: string;
+}
+
 const PLACEHOLDER_TITLE_PATTERN = /^(usage_report|self_optimization_proposal|agent_execution_record)\s+block$/i;
 const PLACEHOLDER_SUMMARY_PATTERN = /^(usage report|self optimization proposal|agent execution record)\s+block$/i;
 
@@ -92,6 +98,57 @@ export function buildHeapContributorCardModel(block: Pick<HeapBlockListItem, "pr
 
 export function isPlaceholderHeapTitle(value: string): boolean {
   return PLACEHOLDER_TITLE_PATTERN.test(value.trim());
+}
+
+export function buildHeapContributorDetailModel(block: Pick<HeapBlockListItem, "projection" | "surfaceJson">): HeapContributorDetailModel {
+  const card = buildHeapContributorCardModel(block);
+  const type = card.technicalType.toLowerCase();
+
+  if (type === "usage_report") {
+    return {
+      whatHappened: card.plainSummary,
+      whyItMatters: "It gives a quick pulse on recent system activity without requiring contributors to inspect repeated runtime records.",
+      nextStep: "Use it as background context, then focus review time on evidence notes, suggestions, and agent work updates.",
+    };
+  }
+
+  if (type === "self_optimization_proposal") {
+    return {
+      whatHappened: card.plainSummary,
+      whyItMatters: "It may point to a process or interface improvement that needs human judgment before it becomes part of the Space workflow.",
+      nextStep: "Review the proposal, compare it against current priorities, and promote only the changes that are clearly useful.",
+    };
+  }
+
+  if (type === "agent_execution_record") {
+    return {
+      whatHappened: card.plainSummary,
+      whyItMatters: "It records work completed by an agent so contributors can understand recent activity without reading execution logs.",
+      nextStep: "Check whether the work produced a useful artifact, needs review, or should be linked to a follow-up task.",
+    };
+  }
+
+  if (card.statusLabel === "Evidence") {
+    return {
+      whatHappened: card.plainSummary,
+      whyItMatters: "It preserves supporting context for a decision, publication, or review trail.",
+      nextStep: "Confirm the evidence supports the surrounding work and add relationships if it should be connected to other records.",
+    };
+  }
+
+  if (card.relevanceLabel === "Actionable" || card.relevanceLabel === "Review recommended") {
+    return {
+      whatHappened: card.plainSummary,
+      whyItMatters: "It may affect what contributors should review, improve, or route next.",
+      nextStep: "Decide whether this record needs action, discussion, or a clearer summary.",
+    };
+  }
+
+  return {
+    whatHappened: card.plainSummary,
+    whyItMatters: "It adds context to the Space record and can help contributors understand recent activity.",
+    nextStep: "Keep it for context, or link it to related work if it should be easier to find later.",
+  };
 }
 
 function chooseTitle(rawTitle: string, fallback: string): string {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildHeapContributorCardModel } from "../src/components/heap/heapContributorCardModel.ts";
+import { buildHeapContributorCardModel, buildHeapContributorDetailModel } from "../src/components/heap/heapContributorCardModel.ts";
 import type { HeapBlockListItem } from "../src/contracts.ts";
 
 function block(blockType: string, title: string, text: string, tags: string[] = []): HeapBlockListItem {
@@ -61,4 +61,15 @@ test("contributor card model preserves meaningful evidence titles while softenin
   assert.equal(model.sourceLabel, "Operator review");
   assert.match(model.plainSummary, /verified operator/);
   assert.doesNotMatch(model.plainSummary, /principal|bounded rich-text/);
+});
+
+test("contributor detail model answers the contributor review questions", () => {
+  const usage = buildHeapContributorDetailModel(block("usage_report", "usage_report block", "usage report block"));
+  const proposal = buildHeapContributorDetailModel(block("self_optimization_proposal", "self_optimization_proposal block", "self optimization proposal block"));
+
+  assert.match(usage.whatHappened, /System activity was recorded/);
+  assert.match(usage.whyItMatters, /quick pulse/i);
+  assert.match(usage.nextStep, /background context/i);
+  assert.match(proposal.whyItMatters, /human judgment/i);
+  assert.match(proposal.nextStep, /Review the proposal/i);
 });
