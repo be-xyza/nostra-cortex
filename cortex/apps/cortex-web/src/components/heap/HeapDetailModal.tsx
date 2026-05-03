@@ -38,6 +38,13 @@ import { buildSolicitationRenderModel } from "./solicitationRenderModel";
 // Removed local WorkbenchNamingModal import, using global one in ShellLayout
 
 type TabType = 'preview' | 'attributes' | 'relations' | 'code';
+
+const TAB_LABELS: Record<TabType, string> = {
+    preview: "Preview",
+    relations: "Relations",
+    attributes: "Metadata",
+    code: "Technical details",
+};
 type ParserComparisonDecision = "structure" | "layout" | "needs_rerun";
 
 function parserProfileLabel(profile: string): string {
@@ -1180,7 +1187,7 @@ export function HeapDetailModal({
                                                 } ${draggedTab === tab ? 'opacity-40 scale-95' : ''}`}
                                         >
                                             <GripVertical className={`w-3 h-3 transition-opacity duration-200 ${isActive ? 'opacity-45' : 'opacity-0 group-hover:opacity-40'} cursor-grab active:cursor-grabbing shrink-0`} />
-                                            <span className={isActive ? 'drop-shadow-[0_0_5px_rgba(96,165,250,0.5)]' : ''}>{tab}</span>
+                                            <span className={isActive ? 'drop-shadow-[0_0_5px_rgba(96,165,250,0.5)]' : ''}>{TAB_LABELS[tab]}</span>
                                         </button>
                                     );
                                 })}
@@ -1507,7 +1514,7 @@ export function HeapDetailModal({
                                     <div className="animate-in fade-in duration-300 space-y-6">
                                         <div className="flex items-center justify-between mb-2">
                                             <p className="text-xs text-slate-400/80 italic">
-                                                Raw <code className="bg-slate-800 text-slate-300 px-1 rounded">EmitHeapBlock</code> data projection.
+                                                Technical details for the underlying heap record. These fields preserve provenance for operators and debugging.
                                             </p>
                                         </div>
 
@@ -1523,7 +1530,7 @@ export function HeapDetailModal({
 
                                             <div>
                                                 <h4 className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Surface JSON
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Surface data
                                                 </h4>
                                                 <div className="overflow-x-auto rounded-[1.35rem] border border-white/8 bg-slate-950/80 p-4 shadow-inner custom-scrollbar text-[10px] leading-relaxed font-mono">
                                                     {formatJsonWithHighlighting(block.surfaceJson)}

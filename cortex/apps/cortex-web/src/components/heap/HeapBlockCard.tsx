@@ -26,13 +26,12 @@ import type { ActionSelectionContext, ToolbarActionDescriptor } from "../../cont
 import { useUiStore } from "../../store/uiStore";
 import { PayloadRenderer, PayloadContent } from "./PayloadRenderer";
 import { A2UIInterpreter, type A2UINode } from "../a2ui/A2UIInterpreter";
-import { NdlMetadataBlock } from "../ndl/NdlMetadataBlock";
 import { HeapCardActionMenu } from "./HeapCardActionMenu";
 import type { ActionHandlers } from "./actionExecutor";
-import { summarizeHeapBlockText } from "./heapTextSummary.ts";
 import type { ExploreCardDepth } from "./exploreViewSettings.ts";
 import { displayBlockType } from "../a2ui/ArtifactAssetViewer";
 import { formatHeapCardTimestamp } from "./heapCardTimestamp.ts";
+import { buildHeapContributorCardModel } from "./heapContributorCardModel.ts";
 
 interface HeapBlockCardProps {
     block: HeapBlockListItem;
@@ -66,6 +65,10 @@ const TYPE_COLOR: Record<string, string> = {
     agent_solicitation: "indigo",
     action_plan: "amber",
     compiled_plan: "amber",
+    usage_report: "slate",
+    self_optimization_proposal: "amber",
+    agent_execution_record: "cyan",
+    eudaemon_evidence_note: "blue",
     chat_thread: "indigo",
     chart: "cyan",
     a2ui: "cyan",
@@ -84,6 +87,10 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
     agent_solicitation: <ClipboardCheck className="w-3.5 h-3.5" />,
     action_plan: <ClipboardCheck className="w-3.5 h-3.5" />,
     compiled_plan: <ClipboardCheck className="w-3.5 h-3.5" />,
+    usage_report: <Activity className="w-3.5 h-3.5" />,
+    self_optimization_proposal: <ClipboardCheck className="w-3.5 h-3.5" />,
+    agent_execution_record: <Cpu className="w-3.5 h-3.5" />,
+    eudaemon_evidence_note: <Shield className="w-3.5 h-3.5" />,
     chat_thread: <MessagesSquare className="w-3.5 h-3.5" />,
     chart: <BarChart className="w-3.5 h-3.5" />,
     a2ui: <Settings className="w-3.5 h-3.5" />,
@@ -192,7 +199,9 @@ export function HeapBlockCard({
     const blockIcon = TYPE_ICON[blockType] || <FileText className="w-3.5 h-3.5" />;
     const isCollapsed = behaviors.includes("collapsed");
     const emittedAt = projection.emittedAt || projection.updatedAt;
-    const summaryText = summarizeHeapBlockText(block);
+    const contributorModel = buildHeapContributorCardModel(block);
+    const displayTitle = contributorModel.displayTitle;
+    const displaySummary = contributorModel.plainSummary;
     const showFullSurface = presentationDepth === "full";
     const showMetadata = presentationDepth !== "title";
     const showRelations = presentationDepth === "full";
@@ -208,7 +217,6 @@ export function HeapBlockCard({
 
     const payloadContent = surfaceToPayloadContent(block);
     const nestedNode = surfaceToNestedNode(block);
-    const author = (attributes.author as string) || "System Intelligence";
     const showInlinePayload = showPayload && !isReviewRequestPayload(payloadContent);
 
     return (
@@ -234,7 +242,7 @@ export function HeapBlockCard({
                             TYPE_COLOR[blockType] === 'indigo' ? 'text-indigo-400' :
                             'text-slate-400'
                         }`}>
-                            {blockIcon} {displayBlockType(blockType)}
+                            {blockIcon} {contributorModel.friendlyTypeLabel || displayBlockType(blockType)}
                         </span>
                         {(blockType === "task" || blockType === "checklist") && (() => {
                             const items = ((surface as Record<string, unknown>).checklist_items as Array<{ done?: boolean }>) || [];
@@ -281,16 +289,19 @@ export function HeapBlockCard({
                 {showMetadata && (
                     <div className="flex items-center justify-between mb-2 gap-2">
                         {showFullSurface ? (
-                            <NdlMetadataBlock
-                                versionChain={typeof surface.version === "string" || typeof surface.version === "number" ? String(surface.version) : undefined}
-                                phase={typeof surface.phase === "string" ? surface.phase : undefined}
-                                confidence={typeof surface.confidence === "number" ? surface.confidence : undefined}
-                                authorityScope={typeof surface.authority_scope === "string" ? surface.authority_scope : undefined}
-                                compact
-                            />
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                {[contributorModel.statusLabel, contributorModel.relevanceLabel].map((label) => (
+                                    <span
+                                        key={label}
+                                        className="rounded-full border border-white/8 bg-white/4 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-cortex-300"
+                                    >
+                                        {label}
+                                    </span>
+                                ))}
+                            </div>
                         ) : (
                             <div className="text-[10px] uppercase tracking-[0.24em] text-cortex-500">
-                                {displayBlockType(blockType)}
+                                {contributorModel.friendlyTypeLabel || displayBlockType(blockType)}
                             </div>
                         )}
                         {cardActions.length > 0 && cardActionSelection && actionHandlers && (
@@ -306,12 +317,12 @@ export function HeapBlockCard({
                 )}
 
                 <h3 className={`font-bold text-slate-100 px-0.5 leading-6 ${presentationDepth === "title" ? "text-sm" : "text-[15px]"} ${showFullSurface ? "mb-2" : "mb-1.5"} line-clamp-2`}>
-                    {projection.title}
+                    {displayTitle}
                 </h3>
 
-                {presentationDepth !== "title" && summaryText !== projection.title && (
+                {presentationDepth !== "title" && displaySummary !== displayTitle && (
                     <p className={`px-0.5 text-slate-300/80 ${presentationDepth === "full" ? "text-sm leading-6 line-clamp-3" : "text-xs leading-5 line-clamp-2"}`}>
-                        {summaryText}
+                        {displaySummary}
                     </p>
                 )}
 
@@ -376,10 +387,10 @@ export function HeapBlockCard({
             <div className={`px-3 ${showFullSurface ? "py-2" : "py-1.5"} bg-cortex-surface-base/40 border-t border-white/5 flex flex-wrap gap-1.5 items-center`}>
                 <div className="flex min-w-0 items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity mr-auto">
                     <div className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-[8px] font-black text-slate-300 shadow-inner shrink-0 leading-none">
-                        {author.substring(0, 2).toUpperCase()}
+                        {contributorModel.sourceLabel.substring(0, 2).toUpperCase()}
                     </div>
                     <span className="truncate text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-                        {author.split(" ")[0]}
+                        {contributorModel.sourceLabel}
                     </span>
                 </div>
                 {blockType === "upload" && uploadStatus && (

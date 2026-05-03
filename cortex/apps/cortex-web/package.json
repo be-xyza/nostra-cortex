@@ -18,6 +18,7 @@
     "test:layout-playwright:chrome": "PLAYWRIGHT_BROWSER=chrome npx playwright test -c playwright.heap.config.ts tests/playwright/layout-catalogue.spec.ts tests/playwright/layout-registry.spec.ts",
     "test:layout-playwright:webkit": "PLAYWRIGHT_BROWSER=webkit npx playwright test -c playwright.heap.config.ts tests/playwright/layout-catalogue.spec.ts tests/playwright/layout-registry.spec.ts",
     "test:heap-parity": "npx playwright test -c playwright.heap.config.ts tests/playwright/heap-parity.spec.ts",
+    "test:contributor-explore-playwright": "VITE_ACTOR_ROLE=viewer npx playwright test -c playwright.heap.config.ts tests/playwright/contributor-explore-blocks.spec.ts",
     "test:operator-login-playwright": "VITE_II_OPERATOR_AUTH_ENABLED=true npx playwright test -c playwright.heap.config.ts tests/playwright/operator-login-placement.spec.ts",
     "test:observability-playwright": "npx playwright test -c playwright.observability.config.ts tests/playwright/observability-inventory.spec.ts",
     "test:workflow-playwright": "npx playwright test -c playwright.heap.config.ts tests/playwright/workflow-cockpit.spec.ts"

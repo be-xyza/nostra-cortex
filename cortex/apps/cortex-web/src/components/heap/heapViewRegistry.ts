@@ -1,4 +1,4 @@
-import type { HeapAggregationGroup, HeapDerivedView, HeapDerivedViewId } from "./heapAggregation.ts";
+import type { HeapAggregationGroup, HeapAggregationGroupId, HeapDerivedView, HeapDerivedViewId } from "./heapAggregation.ts";
 
 export interface HeapViewSignal {
     label: string;
@@ -15,7 +15,7 @@ export interface HeapViewContextSnapshot {
     signals: HeapViewSignal[];
 }
 
-type HeapGroupId = Exclude<HeapDerivedViewId, "board"> extends `aggregate:${infer GroupId}` ? GroupId : never;
+type HeapGroupId = HeapAggregationGroupId;
 
 export interface HeapDerivedViewRegistryEntry {
     groupId: HeapGroupId;
