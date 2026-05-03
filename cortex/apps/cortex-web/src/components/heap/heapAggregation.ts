@@ -2,9 +2,10 @@ import type { HeapBlockListItem } from "../../contracts.ts";
 import { buildSolicitationRenderModel, buildStewardFeedbackRenderModel } from "./solicitationRenderModel.ts";
 import { summarizeHeapBlockText } from "./heapTextSummary.ts";
 import { resolveHeapDerivedViewRegistryEntry } from "./heapViewRegistry.ts";
+import { buildHeapContributorCardModel } from "./heapContributorCardModel.ts";
 
-export type HeapAggregationGroupId = "prompt-like" | "steward-feedback";
-export type HeapDerivedViewId = "board" | `aggregate:${HeapAggregationGroupId}`;
+export type HeapAggregationGroupId = "usage-report" | "agent-work" | "suggested-improvements" | "prompt-like" | "steward-feedback";
+export type HeapDerivedViewId = "board" | "all-blocks" | `aggregate:${HeapAggregationGroupId}`;
 
 export interface HeapAggregationColumn {
     key: string;
@@ -66,6 +67,9 @@ export function buildHeapAggregationGroups(
         .sort((left, right) => right.projection.updatedAt.localeCompare(left.projection.updatedAt));
 
     return [
+        buildContributorDigestGroup("usage-report", "Recent activity summaries", "Repeated system activity records grouped into one contributor-friendly digest.", blocks.filter((block) => block.projection.blockType === "usage_report")),
+        buildContributorDigestGroup("agent-work", "Recent agent work", "Agent execution records grouped so the feed shows work patterns instead of repeated raw logs.", blocks.filter((block) => block.projection.blockType === "agent_execution_record")),
+        buildContributorDigestGroup("suggested-improvements", "Suggested improvements", "Optimization proposals grouped for review without flooding the main feed.", blocks.filter((block) => block.projection.blockType === "self_optimization_proposal")),
         buildPromptGroup(promptLike),
         buildStewardFeedbackGroup(stewardFeedback),
     ].filter((group): group is HeapAggregationGroup => group.count > 0);
@@ -78,8 +82,15 @@ export function buildHeapDerivedViews(
     return [
         {
             id: "board",
+            label: "Relevant updates",
+            description: "Recent updates, proposals, evidence, and agent activity for this Space.",
+            count: blocks.length,
+            kind: "board",
+        },
+        {
+            id: "all-blocks",
             label: "All Blocks",
-            description: "The primary board view with grouped meta-blocks and remaining individual blocks.",
+            description: "Complete record stream, including repeated system and telemetry records.",
             count: blocks.length,
             kind: "board",
         },
@@ -92,6 +103,50 @@ export function buildHeapDerivedViews(
             groupId: group.groupId,
         })),
     ];
+}
+
+function buildContributorDigestGroup(
+    groupId: Extract<HeapAggregationGroupId, "usage-report" | "agent-work" | "suggested-improvements">,
+    label: string,
+    description: string,
+    blocks: HeapBlockListItem[],
+): HeapAggregationGroup {
+    return {
+        groupId,
+        label,
+        description,
+        count: blocks.length,
+        columns: [
+            { key: "status", label: "Status" },
+            { key: "source", label: "Source" },
+            { key: "relevance", label: "Relevance" },
+        ],
+        memberArtifactIds: blocks.map((block) => block.projection.artifactId),
+        items: blocks
+            .sort((left, right) => right.projection.updatedAt.localeCompare(left.projection.updatedAt))
+            .map((block) => {
+                const model = buildHeapContributorCardModel(block);
+                return {
+                    artifactId: block.projection.artifactId,
+                    title: model.displayTitle,
+                    blockType: block.projection.blockType,
+                    updatedAt: block.projection.updatedAt,
+                    summary: model.plainSummary,
+                    fields: {
+                        status: model.statusLabel,
+                        source: model.sourceLabel,
+                        relevance: model.relevanceLabel,
+                    },
+                    details: [
+                        `Status: ${model.statusLabel}`,
+                        `Source: ${model.sourceLabel}`,
+                        `Relevance: ${model.relevanceLabel}`,
+                    ],
+                    badge: model.friendlyTypeLabel,
+                    source: block,
+                };
+            }),
+    };
 }
 
 export function collectHeapAggregationArtifactIds(groups: HeapAggregationGroup[]): Set<string> {

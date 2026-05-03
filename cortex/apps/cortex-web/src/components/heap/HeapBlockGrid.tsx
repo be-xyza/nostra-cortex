@@ -657,6 +657,9 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         if (viewMode !== "Explore") {
             return filteredBlocks;
         }
+        if (activeDerivedViewId === "all-blocks") {
+            return filteredBlocks;
+        }
         if (activeDerivedViewId !== "board") {
             return [];
         }
@@ -702,6 +705,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
 
         const validViewIds = new Set<HeapDerivedViewId>([
             "board",
+            "all-blocks",
             ...visibleAggregationGroupSet.map((group) => `aggregate:${group.groupId}` as HeapDerivedViewId),
         ]);
         if (!validViewIds.has(activeDerivedViewId)) {
@@ -718,6 +722,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
         }
         const validViewIds = new Set<HeapDerivedViewId>([
             "board",
+            "all-blocks",
             ...visibleAggregationGroupSet.map((group) => `aggregate:${group.groupId}` as HeapDerivedViewId),
         ]);
         if (!validViewIds.has(routeDerivedViewId as HeapDerivedViewId)) {
@@ -2103,6 +2108,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                             setCreatePanelOpen(true);
                         }}
                         onChat={openChatConversation}
+                        canPublish={["operator", "steward", "admin"].includes(sessionUser?.role ?? "")}
                         status={
                             actionPlanLoading
                                 ? { loading: true, source: "idle", error: null }
@@ -2421,7 +2427,7 @@ export function HeapBlockGrid({ filterDefaults, showFilterSidebar = false }: Hea
                                                 <div className="min-w-0">
                                                     <div className="text-[10px] font-black uppercase tracking-[0.32em] text-cortex-500">Views</div>
                                                     <p className="mt-1 text-sm text-cortex-300/75">
-                                                        {exploreSettings.projectionIntent} projection, {exploreSettings.layoutMode} layout, {exploreSettings.cardDepth} cards.
+                                                        Showing recent updates, proposals, evidence, and agent activity for this Space.
                                                     </p>
                                                 </div>
                                                 <div className="flex flex-wrap gap-2">

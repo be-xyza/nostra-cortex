@@ -162,9 +162,65 @@ test("derived heap views include board and grouped projections while grouped ids
   const derivedViews = buildHeapDerivedViews(blocks, groups);
   const groupedIds = collectHeapAggregationArtifactIds(groups);
 
-  assert.deepEqual(derivedViews.map((view) => view.id), ["board", "aggregate:prompt-like"]);
+  assert.deepEqual(derivedViews.map((view) => view.id), ["board", "all-blocks", "aggregate:prompt-like"]);
+  assert.equal(derivedViews[0]?.label, "Relevant updates");
+  assert.equal(derivedViews[1]?.label, "All Blocks");
   assert.equal(groupedIds.has("prompt-1"), true);
   assert.equal(groupedIds.has("note-1"), false);
+});
+
+test("system telemetry records are grouped into contributor-friendly digest views", () => {
+  const blocks = [
+    {
+      projection: {
+        artifactId: "usage-1",
+        title: "usage_report block",
+        blockType: "usage_report",
+        updatedAt: "2026-03-22T07:14:00Z",
+        tags: [],
+        mentionsInline: [],
+      },
+      surfaceJson: { payload_type: "structured_data", text: "usage report block" },
+    },
+    {
+      projection: {
+        artifactId: "agent-1",
+        title: "agent_execution_record block",
+        blockType: "agent_execution_record",
+        updatedAt: "2026-03-22T07:13:00Z",
+        tags: [],
+        mentionsInline: [],
+      },
+      surfaceJson: { payload_type: "structured_data", text: "agent execution record block" },
+    },
+    {
+      projection: {
+        artifactId: "proposal-1",
+        title: "self_optimization_proposal block",
+        blockType: "self_optimization_proposal",
+        updatedAt: "2026-03-22T07:12:00Z",
+        tags: [],
+        mentionsInline: [],
+      },
+      surfaceJson: { payload_type: "structured_data", text: "self optimization proposal block" },
+    },
+  ];
+
+  const groups = buildHeapAggregationGroups(blocks);
+  const groupedIds = collectHeapAggregationArtifactIds(groups);
+
+  assert.deepEqual(groups.map((group) => group.groupId), [
+    "usage-report",
+    "agent-work",
+    "suggested-improvements",
+  ]);
+  assert.equal(groups[0]?.label, "Recent activity summaries");
+  assert.equal(groups[0]?.items[0]?.title, "Activity summary");
+  assert.equal(groups[1]?.items[0]?.title, "Agent work update");
+  assert.equal(groups[2]?.items[0]?.title, "Suggested improvement");
+  assert.equal(groupedIds.has("usage-1"), true);
+  assert.equal(groupedIds.has("agent-1"), true);
+  assert.equal(groupedIds.has("proposal-1"), true);
 });
 
 test("heap view context carries context-aware signals for derived views", () => {

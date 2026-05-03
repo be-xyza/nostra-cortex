@@ -10,6 +10,7 @@ interface HeapActionBarProps {
     handlers: ActionHandlers;
     onCreate: () => void;
     onChat?: () => void;
+    canPublish?: boolean;
     status?: {
         loading: boolean;
         source: "remote" | "fallback" | "idle";
@@ -28,6 +29,7 @@ export function HeapActionBar({
     handlers,
     onCreate,
     onChat,
+    canPublish = false,
     status,
 }: HeapActionBarProps) {
     const selectedCount = selection.selectedCount;
@@ -37,8 +39,11 @@ export function HeapActionBar({
     if (selectedCount === 0) return null;
 
     const hasActions = Boolean(
-        selectionZonePlan?.actions.some((a) => a.visible !== false),
+        selectionZonePlan?.actions.some((a) => a.visible !== false && (canPublish || !isPublishAction(a))),
     );
+    const contributorActions = (selectionZonePlan?.actions ?? [])
+        .filter((action) => canPublish || !isPublishAction(action))
+        .map(contributorActionLabel);
 
     // Status ring color
     const ringColor = (() => {
@@ -88,10 +93,10 @@ export function HeapActionBar({
             <div className="h-5 w-px shrink-0 bg-transparent" />
 
             {/* Selection actions from the graph */}
-            {hasActions && selectionZonePlan ? (
+            {hasActions ? (
                 <div className="heap-action-bar__actions contents">
                     <ActionZoneRenderer
-                        actions={selectionZonePlan.actions}
+                        actions={contributorActions}
                         onActionClick={(action) =>
                             executeHeapAction(action, selection, handlers)
                         }
@@ -106,4 +111,22 @@ export function HeapActionBar({
             )}
         </div>
     );
+}
+
+function isPublishAction(action: { id?: string; action?: string; label?: string }): boolean {
+    return action.id === "publish" || action.action === "publish" || action.label === "Publish";
+}
+
+function contributorActionLabel<T extends { id?: string; action?: string; label: string; title?: string; shortLabel?: string }>(action: T): T {
+    const key = action.id || action.action;
+    if (key === "regenerate" || action.label === "Regen") {
+        return { ...action, label: "Refresh", shortLabel: "Refresh", title: "Refresh this record" };
+    }
+    if (key === "refine_selection" || action.label === "Refine Selection") {
+        return { ...action, label: "Improve summary", shortLabel: "Improve summary", title: "Improve the selected summary" };
+    }
+    if (key === "synthesize" || action.label === "Synthesize") {
+        return { ...action, label: "Summarize selected", shortLabel: "Summarize selected", title: "Summarize selected records" };
+    }
+    return action;
 }
